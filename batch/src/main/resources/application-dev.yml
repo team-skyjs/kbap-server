@@ -14,3 +14,7 @@ kbap:
       # dev 는 일일 유저 통계를 보내지 않는다(예진 10/1, prod 만) — 웹훅 미주입 ERROR 가 배포마다 Sentry 를 울리지 않게.
       # 리터럴 false 는 기본 파일의 ${USER_STATS_ENABLED:true} 를 통째로 가려 env 로 못 켜므로 같은 env 를 기본값만 바꿔 받는다.
       enabled: ${USER_STATS_ENABLED:false}
+
+sentry:
+  # dev 는 Sentry 로 보내지 않는다 — 부하 테스트·실험 배포의 ERROR 가 운영 알림을 흐리지 않게. DSN 은 그대로 두고 SDK 만 끈다.
+  enabled: false
