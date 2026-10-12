@@ -2,7 +2,6 @@ package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
 import com.kbap.api.ingredient.AvoidedIngredientView
-import com.kbap.api.review.FoodRating
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -17,7 +16,7 @@ data class HomeResponse(
     val authenticated: Boolean,
     @field:Schema(description = "회원이 설정한 기피 성분. 비회원이거나 설정한 성분이 없으면 빈 배열")
     val avoidedSubstances: List<AvoidedSubstanceResponse>,
-    @field:Schema(description = "인기 음식 추천 (최대 5개). 비회원에게도 내려간다")
+    @field:Schema(description = "인기 음식 추천 — 완성(READY) 음식 중 무작위, 호출마다 달라진다. 최대 10개, 중복 없음. 비회원에게도 내려간다")
     val popularFoods: List<FoodSummaryResponse>,
     @field:Schema(
         description = "리뷰 많은 음식 (최대 10개). 활성 리뷰 수 내림차순이고 동률이면 최근 리뷰가 앞선다. " +
@@ -31,23 +30,18 @@ data class HomeResponse(
     val recentScans: List<RecentScanResponse>,
 ) {
     companion object {
-        fun from(
-            result: HomeResult,
-            authenticated: Boolean,
-            bookmarkedFoodIds: Set<Long>,
-            ratings: Map<Long, FoodRating>,
-        ) = HomeResponse(
+        fun from(result: HomeResult, authenticated: Boolean) = HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
             popularFoods = result.popularFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
             },
             mostReviewedFoods = result.mostReviewedFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
             },
             recentScans = result.recentScans.map {
                 RecentScanResponse(
-                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in bookmarkedFoodIds, ratings[it.summary.foodId]),
+                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId]),
                     scannedAt = it.scannedAt,
                 )
             },

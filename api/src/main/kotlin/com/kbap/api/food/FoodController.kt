@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.util.CursorParser
 import com.kbap.api.core.Page
+import com.kbap.api.core.SearchPage
 import com.kbap.common.util.SearchKeywordParser
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
@@ -49,7 +50,7 @@ class FoodController(
     override fun search(
         @Valid @ModelAttribute request: FoodSearchRequest,
         @AuthMemberIdOrNull memberId: Long?,
-    ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>> {
         val scope = FoodSearchScope.from(request.scope)
         if (scope == FoodSearchScope.SCANNED && memberId == null) {
             throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
@@ -57,13 +58,14 @@ class FoodController(
         val result = foodService.searchFoodPage(
             SearchFoodsInput(
                 keyword = SearchKeywordParser.parse(request.keyword),
-                cursor = CursorParser.parse(request.cursor),
+                cursor = FoodSearchCursor.parse(request.cursor),
                 lang = LanguageCode.from(request.lang),
                 memberId = memberId,
                 scope = scope,
             ),
         )
-        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor?.encode())))
     }
 
     @GetMapping("/scanned")

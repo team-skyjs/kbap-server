@@ -18,6 +18,8 @@ class ReadOnlyTransactionWriteFixture(
 ) {
     fun read(): Long = foodRepository.count()
 
+    fun lockingRead(): Food? = foodRepository.findByIdForUpdate(1)
+
     fun jdbcUpdate(): Int = jdbcTemplate.update("UPDATE food SET spiciness = 0")
 
     fun namedJdbcUpdate(): Int = namedJdbcTemplate.update("UPDATE food SET spiciness = 0", emptyMap<String, Any>())

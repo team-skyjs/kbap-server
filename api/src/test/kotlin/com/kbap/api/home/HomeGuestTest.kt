@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.food.PopularFoodIdCache
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.core.spec.style.BehaviorSpec
@@ -21,11 +22,15 @@ class HomeGuestTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var popularFoodIdCache: PopularFoodIdCache
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
         beforeContainer {
             HomeTestSeed.reset(dataSource)
+            popularFoodIdCache.invalidateAll()
         }
 
         given("인증 헤더가 없는 요청") {
@@ -43,8 +48,33 @@ class HomeGuestTest : BehaviorSpec() {
                     payload.path("avoidedSubstances").isEmpty shouldBe true
                     payload.path("recentScans").isNull shouldBe false
                     payload.path("recentScans").isEmpty shouldBe true
-                    payload.path("popularFoods").size() shouldBe 5
+                    payload.path("popularFoods").size() shouldBe 7
                     payload.path("popularFoods").first().path("name").asText().startsWith("Menu") shouldBe true
+                }
+            }
+
+            `when`("완성된 음식이 10개보다 많으면") {
+                then("인기 음식은 서로 다른 10개다 — 홈 레일 크기만큼 채운다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 13)
+
+                    val json = mockMvc.get("/api/home?lang=en").andExpect { status { isOk() } }
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val foodIds = mapper.readTree(json).path("payload").path("popularFoods").map { it.path("foodId").asLong() }
+
+                    foodIds.size shouldBe 10
+                    foodIds.toSet().size shouldBe 10
+                }
+            }
+
+            `when`("완성된 음식이 10개보다 적으면") {
+                then("있는 만큼만 중복 없이 내려온다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, count = 4)
+
+                    val json = mockMvc.get("/api/home?lang=en").andExpect { status { isOk() } }
+                        .andReturn().response.getContentAsString(Charsets.UTF_8)
+                    val foodIds = mapper.readTree(json).path("payload").path("popularFoods").map { it.path("foodId").asLong() }
+
+                    foodIds.sorted() shouldBe listOf(1L, 2L, 3L, 4L)
                 }
             }
 

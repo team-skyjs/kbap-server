@@ -5,6 +5,8 @@ spring:
   flyway:
     enabled: true
   jpa:
+    # 운영과 같은 전제(KB-727): 영속성 컨텍스트는 트랜잭션 단위다.
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:

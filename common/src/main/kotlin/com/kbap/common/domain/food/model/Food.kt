@@ -101,6 +101,9 @@ class Food(
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
 
+    @Column(name = "review_count", nullable = false, columnDefinition = "int not null default 0")
+    var reviewCount: Int = 0
+
     @Column(name = "ingredients_assessed", nullable = false, columnDefinition = "tinyint(1) not null default 0")
     var ingredientsAssessed: Boolean = ingredients != null
 

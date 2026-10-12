@@ -19,6 +19,8 @@ dependencies {
     "implementation"("tools.jackson.module:jackson-module-kotlin")
 
 
+    "implementation"(libs.caffeine)
+
     "implementation"(libs.shedlock.spring)
     "implementation"(libs.shedlock.provider.jdbc.template)
 

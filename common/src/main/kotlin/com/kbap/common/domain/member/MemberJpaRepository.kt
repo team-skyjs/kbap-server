@@ -103,6 +103,17 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     @Query(
         """
         update Member m
+        set m.scanUnlocked = true
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+        """,
+    )
+    fun unlockScan(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        """
+        update Member m
         set m.reviewCount = m.reviewCount - 1
         where m.id = :memberId
           and m.reviewCount > 0

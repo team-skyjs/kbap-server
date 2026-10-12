@@ -167,6 +167,9 @@ interface MemberApi {
             스캔 쿼터 상태 4필드를 함께 내려준다 — `scanCount`(사용 횟수)·`freeScanLimit`(무료 한도, 현재 3)·
             `scanUnlocked`(리뷰 작성으로 해금 여부)·`scanRemaining`(잔여 무료 횟수, 해금 회원은 `null`).
             리뷰 탭 넛지 카드 표시 조건과 프로필 잔여 횟수 표기가 이 필드를 쓴다.
+            보상형 광고 적립 3필드 — `adRewardCount`(누적 적립 수, 서버 정본)·`adRewardsForUnlock`(해제 기준, 현재 3)·
+            `adRewardRemainingForUnlock`(남은 수, **`scanUnlocked=true` 면 항상 0**) — 로 앱이 "n/3" 를 그린다(클라 로컬 카운트 금지).
+            3 에 닿으면 `scanUnlocked` 가 true 가 된다. 리뷰로 이미 해제된 회원은 남은 수가 0 이라 카드를 그리지 않는다.
             `Authorization: Bearer {accessToken}` 로 인증한다.
         """,
     )
@@ -208,6 +211,57 @@ interface MemberApi {
     fun getMyRanking(
         memberId: Long,
     ): ResponseEntity<BaseResponse<MemberRankingResponse>>
+
+    @Operation(
+        summary = "보상형 광고 적립 (멱등) — 3회 누적 시 스캔 제한 해제",
+        description = """
+            광고 SDK 가 보상 완료를 알리면 앱이 그 콜백의 고유값 `rewardKey` 와 광고 단위 `adUnitId` 를 신고한다. 서버가
+            적립을 세고(이력 `member_ad_reward`), 누적 **3회**에 `scanUnlocked=true` 로 스캔 제한을 푼다(리뷰 1개와 같은 가치).
+            - **멱등**: 같은 `rewardKey` 재요청은 200 + 현재 상태, 적립 불변(`uk_member_ad_reward_key` 가 보장 — 동시 요청도 한 건만 적립). 다른 회원이 이미 쓴 키는 400 COMMON-002.
+            - `adUnitId` 는 서버 허용 목록(`kbap.ads.reward-unit-ids`, 기본 = Google 데모 보상형 단위 Android·iOS) 안이어야 한다 — 밖이면 400 COMMON-002(임의 키로 해제하는 구멍의 1차 방어, 2차 SSV 는 KB-742).
+            - 이미 해제된 회원도 적립은 계속 센다(상태는 true 그대로, `remainingForUnlock` 은 0).
+            - **상한**: 최근 24시간 적립이 10회면 429 MEMBER-014(SSV 전 1차 방어). 상한 상태에서도 같은 키 재요청은 200.
+            - 탈퇴·정지 회원은 400 MEMBER-003.
+            응답 `rewardCount`(누적)·`remainingForUnlock`(해제까지 남은 수, 0 이상)·`scanUnlocked`. `Authorization: Bearer {accessToken}` 로 인증한다.
+        """,
+    )
+    @SwaggerRequestBody(
+        content = [
+            Content(
+                examples = [
+                    ExampleObject(name = "보상 완료 신고", value = """{"rewardKey": "admob-txn-7f3c2a91", "adUnitId": "ca-app-pub-3940256099942544/5224354917"}"""),
+                ],
+            ),
+        ],
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200",
+                description = "적립 성공(또는 같은 키 재요청)",
+                content = [
+                    Content(
+                        examples = [
+                            ExampleObject(name = "첫 적립", value = """{"success": true, "payload": {"rewardCount": 1, "remainingForUnlock": 2, "scanUnlocked": false}}"""),
+                            ExampleObject(name = "3회 누적 해제", value = """{"success": true, "payload": {"rewardCount": 3, "remainingForUnlock": 0, "scanUnlocked": true}}"""),
+                        ],
+                    ),
+                ],
+            ),
+            ApiResponse(responseCode = "400", description = "rewardKey·adUnitId 누락/빈값·허용 목록 밖 adUnitId·다른 회원의 키(COMMON-002), 회원 없음·탈퇴·정지(MEMBER-003)"),
+            ApiResponse(responseCode = "401", description = "미인증(토큰 부재·위조·만료)"),
+            ApiResponse(responseCode = "429", description = "최근 24시간 적립 상한(10회) 초과(MEMBER-014)"),
+        ],
+    )
+    @ApiErrors(
+        ErrorCode.INVALID_REQUEST,
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.AD_REWARD_DAILY_LIMIT,
+    )
+    fun claimAdReward(
+        memberId: Long,
+        request: AdRewardRequest,
+    ): ResponseEntity<BaseResponse<AdRewardResponse>>
 
     @Operation(
         summary = "프로필 수정 (부분 수정)",

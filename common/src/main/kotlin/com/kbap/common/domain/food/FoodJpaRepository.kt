@@ -1,6 +1,7 @@
 package com.kbap.common.domain.food
 
 import com.kbap.common.domain.DailyCount
+import com.kbap.common.domain.food.dto.FoodSearchName
 import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.dto.HumanReviewCount
 import com.kbap.common.domain.food.model.Food
@@ -237,60 +238,61 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun countHumanReviewsByAdmin(): List<HumanReviewCount>
 
     @Query(
-        nativeQuery = true,
-        value = """
-        select f.id from food f
-        where f.status = 'ACTIVE'
-          and f.content_status = 'READY'
-          and (:cursor is null or f.id < :cursor)
-          and (
-            f.display_name collate utf8mb4_unicode_ci like concat('%', :kw, '%') escape '\\'
-            or (
-              :jsonPath is not null
-              and json_unquote(json_extract(f.name_translations, :jsonPath)) collate utf8mb4_unicode_ci
-                like concat('%', :kw, '%') escape '\\'
-            )
-          )
-        order by f.id desc
-        limit :size
+        """
+        select new com.kbap.common.domain.food.dto.FoodSearchName(f.id, f.koreanName, f.displayName, f.nameTranslations)
+        from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
         """,
     )
-    fun searchFoodPageIds(
-        @Param("kw") keyword: String,
-        @Param("jsonPath") jsonPath: String?,
-        @Param("cursor") cursor: Long?,
-        @Param("size") size: Int,
-    ): List<Long>
+    fun findSearchableNames(): List<FoodSearchName>
 
     @Query(
-        nativeQuery = true,
-        value = """
-        select f.* from food f
-        where f.status = 'ACTIVE'
-          and f.content_status = 'READY'
-        order by rand()
-        limit :size
+        """
+        select new com.kbap.common.domain.food.dto.FoodSearchName(f.id, f.koreanName, f.displayName, f.nameTranslations)
+        from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY and f.id in :ids
         """,
     )
-    fun findRandom(@Param("size") size: Int): List<Food>
+    fun findSearchableNamesByIds(@Param("ids") ids: Collection<Long>): List<FoodSearchName>
 
     @Query(
         nativeQuery = true,
         value = """
         select f.* from food f
         join (
-            select r.food_id, count(*) as review_count, max(r.id) as latest_review_id
-            from food_review r
-            where r.status = 'ACTIVE'
-            group by r.food_id
+            select v.food_id, count(*) as view_count
+            from food_view_log v
+            where v.created_at >= :since
+            group by v.food_id
         ) x on x.food_id = f.id
         where f.status = 'ACTIVE'
           and f.content_status = 'READY'
-        order by x.review_count desc, x.latest_review_id desc
+        order by x.view_count desc, f.id desc
+        limit :size
+        """,
+    )
+    fun findPopular(@Param("since") since: LocalDateTime, @Param("size") size: Int): List<Food>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        select f.* from food f
+        where f.status = 'ACTIVE'
+          and f.content_status = 'READY'
+          and f.review_count > 0
+        order by f.review_count desc, f.id desc
         limit :size
         """,
     )
     fun findMostReviewed(@Param("size") size: Int): List<Food>
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Food f set f.reviewCount = f.reviewCount + 1 where f.id = :foodId")
+    fun increaseReviewCount(@Param("foodId") foodId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId")
+    fun decreaseReviewCount(@Param("foodId") foodId: Long): Int
 
     companion object {
         const val IMAGE_CANDIDATE =
