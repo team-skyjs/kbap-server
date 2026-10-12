@@ -115,19 +115,27 @@ class PopularFoodIdCacheTest : BehaviorSpec({
             ticker.advance(PopularFoodIdCache.REFRESH_AFTER.plusMinutes(1))
             cache.getPopularFoodIds(10)
             background.runAll()
+            val callsAfterFailedRefresh = calls.get()
+            background.runAll()
+            val callsAfterIdleBackground = calls.get()
             val afterFailedRefresh = cache.getPopularFoodIds(10)
+            ticker.advance(PopularFoodIdCache.TTL.minus(PopularFoodIdCache.REFRESH_AFTER))
+            val afterOriginalTtl = cache.getPopularFoodIds(10)
 
-            then("이전 목록을 그대로 유지한다 — 빈 목록으로 바꾸지 않는다") {
+            then("이전 목록을 유지하되(빈 목록으로 바꾸지 않음) 스스로 재시도하지 않고, 원래 적재 시각 기준 2일 상한은 그대로라 만료 뒤 다시 집계한다") {
+                callsAfterFailedRefresh shouldBe 2
+                callsAfterIdleBackground shouldBe 2
                 afterFailedRefresh shouldBe listOf(1L)
-                calls.get() shouldBe 2
+                afterOriginalTtl shouldBe listOf(3L)
+                calls.get() shouldBe 3
             }
         }
 
-        `when`("트랜잭션 안에서 빈 캐시를 조회하면") {
+        `when`("트랜잭션 안에서 조회하면") {
             val calls = AtomicInteger()
             val cache = PopularFoodIdCache(FakeTicker()) { calls.incrementAndGet(); listOf(1L) }
 
-            then("불변식 위반으로 거절한다 — 집계는 호출자의 트랜잭션(연결) 안에서 돌면 안 된다") {
+            then("캐시가 비었든 따뜻하든 불변식 위반으로 거절한다 — 회귀 호출자가 콜드 때만 터지지 않게") {
                 TransactionSynchronizationManager.setActualTransactionActive(true)
                 try {
                     shouldThrow<IllegalStateException> { cache.getPopularFoodIds(10) }
@@ -135,6 +143,15 @@ class PopularFoodIdCacheTest : BehaviorSpec({
                     TransactionSynchronizationManager.setActualTransactionActive(false)
                 }
                 calls.get() shouldBe 0
+
+                cache.getPopularFoodIds(10) shouldBe listOf(1L)
+                TransactionSynchronizationManager.setActualTransactionActive(true)
+                try {
+                    shouldThrow<IllegalStateException> { cache.getPopularFoodIds(10) }
+                } finally {
+                    TransactionSynchronizationManager.setActualTransactionActive(false)
+                }
+                calls.get() shouldBe 1
             }
         }
 
