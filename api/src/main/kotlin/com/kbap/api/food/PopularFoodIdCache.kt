@@ -25,9 +25,8 @@ class PopularFoodIdCache internal constructor(
 ) {
     @Autowired
     constructor(foodRepository: FoodJpaRepository, transactionManager: PlatformTransactionManager) : this(
-        Ticker.systemTicker(),
-        ForkJoinPool.commonPool(),
-        aggregating(foodRepository, TransactionTemplate(transactionManager).apply { isReadOnly = true }),
+        ticker = Ticker.systemTicker(),
+        loader = aggregating(foodRepository, TransactionTemplate(transactionManager).apply { isReadOnly = true }),
     )
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -39,22 +38,25 @@ class PopularFoodIdCache internal constructor(
         .executor(executor)
         .build(
             object : CacheLoader<Int, Loaded> {
-                override fun load(key: Int): Loaded = runCatching { aggregate(key) }
-                    .getOrElse { e ->
+                override fun load(key: Int): Loaded =
+                    try {
+                        aggregate(key)
+                    } catch (e: Exception) {
                         log.warn("홈 인기 음식 집계 실패 — 인기 섹션을 비우고 {}초 뒤 다시 집계한다", FAILURE_TTL.seconds, e)
                         Loaded(emptyList(), failed = true)
                     }
 
-                override fun reload(key: Int, oldValue: Loaded): Loaded = runCatching { aggregate(key) }
-                    .getOrElse { e ->
-                        log.warn("홈 인기 음식 백그라운드 갱신 실패 — 이전 목록을 유지한다", e)
-                        oldValue
+                override fun reload(key: Int, oldValue: Loaded): Loaded =
+                    try {
+                        aggregate(key)
+                    } catch (e: Exception) {
+                        log.warn("홈 인기 음식 백그라운드 갱신 실패 — 이전 목록을 유지한다(적재 시각 기준 {}일 상한은 그대로)", TTL.toDays(), e)
+                        throw e
                     }
             },
         )
 
     fun getPopularFoodIds(size: Int): List<Long> {
-        cache.getIfPresent(size)?.let { return it.ids }
         check(!TransactionSynchronizationManager.isActualTransactionActive()) {
             "인기 음식 집계는 호출자의 트랜잭션 안에서 돌면 안 된다 — 캐시 조회를 트랜잭션 앞으로 옮겨라"
         }
