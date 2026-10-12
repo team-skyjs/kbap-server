@@ -219,6 +219,10 @@ kbap:
   # 리뷰 봇(KB-646) — 리뷰가 적은 READY 음식에 봇 계정이 매일 min~max 개를 09~22시 KST 정각 틱에 나눠 쓴다.
   # 하루 목표·시각 배정은 날짜 시드로 정해져 인스턴스(2~4대)가 같은 계획을 본다. 각 틱은 "그 시각까지 누적 목표 − 오늘 쓴 수"만 쓴다(ShedLock).
   # 기본 꺼짐 — REVIEW_BOT_ENABLED=true 로 스케줄러와 텍스트 생성기가 함께 켜진다. 봇 계정은 POST /api/admin/review-bots.
+  ads:
+    # 보상형 광고 적립(POST /api/members/me/ad-rewards)이 받는 adUnitId 허용 목록(쉼표 구분, KB-740). 기본은 Google 데모 보상형 단위(Android·iOS).
+    # 실제 단위를 발급하면 ADS_REWARD_UNIT_IDS 로 덮어쓴다 — 목록 밖 adUnitId 는 400 COMMON-002.
+    reward-unit-ids: ${ADS_REWARD_UNIT_IDS:ca-app-pub-3940256099942544/5224354917,ca-app-pub-3940256099942544/1712485313}
   review-bot:
     enabled: ${REVIEW_BOT_ENABLED:false}
     min-per-day: ${REVIEW_BOT_MIN_PER_DAY:8}
