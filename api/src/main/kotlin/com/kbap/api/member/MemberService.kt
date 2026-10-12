@@ -2,6 +2,7 @@ package com.kbap.api.member
 
 import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.domain.member.MemberAdRewardJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.member.model.ProfileImagePaths
@@ -26,6 +27,7 @@ class MemberService(
     private val memberRepository: MemberJpaRepository,
     private val uploadedImageService: UploadedImageService,
     private val orderRepository: OrderJpaRepository,
+    private val adRewardRepository: MemberAdRewardJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
 ) {
@@ -75,6 +77,7 @@ class MemberService(
             member = member,
             ranking = MemberRankingResult.from(member.ranking),
             profileImageUrl = ImageUrls.resolve(imagePublicBaseUrl, member.profile.profileImageUrl),
+            adRewardCount = adRewardRepository.countByMemberId(member.id).toInt(),
         )
     }
 

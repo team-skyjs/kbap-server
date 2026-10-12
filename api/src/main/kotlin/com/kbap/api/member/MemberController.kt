@@ -3,6 +3,7 @@ package com.kbap.api.member
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/members")
 class MemberController(
     private val memberService: MemberService,
+    private val adRewardService: AdRewardService,
 ) : MemberApi {
     @PostMapping("/me/onboarding", version = "1.0")
     override fun completeOnboarding(
@@ -48,6 +50,15 @@ class MemberController(
     ): ResponseEntity<BaseResponse<MemberRankingResponse>> {
         val result = memberService.getRanking(memberId)
         return ResponseEntity.ok(BaseResponse.ok(MemberRankingResponse.from(result)))
+    }
+
+    @PostMapping("/me/ad-rewards")
+    override fun claimAdReward(
+        @AuthMemberId memberId: Long,
+        @Valid @RequestBody request: AdRewardRequest,
+    ): ResponseEntity<BaseResponse<AdRewardResponse>> {
+        val result = adRewardService.claimAdReward(memberId, request.rewardKey!!, request.adUnitId!!)
+        return ResponseEntity.ok(BaseResponse.ok(AdRewardResponse.from(result)))
     }
 
     @PatchMapping("/me/profile")

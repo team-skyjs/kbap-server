@@ -31,6 +31,7 @@ object TestTables {
         "report",
         "uploaded_image",
         "member_block",
+        "member_ad_reward",
         "member",
         "llm_call_cost",
     )

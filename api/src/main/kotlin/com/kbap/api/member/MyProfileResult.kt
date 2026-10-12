@@ -18,9 +18,11 @@ data class MyProfileResult(
     val scanUnlocked: Boolean,
     val scanRemaining: Int?,
     val ranking: MemberRankingResult,
+    val adRewardCount: Int,
+    val adRewardsForUnlock: Int,
 ) {
     companion object {
-        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?): MyProfileResult =
+        fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?, adRewardCount: Int): MyProfileResult =
             MyProfileResult(
                 memberId = member.id,
                 provider = member.provider.name,
@@ -37,6 +39,8 @@ data class MyProfileResult(
                 scanUnlocked = member.scanUnlocked,
                 scanRemaining = member.scanRemaining(),
                 ranking = ranking,
+                adRewardCount = adRewardCount,
+                adRewardsForUnlock = Member.AD_REWARDS_FOR_UNLOCK,
             )
     }
 }

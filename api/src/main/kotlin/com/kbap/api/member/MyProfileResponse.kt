@@ -22,6 +22,10 @@ data class MyProfileResponse(
     @field:Schema(description = "잔여 무료 스캔 횟수. scanUnlocked=true(무제한)면 null", example = "2", nullable = true)
     val scanRemaining: Int?,
     val ranking: RankingSummary,
+    @field:Schema(description = "보상형 광고 누적 적립 수(서버 정본). 앱은 adRewardCount/adRewardsForUnlock 로 n/3 표시", example = "1")
+    val adRewardCount: Int,
+    @field:Schema(description = "스캔 해제에 필요한 광고 적립 수(현재 3)", example = "3")
+    val adRewardsForUnlock: Int,
 ) {
     data class RankingSummary(
         val tier: String,
@@ -60,6 +64,8 @@ data class MyProfileResponse(
                 scanUnlocked = result.scanUnlocked,
                 scanRemaining = result.scanRemaining,
                 ranking = RankingSummary.from(result.ranking),
+                adRewardCount = result.adRewardCount,
+                adRewardsForUnlock = result.adRewardsForUnlock,
             )
     }
 }
