@@ -4,12 +4,20 @@ import com.github.benmanes.caffeine.cache.Ticker
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 class PopularFoodIdCacheTest : BehaviorSpec({
+
+    class DeferredExecutor : Executor {
+        private val pending = ArrayDeque<Runnable>()
+        override fun execute(command: Runnable) { pending += command }
+        fun runAll() { while (pending.isNotEmpty()) pending.removeFirst().run() }
+    }
 
     class FakeTicker : Ticker {
         private val nanos = AtomicLong()
@@ -50,17 +58,83 @@ class PopularFoodIdCacheTest : BehaviorSpec({
             }
         }
 
-        `when`("로더가 예외를 던지면") {
+        `when`("빈 캐시에서 로더가 예외를 던지면") {
+            val ticker = FakeTicker()
             val calls = AtomicInteger()
-            val cache = PopularFoodIdCache(FakeTicker()) {
+            val cache = PopularFoodIdCache(ticker) {
                 if (calls.incrementAndGet() == 1) throw IllegalStateException("집계 실패")
                 listOf(7L)
             }
 
-            then("예외가 전파되고 다음 조회가 로더를 다시 호출한다") {
-                shouldThrow<IllegalStateException> { cache.getPopularFoodIds(10) }
+            then("빈 목록을 돌려주고(홈 500 금지), 실패는 30초 동안 캐시돼 재집계 폭주를 막는다") {
+                cache.getPopularFoodIds(10) shouldBe emptyList()
+                cache.getPopularFoodIds(10) shouldBe emptyList()
+                calls.get() shouldBe 1
+
+                ticker.advance(PopularFoodIdCache.FAILURE_TTL.plusSeconds(1))
+
                 cache.getPopularFoodIds(10) shouldBe listOf(7L)
                 calls.get() shouldBe 2
+            }
+        }
+
+        `when`("갱신 주기(6시간)가 지난 뒤 조회하면") {
+            val ticker = FakeTicker()
+            val background = DeferredExecutor()
+            val calls = AtomicInteger()
+            val cache = PopularFoodIdCache(ticker, background) { listOf(calls.incrementAndGet().toLong()) }
+
+            val fresh = cache.getPopularFoodIds(10)
+            ticker.advance(PopularFoodIdCache.REFRESH_AFTER.plusMinutes(1))
+            val staleWhileRefreshing = cache.getPopularFoodIds(10)
+            val callsBeforeBackground = calls.get()
+            background.runAll()
+            val callsAfterBackground = calls.get()
+            val refreshed = cache.getPopularFoodIds(10)
+
+            then("이전 목록을 즉시 돌려주고(호출 스레드는 집계하지 않음) 백그라운드가 1회 갱신해 다음 조회부터 새 목록이다") {
+                fresh shouldBe listOf(1L)
+                staleWhileRefreshing shouldBe listOf(1L)
+                callsBeforeBackground shouldBe 1
+                callsAfterBackground shouldBe 2
+                refreshed shouldBe listOf(2L)
+                calls.get() shouldBe 2
+            }
+        }
+
+        `when`("백그라운드 갱신에서 로더가 예외를 던지면") {
+            val ticker = FakeTicker()
+            val background = DeferredExecutor()
+            val calls = AtomicInteger()
+            val cache = PopularFoodIdCache(ticker, background) {
+                if (calls.incrementAndGet() == 2) throw IllegalStateException("집계 실패")
+                listOf(calls.get().toLong())
+            }
+
+            cache.getPopularFoodIds(10)
+            ticker.advance(PopularFoodIdCache.REFRESH_AFTER.plusMinutes(1))
+            cache.getPopularFoodIds(10)
+            background.runAll()
+            val afterFailedRefresh = cache.getPopularFoodIds(10)
+
+            then("이전 목록을 그대로 유지한다 — 빈 목록으로 바꾸지 않는다") {
+                afterFailedRefresh shouldBe listOf(1L)
+                calls.get() shouldBe 2
+            }
+        }
+
+        `when`("트랜잭션 안에서 빈 캐시를 조회하면") {
+            val calls = AtomicInteger()
+            val cache = PopularFoodIdCache(FakeTicker()) { calls.incrementAndGet(); listOf(1L) }
+
+            then("불변식 위반으로 거절한다 — 집계는 호출자의 트랜잭션(연결) 안에서 돌면 안 된다") {
+                TransactionSynchronizationManager.setActualTransactionActive(true)
+                try {
+                    shouldThrow<IllegalStateException> { cache.getPopularFoodIds(10) }
+                } finally {
+                    TransactionSynchronizationManager.setActualTransactionActive(false)
+                }
+                calls.get() shouldBe 0
             }
         }
 
