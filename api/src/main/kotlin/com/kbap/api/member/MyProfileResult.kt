@@ -20,6 +20,7 @@ data class MyProfileResult(
     val ranking: MemberRankingResult,
     val adRewardCount: Int,
     val adRewardsForUnlock: Int,
+    val adRewardRemainingForUnlock: Int,
 ) {
     companion object {
         fun of(member: Member, ranking: MemberRankingResult, profileImageUrl: String?, adRewardCount: Int): MyProfileResult =
@@ -41,6 +42,7 @@ data class MyProfileResult(
                 ranking = ranking,
                 adRewardCount = adRewardCount,
                 adRewardsForUnlock = Member.AD_REWARDS_FOR_UNLOCK,
+                adRewardRemainingForUnlock = Member.adRewardsRemainingForUnlock(adRewardCount.toLong(), member.scanUnlocked),
             )
     }
 }

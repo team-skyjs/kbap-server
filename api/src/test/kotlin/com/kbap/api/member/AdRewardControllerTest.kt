@@ -15,6 +15,11 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
+import java.time.LocalDateTime
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -38,7 +43,7 @@ class AdRewardControllerTest : BehaviorSpec() {
             return objectMapper.readTree(response.contentAsString).path("payload").path("accessToken").asText()
         }
 
-        fun claim(token: String?, rewardKey: String?, adUnitId: String? = "ca-app-pub-1/2") =
+        fun claim(token: String?, rewardKey: String?, adUnitId: String? = AdRewardService.ANDROID_DEMO_REWARD_UNIT_ID) =
             mockMvc.post("/api/members/me/ad-rewards") {
                 if (token != null) header("Authorization", "Bearer $token")
                 header("X-API-Version", "1.0")
@@ -75,6 +80,25 @@ class AdRewardControllerTest : BehaviorSpec() {
                     ps.executeQuery().use { rs -> rs.next(); rs.getInt(1) }
                 }
             }
+
+        fun insertRewardRows(providerUid: String, count: Int, createdAt: LocalDateTime, keyPrefix: String) {
+            val memberId = memberFlag(providerUid, "id")
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO member_ad_reward (member_id, reward_key, ad_unit_id, status, created_at, updated_at) VALUES (?, ?, ?, 'ACTIVE', ?, ?)",
+                ).use { ps ->
+                    repeat(count) { i ->
+                        ps.setInt(1, memberId)
+                        ps.setString(2, "$keyPrefix-$i")
+                        ps.setString(3, AdRewardService.ANDROID_DEMO_REWARD_UNIT_ID)
+                        ps.setObject(4, createdAt)
+                        ps.setObject(5, createdAt)
+                        ps.addBatch()
+                    }
+                    ps.executeBatch()
+                }
+            }
+        }
 
         fun updateMember(providerUid: String, assignment: String) {
             dataSource.connection.use { c ->
@@ -152,7 +176,7 @@ class AdRewardControllerTest : BehaviorSpec() {
             }
 
             `when`("이미 해제된 회원이 신고하면") {
-                then("적립만 늘고 해제 상태는 그대로 true 다") {
+                then("적립만 늘고 해제 상태는 그대로 true, 남은 수는 0 이다(해제 대기 카드를 그리지 않게)") {
                     val token = loginAccessToken()
                     updateMember(FakeSocialTokenVerifier.DEFAULT_SUB, "scan_unlocked = 1")
 
@@ -160,9 +184,10 @@ class AdRewardControllerTest : BehaviorSpec() {
 
                     response.status shouldBe 200
                     payload(response).path("rewardCount").asInt() shouldBe 1
-                    payload(response).path("remainingForUnlock").asInt() shouldBe 2
+                    payload(response).path("remainingForUnlock").asInt() shouldBe 0
                     payload(response).path("scanUnlocked").asBoolean() shouldBe true
                     memberFlag(FakeSocialTokenVerifier.DEFAULT_SUB, "scan_unlocked") shouldBe 1
+                    getMyProfile(token).path("adRewardRemainingForUnlock").asInt() shouldBe 0
                 }
             }
 
@@ -206,6 +231,64 @@ class AdRewardControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("상한(10회)이 24시간보다 오래된 적립이면") {
+                then("창 밖이라 새 적립은 200 이다") {
+                    val token = loginAccessToken()
+                    insertRewardRows(FakeSocialTokenVerifier.DEFAULT_SUB, AdRewardService.DAILY_LIMIT, LocalDateTime.now().minusHours(25), "old")
+
+                    val response = claim(token, "reward-after-window")
+
+                    response.status shouldBe 200
+                    payload(response).path("rewardCount").asInt() shouldBe AdRewardService.DAILY_LIMIT + 1
+                }
+            }
+
+            `when`("상한(10회)이 전부 최근 24시간 안이면") {
+                then("429 MEMBER-014") {
+                    val token = loginAccessToken()
+                    insertRewardRows(FakeSocialTokenVerifier.DEFAULT_SUB, AdRewardService.DAILY_LIMIT - 1, LocalDateTime.now().minusHours(25), "old")
+                    insertRewardRows(FakeSocialTokenVerifier.DEFAULT_SUB, AdRewardService.DAILY_LIMIT, LocalDateTime.now().minusHours(23), "recent")
+
+                    val response = claim(token, "reward-in-window")
+
+                    response.status shouldBe 429
+                    code(response) shouldBe "MEMBER-014"
+                    rewardRows() shouldBe AdRewardService.DAILY_LIMIT * 2 - 1
+                }
+            }
+
+            `when`("허용 목록 밖 adUnitId 로 신고하면") {
+                then("400 COMMON-002, 이력 없음 — iOS 데모 단위는 허용") {
+                    val token = loginAccessToken()
+                    val response = claim(token, "reward-unknown-unit", adUnitId = "ca-app-pub-1/2")
+
+                    response.status shouldBe 400
+                    code(response) shouldBe "COMMON-002"
+                    rewardRows() shouldBe 0
+                    claim(token, "reward-ios-unit", adUnitId = AdRewardService.IOS_DEMO_REWARD_UNIT_ID).status shouldBe 200
+                }
+            }
+
+            `when`("같은 회원이 같은 키를 동시에 두 번 보내면") {
+                then("둘 다 200, 이력 1행 — unique 가 한 건만 받고 진 쪽은 다시 읽어 같은 상태를 돌려준다") {
+                    val token = loginAccessToken()
+                    val start = CountDownLatch(1)
+                    val pool = Executors.newFixedThreadPool(2)
+                    val futures = (1..2).map {
+                        pool.submit(Callable {
+                            start.await()
+                            claim(token, "reward-race").status
+                        })
+                    }
+                    start.countDown()
+                    val statuses = futures.map { it.get(30, TimeUnit.SECONDS) }
+                    pool.shutdown()
+
+                    statuses shouldBe listOf(200, 200)
+                    rewardRows() shouldBe 1
+                }
+            }
+
             `when`("rewardKey 가 비었거나 없으면") {
                 then("400 COMMON-002") {
                     val token = loginAccessToken()
@@ -225,11 +308,12 @@ class AdRewardControllerTest : BehaviorSpec() {
 
         given("내 프로필의 광고 적립 필드") {
             `when`("적립 전후로 조회하면") {
-                then("adRewardCount 0→2, adRewardsForUnlock 는 항상 3") {
+                then("adRewardCount 0→2, adRewardsForUnlock 는 항상 3, adRewardRemainingForUnlock 3→1") {
                     val token = loginAccessToken()
                     getMyProfile(token).let {
                         it.path("adRewardCount").asInt() shouldBe 0
                         it.path("adRewardsForUnlock").asInt() shouldBe 3
+                        it.path("adRewardRemainingForUnlock").asInt() shouldBe 3
                     }
                     claim(token, "reward-p1")
                     claim(token, "reward-p2")
@@ -237,6 +321,7 @@ class AdRewardControllerTest : BehaviorSpec() {
                     getMyProfile(token).let {
                         it.path("adRewardCount").asInt() shouldBe 2
                         it.path("adRewardsForUnlock").asInt() shouldBe 3
+                        it.path("adRewardRemainingForUnlock").asInt() shouldBe 1
                         it.path("scanUnlocked").asBoolean() shouldBe false
                     }
                 }

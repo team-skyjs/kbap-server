@@ -178,13 +178,15 @@ class Member(
 
     fun scanLimit(): Int = if (scanUnlocked) Int.MAX_VALUE else FREE_SCAN_LIMIT
 
-    fun unlockScanIfAdRewardsReached(adRewardCount: Long) {
-        if (adRewardCount >= AD_REWARDS_FOR_UNLOCK) scanUnlocked = true
-    }
 
     companion object {
         const val FREE_SCAN_LIMIT: Int = 3
         const val AD_REWARDS_FOR_UNLOCK: Int = 3
+
+        fun adRewardsUnlockScan(adRewardCount: Long): Boolean = adRewardCount >= AD_REWARDS_FOR_UNLOCK
+
+        fun adRewardsRemainingForUnlock(adRewardCount: Long, scanUnlocked: Boolean): Int =
+            if (scanUnlocked) 0 else (AD_REWARDS_FOR_UNLOCK - adRewardCount.toInt()).coerceAtLeast(0)
         const val DELETED_PROVIDER_UID_PREFIX: String = "DELETED:"
 
         private fun deletedProviderUid(memberId: Long): String = "$DELETED_PROVIDER_UID_PREFIX$memberId"

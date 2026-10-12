@@ -8,11 +8,11 @@ data class AdRewardResult(
     val scanUnlocked: Boolean,
 ) {
     companion object {
-        fun of(member: Member, rewardCount: Long): AdRewardResult =
+        fun of(rewardCount: Long, scanUnlocked: Boolean): AdRewardResult =
             AdRewardResult(
                 rewardCount = rewardCount.toInt(),
-                remainingForUnlock = (Member.AD_REWARDS_FOR_UNLOCK - rewardCount.toInt()).coerceAtLeast(0),
-                scanUnlocked = member.scanUnlocked,
+                remainingForUnlock = Member.adRewardsRemainingForUnlock(rewardCount, scanUnlocked),
+                scanUnlocked = scanUnlocked,
             )
     }
 }
