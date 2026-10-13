@@ -44,7 +44,7 @@ class PresignedUploadService(
             memberId?.toString() ?: guestOwnerKey(checkNotNull(validatedInstallationId))
 
         fun guestOwnerKey(installationId: String): String =
-            "g" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(installationId.toByteArray(Charsets.UTF_8))).take(12)
+            "g" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(installationId.toByteArray(Charsets.UTF_8)), 0, 6)
 
         fun issuedKey(keyPrefix: String, purpose: UploadPurpose, ownerKey: String, contentType: String): String {
             val date = LocalDate.now(ZoneOffset.UTC)

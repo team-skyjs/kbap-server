@@ -38,10 +38,10 @@ interface ImageApi {
             ApiResponse(responseCode = "200", description = "검증 성공 — 이미지 기록"),
             ApiResponse(
                 responseCode = "400",
-                description = "이미지 아님(IMAGE-001)·신고값 불일치(IMAGE-002)·오브젝트 없음(IMAGE-003)·발급받지 않은 경로(UPLOAD-004)·요청 형식 오류(COMMON-002)",
+                description = "이미지 아님(IMAGE-001)·신고값 불일치(IMAGE-002)·오브젝트 없음(IMAGE-003)·발급받지 않은 경로(UPLOAD-004)·요청 형식 오류 또는 토큰·설치 id 모두 없음(COMMON-002)",
                 content = [Content(schema = Schema(implementation = BaseResponse::class))],
             ),
-            ApiResponse(responseCode = "401", description = "액세스 토큰 위조·만료, 또는 게스트의 feedback 아닌 용도 키(위조 키). 토큰·설치 id 가 모두 없으면 400 COMMON-002, 발급받지 않은 키는 400 UPLOAD-004"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 위조·만료, 또는 게스트의 feedback 아닌 용도 키(위조 키)"),
         ],
     )
     @ApiErrors(

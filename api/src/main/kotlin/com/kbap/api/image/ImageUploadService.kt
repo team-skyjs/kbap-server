@@ -7,6 +7,7 @@ import com.kbap.common.port.storage.StorageObjectStore
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.image.model.UploadedImage
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,9 +34,16 @@ class ImageUploadService(
         val purpose = PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, PresignedUploadService.ownerKeyOf(memberId, guestInstallation))
             ?: throw BusinessException(ErrorCode.UPLOAD_PATH_NOT_ISSUED)
         if (guestInstallation != null && purpose != UploadPurpose.FEEDBACK) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
-        if (guestInstallation == null) return register(memberId, null, path, declaredContentType, declaredSize)
-        return guestUploadQuota.consume(guestInstallation) {
-            register(null, guestInstallation, path, declaredContentType, declaredSize)
+        return try {
+            if (guestInstallation == null) {
+                register(memberId, null, path, declaredContentType, declaredSize)
+            } else {
+                guestUploadQuota.consume(guestInstallation) { register(null, guestInstallation, path, declaredContentType, declaredSize) }
+            }
+        } catch (e: DataIntegrityViolationException) {
+            uploadedImageRepository.findByPath(path)
+                ?.takeIf { (memberId != null && it.isOwnedBy(memberId)) || (guestInstallation != null && it.isOwnedByInstallation(guestInstallation)) }
+                ?: throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
         }
     }
 
