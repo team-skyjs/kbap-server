@@ -78,7 +78,10 @@ class ImageControllerTest : BehaviorSpec() {
             redisTemplate.keys("upload:quota:*").takeIf { it.isNotEmpty() }?.let { redisTemplate.delete(it) }
         }
 
-        fun guestPath(name: String) = "dev/images/feedback/2026/10/$name.webp"
+        fun guestPath(name: String) = "${uploadProperties.keyPrefix}/images/feedback/2026/10/0_${java.util.UUID.nameUUIDFromBytes(name.toByteArray())}.webp"
+
+        fun issued(owner: Long, purpose: String = "scans", ext: String = "jpg") =
+            "${uploadProperties.keyPrefix}/images/$purpose/2026/10/${owner}_${java.util.UUID.randomUUID()}.$ext"
 
         fun guestComplete(installation: String, path: String, declaredSize: Long = 1024): Pair<Int, String> {
             val response = mockMvc.post("/api/images/complete") {
@@ -223,7 +226,7 @@ class ImageControllerTest : BehaviorSpec() {
         given("업로드 완료 신고 — POST /api/images/complete") {
             `when`("오브젝트가 완료 신고 허용 창(1일)보다 오래됐으면") {
                 then("400 IMAGE-003 으로 거절하고 행을 만들지 않는다 — 정리 잡이 지울 수 있는 오브젝트는 완료 신고로 되살릴 수 없다") {
-                    val path = "scan/1/too-old.jpg"
+                    val path = issued(1L, "scans", "jpg")
                     storage.stub(path, "image/jpeg", 1048576, modifiedAt = java.time.Instant.now().minus(java.time.Duration.ofDays(2)))
 
                     mockMvc.post("/api/images/complete") {
@@ -242,7 +245,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("오브젝트가 허용 창 안(23시간 전)에 올라갔으면") {
                 then("200 으로 기록한다") {
-                    val path = "scan/1/within-window.jpg"
+                    val path = issued(1L, "scans", "jpg")
                     storage.stub(path, "image/jpeg", 1048576, modifiedAt = java.time.Instant.now().minus(java.time.Duration.ofHours(23)))
 
                     mockMvc.post("/api/images/complete") {
@@ -257,7 +260,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("실제 오브젝트가 사진이고 신고값과 일치하면") {
                 then("200 과 경로를 반환하고 이미지를 기록한다") {
-                    val path = "scan/1/success.jpg"
+                    val path = issued(1L, "scans", "jpg")
                     storage.stub(path, "image/jpeg", 1048576)
 
                     mockMvc.post("/api/images/complete") {
@@ -276,7 +279,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("실제 오브젝트가 이미지가 아니면(영상 등)") {
                 then("400 IMAGE-001 로 거절하고 오브젝트를 삭제한다") {
-                    val path = "scan/2/clip.mp4"
+                    val path = issued(2L, "scans", "jpg")
                     storage.stub(path, "video/mp4", 5048576)
 
                     mockMvc.post("/api/images/complete") {
@@ -295,7 +298,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("신고한 형식·크기가 실제와 다르면") {
                 then("400 IMAGE-002 로 거절하고 오브젝트를 삭제한다") {
-                    val path = "scan/3/mismatch.jpg"
+                    val path = issued(3L, "scans", "jpg")
                     storage.stub(path, "image/jpeg", 2048)
 
                     mockMvc.post("/api/images/complete") {
@@ -314,7 +317,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("해당 경로에 오브젝트가 없으면") {
                 then("400 IMAGE-003 으로 거절한다") {
-                    val path = "scan/4/missing.jpg"
+                    val path = issued(4L, "scans", "jpg")
 
                     mockMvc.post("/api/images/complete") {
                         header("Authorization", "Bearer ${accessToken(4L)}")
@@ -329,7 +332,7 @@ class ImageControllerTest : BehaviorSpec() {
 
             `when`("같은 경로로 다시 신고하면") {
                 then("재검증 없이 성공하고 기록은 1건이다(멱등)") {
-                    val path = "scan/5/idem.jpg"
+                    val path = issued(5L, "scans", "jpg")
                     storage.stub(path, "image/png", 3000)
 
                     repeat(2) {
@@ -362,7 +365,7 @@ class ImageControllerTest : BehaviorSpec() {
                 then("401 을 반환한다") {
                     mockMvc.post("/api/images/complete") {
                         contentType = MediaType.APPLICATION_JSON
-                        content = body("scan/7/x.jpg", "image/jpeg", 1024)
+                        content = body(issued(7L, "scans", "jpg"), "image/jpeg", 1024)
                     }.andExpect {
                         status { isUnauthorized() }
                     }
