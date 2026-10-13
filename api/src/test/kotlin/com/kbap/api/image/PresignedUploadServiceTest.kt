@@ -34,7 +34,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         }
     }
 
-    val passingQuota = GuestUploadQuota { it.orEmpty() }
+    val passingQuota = GuestUploadQuota { requireNotNull(it) }
 
     fun properties(keyPrefix: String = "") = ImageUploadProperties(
         allowedContentTypes = setOf("image/jpeg", "image/png"),

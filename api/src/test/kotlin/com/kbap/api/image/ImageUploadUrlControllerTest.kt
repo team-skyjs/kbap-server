@@ -66,6 +66,18 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("게스트가 설치 id 헤더 없이 feedback 용도로 발급을 요청하면") {
+                then("400 COMMON-002 — 게스트 소유자 키를 만들 설치 id 가 없다") {
+                    mockMvc.post("/api/images/upload-url") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(purpose = "FEEDBACK", contentType = "image/webp")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
+                    }
+                }
+            }
+
             `when`("허용되지 않은 Content-Type 이면") {
                 then("400·UPLOAD-001 로 거절한다") {
                     mockMvc.post("/api/images/upload-url") {

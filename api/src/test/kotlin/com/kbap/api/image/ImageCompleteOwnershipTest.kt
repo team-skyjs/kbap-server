@@ -155,10 +155,33 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
 
                     complete(null, legacyGuest, "image/webp", 10, installation = "legacy-guest-0001").status shouldBe 200
                     complete(token(17L), legacyMember, "image/webp", 10).status shouldBe 200
+                    code(complete(token(18L), legacyMember, "image/webp", 10)) shouldBe "UPLOAD-004"
                     code(complete(null, legacyGuest, "image/webp", 10, installation = "legacy-guest-0002")) shouldBe "UPLOAD-004"
                     code(complete(null, unrecordedLegacyGuest, "image/webp", 10, installation = "legacy-guest-0001")) shouldBe "UPLOAD-004"
                     storage.headCalls.size shouldBe 0
                     storage.deleted.size shouldBe 0
+                }
+            }
+
+            `when`("같은 본인 키로 완료 신고가 동시에 두 번 오면") {
+                then("둘 다 200 이고 행은 1개다 — 두 번째 save 의 unique 위반은 재조회로 흡수한다") {
+                    val ownKey = issued(owner = 19L, purpose = "review", ext = "webp")
+                    storage.stub(ownKey, "image/webp", 2048)
+                    val tokenValue = token(19L)
+                    val start = java.util.concurrent.CountDownLatch(1)
+                    val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
+                    val statuses = (1..2).map {
+                        pool.submit(java.util.concurrent.Callable {
+                            start.await()
+                            complete(tokenValue, ownKey, "image/webp", 2048).status
+                        })
+                    }
+                    start.countDown()
+                    val results = statuses.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+                    pool.shutdown()
+
+                    results shouldBe listOf(200, 200)
+                    rows(ownKey) shouldBe 1
                 }
             }
 
