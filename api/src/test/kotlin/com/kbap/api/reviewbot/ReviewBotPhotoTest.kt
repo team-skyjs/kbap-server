@@ -243,7 +243,10 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             }
 
             `when`("사라진 사진을 참조하는 리뷰 하나의 처리가 실패하면") {
-                then("사진 행은 즉시 지워지고, 실패한 리뷰는 기록된 경로 전체(상태 무관) 기준으로 다음 sync 가 다시 잡는다") {
+                then("사진 행은 즉시 지워지고, image_refs 를 못 읽는 리뷰는 스택 없는 WARN 1줄로 건너뛰며(unparseableReviewIds) refs 를 고치면 다음 sync 가 처리한다") {
+                    val warnings = ch.qos.logback.classic.Logger::class.java.cast(org.slf4j.LoggerFactory.getLogger(ReviewBotPhotoSyncService::class.java))
+                    val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>().also { it.start(); warnings.addAppender(it) }
+                    try {
                     val bots = accountService.ensureBots(2).bots
                     val food = seedFood("봇대상음식1")
                     stubObjects("봇대상음식1", 3)
@@ -269,18 +272,46 @@ class ReviewBotPhotoTest : BehaviorSpec() {
 
                     first.path("removedCount").asInt() shouldBe 2
                     first.path("deletedReviewCount").asInt() shouldBe 1
+                    first.path("failedReviewCount").asInt() shouldBe 0
+                    first.path("unparseableReviewIds").map { it.asLong() } shouldBe listOf(brokenId)
                     count("SELECT COUNT(*) FROM food_review WHERE id = ${fine.reviewId} AND status = 'DELETED'") shouldBe 1
                     count("SELECT unique_reviewed_food_count FROM member WHERE id = ${bots[0].id}") shouldBe 0
                     count("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = ${fine.reviewId} AND event = 'REVIEW_DELETED'") shouldBe 1
                     count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'ACTIVE'") shouldBe 1
                     count("SELECT COUNT(*) FROM uploaded_image WHERE object_path IN ('$p1', '$p2') AND status = 'DELETED'") shouldBe 2
 
+                    val again = syncPayload()
+                    again.path("unparseableReviewIds").map { it.asLong() } shouldBe listOf(brokenId)
+                    val unparseableWarnings = appender.list.filter { it.level == ch.qos.logback.classic.Level.WARN && it.formattedMessage.contains("image_refs") && it.formattedMessage.contains(brokenId.toString()) }
+                    unparseableWarnings.size shouldBe 2
+                    unparseableWarnings.all { it.throwableProxy == null } shouldBe true
+
                     dataSource.connection.use { c -> c.createStatement().use { it.execute("""UPDATE food_review SET image_refs = '["$p1"]' WHERE id = $brokenId""") } }
                     val second = syncPayload()
 
                     second.path("removedCount").asInt() shouldBe 0
                     second.path("deletedReviewCount").asInt() shouldBe 1
+                    second.path("unparseableReviewIds").size() shouldBe 0
                     count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'DELETED'") shouldBe 1
+                    } finally {
+                        warnings.detachAppender(appender)
+                    }
+                }
+            }
+
+            `when`("삭제된 행이 있는 상태에서 다음 sync 의 가드 분모를 보면") {
+                then("활성 행만 센다 — 12 중 2 삭제 뒤 6 더 사라지면 10 기준 절반 초과로 건너뛴다(any-status 로 세면 12 기준이라 지나감)") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 12)
+                    syncPayload()
+                    (1..2).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+                    syncPayload().path("removedCount").asInt() shouldBe 2
+                    (3..8).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+
+                    val result = syncPayload()
+
+                    result.path("removalSkipped").asBoolean() shouldBe true
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 10
                 }
             }
 
