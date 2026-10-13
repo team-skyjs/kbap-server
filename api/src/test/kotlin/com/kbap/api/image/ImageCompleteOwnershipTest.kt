@@ -42,7 +42,7 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
             return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
         }
 
-        fun issued(owner: Long, purpose: String = "scans", ext: String = "jpg") =
+        fun issued(owner: Any, purpose: String = "scans", ext: String = "jpg") =
             "${uploadProperties.keyPrefix}/images/$purpose/2026/10/${owner}_${UUID.randomUUID()}.$ext"
 
         fun complete(token: String?, path: String, contentType: String, size: Long, installation: String? = null): MockHttpServletResponse =
@@ -115,18 +115,23 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
             }
 
             `when`("게스트가 feedback 용도의 게스트 키로 신고하면") {
-                then("200 — 게스트 소유 키(0_)는 feedback 만 허용, 회원 키는 400 UPLOAD-004, feedback 아닌 용도는 종전대로 401") {
-                    val guestKey = issued(owner = 0L, purpose = "feedback", ext = "webp")
+                then("200 — 게스트 소유 키는 자기 설치 id 의 g+해시만, 다른 설치의 키·회원 키는 400 UPLOAD-004, feedback 아닌 용도는 종전대로 401") {
+                    val mine = PresignedUploadService.guestOwnerKey("owner-guest-0001")
+                    val guestKey = issued(owner = mine, purpose = "feedback", ext = "webp")
                     storage.stub(guestKey, "image/webp", 512)
+                    val otherGuestKey = issued(owner = PresignedUploadService.guestOwnerKey("owner-guest-0002"), purpose = "feedback", ext = "webp")
+                    storage.stub(otherGuestKey, "image/webp", 512)
                     val memberStyleKey = issued(owner = 15L, purpose = "feedback", ext = "webp")
                     storage.stub(memberStyleKey, "image/webp", 512)
-                    val otherPurposeKey = issued(owner = 0L, purpose = "review", ext = "webp")
+                    val otherPurposeKey = issued(owner = mine, purpose = "review", ext = "webp")
                     storage.stub(otherPurposeKey, "image/webp", 512)
 
                     complete(null, guestKey, "image/webp", 512, installation = "owner-guest-0001").status shouldBe 200
+                    code(complete(null, otherGuestKey, "image/webp", 1, installation = "owner-guest-0001")) shouldBe "UPLOAD-004"
                     code(complete(null, memberStyleKey, "image/webp", 512, installation = "owner-guest-0001")) shouldBe "UPLOAD-004"
                     complete(null, otherPurposeKey, "image/webp", 512, installation = "owner-guest-0001").status shouldBe 401
                     rows(guestKey) shouldBe 1
+                    rows(otherGuestKey) shouldBe 0
                     rows(memberStyleKey) shouldBe 0
                     rows(otherPurposeKey) shouldBe 0
                     storage.deleted.size shouldBe 0
