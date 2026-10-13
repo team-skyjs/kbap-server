@@ -368,6 +368,7 @@ class ImageControllerTest : BehaviorSpec() {
                         content = body(issued(7L, "scans", "jpg"), "image/jpeg", 1024)
                     }.andExpect {
                         status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
                     }
                 }
             }

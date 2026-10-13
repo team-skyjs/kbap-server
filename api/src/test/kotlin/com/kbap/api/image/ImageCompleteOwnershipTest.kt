@@ -138,6 +138,30 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이미 기록된 옛 형식 행(게스트 0_ 키·#103 이전 경로)을 같은 소유자가 다시 신고하면") {
+                then("종전대로 200(existing) — 기록 없는 0_ 키는 400 UPLOAD-004(배포 창의 미기록 키는 재시도로 회복)") {
+                    val legacyGuest = "${uploadProperties.keyPrefix}/images/feedback/2026/10/0_${UUID.randomUUID()}.webp"
+                    val legacyMember = "scan/17/legacy.jpg"
+                    val unrecordedLegacyGuest = "${uploadProperties.keyPrefix}/images/feedback/2026/10/0_${UUID.randomUUID()}.webp"
+                    seedMember(17L)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("INSERT INTO uploaded_image (member_id, installation_id, object_path, content_type, size_bytes, status, created_at, updated_at) VALUES (?, ?, ?, 'image/webp', 10, 'ACTIVE', NOW(6), NOW(6))").use { ps ->
+                            ps.setNull(1, java.sql.Types.BIGINT); ps.setString(2, "legacy-guest-0001"); ps.setString(3, legacyGuest); ps.addBatch()
+                            ps.setLong(1, 17L); ps.setNull(2, java.sql.Types.VARCHAR); ps.setString(3, legacyMember); ps.addBatch()
+                            ps.executeBatch()
+                        }
+                    }
+                    storage.stub(unrecordedLegacyGuest, "image/webp", 10)
+
+                    complete(null, legacyGuest, "image/webp", 10, installation = "legacy-guest-0001").status shouldBe 200
+                    complete(token(17L), legacyMember, "image/webp", 10).status shouldBe 200
+                    code(complete(null, legacyGuest, "image/webp", 10, installation = "legacy-guest-0002")) shouldBe "UPLOAD-004"
+                    code(complete(null, unrecordedLegacyGuest, "image/webp", 10, installation = "legacy-guest-0001")) shouldBe "UPLOAD-004"
+                    storage.headCalls.size shouldBe 0
+                    storage.deleted.size shouldBe 0
+                }
+            }
+
             `when`("발급 형식이지만 접두가 다른 환경의 키로 신고하면") {
                 then("400 UPLOAD-004 — 이 서버가 발급한 접두만 받는다") {
                     val foreign = "other-env/images/scans/2026/10/16_${UUID.randomUUID()}.jpg"
