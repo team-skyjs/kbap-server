@@ -60,7 +60,7 @@ class ReviewBotWriter(
         var pages = 0
         val tried = mutableSetOf<Long>()
         val (priority, priorityWithoutPool) = priorityFoods(poolOwnerIds, dayStart).partition { pool.hasPool(it.koreanName) }
-        skippedNoPool += priorityWithoutPool.size
+        priorityWithoutPool.forEach { if (tried.add(it.id)) skippedNoPool++ }
         for (food in priority) {
             if (written >= due) break
             if (System.nanoTime() >= deadline) {

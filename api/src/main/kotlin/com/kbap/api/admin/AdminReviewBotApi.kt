@@ -39,7 +39,9 @@ interface AdminReviewBotApi {
         description = """
             스토리지 접두 `{key-prefix}/images/review-bot/` 를 훑어 `<key>/<n>.webp`(key = sha256(korean_name)[:12] 소문자 hex) 꼴의
             오브젝트를 `uploaded_image` 에 등록한다. 소유자는 활성 봇 중 id 가 가장 작은 계정. 이미 등록된 경로는 건너뛰어
-            재실행해도 행이 늘지 않는다. 스토리지에서 사라진 경로의 행은 소프트 삭제한다(`removedCount`). 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
+            재실행해도 행이 늘지 않는다. 스토리지에서 사라진 경로의 행은 소프트 삭제하고(`removedCount`) 그 경로를 참조하던 봇 리뷰에서 떼며(`detachedReviewCount`),
+            사진이 0장이 되는 봇 리뷰는 소프트 삭제한다(`deletedReviewCount`). 다시 올라온 경로의 행은 되살린다(`restoredCount`).
+            목록이 비면 삭제 단계를 건너뛴다(`removalSkipped`, 일시 장애로 풀 전체를 지우지 않게). 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
             봇 리뷰 작성기는 음식의 풀에서 1~3장을 골라 붙이고, 풀이 빈 음식은 건너뛴다.
         """,
     )
@@ -58,14 +60,31 @@ data class AdminReviewBotPhotoSyncResponse(
     val registeredCount: Int,
     @field:Schema(description = "이미 등록돼 건너뛴 사진 수(재실행 시 전부 여기로)", example = "0")
     val skippedCount: Int,
+    @field:Schema(description = "지워졌다가 다시 올라와 되살린 행 수", example = "0")
+    val restoredCount: Int,
     @field:Schema(description = "스토리지에서 사라져 소프트 삭제한 행 수", example = "0")
     val removedCount: Int,
+    @field:Schema(description = "사라진 사진을 image_refs 에서 뗀 봇 리뷰 수", example = "0")
+    val detachedReviewCount: Int,
+    @field:Schema(description = "사진이 0장이 되어 소프트 삭제한 봇 리뷰 수(사진 없는 봇 리뷰 금지)", example = "0")
+    val deletedReviewCount: Int,
+    @field:Schema(description = "스토리지 목록이 비어 삭제 단계를 건너뛰었는지(일시 장애 방어)", example = "false")
+    val removalSkipped: Boolean,
     @field:Schema(description = "풀 키(sha256(korean_name)[:12])별 S3 에 있는 장수", example = """{"6a2c1605affd": 3}""")
     val imagesPerKey: Map<String, Int>,
 ) {
     companion object {
         fun from(result: ReviewBotPhotoSyncResult): AdminReviewBotPhotoSyncResponse =
-            AdminReviewBotPhotoSyncResponse(result.registeredCount, result.skippedCount, result.removedCount, result.imagesPerKey)
+            AdminReviewBotPhotoSyncResponse(
+                registeredCount = result.registeredCount,
+                skippedCount = result.skippedCount,
+                restoredCount = result.restoredCount,
+                removedCount = result.removedCount,
+                detachedReviewCount = result.detachedReviewCount,
+                deletedReviewCount = result.deletedReviewCount,
+                removalSkipped = result.removalSkipped,
+                imagesPerKey = result.imagesPerKey,
+            )
     }
 }
 

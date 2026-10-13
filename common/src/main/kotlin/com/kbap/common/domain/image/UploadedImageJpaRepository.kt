@@ -4,6 +4,7 @@ import com.kbap.common.domain.image.model.UploadedImage
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
@@ -52,6 +53,10 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
 
     @Query(nativeQuery = true, value = "select u.object_path from uploaded_image u where u.object_path in (:paths)")
     fun findRecordedPathsAnyStatus(@Param("paths") paths: Collection<String>): List<String>
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(nativeQuery = true, value = "update uploaded_image u set u.status = 'ACTIVE' where u.object_path in (:paths) and u.status = 'DELETED'")
+    fun restoreDeletedByPaths(@Param("paths") paths: Collection<String>): Int
 
     @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.object_path = :path")
     fun countRecordedAnyStatus(@Param("path") path: String): Long
