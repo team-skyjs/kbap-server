@@ -169,6 +169,56 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
+            `when`("31일 넘게 DELETED 였던 경로에 사진을 다시 올리면") {
+                then("되살린다 — 되살리기 판정은 상태·기간 무관(30일 창은 리뷰 탐지에만)") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    storage.delete(poolPath("후라이드치킨", 1))
+                    syncPayload().path("removedCount").asInt() shouldBe 1
+                    val longAgo = LocalDateTime.now().minusDays(31)
+                    dataSource.connection.use { c ->
+                        c.prepareStatement("UPDATE uploaded_image SET updated_at = ? WHERE object_path = ?").use { ps ->
+                            ps.setObject(1, longAgo); ps.setString(2, poolPath("후라이드치킨", 1)); ps.executeUpdate()
+                        }
+                    }
+                    storage.stub(poolPath("후라이드치킨", 1), "image/webp", 100_001L)
+
+                    val result = syncPayload()
+
+                    result.path("restoredCount").asInt() shouldBe 1
+                    result.path("registeredCount").asInt() shouldBe 0
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
+                }
+            }
+
+            `when`("영향 리뷰 탐지 쿼리 자체가 실패하면") {
+                then("이미 커밋된 행 삭제(removedCount)는 응답에 남고 detectionFailed=true — 500 이 아니다") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    storage.delete(poolPath("후라이드치킨", 1))
+                    val failingReviews = java.lang.reflect.Proxy.newProxyInstance(
+                        ReviewJpaRepository::class.java.classLoader,
+                        arrayOf(ReviewJpaRepository::class.java),
+                    ) { _, method, args ->
+                        if (method.name == "findActiveRefsReferencingAny") throw IllegalStateException("탐지 쿼리 실패 주입")
+                        try {
+                            method.invoke(reviewRepository, *(args ?: emptyArray()))
+                        } catch (e: java.lang.reflect.InvocationTargetException) {
+                            throw e.targetException
+                        }
+                    } as ReviewJpaRepository
+                    val service = ReviewBotPhotoSyncService(storage, uploadedImageRepository, accountService, photoPool, failingReviews, reviewService, transactionManager, pageSize = 1000)
+
+                    val result = service.sync()
+
+                    result.removedCount shouldBe 1
+                    result.detectionFailed shouldBe true
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '${poolPath("후라이드치킨", 1)}' AND status = 'DELETED'") shouldBe 1
+                }
+            }
+
             `when`("스토리지가 접두에 빈 목록을 돌려주면") {
                 then("삭제 단계를 건너뛴다(removalSkipped) — 일시 장애로 풀 전체를 지우지 않는다") {
                     accountService.ensureBots(2)
