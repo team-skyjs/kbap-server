@@ -114,7 +114,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     @Query(
         nativeQuery = true,
         value = """
-            SELECT r.food_id AS foodId, COALESCE(SUM(r.status = 'ACTIVE'), 0) AS botReviewCount, COALESCE(SUM(r.created_at >= :since), 0) AS todayCount
+            SELECT r.food_id AS foodId, COUNT(*) AS botReviewCount, COALESCE(SUM(r.created_at >= :since), 0) AS todayCount
             FROM food_review r
             WHERE r.member_id IN (:botIds) AND r.food_id IN (:foodIds)
             GROUP BY r.food_id
@@ -131,13 +131,13 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     @Query(
         nativeQuery = true,
         value = """
-            SELECT r.id FROM food_review r
+            SELECT r.id AS id, CAST(r.image_refs AS CHAR) AS imageRefs FROM food_review r
             WHERE r.status = 'ACTIVE' AND r.member_id IN (:memberIds) AND r.image_refs IS NOT NULL
               AND JSON_OVERLAPS(r.image_refs, CAST(:pathsJson AS JSON))
             ORDER BY r.id
         """,
     )
-    fun findActiveIdsReferencingAny(@Param("memberIds") memberIds: Collection<Long>, @Param("pathsJson") pathsJson: String): List<Long>
+    fun findActiveRefsReferencingAny(@Param("memberIds") memberIds: Collection<Long>, @Param("pathsJson") pathsJson: String): List<ReviewImageRefsRow>
 
     @Query(
         nativeQuery = true,

@@ -3,12 +3,14 @@ package com.kbap.api.reviewbot
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.review.ReviewService
 import com.kbap.common.domain.image.model.UploadedImage
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.port.storage.StorageObjectMetadata
 import com.kbap.common.port.storage.StorageObjectStore
 import com.kbap.common.port.storage.StoredObject
+import com.kbap.common.util.LikeWildcards
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataIntegrityViolationException
@@ -40,12 +42,15 @@ class ReviewBotPhotoSyncService internal constructor(
 
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
+    private val objectMapper = jacksonObjectMapper()
 
-    fun sync(): ReviewBotPhotoSyncResult {
+    fun sync(force: Boolean = false): ReviewBotPhotoSyncResult {
         val owner = accountService.getBots().minByOrNull { it.id } ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         val stored = listAll().filter { ReviewBotPhotoPool.keyOfPath(it.path) != null }
         val imagesPerKey = stored.groupingBy { ReviewBotPhotoPool.keyOfPath(it.path)!! }.eachCount().toSortedMap()
-        val activePaths = uploadedImageRepository.findByPathStartingWithOrderByPath(photoPool.prefix).map { it.path }.toSet()
+        val activePaths = uploadedImageRepository.findActivePathsLike(LikeWildcards.escape(photoPool.prefix) + "%")
+            .filter { ReviewBotPhotoPool.keyOfPath(it) != null }
+            .toSet()
         var registered = 0
         var skipped = 0
         var restored = 0
@@ -64,17 +69,19 @@ class ReviewBotPhotoSyncService internal constructor(
             }
         }
         val storedPaths = stored.map { it.path }.toSet()
-        val missingPaths = activePaths.filter { ReviewBotPhotoPool.keyOfPath(it) != null && it !in storedPaths }.toSet()
-        val removalSkipped = stored.isEmpty() || missingPaths.size * 2 > activePaths.size
+        val missingPaths = activePaths.filter { it !in storedPaths }.toSet()
+        val suspicious = stored.isEmpty() || (activePaths.size >= REMOVAL_GUARD_MIN_ROWS && missingPaths.size * 2 > activePaths.size)
+        val removalSkipped = suspicious && !force
         val removal = if (removalSkipped) {
             if (missingPaths.isNotEmpty()) {
                 log.warn(
-                    "리뷰 봇 사진 풀 동기화 — 삭제 단계를 건너뜁니다(prefix={} 목록 {} 활성 {} 사라짐 {}) — 빈/잘린 목록일 수 있어 풀을 지우지 않는다",
+                    "리뷰 봇 사진 풀 동기화 — 삭제 단계를 건너뜁니다(prefix={} 목록 {} 활성 {} 사라짐 {}) — 빈/잘린 목록일 수 있어 풀을 지우지 않는다. 확실하면 force=true 로 다시 호출",
                     photoPool.prefix, stored.size, activePaths.size, missingPaths.size,
                 )
             }
             Removal.NONE
         } else {
+            if (suspicious) log.warn("리뷰 봇 사진 풀 동기화 — force=true 로 가드를 무시하고 {}건을 지웁니다(활성 {})", missingPaths.size, activePaths.size)
             removeMissing(missingPaths)
         }
         skipped -= restored
@@ -108,24 +115,34 @@ class ReviewBotPhotoSyncService internal constructor(
 
     private fun removeMissing(missingPaths: Set<String>): Removal {
         if (missingPaths.isEmpty()) return Removal.NONE
-        val removed = transaction.execute {
-            uploadedImageRepository.findByPathIn(missingPaths).onEach { it.delete() }.size
-        }!!
-        val affectedIds = reviewRepository.findActiveIdsReferencingAny(photoPool.ownerIds(), jsonArrayOf(missingPaths))
         var detached = 0
         var deleted = 0
-        affectedIds.forEach { reviewId ->
+        val stillReferenced = mutableSetOf<String>()
+        reviewRepository.findActiveRefsReferencingAny(photoPool.ownerIds(), jsonArrayOf(missingPaths)).forEach { row ->
+            val referencedMissing = missingRefsOf(row.imageRefs, missingPaths)
             val outcome = runCatching {
-                transaction.execute { detachOrDelete(reviewId, missingPaths) }!!
-            }.onFailure { log.warn("리뷰 봇 사진 풀 동기화 — 리뷰 {} 의 사라진 사진 처리 실패(다른 리뷰는 계속)", reviewId, it) }.getOrNull()
+                transaction.execute { detachOrDelete(row.id, missingPaths) }!!
+            }.onFailure { log.warn("리뷰 봇 사진 풀 동기화 — 리뷰 {} 의 사라진 사진 처리 실패(사진 행은 남겨 다음 동기화가 다시 잡는다)", row.id, it) }.getOrNull()
             when (outcome) {
                 Outcome.DETACHED -> detached++
                 Outcome.DELETED -> deleted++
-                else -> Unit
+                else -> stillReferenced += referencedMissing
             }
         }
+        val removable = missingPaths - stillReferenced
+        val removed = if (removable.isEmpty()) 0 else transaction.execute {
+            uploadedImageRepository.findByPathIn(removable).onEach { it.delete() }.size
+        }!!
         return Removal(removed, detached, deleted)
     }
+
+    private fun missingRefsOf(imageRefsJson: String, missingPaths: Set<String>): Set<String> =
+        runCatching { objectMapper.readTree(imageRefsJson) }.getOrNull()
+            ?.takeIf { it.isArray }
+            ?.mapNotNull { node -> node.takeIf { it.isTextual }?.asText() }
+            ?.filter { it in missingPaths }
+            ?.toSet()
+            ?: missingPaths
 
     private fun detachOrDelete(reviewId: Long, missingPaths: Set<String>): Outcome {
         val review = reviewRepository.findById(reviewId).orElse(null) ?: return Outcome.UNCHANGED
@@ -133,7 +150,7 @@ class ReviewBotPhotoSyncService internal constructor(
         if (refs.none { it in missingPaths }) return Outcome.UNCHANGED
         val remaining = refs.filterNot { it in missingPaths }
         return if (remaining.isEmpty()) {
-            reviewService.deleteForPhotoLoss(review)
+            reviewService.deleteForModeration(review)
             Outcome.DELETED
         } else {
             review.imageRefs = remaining
@@ -149,11 +166,11 @@ class ReviewBotPhotoSyncService internal constructor(
         }
     }
 
+    private fun jsonArrayOf(paths: Collection<String>): String = objectMapper.writeValueAsString(paths.toList())
+
     companion object {
         private const val PAGE_SIZE = 1000
-
-        private fun jsonArrayOf(paths: Collection<String>): String =
-            paths.joinToString(prefix = "[", postfix = "]") { "\"" + it.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }
+        const val REMOVAL_GUARD_MIN_ROWS = 10
     }
 }
 

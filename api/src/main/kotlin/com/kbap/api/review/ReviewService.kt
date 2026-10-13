@@ -159,27 +159,13 @@ class ReviewService(
         softDelete(review)
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    fun deleteForPhotoLoss(review: Review) {
-        if (!review.isActive()) return
+    private fun softDelete(review: Review) {
         val memberId = review.memberId
         review.delete()
         memberRepository.decreaseReviewCount(memberId)
         foodRepository.decreaseReviewCount(review.foodId)
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
         if (lastReviewOfFood) memberRepository.decreaseUniqueReviewedFoodCount(memberId)
-        rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
-    }
-
-    private fun softDelete(review: Review) {
-        val memberId = review.memberId
-        review.delete()
-        memberService.decreaseReviewCount(memberId)
-        foodRepository.decreaseReviewCount(review.foodId)
-        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
-        if (lastReviewOfFood) {
-            memberService.decreaseUniqueReviewedFoodCount(memberId)
-        }
         rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
     }
 

@@ -4,6 +4,7 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountsResult
 import com.kbap.api.reviewbot.ReviewBotPhotoSyncResult
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -41,7 +42,8 @@ interface AdminReviewBotApi {
             오브젝트를 `uploaded_image` 에 등록한다. 소유자는 활성 봇 중 id 가 가장 작은 계정. 이미 등록된 경로는 건너뛰어
             재실행해도 행이 늘지 않는다. 스토리지에서 사라진 경로의 행은 소프트 삭제하고(`removedCount`) 그 경로를 참조하던 봇 리뷰에서 떼며(`detachedReviewCount`),
             사진이 0장이 되는 봇 리뷰는 소프트 삭제한다(`deletedReviewCount`). 다시 올라온 경로의 행은 되살린다(`restoredCount`).
-            목록이 비면 삭제 단계를 건너뛴다(`removalSkipped`, 일시 장애로 풀 전체를 지우지 않게). 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
+            목록이 비거나, 활성 풀 행이 10개 이상인데 절반 넘게 사라졌으면 잘린 목록으로 보고 삭제 단계를 건너뛴다(`removalSkipped`, WARN) —
+            확실하면 `?force=true` 로 가드를 무시한다. 작은 풀(10개 미만)은 가드 없이 지운다. 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
             봇 리뷰 작성기는 음식의 풀에서 1~3장을 골라 붙이고, 풀이 빈 음식은 건너뛴다.
         """,
     )
@@ -51,7 +53,10 @@ interface AdminReviewBotApi {
         ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
     )
     @SecurityRequirement(name = "bearerAuth")
-    fun syncPhotoPool(): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>>
+    fun syncPhotoPool(
+        @Parameter(description = "true 면 삭제 가드(활성 풀 행 10개 이상에서 절반 초과 사라짐·빈 목록이면 건너뜀)를 무시하고 지운다 — 스토리지 상태가 확실할 때만", example = "false")
+        force: Boolean,
+    ): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>>
 }
 
 @Schema(description = "리뷰 봇 사진 풀 동기화 결과")
