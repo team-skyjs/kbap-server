@@ -13,12 +13,12 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 결정과 기각 대안, �
 
 - 현재 앱 전역 기본 헤더가 `1.1`(kbap-fe `client.ts`)이라 다음 릴리스 마커 `1.2` 를 쓴다. 비교는 "1.2 이상" 이므로 스캔처럼 `2.0` 을 보내는 요청도 풀을 받는다(baseline 의미, 테스트로 고정). 1차의 `2.1` 은 "최고 마커 다음" 논리였으나 홈 실사용 헤더 기준으로 정정.
 
-## R2. 설정 저장소 — yml + env 플레이스홀더 (테이블·관리자 API 없음)
+## R2. 풀 저장소 — 테이블 `home_marketing_popular_food` (관리자 API 없음)
 
-- **Decision**: `kbap.home.marketing-popular.food-ids`(`HOME_MARKETING_POPULAR_FOOD_IDS`, 기본 빈 목록). 캠페인 값은 `application-prod.yml` 커밋 또는 env.
-- **Rationale**: 기존 `findByIdIn` 경로를 그대로 쓰면 마이그레이션·엔티티·관리자 화면·2대 인스턴스 캐시 무효화가 전부 필요 없고, id 만 들고 원본을 매 요청 읽어 stale 이 없다(KB-413 "id 만" 원칙과 동형).
-- **Alternatives considered**: 전용 테이블 + 관리자 API — 마케터가 수시 변경을 원할 때의 다음 단계로 보류.
-- **바인딩 메모**: 생성자 바인딩은 `@EnableConfigurationProperties` 필요 — `PropertiesConfig` 에 추가. 빈 문자열 → 빈 목록은 `Binder` 단위 테스트로 고정.
+- **Decision**: 행 = 음식 1개(`food_id` 유니크, food FK, BaseEntity 소프트 삭제). 리포지토리 `findAllFoodIds()` 가 ACTIVE 행의 id 를 돌려주고 `FoodService` 가 READY 필터·셔플한다. 캐시 없음.
+- **Rationale**: 2026-10-13 사용자 요청 — "yml/env 주입보다 DB 에서 관리하는 게 편하다". 배포 없이 행만 넣고 빼면 다음 요청부터 반영되고, 2대 인스턴스가 같은 DB 를 보므로 무효화 문제가 없다. id 만 들고 원본은 매 요청 읽어 stale 이 없다(KB-413 "id 만" 원칙).
+- **Alternatives considered**: yml + env 플레이스홀더(3차까지의 설계) — 변경마다 배포가 필요해 기각. 표시용 컬럼(이름·순서) 추가 — 랜덤이라 순서 불필요, 이름은 원본 복제라 금지. 관리자 API/화면 — 요청 없음, DB 직접 관리.
+- **함정**: `HomeTestSeed.reset` 은 FK 때문에 이 테이블을 `food` 보다 먼저 비운다. `TestTables.clearAll` 은 FK 검사를 끄므로 영향 없음. api 통합 컨텍스트는 Flyway + `ddl-auto=validate` 라 엔티티↔스키마 불일치는 부팅에서 잡힌다.
 
 ## R3. 기간 없음·폴백 없음
 

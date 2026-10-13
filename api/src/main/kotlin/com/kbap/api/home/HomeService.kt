@@ -19,15 +19,12 @@ class HomeService(
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,
     private val popularFoodIdCache: PopularFoodIdCache,
-    private val marketingPopularProperties: HomeMarketingPopularProperties,
     transactionManager: PlatformTransactionManager,
 ) {
     private val readOnlyTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
 
     fun getHome(memberId: Long?, lang: LanguageCode, marketingPopular: Boolean = false): HomeResult {
-        val popularFoodIds =
-            if (marketingPopular) marketingPopularProperties.foodIds.distinct()
-            else popularFoodIdCache.getPopularFoodIds(POPULAR_SIZE)
+        val popularFoodIds = if (marketingPopular) emptyList() else popularFoodIdCache.getPopularFoodIds(POPULAR_SIZE)
         return readOnlyTransaction.execute { assembleHome(memberId, lang, popularFoodIds, marketingPopular) }!!
     }
 
@@ -35,7 +32,7 @@ class HomeService(
         val member = memberId?.let { memberService.getMember(it) }
         val avoidedSubstances = ingredientService.getAvoidedIngredients(member?.id, lang)
         val popularFoods =
-            if (marketingPopular) foodService.getRandomCuratedFoods(member?.id, lang, popularFoodIds, POPULAR_SIZE)
+            if (marketingPopular) foodService.getRandomMarketingPopularFoods(member?.id, lang, POPULAR_SIZE)
             else foodService.getPopularFoods(member?.id, lang, popularFoodIds)
         val mostReviewedFoods = foodService.getMostReviewedFoods(member?.id, lang, MOST_REVIEWED_SIZE)
         val recentScans = member

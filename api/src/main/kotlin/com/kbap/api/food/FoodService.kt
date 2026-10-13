@@ -3,6 +3,7 @@ package com.kbap.api.food
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.HomeMarketingPopularFoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.RiskLevel
@@ -27,6 +28,7 @@ import java.time.ZoneId
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
+    private val homeMarketingPopularFoodRepository: HomeMarketingPopularFoodJpaRepository,
     private val foodImageRepository: FoodImageJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
@@ -204,7 +206,8 @@ class FoodService(
         summaryViews(loadInGivenOrder(popularFoodIds), lang, memberId)
 
     @Transactional(readOnly = true)
-    fun getRandomCuratedFoods(memberId: Long?, lang: LanguageCode, ids: List<Long>, size: Int): List<FoodSummaryView> {
+    fun getRandomMarketingPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> {
+        val ids = homeMarketingPopularFoodRepository.findAllFoodIds()
         if (ids.isEmpty()) return emptyList()
         val pool = foodRepository.findByIdIn(ids).filter { it.isReady() }
         return summaryViews(pool.shuffled().take(size), lang, memberId)
