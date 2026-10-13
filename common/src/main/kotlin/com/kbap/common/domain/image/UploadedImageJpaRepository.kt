@@ -24,8 +24,11 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
 
     fun findByPathStartingWithOrderByPath(prefix: String): List<UploadedImage>
 
-    @Query(nativeQuery = true, value = "select u.object_path from uploaded_image u where u.status = 'ACTIVE' and u.object_path like :escapedPrefixPattern escape '\\\\' order by u.object_path")
+    @Query("""select u.path from UploadedImage u where u.path like :escapedPrefixPattern escape '\' order by u.path""")
     fun findActivePathsLike(@Param("escapedPrefixPattern") escapedPrefixPattern: String): List<String>
+
+    @Query(nativeQuery = true, value = "select u.object_path from uploaded_image u where u.object_path like :escapedPrefixPattern escape '\\\\' order by u.object_path")
+    fun findRecordedPathsLikeAnyStatus(@Param("escapedPrefixPattern") escapedPrefixPattern: String): List<String>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UploadedImage u where u.path in :paths")

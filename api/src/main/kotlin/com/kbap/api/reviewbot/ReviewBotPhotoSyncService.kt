@@ -48,9 +48,9 @@ class ReviewBotPhotoSyncService internal constructor(
         val owner = accountService.getBots().minByOrNull { it.id } ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         val stored = listAll().filter { ReviewBotPhotoPool.keyOfPath(it.path) != null }
         val imagesPerKey = stored.groupingBy { ReviewBotPhotoPool.keyOfPath(it.path)!! }.eachCount().toSortedMap()
-        val activePaths = uploadedImageRepository.findActivePathsLike(LikeWildcards.escape(photoPool.prefix) + "%")
-            .filter { ReviewBotPhotoPool.keyOfPath(it) != null }
-            .toSet()
+        val prefixPattern = LikeWildcards.escape(photoPool.prefix) + "%"
+        val activePaths = uploadedImageRepository.findActivePathsLike(prefixPattern).filter { ReviewBotPhotoPool.keyOfPath(it) != null }.toSet()
+        val recordedPaths = uploadedImageRepository.findRecordedPathsLikeAnyStatus(prefixPattern).filter { ReviewBotPhotoPool.keyOfPath(it) != null }.toSet()
         var registered = 0
         var skipped = 0
         var restored = 0
@@ -69,20 +69,21 @@ class ReviewBotPhotoSyncService internal constructor(
             }
         }
         val storedPaths = stored.map { it.path }.toSet()
-        val missingPaths = activePaths.filter { it !in storedPaths }.toSet()
-        val suspicious = stored.isEmpty() || (activePaths.size >= REMOVAL_GUARD_MIN_ROWS && missingPaths.size * 2 > activePaths.size)
-        val removalSkipped = suspicious && !force
+        val missingActive = activePaths.filter { it !in storedPaths }.toSet()
+        val missingRecorded = recordedPaths.filter { it !in storedPaths }.toSet()
+        val suspicious = activePaths.size >= REMOVAL_GUARD_MIN_ROWS && missingActive.size * 2 > activePaths.size
+        val removalSkipped = stored.isEmpty() || (suspicious && !force)
         val removal = if (removalSkipped) {
-            if (missingPaths.isNotEmpty()) {
+            if (missingActive.isNotEmpty()) {
                 log.warn(
-                    "리뷰 봇 사진 풀 동기화 — 삭제 단계를 건너뜁니다(prefix={} 목록 {} 활성 {} 사라짐 {}) — 빈/잘린 목록일 수 있어 풀을 지우지 않는다. 확실하면 force=true 로 다시 호출",
-                    photoPool.prefix, stored.size, activePaths.size, missingPaths.size,
+                    "리뷰 봇 사진 풀 동기화 — 삭제 단계를 건너뜁니다(prefix={} 목록 {} 활성 {} 사라짐 {}) — 빈/잘린 목록일 수 있어 풀을 지우지 않는다. 잘린 목록이 아니면 force=true 로 다시 호출(빈 목록은 항상 건너뜀)",
+                    photoPool.prefix, stored.size, activePaths.size, missingActive.size,
                 )
             }
             Removal.NONE
         } else {
-            if (suspicious) log.warn("리뷰 봇 사진 풀 동기화 — force=true 로 가드를 무시하고 {}건을 지웁니다(활성 {})", missingPaths.size, activePaths.size)
-            removeMissing(missingPaths)
+            if (suspicious) log.warn("리뷰 봇 사진 풀 동기화 — force=true 로 가드를 무시하고 {}건을 지웁니다(활성 {})", missingActive.size, activePaths.size)
+            removeMissing(missingActive, missingRecorded)
         }
         skipped -= restored
         log.info(
@@ -113,36 +114,25 @@ class ReviewBotPhotoSyncService internal constructor(
             false
         }
 
-    private fun removeMissing(missingPaths: Set<String>): Removal {
-        if (missingPaths.isEmpty()) return Removal.NONE
+    private fun removeMissing(missingActive: Set<String>, missingRecorded: Set<String>): Removal {
+        val removed = if (missingActive.isEmpty()) 0 else transaction.execute {
+            uploadedImageRepository.findByPathIn(missingActive).onEach { it.delete() }.size
+        }!!
+        if (missingRecorded.isEmpty()) return Removal(removed, 0, 0)
         var detached = 0
         var deleted = 0
-        val stillReferenced = mutableSetOf<String>()
-        reviewRepository.findActiveRefsReferencingAny(photoPool.ownerIds(), jsonArrayOf(missingPaths)).forEach { row ->
-            val referencedMissing = missingRefsOf(row.imageRefs, missingPaths)
+        reviewRepository.findActiveRefsReferencingAny(photoPool.ownerIds(), jsonArrayOf(missingRecorded)).forEach { row ->
             val outcome = runCatching {
-                transaction.execute { detachOrDelete(row.id, missingPaths) }!!
-            }.onFailure { log.warn("리뷰 봇 사진 풀 동기화 — 리뷰 {} 의 사라진 사진 처리 실패(사진 행은 남겨 다음 동기화가 다시 잡는다)", row.id, it) }.getOrNull()
+                transaction.execute { detachOrDelete(row.id, missingRecorded) }!!
+            }.onFailure { log.warn("리뷰 봇 사진 풀 동기화 — 리뷰 {} 의 사라진 사진 처리 실패(다음 동기화가 기록 경로 기준으로 다시 잡는다)", row.id, it) }.getOrNull()
             when (outcome) {
                 Outcome.DETACHED -> detached++
                 Outcome.DELETED -> deleted++
-                else -> stillReferenced += referencedMissing
+                else -> Unit
             }
         }
-        val removable = missingPaths - stillReferenced
-        val removed = if (removable.isEmpty()) 0 else transaction.execute {
-            uploadedImageRepository.findByPathIn(removable).onEach { it.delete() }.size
-        }!!
         return Removal(removed, detached, deleted)
     }
-
-    private fun missingRefsOf(imageRefsJson: String, missingPaths: Set<String>): Set<String> =
-        runCatching { objectMapper.readTree(imageRefsJson) }.getOrNull()
-            ?.takeIf { it.isArray }
-            ?.mapNotNull { node -> node.takeIf { it.isTextual }?.asText() }
-            ?.filter { it in missingPaths }
-            ?.toSet()
-            ?: missingPaths
 
     private fun detachOrDelete(reviewId: Long, missingPaths: Set<String>): Outcome {
         val review = reviewRepository.findById(reviewId).orElse(null) ?: return Outcome.UNCHANGED

@@ -143,22 +143,8 @@ class MemberService(
     }
 
     @Transactional
-    fun decreaseReviewCount(memberId: Long) {
-        if (memberRepository.decreaseReviewCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
-    @Transactional
     fun increaseUniqueReviewedFoodCount(memberId: Long) {
         if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
-    @Transactional
-    fun decreaseUniqueReviewedFoodCount(memberId: Long) {
-        if (memberRepository.decreaseUniqueReviewedFoodCount(memberId) == 0) {
             throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
     }
