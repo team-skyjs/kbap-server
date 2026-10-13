@@ -19,6 +19,10 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
 
     fun findByPath(path: String): UploadedImage?
 
+    fun findByPathIn(paths: Collection<String>): List<UploadedImage>
+
+    fun findByPathStartingWithOrderByPath(prefix: String): List<UploadedImage>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UploadedImage u where u.path in :paths")
     fun findByPathInForUpdate(@Param("paths") paths: Collection<String>): List<UploadedImage>

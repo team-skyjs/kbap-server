@@ -29,4 +29,14 @@ class UploadedImageService(
             .toSet()
         return ownedPaths.containsAll(paths)
     }
+
+    @Transactional(readOnly = true)
+    fun areAllOwnedByAnyOf(paths: List<String>, segment: String, ownerIds: Set<Long>): Boolean {
+        if (paths.isEmpty()) return false
+        val verified = uploadedImageRepository.findByPathIn(paths)
+            .filter { image -> image.path.contains(segment) && image.memberId in ownerIds }
+            .map { it.path }
+            .toSet()
+        return verified.containsAll(paths)
+    }
 }

@@ -27,6 +27,8 @@ class ReviewBotWriter(
     private val ingredientRepository: IngredientJpaRepository,
     private val reviewService: ReviewService,
     private val generator: ReviewTextGenerator?,
+    private val priorityList: ReviewBotPriorityList,
+    private val photoPool: ReviewBotPhotoPool,
     @Value("\${kbap.review-bot.min-per-day:8}") private val minPerDay: Int,
     @Value("\${kbap.review-bot.max-per-day:12}") private val maxPerDay: Int,
     @Value("\${kbap.review-bot.time-budget:15m}") private val timeBudget: Duration,
@@ -44,11 +46,20 @@ class ReviewBotWriter(
         val plan = ReviewBotDailyPlan.of(kst.toLocalDate(), minPerDay, maxPerDay, FIRST_HOUR, LAST_HOUR)
         val due = plan.dueUntil(kst.hour) - reviewRepository.countReviewBotReviewsSince(dayStart).toInt()
         if (due <= 0) return
+        val botIds = bots.map { it.id }.toSet()
         var written = 0
         var afterReviewCount = 0L
         var afterFoodId = 0L
         var pages = 0
         val tried = mutableSetOf<Long>()
+        for (foodId in priorityFoodIds(botIds, dayStart)) {
+            if (written >= due) break
+            if (System.nanoTime() >= deadline) {
+                log.warn("리뷰 봇 — 시간 예산({})을 넘겨 이번 틱을 멈춥니다", timeBudget)
+                break
+            }
+            if (tried.add(foodId) && writeOne(foodId, bots, generator, random) != null) written++
+        }
         candidates@ while (written < due && pages++ < MAX_PAGES) {
             val page = reviewRepository.findReviewBotCandidatePage(dayStart, afterReviewCount, afterFoodId, due * CANDIDATE_FACTOR)
             if (page.isEmpty()) break
@@ -66,10 +77,26 @@ class ReviewBotWriter(
         log.info("리뷰 봇 작성 day={} hour={} target={} due={} written={} pages={}", kst.toLocalDate(), kst.hour, plan.target, due, written, pages)
     }
 
+    private fun priorityFoodIds(botIds: Set<Long>, dayStart: LocalDateTime): List<Long> {
+        val foods = foodRepository.findByKoreanNameIn(priorityList.koreanNames.toSet()).filter { it.isReady() }.associateBy { it.koreanName }
+        if (foods.isEmpty()) return emptyList()
+        val botReviews = reviewRepository.countBotReviewsByFoodIds(foods.values.map { it.id }).associate { it.foodId to it.botReviewCount }
+        return priorityList.koreanNames.mapNotNull { foods[it] }
+            .filter { (botReviews[it.id] ?: 0L) < ReviewBotPriorityList.MAX_BOT_REVIEWS }
+            .filterNot { reviewRepository.existsByFoodIdAndMemberIdInAndCreatedAtGreaterThanEqual(it.id, botIds, dayStart) }
+            .map { it.id }
+    }
+
     private fun writeOne(foodId: Long, bots: List<Member>, generator: ReviewTextGenerator, random: Random): Long? {
+        val botIds = bots.map { it.id }.toSet()
         val reviewed = reviewRepository.findReviewerIdsOfFood(foodId, bots.map { it.id }).toSet()
         val bot = bots.filterNot { it.id in reviewed }.randomOrNull(random) ?: return null
         val food = foodRepository.findById(foodId).orElse(null)?.takeIf { it.isReady() } ?: return null
+        val pool = photoPool.pathsFor(food.koreanName, botIds)
+        if (pool.isEmpty()) {
+            log.info("리뷰 봇 — 사진 풀이 비어 건너뜁니다 foodId={} key={}", foodId, ReviewBotPhotoPool.keyOf(food.koreanName))
+            return null
+        }
         val rating = ReviewBotCountries.rating(random)
         val request = ReviewDraftRequest(
             foodName = food.displayName(LanguageCode.EN),
@@ -79,8 +106,10 @@ class ReviewBotWriter(
             rating = rating,
         )
         val content = generateAcceptable(foodId, generator, request) ?: return null
+        val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, botIds)?.imageRefs.orEmpty().toSet()
+        val photos = ReviewBotPhotoPool.pickCombination(pool, previous, random)
         return runCatching {
-            reviewService.createReview(bot.id, foodId, rating, null, null, content, null, null).reviewId
+            reviewService.createBotReview(bot.id, foodId, rating, content, photos, botIds).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 

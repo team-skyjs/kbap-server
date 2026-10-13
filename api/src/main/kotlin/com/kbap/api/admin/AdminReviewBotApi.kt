@@ -2,6 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountsResult
+import com.kbap.api.reviewbot.ReviewBotPhotoSyncResult
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -32,6 +33,38 @@ interface AdminReviewBotApi {
     )
     @SecurityRequirement(name = "bearerAuth")
     fun ensureBots(request: AdminReviewBotRequest): ResponseEntity<BaseResponse<AdminReviewBotResponse>>
+
+    @Operation(
+        summary = "리뷰 봇 사진 풀 동기화(멱등)",
+        description = """
+            스토리지 접두 `{key-prefix}/images/review-bot/` 를 훑어 `<key>/<n>.webp`(key = sha256(korean_name)[:12] 소문자 hex) 꼴의
+            오브젝트를 `uploaded_image` 에 등록한다. 소유자는 활성 봇 중 id 가 가장 작은 계정. 이미 등록된 경로는 건너뛰어
+            재실행해도 행이 늘지 않는다. 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
+            봇 리뷰 작성기는 음식의 풀에서 1~3장을 골라 붙이고, 풀이 빈 음식은 건너뛴다.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "동기화 결과 — 등록 수·건너뜀 수·키별 장수"),
+        ApiResponse(responseCode = "400", description = "활성 봇 계정이 없어 소유자를 정할 수 없음(COMMON-002) — 먼저 POST /api/admin/review-bots"),
+        ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    fun syncPhotoPool(): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>>
+}
+
+@Schema(description = "리뷰 봇 사진 풀 동기화 결과")
+data class AdminReviewBotPhotoSyncResponse(
+    @field:Schema(description = "이번 호출에서 uploaded_image 에 새로 등록한 사진 수", example = "180")
+    val registeredCount: Int,
+    @field:Schema(description = "이미 등록돼 건너뛴 사진 수(재실행 시 전부 여기로)", example = "0")
+    val skippedCount: Int,
+    @field:Schema(description = "풀 키(sha256(korean_name)[:12])별 S3 에 있는 장수", example = """{"6a2c1605affd": 3}""")
+    val imagesPerKey: Map<String, Int>,
+) {
+    companion object {
+        fun from(result: ReviewBotPhotoSyncResult): AdminReviewBotPhotoSyncResponse =
+            AdminReviewBotPhotoSyncResponse(result.registeredCount, result.skippedCount, result.imagesPerKey)
+    }
 }
 
 @Schema(description = "리뷰 봇 계정 보장 요청")

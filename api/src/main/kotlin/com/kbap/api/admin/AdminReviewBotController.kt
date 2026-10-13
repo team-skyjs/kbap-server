@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountService
+import com.kbap.api.reviewbot.ReviewBotPhotoSyncService
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
@@ -14,7 +15,12 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.ADMIN + "/review-bots", version = "1.0+")
 class AdminReviewBotController(
     private val accountService: ReviewBotAccountService,
+    private val photoSyncService: ReviewBotPhotoSyncService,
 ) : AdminReviewBotApi {
+    @PostMapping("/images/sync")
+    override fun syncPhotoPool(): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(AdminReviewBotPhotoSyncResponse.from(photoSyncService.sync())))
+
     @PostMapping
     override fun ensureBots(
         @Valid @RequestBody request: AdminReviewBotRequest,

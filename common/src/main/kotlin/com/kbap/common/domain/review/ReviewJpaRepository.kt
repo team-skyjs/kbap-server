@@ -113,6 +113,21 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
 
     @Query(
         nativeQuery = true,
+        value = """
+            SELECT r.food_id AS foodId, COUNT(*) AS botReviewCount
+            FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.food_id IN (:foodIds)
+            GROUP BY r.food_id
+        """,
+    )
+    fun countBotReviewsByFoodIds(@Param("foodIds") foodIds: Collection<Long>): List<FoodBotReviewCount>
+
+    fun existsByFoodIdAndMemberIdInAndCreatedAtGreaterThanEqual(foodId: Long, memberIds: Collection<Long>, since: LocalDateTime): Boolean
+
+    fun findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId: Long, memberIds: Collection<Long>): Review?
+
+    @Query(
+        nativeQuery = true,
         value = "SELECT DISTINCT r.member_id FROM food_review r WHERE r.food_id = :foodId AND r.member_id IN (:memberIds)",
     )
     fun findReviewerIdsOfFood(@Param("foodId") foodId: Long, @Param("memberIds") memberIds: Collection<Long>): List<Long>

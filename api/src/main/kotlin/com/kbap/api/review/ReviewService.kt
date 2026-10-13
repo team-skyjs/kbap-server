@@ -55,6 +55,35 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         verifyImageOwnership(memberId, imagePaths)
+        return persistReview(memberId, foodId, rating, servingSpeed, staffKindness, content, imagePaths, place)
+    }
+
+    @Transactional
+    fun createBotReview(
+        botId: Long,
+        foodId: Long,
+        rating: Int,
+        content: String,
+        imagePaths: List<String>,
+        botIds: Set<Long>,
+    ): ReviewResponse {
+        foodService.getReadyFood(foodId)
+        if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, REVIEW_BOT_IMAGE_SEGMENT, botIds)) {
+            throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
+        }
+        return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
+    }
+
+    private fun persistReview(
+        memberId: Long,
+        foodId: Long,
+        rating: Int,
+        servingSpeed: Int?,
+        staffKindness: Int?,
+        content: String?,
+        imagePaths: List<String>?,
+        place: ReviewPlace?,
+    ): ReviewResponse {
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         memberService.increaseReviewCount(memberId)
         foodRepository.increaseReviewCount(foodId)
@@ -333,6 +362,7 @@ class ReviewService(
 
         const val PAGE_SIZE = 50
         const val RECENT_REVIEWS_SIZE = 5
+        const val REVIEW_BOT_IMAGE_SEGMENT = "images/review-bot/"
     }
 }
 
