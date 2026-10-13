@@ -25,6 +25,9 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
 
     fun findByIsBotTrueAndMemberStatus(memberStatus: MemberStatus): List<Member>
 
+    @Query(nativeQuery = true, value = "SELECT m.id FROM member m WHERE m.is_bot = 1")
+    fun findBotMemberIdsAnyStatus(): List<Long>
+
     @Query(nativeQuery = true, value = "SELECT GET_LOCK(:name, :timeoutSeconds)")
     fun acquireNamedLock(@Param("name") name: String, @Param("timeoutSeconds") timeoutSeconds: Int): Int
 
