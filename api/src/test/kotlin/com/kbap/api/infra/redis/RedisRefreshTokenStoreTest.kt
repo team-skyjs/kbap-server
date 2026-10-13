@@ -67,7 +67,7 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
             then("회원과 후속 토큰을 돌려주고, 후속 세션을 저장하며, 직전 키는 유예 창 길이의 '회전됨' 표시로 바뀐다") {
                 store.save("jti-rotate", memberId = 30L, ttl = ttl)
 
-                val rotation = store.rotate("jti-rotate", IssuedRefreshToken("token-next", "jti-next"), ttl, grace)
+                val rotation = store.rotate("jti-rotate", 30L, IssuedRefreshToken("token-next", "jti-next"), ttl, grace)
 
                 rotation shouldBe RefreshRotation(memberId = 30L, refreshToken = "token-next")
                 redisTemplate.opsForValue().get("auth:refresh:jti-next") shouldBe "30"
@@ -78,9 +78,9 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
         `when`("유예 창 안에 같은 jti 를 다시 회전하면") {
             then("새 세션을 만들지 않고 처음 후속 토큰을 그대로 돌려준다") {
                 store.save("jti-replay", memberId = 31L, ttl = ttl)
-                store.rotate("jti-replay", IssuedRefreshToken("token-first", "jti-first"), ttl, grace)
+                store.rotate("jti-replay", 31L, IssuedRefreshToken("token-first", "jti-first"), ttl, grace)
 
-                val replay = store.rotate("jti-replay", IssuedRefreshToken("token-second", "jti-second"), ttl, grace)
+                val replay = store.rotate("jti-replay", 31L, IssuedRefreshToken("token-second", "jti-second"), ttl, grace)
 
                 replay shouldBe RefreshRotation(memberId = 31L, refreshToken = "token-first")
                 redisTemplate.hasKey("auth:refresh:jti-second") shouldBe false
@@ -90,10 +90,10 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
         `when`("유예 창이 지난 뒤 같은 jti 를 다시 회전하면") {
             then("null — 직전 토큰은 더는 통하지 않는다") {
                 store.save("jti-expired", memberId = 32L, ttl = ttl)
-                store.rotate("jti-expired", IssuedRefreshToken("token-a", "jti-a"), ttl, Duration.ofSeconds(1))
+                store.rotate("jti-expired", 32L, IssuedRefreshToken("token-a", "jti-a"), ttl, Duration.ofSeconds(1))
                 Thread.sleep(1_500)
 
-                store.rotate("jti-expired", IssuedRefreshToken("token-b", "jti-b"), ttl, Duration.ofSeconds(1)).shouldBeNull()
+                store.rotate("jti-expired", 32L, IssuedRefreshToken("token-b", "jti-b"), ttl, Duration.ofSeconds(1)).shouldBeNull()
                 redisTemplate.hasKey("auth:refresh:jti-b") shouldBe false
             }
         }
@@ -101,17 +101,37 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
         `when`("유예 창 안이지만 후속 세션이 로그아웃으로 폐기됐으면") {
             then("null — 폐기된 후속 토큰을 되살려 내주지 않는다") {
                 store.save("jti-logged-out", memberId = 33L, ttl = ttl)
-                store.rotate("jti-logged-out", IssuedRefreshToken("token-c", "jti-c"), ttl, grace)
+                store.rotate("jti-logged-out", 33L, IssuedRefreshToken("token-c", "jti-c"), ttl, grace)
                 store.delete("jti-c")
 
-                store.rotate("jti-logged-out", IssuedRefreshToken("token-d", "jti-d"), ttl, grace).shouldBeNull()
+                store.rotate("jti-logged-out", 33L, IssuedRefreshToken("token-d", "jti-d"), ttl, grace).shouldBeNull()
             }
         }
 
         `when`("없는 jti 를 회전하면") {
             then("null 을 반환하고 아무것도 저장하지 않는다") {
-                store.rotate("jti-absent", IssuedRefreshToken("token-e", "jti-e"), ttl, grace).shouldBeNull()
+                store.rotate("jti-absent", 99L, IssuedRefreshToken("token-e", "jti-e"), ttl, grace).shouldBeNull()
                 redisTemplate.hasKey("auth:refresh:jti-e") shouldBe false
+            }
+        }
+
+        `when`("로그아웃(직전 토큰 키 삭제)이 회전보다 먼저 끝나면 — 경합 ②") {
+            then("회전은 null(401) 이고 회전이 미리 써 둔 후속 키도 지워져 고아 세션이 남지 않는다") {
+                store.save("jti-logout-first", memberId = 45L, ttl = ttl)
+                store.delete("jti-logout-first")
+
+                store.rotate("jti-logout-first", 45L, IssuedRefreshToken("jti-token-lf", "jti-jti-lf"), ttl, grace).shouldBeNull()
+                redisTemplate.hasKey("auth:refresh:jti-jti-lf") shouldBe false
+            }
+        }
+
+        `when`("저장된 회원과 다른 회원으로 회전을 요청하면") {
+            then("null 이고 직전 세션은 그대로, 후속 키는 남지 않는다") {
+                store.save("jti-mismatch", memberId = 46L, ttl = ttl)
+
+                store.rotate("jti-mismatch", 47L, IssuedRefreshToken("jti-token-mm", "jti-jti-mm"), ttl, grace).shouldBeNull()
+                redisTemplate.opsForValue().get("auth:refresh:jti-mismatch") shouldBe "46"
+                redisTemplate.hasKey("auth:refresh:jti-jti-mm") shouldBe false
             }
         }
 
@@ -124,7 +144,7 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
                     val futures = (1..8).map { i ->
                         pool.submit(java.util.concurrent.Callable {
                             start.await()
-                            store.rotate("jti-race", IssuedRefreshToken("token-race-$i", "jti-race-$i"), ttl, grace)
+                            store.rotate("jti-race", 34L, IssuedRefreshToken("token-race-$i", "jti-race-$i"), ttl, grace)
                         })
                     }
                     start.countDown()
@@ -154,7 +174,7 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
         `when`("회전 직후(유예 창 안) 직전 jti 를 삭제하면") {
             then("'회전됨' 표시와 함께 후속 세션도 지운다 — 옛 토큰 로그아웃이 후속 세션을 살려 두지 않는다") {
                 store.save("jti-old-logout", memberId = 14L, ttl = ttl)
-                store.rotate("jti-old-logout", IssuedRefreshToken("token-after", "jti-after"), ttl, Duration.ofSeconds(60))
+                store.rotate("jti-old-logout", 14L, IssuedRefreshToken("token-after", "jti-after"), ttl, Duration.ofSeconds(60))
 
                 store.delete("jti-old-logout")
 
