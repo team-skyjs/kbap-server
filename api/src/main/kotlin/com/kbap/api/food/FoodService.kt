@@ -35,6 +35,7 @@ class FoodService(
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val popularFoodIdCache: PopularFoodIdCache,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -202,8 +203,8 @@ class FoodService(
     }
 
     @Transactional(readOnly = true)
-    fun getPopularFoods(memberId: Long?, lang: LanguageCode, popularFoodIds: List<Long>): List<FoodSummaryView> =
-        summaryViews(loadInGivenOrder(popularFoodIds), lang, memberId)
+    fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)
 
     @Transactional(readOnly = true)
     fun getRandomMarketingPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> {
