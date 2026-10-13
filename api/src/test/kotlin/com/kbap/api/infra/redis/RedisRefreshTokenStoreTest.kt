@@ -151,6 +151,18 @@ class RedisRefreshTokenStoreTest : BehaviorSpec({
             }
         }
 
+        `when`("회전 직후(유예 창 안) 직전 jti 를 삭제하면") {
+            then("'회전됨' 표시와 함께 후속 세션도 지운다 — 옛 토큰 로그아웃이 후속 세션을 살려 두지 않는다") {
+                store.save("jti-old-logout", memberId = 14L, ttl = ttl)
+                store.rotate("jti-old-logout", IssuedRefreshToken("token-after", "jti-after"), ttl, Duration.ofSeconds(60))
+
+                store.delete("jti-old-logout")
+
+                redisTemplate.hasKey("auth:refresh:jti-old-logout") shouldBe false
+                redisTemplate.hasKey("auth:refresh:jti-after") shouldBe false
+            }
+        }
+
         `when`("없는 jti 를 삭제하면") {
             then("예외 없이 통과한다") {
                 store.delete("jti-never-existed")

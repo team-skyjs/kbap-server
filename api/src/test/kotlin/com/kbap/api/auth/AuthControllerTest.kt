@@ -368,6 +368,18 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("재발급 직후(유예 창 안) 옛 refresh 토큰으로 로그아웃하면") {
+                then("후속 세션까지 폐기된다 — 후속 refresh 토큰으로 재발급하면 401") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+                    val successor = bodyToken(refresh(oldRefresh).andReturn().response, "refreshToken")
+
+                    logout(oldRefresh).andReturn().response.status shouldBe 200
+
+                    refresh(successor).andReturn().response.status shouldBe 401
+                    refresh(oldRefresh).andReturn().response.status shouldBe 401
+                }
+            }
+
             `when`("refresh 토큰 없이 로그아웃하면") {
                 then("200 으로 멱등 처리된다") {
                     logout(null).andReturn().response.status shouldBe 200
