@@ -205,7 +205,7 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun getCuratedFoods(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
-        summaryViews(loadInGivenOrder(ids), lang, memberId)
+        summaryViews(loadInGivenOrder(ids).filter { it.isReady() }, lang, memberId)
 
     @Transactional(readOnly = true)
     fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {

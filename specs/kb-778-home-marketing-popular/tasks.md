@@ -64,11 +64,11 @@
 
 ### Tests for User Story 2 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T009 [US2] `HomeMarketingPopularTest.kt` 에 given("1.0 홈 — 마케팅 기간 안") 을 추가한다. (1) when("1.0 헤더로 조회하면") then("popularFoods 는 조회 수 집계 결과이고 설정 순서가 아니다") — 음식 3개 시드 후 음식 2 에 `food_view_log` 2건을 추가로 INSERT(`HomeTestSeed` 의 INSERT 문 형식 재사용) 하면 집계는 `[2, 3, 1]`(조회 수 desc, 동률 id desc) 이므로 `popularIds(null, "1.0") shouldContainExactly listOf(2L, 3L, 1L)` 이고 `popularIds(null, "2.1") shouldContainExactly listOf(3L, 1L, 2L)`, (2) when("1.0 과 2.1 로 같은 회원이 조회하면") then("popularFoods 를 뺀 payload 가 같다") — 두 payload 를 `ObjectNode` 로 받아 `remove("popularFoods")` 후 `shouldBe`. 이 테스트는 US1 구현 위에서 **바로 Green 이어야 정상**이다(구조 보장). Red 가 나면 1.0 경로가 오염된 것이므로 구현을 고친다.
+- [X] T009 [US2] `HomeMarketingPopularTest.kt` 에 given("1.0 홈 — 마케팅 기간 안") 을 추가한다. (1) when("1.0 헤더로 조회하면") then("popularFoods 는 조회 수 집계 결과이고 설정 순서가 아니다") — 음식 3개 시드 후 음식 2 에 `food_view_log` 2건을 추가로 INSERT(`HomeTestSeed` 의 INSERT 문 형식 재사용) 하면 집계는 `[2, 3, 1]`(조회 수 desc, 동률 id desc) 이므로 `popularIds(null, "1.0") shouldContainExactly listOf(2L, 3L, 1L)` 이고 `popularIds(null, "2.1") shouldContainExactly listOf(3L, 1L, 2L)`, (2) when("1.0 과 2.1 로 같은 회원이 조회하면") then("popularFoods 를 뺀 payload 가 같다") — 두 payload 를 `ObjectNode` 로 받아 `remove("popularFoods")` 후 `shouldBe`. 이 테스트는 US1 구현 위에서 **바로 Green 이어야 정상**이다(구조 보장). Red 가 나면 1.0 경로가 오염된 것이므로 구현을 고친다.
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] 구현 변경 없음을 확인한다 — `git diff develop -- api/src/main/kotlin/com/kbap/api/food/FoodService.kt` 에서 `getPopularFoods` 본문이 무변경이고, `HomeController.home` 에 `version` 인자가 없는지 본다. `HomeControllerTest`·`HomeGuestTest`·`HomePopularCacheTest` 는 수정하지 않는다.
+- [X] T010 [US2] 구현 변경 없음을 확인한다 — `git diff develop -- api/src/main/kotlin/com/kbap/api/food/FoodService.kt` 에서 `getPopularFoods` 본문이 무변경이고, `HomeController.home` 에 `version` 인자가 없는지 본다. `HomeControllerTest`·`HomeGuestTest`·`HomePopularCacheTest` 는 수정하지 않는다.
 
 **Checkpoint**: 1.0 계약 불변 고정. 커밋은 US1 커밋에 포함하거나 `test(home): 1.0 홈이 마케팅 목록의 영향을 받지 않음을 고정한다`.
 
@@ -82,11 +82,11 @@
 
 ### Tests for User Story 3 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T011 [P] [US3] `HomeMarketingPopularPropertiesTest.kt` 의 given("마케팅 인기 음식 설정") 에 추가: when("시작 전이면")·when("종료 이후면") then("빈 목록이다"); when("시작 시각 정각이면") then("활성이다"); when("종료 시각 정각이면") then("빈 목록이다"); when("시작·종료 중 하나가 null 이면") then("빈 목록이다"); when("시작이 종료보다 늦으면") then("빈 목록이다"); when("기간 안이지만 food-ids 가 비어 있으면") then("빈 목록이다").
+- [X] T011 [P] [US3] `HomeMarketingPopularPropertiesTest.kt` 의 given("마케팅 인기 음식 설정") 에 추가: when("시작 전이면")·when("종료 이후면") then("빈 목록이다"); when("시작 시각 정각이면") then("활성이다"); when("종료 시각 정각이면") then("빈 목록이다"); when("시작·종료 중 하나가 null 이면") then("빈 목록이다"); when("시작이 종료보다 늦으면") then("빈 목록이다"); when("기간 안이지만 food-ids 가 비어 있으면") then("빈 목록이다").
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] `./gradlew :api:test` 를 돌려 T011 가 T004 의 `activeFoodIds` 로 이미 Green 인지 확인한다. Red 인 분기(경계 포함/제외·null·역전)만 `HomeMarketingPopularProperties.activeFoodIds` 에서 고친다. `getMarketingHome` 의 폴백이 `getHome` 위임임을 유지한다(캐시 호출이 트랜잭션 밖에서 돈다는 KB-725 `check` 가 통과해야 한다).
+- [X] T012 [US3] `./gradlew :api:test` 를 돌려 T011 가 T004 의 `activeFoodIds` 로 이미 Green 인지 확인한다. Red 인 분기(경계 포함/제외·null·역전)만 `HomeMarketingPopularProperties.activeFoodIds` 에서 고친다. `getMarketingHome` 의 폴백이 `getHome` 위임임을 유지한다(캐시 호출이 트랜잭션 밖에서 돈다는 KB-725 `check` 가 통과해야 한다).
 
 **Checkpoint**: 설정만으로 켜고 끈다. 커밋: `feat(home): 마케팅 기간 밖·빈 목록이면 조회 수 집계로 폴백한다`(변경이 없으면 테스트 커밋).
 
@@ -100,11 +100,11 @@
 
 ### Tests for User Story 4 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
 
-- [ ] T013 [US4] `HomeMarketingPopularTest.kt` 에 given("2.1 홈 — 노출 불가 음식") 을 추가한다. (1) when("목록의 음식 1 이 READY 가 아니면") then("popularFoods 는 3, 2 이고 길이 2 다") — `execute("UPDATE food SET content_status = 'FAILED' WHERE id = 1")`, (2) when("목록의 음식 1 이 삭제되면") then("popularFoods 는 3, 2 다") — `UPDATE food SET status = 'DELETED' WHERE id = 1`, (3) when("목록의 음식이 전부 READY 가 아니면") then("popularFoods 는 빈 배열이고 조회 수 집계로 폴백하지 않는다") — 1·2·3 전부 FAILED, 조회 로그는 있는 상태에서 `popularIds(null, "2.1") shouldBe emptyList()` 이면서 `popularIds(null, "1.0")` 는 비어 있지 않아야 한다(집계 SQL 도 READY 만 보므로 1.0 도 빈 목록이 된다 — 그러면 1.0 비교 대신 음식 4 를 READY 로 추가 시드해 1.0 은 `[4]`, 2.1 은 `[]` 로 가른다). `./gradlew :api:test` 로 (1)·(3) Red 확인((2) 는 `@SQLRestriction` 으로 이미 Green 일 수 있다).
+- [X] T013 [US4] `HomeMarketingPopularTest.kt` 에 given("2.1 홈 — 노출 불가 음식") 을 추가한다. (1) when("목록의 음식 1 이 READY 가 아니면") then("popularFoods 는 3, 2 이고 길이 2 다") — `execute("UPDATE food SET content_status = 'FAILED' WHERE id = 1")`, (2) when("목록의 음식 1 이 삭제되면") then("popularFoods 는 3, 2 다") — `UPDATE food SET status = 'DELETED' WHERE id = 1`, (3) when("목록의 음식이 전부 READY 가 아니면") then("popularFoods 는 빈 배열이고 조회 수 집계로 폴백하지 않는다") — 1·2·3 전부 FAILED, 조회 로그는 있는 상태에서 `popularIds(null, "2.1") shouldBe emptyList()` 이면서 `popularIds(null, "1.0")` 는 비어 있지 않아야 한다(집계 SQL 도 READY 만 보므로 1.0 도 빈 목록이 된다 — 그러면 1.0 비교 대신 음식 4 를 READY 로 추가 시드해 1.0 은 `[4]`, 2.1 은 `[]` 로 가른다). `./gradlew :api:test` 로 (1)·(3) Red 확인((2) 는 `@SQLRestriction` 으로 이미 Green 일 수 있다).
 
 ### Implementation for User Story 4
 
-- [ ] T014 [US4] `api/src/main/kotlin/com/kbap/api/food/FoodService.kt` 의 `getCuratedFoods` 본문을 `summaryViews(loadInGivenOrder(ids).filter { it.isReady() }, lang, memberId)` 로 바꾼다. `./gradlew :api:test` 전체 Green 확인.
+- [X] T014 [US4] `api/src/main/kotlin/com/kbap/api/food/FoodService.kt` 의 `getCuratedFoods` 본문을 `summaryViews(loadInGivenOrder(ids).filter { it.isReady() }, lang, memberId)` 로 바꾼다. `./gradlew :api:test` 전체 Green 확인.
 
 **Checkpoint**: 설정 실수·콘텐츠 상태 변화에도 준비 안 된 음식이 노출되지 않는다. 커밋: `feat(home): 마케팅 인기 목록에서 READY 가 아닌 음식을 제외한다`.
 
