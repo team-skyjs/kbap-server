@@ -32,6 +32,10 @@ class AuthControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+
+    @Autowired
+    private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
+
     @Autowired
     private lateinit var memberRepository: com.kbap.common.domain.member.MemberJpaRepository
 
@@ -84,6 +88,9 @@ class AuthControllerTest : BehaviorSpec() {
 
         fun bodyToken(response: MockHttpServletResponse, field: String): String =
             objectMapper.readTree(response.contentAsString).path("payload").path(field).asText()
+
+        fun jtiOf(token: String): String =
+            objectMapper.readTree(java.util.Base64.getUrlDecoder().decode(token.split(".")[1])).path("jti").asText()
 
         fun refresh(refreshToken: String?) =
             mockMvc.post("/api/auth/refresh") {
@@ -266,12 +273,30 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("재발급 후 이전 refresh 토큰을 다시 쓰면") {
-                then("401 로 거절된다(rotation 으로 폐기됨)") {
+            `when`("재발급 직후 응답을 못 받은 앱이 같은 refresh 토큰을 다시 보내면(유예 창 안)") {
+                then("200 이고 처음 재발급과 같은 refresh 토큰을 다시 내준다 — 그 토큰으로 다음 재발급도 된다") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+                    val first = bodyToken(refresh(oldRefresh).andReturn().response, "refreshToken")
+
+                    val retry = refresh(oldRefresh).andReturn().response
+
+                    retry.status shouldBe 200
+                    bodyToken(retry, "refreshToken") shouldBe first
+                    bodyToken(retry, "accessToken").isNotBlank() shouldBe true
+                    refresh(first).andReturn().response.status shouldBe 200
+                }
+            }
+
+            `when`("유예 창이 지난 뒤 이전 refresh 토큰을 다시 쓰면") {
+                then("401 AUTH-005 로 거절된다(rotation 으로 폐기됨)") {
                     val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
                     refresh(oldRefresh).andReturn()
+                    redisTemplate.delete("auth:refresh:${jtiOf(oldRefresh)}")
 
-                    refresh(oldRefresh).andReturn().response.status shouldBe 401
+                    val response = refresh(oldRefresh).andReturn().response
+
+                    response.status shouldBe 401
+                    objectMapper.readTree(response.contentAsString).path("code").asText() shouldBe "AUTH-005"
                 }
             }
         }
