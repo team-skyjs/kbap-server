@@ -33,14 +33,15 @@ class AdminMemberQueryService(
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
-    fun searchMemberPage(page: Int, query: String? = null): AdminMemberListResponse {
+    fun searchMemberPage(page: Int, query: String? = null, isBot: Boolean? = null): AdminMemberListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, PAGE_SIZE)
         val result = when (keyword) {
-            null -> memberRepository.findPageAnyStatus(pageable)
+            null -> memberRepository.findPageAnyStatus(isBot, pageable)
             else -> memberRepository.searchPageAnyStatusByKeyword(
                 LikeWildcards.escape(keyword),
                 keyword.toLongOrNull() ?: NO_MEMBER_ID,
+                isBot,
                 pageable,
             )
         }

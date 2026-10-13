@@ -29,9 +29,10 @@ class AdminMemberController(
     override fun searchMemberPage(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) isBot: Boolean?,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(adminMemberQueryService.searchMemberPage(page.coerceAtLeast(1), q)),
+            BaseResponse.ok(adminMemberQueryService.searchMemberPage(page.coerceAtLeast(1), q, isBot)),
         )
 
     @GetMapping("/{id}")

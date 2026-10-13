@@ -35,31 +35,34 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun releaseNamedLock(@Param("name") name: String): Int?
 
     @Query(
-        value = "SELECT * FROM member ORDER BY id DESC",
-        countQuery = "SELECT count(*) FROM member",
+        value = "SELECT * FROM member WHERE (:isBot IS NULL OR is_bot = :isBot) ORDER BY id DESC",
+        countQuery = "SELECT count(*) FROM member WHERE (:isBot IS NULL OR is_bot = :isBot)",
         nativeQuery = true,
     )
-    fun findPageAnyStatus(pageable: Pageable): Page<Member>
+    fun findPageAnyStatus(@Param("isBot") isBot: Boolean?, pageable: Pageable): Page<Member>
 
     @Query(
         value = """
             SELECT * FROM member
-            WHERE id = :memberId
+            WHERE (id = :memberId
                OR nickname LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
-               OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
+               OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
+              AND (:isBot IS NULL OR is_bot = :isBot)
             ORDER BY id DESC
         """,
         countQuery = """
             SELECT count(*) FROM member
-            WHERE id = :memberId
+            WHERE (id = :memberId
                OR nickname LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
-               OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
+               OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
+              AND (:isBot IS NULL OR is_bot = :isBot)
         """,
         nativeQuery = true,
     )
     fun searchPageAnyStatusByKeyword(
         @Param("keyword") keyword: String,
         @Param("memberId") memberId: Long,
+        @Param("isBot") isBot: Boolean?,
         pageable: Pageable,
     ): Page<Member>
 
