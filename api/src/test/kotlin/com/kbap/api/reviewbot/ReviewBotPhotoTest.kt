@@ -487,7 +487,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
 
         given("풀 경로에 대한 일반 업로드 완료 신고 — POST /api/images/complete") {
             `when`("로그인 회원이 결정적 풀 경로로 완료 신고를 보내면") {
-                then("400 으로 거절하고 스토리지 삭제도 행 생성도 없다 — 풀 사진을 지우거나 가로채지 못한다") {
+                then("400 UPLOAD-004 로 거절하고 스토리지 삭제도 행 생성도 없다 — #395 의 발급 키 규칙이 풀 경로를 막는다") {
                     val member = accountService.ensureBots(1).bots.single()
                     val path = poolPath("후라이드치킨", 1)
                     storage.stub(path, "image/webp", 100_001L)
@@ -506,7 +506,9 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     }.andReturn().response
 
                     mismatch.status shouldBe 400
+                    mapper.readTree(mismatch.contentAsString).path("code").asText() shouldBe "UPLOAD-004"
                     exact.status shouldBe 400
+                    mapper.readTree(exact.contentAsString).path("code").asText() shouldBe "UPLOAD-004"
                     storage.deleted.size shouldBe 0
                     count("SELECT COUNT(*) FROM uploaded_image") shouldBe 0
                 }
