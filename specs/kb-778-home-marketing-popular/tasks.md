@@ -8,7 +8,7 @@
 
 **Organization**: 스토리별 묶음. 통합 테스트는 한 파일(`HomeMarketingPopularTest.kt`)에 스토리별 `given` 을 쌓고, 단위 테스트도 한 파일(`HomeMarketingPopularPropertiesTest.kt`)에 쌓는다.
 
-> **2026-10-13 개정 이력**: ① Phase 3~6 — `2.1+` 오버로드 + 기간 + 설정 순서(커밋됨). ② Phase 8 — 사용자 정정 "별도 API 아님" 으로 버전 분기 제거. ③ Phase 9 — 사용자 재정정 "2.1 요청이면 무조건 지정 id 중 10개" — 핸들러 하나 + 요청 버전 속성 분기, 기간 제거, 랜덤 10, 폴백 없음. 아래 Phase 3~8 문구는 당시 기록이다.
+> **2026-10-13 개정 이력**: ① Phase 3~6 — `2.1+` 오버로드 + 기간 + 설정 순서(커밋됨). ② Phase 8 — 사용자 정정 "별도 API 아님" 으로 버전 분기 제거. ③ Phase 9 — 사용자 재정정 "2.1 요청이면 무조건 지정 id 중 10개" — 핸들러 하나 + 헤더 분기, 기간 제거, 랜덤 10, 폴백 없음. ④ Phase 10 — 번호를 `1.2` 로(현재 앱 기본 헤더 1.1 의 다음). 아래 Phase 3~9 의 "2.1" 은 당시 기록이다.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -137,6 +137,12 @@
 - [X] T021 `api/src/main/kotlin/com/kbap/api/core/ApiVersions.kt` 신규(`HOME_MARKETING_POPULAR = "2.1"`, `isAtLeast(resolved, version)` — `SemanticApiVersionParser.Version` 비교). `WebConfig.configureApiVersioning` 에 `addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR)`.
 - [X] T022 `HomeController.home` 에 `@RequestHeader(ApiHeaders.API_VERSION) apiVersion: String` 추가(`AuthController` 선례, 기존 `ApiVersions.isAtLeast(String, String)` 재사용 — 덮어쓰기 사고 후 복원), `HomeApi.home` 시그니처 동기화, 인기 음식 문구를 "2.1 이상은 설정 풀에서 호출마다 무작위 최대 10개" 로. `HomeService.getHome(memberId, lang, marketingPopular)` — true 면 `foodIds.distinct()`, false 면 집계 캐시. `FoodService.getRandomCuratedFoods(memberId, lang, ids, size)` — `findByIdIn → isReady → shuffled().take(size)`. `HomeMarketingPopularProperties` 는 `foodIds` 만. yml 에서 `starts-at`/`ends-at` 제거.
 - [X] T023 테스트 — `HomeMarketingPopularPropertiesTest` 는 바인딩 2건, `HomeMarketingPopularTest` 는 헤더 2.1(풀 전부·12→10·비READY/삭제/전부 제외·회원 위험도·언어·인기 외 payload 동일) + 1.0/2.0 집계. 테스트 yml `food-ids: 1..12,999`. `./gradlew :api:test` Green, spec/plan/research/data-model/contracts/quickstart·위키·PR 본문 정정.
+
+---
+
+## Phase 10: 버전 번호 2.1 → 1.2 (2026-10-13)
+
+- [X] T024 현재 앱 전역 기본 헤더가 `1.1`(kbap-fe `client.ts`)이라 다음 릴리스 마커 `1.2` 로 바꾼다 — `ApiVersions.HOME_MARKETING_POPULAR = "1.2"`(`addSupportedVersions` 는 상수 참조라 자동), `HomeApi`·yml 주석, 테스트 헤더 `1.2`, "1.2 미만" 케이스는 1.0·1.1, `2.0` 은 1.2 이상이라 풀(테스트로 고정). spec/plan/research/contracts/quickstart·위키·PR·메모리 동기화. `./gradlew :api:test` Green.
 
 ---
 

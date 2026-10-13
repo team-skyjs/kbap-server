@@ -64,13 +64,13 @@ class HomeMarketingPopularTest : BehaviorSpec() {
             popularFoodIdCache.invalidateAll()
         }
 
-        given("X-API-Version 2.1 홈 — 마케팅 인기 풀") {
+        given("X-API-Version 1.2 홈 — 마케팅 인기 풀") {
             `when`("풀의 음식 1·2·3 만 READY 로 있으면") {
                 then("popularFoods 는 1·2·3 전부이고 미존재 999 는 없다") {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     seedExtraViews(foodId = 2L, count = 2)
 
-                    popularIds(null, "2.1") shouldContainExactlyInAnyOrder listOf(1L, 2L, 3L)
+                    popularIds(null, "1.2") shouldContainExactlyInAnyOrder listOf(1L, 2L, 3L)
                 }
             }
 
@@ -79,7 +79,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                     HomeTestSeed.seedReadyFoods(dataSource, 12)
 
                     repeat(3) {
-                        val ids = popularIds(null, "2.1")
+                        val ids = popularIds(null, "1.2")
                         ids.size shouldBe 10
                         ids.toSet().size shouldBe 10
                         ids.all { it in 1L..12L } shouldBe true
@@ -92,7 +92,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     execute("UPDATE food SET content_status = 'FAILED' WHERE id = 1")
 
-                    popularIds(null, "2.1") shouldContainExactlyInAnyOrder listOf(2L, 3L)
+                    popularIds(null, "1.2") shouldContainExactlyInAnyOrder listOf(2L, 3L)
                 }
             }
 
@@ -101,7 +101,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     execute("UPDATE food SET status = 'DELETED' WHERE id = 1")
 
-                    popularIds(null, "2.1") shouldNotContain 1L
+                    popularIds(null, "1.2") shouldNotContain 1L
                 }
             }
 
@@ -110,7 +110,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     execute("UPDATE food SET content_status = 'FAILED' WHERE id IN (1, 2, 3)")
 
-                    popularIds(null, "2.1").shouldBeEmpty()
+                    popularIds(null, "1.2").shouldBeEmpty()
                 }
             }
 
@@ -120,7 +120,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                     HomeTestSeed.seedFoodSubstance(dataSource, foodId = 1L, code = "EGG", percent = 100)
                     HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
-                    payload(11L, "2.1").path("popularFoods")
+                    payload(11L, "1.2").path("popularFoods")
                         .single { it.path("foodId").asLong() == 1L }
                         .path("overallRiskStatus").asText() shouldBe "DANGER"
                 }
@@ -130,29 +130,29 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                 then("각 항목 이름이 メニュー{id} 다") {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
 
-                    payload(null, "2.1", lang = "ja").path("popularFoods").forEach {
+                    payload(null, "1.2", lang = "ja").path("popularFoods").forEach {
                         it.path("name").asText() shouldBe "メニュー${it.path("foodId").asLong()}"
                     }
                 }
             }
 
-            `when`("같은 회원이 1.0 과 2.1 로 조회하면") {
+            `when`("같은 회원이 1.1 과 1.2 로 조회하면") {
                 then("popularFoods 를 뺀 payload 가 같다") {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     seedExtraViews(foodId = 2L, count = 2)
                     HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
 
-                    val v10 = payload(11L, "1.0") as ObjectNode
-                    val v21 = payload(11L, "2.1") as ObjectNode
-                    v10.remove("popularFoods")
-                    v21.remove("popularFoods")
+                    val v11 = payload(11L, "1.1") as ObjectNode
+                    val v12 = payload(11L, "1.2") as ObjectNode
+                    v11.remove("popularFoods")
+                    v12.remove("popularFoods")
 
-                    v21 shouldBe v10
+                    v12 shouldBe v11
                 }
             }
         }
 
-        given("X-API-Version 2.1 미만 홈") {
+        given("X-API-Version 1.2 미만 홈") {
             `when`("1.0 으로 조회하면") {
                 then("popularFoods 는 조회 수 집계 결과다") {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
@@ -162,12 +162,23 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                 }
             }
 
-            `when`("2.0 으로 조회하면") {
+            `when`("현재 앱 기본값 1.1 로 조회하면") {
                 then("popularFoods 는 조회 수 집계 결과다") {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     seedExtraViews(foodId = 2L, count = 2)
 
-                    popularIds(null, "2.0") shouldContainExactly listOf(2L, 3L, 1L)
+                    popularIds(null, "1.1") shouldContainExactly listOf(2L, 3L, 1L)
+                }
+            }
+        }
+
+        given("X-API-Version 1.2 보다 높은 홈") {
+            `when`("2.0 으로 조회하면") {
+                then("1.2 이상이므로 popularFoods 는 마케팅 풀이다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 3)
+                    seedExtraViews(foodId = 2L, count = 2)
+
+                    popularIds(null, "2.0") shouldContainExactlyInAnyOrder listOf(1L, 2L, 3L)
                 }
             }
         }

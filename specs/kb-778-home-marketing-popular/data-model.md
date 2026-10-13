@@ -13,7 +13,7 @@ DB 스키마 변경 없음. 신규 엔티티·마이그레이션 없음.
 
 ## 버전 판정 — `ApiVersions` (`com.kbap.api.core`)
 
-- `HOME_MARKETING_POPULAR = "2.1"` — `WebConfig.addSupportedVersions` 에 등록.
+- `HOME_MARKETING_POPULAR = "1.2"` — `WebConfig.addSupportedVersions` 에 등록.
 - 기존 객체(`AuthController` 의 기기 연결 1.1 분기가 사용). `isAtLeast(requested: String, minimum: String)` — `SemanticApiVersionParser` 로 파싱해 비교. 홈은 `@RequestHeader(X-API-Version)` 문자열을 넘긴다. 속성이 없거나 타입이 다르면 false(= 집계).
 
 ## 홈 조립 입력 — `HomeService.getHome(memberId, lang, marketingPopular)`

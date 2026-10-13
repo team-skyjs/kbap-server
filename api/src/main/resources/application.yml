@@ -87,8 +87,8 @@ spring:
         speech: none
 
 kbap:
-  # 홈 인기 음식 마케팅 목록(KB-778) — X-API-Version 2.1 이상의 홈은 조회 수 집계 대신 이 풀(외국인 선호 음식 id, 콤마 목록)에서
-  # 호출마다 무작위 최대 10개를 내려준다. READY 가 아닌 음식은 풀에서 빠진다. 2.1 미만은 집계 그대로. 폴백 없음 — 비어 있으면 빈 목록.
+  # 홈 인기 음식 마케팅 목록(KB-778) — X-API-Version 1.2 이상의 홈은 조회 수 집계 대신 이 풀(외국인 선호 음식 id, 콤마 목록)에서
+  # 호출마다 무작위 최대 10개를 내려준다. READY 가 아닌 음식은 풀에서 빠진다. 1.2 미만은 집계 그대로. 폴백 없음 — 비어 있으면 빈 목록.
   home:
     marketing-popular:
       food-ids: ${HOME_MARKETING_POPULAR_FOOD_IDS:}

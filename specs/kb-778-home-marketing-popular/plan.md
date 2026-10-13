@@ -6,7 +6,7 @@
 
 ## Summary
 
-기존 `GET /api/home` 핸들러 하나가 요청의 `X-API-Version` 헤더 문자열을 보고(`AuthController` 의 기기 연결 분기와 같은 `ApiVersions.isAtLeast`) **2.1 이상이면** 설정 풀(`kbap.home.marketing-popular.food-ids`)의 READY 음식에서 **호출마다 무작위 최대 10개**를 `popularFoods` 로 내려주고, 미만이면 기존 조회 수 집계(KB-725 캐시)를 쓴다. 기간 설정·폴백 없음(풀은 비우지 않는다고 가정). `2.1` 은 `WebConfig.addSupportedVersions` 로 등록해 매핑 선언 없이 받는다. 경로·`HomeResponse` 계약·DB 스키마 무변경.
+기존 `GET /api/home` 핸들러 하나가 요청의 `X-API-Version` 헤더 문자열을 보고(`AuthController` 의 기기 연결 분기와 같은 `ApiVersions.isAtLeast`) **1.2 이상이면** 설정 풀(`kbap.home.marketing-popular.food-ids`)의 READY 음식에서 **호출마다 무작위 최대 10개**를 `popularFoods` 로 내려주고, 미만이면 기존 조회 수 집계(KB-725 캐시)를 쓴다. 기간 설정·폴백 없음(풀은 비우지 않는다고 가정). `1.2` 은 `WebConfig.addSupportedVersions` 로 등록해 매핑 선언 없이 받는다. 경로·`HomeResponse` 계약·DB 스키마 무변경.
 
 > 개정(2026-10-13): ① 상위 버전 오버로드 + 기간 + 설정 순서 → ② 버전 분기 제거 → ③ 매핑 하나에서 요청 버전으로 분기, 기간 제거, 랜덤 10, 폴백 없음(사용자 결정).
 
@@ -24,9 +24,9 @@
 
 **Project Type**: web-service (모듈러 모놀리스 `:api`)
 
-**Performance Goals**: 2.1 홈 1건당 인기 레일 DB 비용 = PK IN 조회 1회. 집계 캐시는 2.1 미만 트래픽이 데운다.
+**Performance Goals**: 1.2 홈 1건당 인기 레일 DB 비용 = PK IN 조회 1회. 집계 캐시는 1.2 미만 트래픽이 데운다.
 
-**Constraints**: 핸들러·경로 하나 유지(버전별 오버로드 금지 — 사용자 결정). 2.1 은 지원 버전 등록 필수(없으면 400). 통합 테스트 컨텍스트 1개 유지.
+**Constraints**: 핸들러·경로 하나 유지(버전별 오버로드 금지 — 사용자 결정). 1.2 은 지원 버전 등록 필수(없으면 400). 통합 테스트 컨텍스트 1개 유지.
 
 **Scale/Scope**: 수정 — `HomeController`(`@RequestHeader` 버전 파라미터)·`HomeApi`(시그니처·문구)·`HomeService`(분기)·`FoodService`(메서드 1)·`WebConfig`(지원 버전 1)·`PropertiesConfig`(애너테이션 1)·`application.yml`·테스트 `application.yml`. 신규 — `ApiVersions`·`HomeMarketingPopularProperties`·테스트 2.
 
@@ -36,7 +36,7 @@
 
 | 원칙 | 판정 | 근거 |
 |------|------|------|
-| I. Test-First | PASS | 단위(빈 env·콤마 목록 바인딩)와 통합(2.1 풀 전부·12→10·비READY/삭제/전부 제외·회원 위험도·언어·인기 외 payload 동일·1.0/2.0 집계)을 구현 전 Red 로 작성. |
+| I. Test-First | PASS | 단위(빈 env·콤마 목록 바인딩)와 통합(1.2 풀 전부·12→10·비READY/삭제/전부 제외·회원 위험도·언어·인기 외 payload 동일·1.0/1.1 집계)을 구현 전 Red 로 작성. |
 | II. Bounded Contexts | PASS | 설정·분기는 `com.kbap.api.home`, 버전 판정 부품은 `com.kbap.api.core`(web 계층). `common.domain` 무변경, 도메인은 헤더를 모른다. |
 | III. Dependency Direction | PASS | `api.home` → `api.food.FoodService` → `common.domain.food`. 새 seam·어댑터 없음. |
 | IV. Persistence Ownership | PASS | 신규 쿼리 없음 — `findByIdIn` 재사용, READY 판정은 엔티티 메서드 `Food.isReady()`. 트랜잭션 경계는 `FoodService` 메서드 `@Transactional(readOnly = true)` + `HomeService.readOnlyTransaction` 기존 구조 유지. |
@@ -66,13 +66,13 @@ specs/kb-778-home-marketing-popular/
 
 ```text
 api/src/main/kotlin/com/kbap/api/core/
-├── ApiVersions.kt                    # 기존(AuthController 가 사용) + HOME_MARKETING_POPULAR = "2.1" 상수만 추가
+├── ApiVersions.kt                    # 기존(AuthController 가 사용) + HOME_MARKETING_POPULAR = "1.2" 상수만 추가
 └── config/
     ├── WebConfig.kt                  # + addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR)
     └── PropertiesConfig.kt           # + @EnableConfigurationProperties(HomeMarketingPopularProperties::class)
 api/src/main/kotlin/com/kbap/api/home/
 ├── HomeController.kt                 # home(...) 에 @RequestHeader(X-API-Version) apiVersion 추가 → ApiVersions.isAtLeast 로 플래그
-├── HomeApi.kt                        # 시그니처 동기화, 인기 음식 문구(집계 + 2.1 이상 랜덤 풀)
+├── HomeApi.kt                        # 시그니처 동기화, 인기 음식 문구(집계 + 1.2 이상 랜덤 풀)
 ├── HomeService.kt                    # getHome(memberId, lang, marketingPopular): 풀 id vs 집계 id, assembleHome 분기
 └── HomeMarketingPopularProperties.kt # 신규 — @ConfigurationProperties("kbap.home.marketing-popular") foodIds
 api/src/main/kotlin/com/kbap/api/food/
@@ -81,7 +81,7 @@ api/src/main/resources/application.yml                # + kbap.home.marketing-po
 api/src/test/resources/application.yml                # + food-ids 1..12,999
 api/src/test/kotlin/com/kbap/api/home/
 ├── HomeMarketingPopularPropertiesTest.kt   # 신규 — Binder 단위
-└── HomeMarketingPopularTest.kt             # 신규 — @IntegrationTest, 헤더 2.1 / 1.0 / 2.0
+└── HomeMarketingPopularTest.kt             # 신규 — @IntegrationTest, 헤더 1.2 / 1.0 / 2.0
 ```
 
 **Structure Decision**: 별도 테이블·관리자 API 없이 **설정값 + 기존 조회 경로 재사용**. 버전 분기는 **핸들러 하나** 안에서 요청 속성으로(사용자 결정 — 오버로드 기각). 버전 해석은 컨트롤러(web 계층)가 boolean 으로 확정해 서비스에 넘기고, 서비스·도메인은 헤더를 모른다. READY 필터·랜덤 선택은 `FoodService` 의 별도 메서드로 둬 집계 경로(`getPopularFoods`)를 건드리지 않는다.
@@ -89,7 +89,7 @@ api/src/test/kotlin/com/kbap/api/home/
 ### 핵심 설계
 
 ```kotlin
-// ApiVersions (api.core, 기존) — const val HOME_MARKETING_POPULAR = "2.1" 추가
+// ApiVersions (api.core, 기존) — const val HOME_MARKETING_POPULAR = "1.2" 추가
 fun isAtLeast(requested: String, minimum: String): Boolean = parser.parseVersion(requested) >= parser.parseVersion(minimum)
 
 // HomeController
@@ -115,7 +115,7 @@ fun getRandomCuratedFoods(memberId: Long?, lang: LanguageCode, ids: List<Long>, 
 ```
 
 - 미존재·삭제 음식은 `findByIdIn` + `@SQLRestriction(status='ACTIVE')` 가 걸러 자연 제외. 비READY 는 `isReady()` 필터.
-- 캐시 호출은 2.1 미만에서만 — 트랜잭션 밖 유지(KB-725 `check`).
+- 캐시 호출은 1.2 미만에서만 — 트랜잭션 밖 유지(KB-725 `check`).
 - `/api/home` 경로·JWT 보호 등록 변경 없음.
 
 ## Complexity Tracking

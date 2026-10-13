@@ -3,7 +3,7 @@ package com.kbap.api.core
 import org.springframework.web.accept.SemanticApiVersionParser
 
 object ApiVersions {
-    const val HOME_MARKETING_POPULAR = "2.1"
+    const val HOME_MARKETING_POPULAR = "1.2"
 
     private val parser = SemanticApiVersionParser()
 

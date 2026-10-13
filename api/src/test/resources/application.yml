@@ -22,7 +22,7 @@ spring:
         speech: none
 
 kbap:
-  # 홈 마케팅 인기 풀(KB-778) — X-API-Version 2.1 요청만 쓴다(기존 홈 테스트는 기본 헤더 1.0). 999 는 시드하지 않는 미존재 id.
+  # 홈 마케팅 인기 풀(KB-778) — X-API-Version 1.2 이상 요청만 쓴다(기존 홈 테스트는 기본 헤더 1.0). 999 는 시드하지 않는 미존재 id.
   home:
     marketing-popular:
       food-ids: 1,2,3,4,5,6,7,8,9,10,11,12,999
