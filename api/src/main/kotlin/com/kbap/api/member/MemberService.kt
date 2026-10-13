@@ -135,20 +135,6 @@ class MemberService(
         }
     }
 
-    @Transactional
-    fun increaseReviewCount(memberId: Long) {
-        if (memberRepository.increaseReviewCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
-    @Transactional
-    fun increaseUniqueReviewedFoodCount(memberId: Long) {
-        if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
     @Transactional(readOnly = true)
     fun getAvoidance(memberId: Long?): Avoidance {
         if (memberId == null) return Avoidance.NONE

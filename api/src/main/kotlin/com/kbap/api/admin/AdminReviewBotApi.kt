@@ -3,7 +3,6 @@ package com.kbap.api.admin
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountsResult
 import com.kbap.api.reviewbot.ReviewBotPhotoSyncResult
-import com.kbap.api.reviewbot.ReviewBotPhotoSyncService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
@@ -43,9 +42,9 @@ interface AdminReviewBotApi {
             오브젝트를 `uploaded_image` 에 등록한다. 소유자는 활성 봇 중 id 가 가장 작은 계정. 이미 등록된 경로는 건너뛰어
             재실행해도 행이 늘지 않는다. 스토리지에서 사라진 경로의 행은 소프트 삭제하고(`removedCount`) 그 경로를 참조하던 봇 리뷰에서 떼며(`detachedReviewCount`),
             사진이 0장이 되는 봇 리뷰는 소프트 삭제한다(`deletedReviewCount`). 다시 올라온 경로의 행은 되살린다(`restoredCount`).
-            목록이 비면 항상, 활성 풀 행이 ${ReviewBotPhotoSyncService.REMOVAL_GUARD_MIN_ROWS}개 이상인데 절반 넘게 사라졌으면 잘린 목록으로 보고
+            목록이 비면 항상, 활성 풀 행이 ${AdminReviewBotApi.REMOVAL_GUARD_MIN_ROWS}개 이상인데 절반 넘게 사라졌으면 잘린 목록으로 보고
             삭제 단계를 건너뛴다(`removalSkipped`, WARN) — 잘린 목록이 아니면 `?force=true` 로 가드를 무시한다(빈 목록은 force 로도 안 지운다).
-            작은 풀(${ReviewBotPhotoSyncService.REMOVAL_GUARD_MIN_ROWS}개 미만)은 가드 없이 지운다. 사라진 경로를 참조하던 봇 리뷰는 기록된 경로 전체(상태 무관) 기준으로 찾아
+            작은 풀(${AdminReviewBotApi.REMOVAL_GUARD_MIN_ROWS}개 미만)은 가드 없이 지운다. 사라진 경로를 참조하던 봇 리뷰는 기록된 경로 전체(상태 무관) 기준으로 찾아
             매 sync 마다 다시 잡는다(이전 처리 실패·작성기 틱과의 경쟁 포함). 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
             봇 리뷰 작성기는 음식의 풀에서 1~3장을 골라 붙이고, 풀이 빈 음식은 건너뛴다.
         """,
@@ -57,9 +56,13 @@ interface AdminReviewBotApi {
     )
     @SecurityRequirement(name = "bearerAuth")
     fun syncPhotoPool(
-        @Parameter(description = "true 면 잘린 목록 가드(활성 풀 행 ${ReviewBotPhotoSyncService.REMOVAL_GUARD_MIN_ROWS}개 이상에서 절반 초과 사라짐)를 무시하고 지운다 — 빈 목록은 force 로도 건너뛴다", example = "false")
+        @Parameter(description = "true 면 잘린 목록 가드(활성 풀 행 ${AdminReviewBotApi.REMOVAL_GUARD_MIN_ROWS}개 이상에서 절반 초과 사라짐)를 무시하고 지운다 — 빈 목록은 force 로도 건너뛴다", example = "false")
         force: Boolean,
     ): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>>
+
+    companion object {
+        const val REMOVAL_GUARD_MIN_ROWS = 10
+    }
 }
 
 @Schema(description = "리뷰 봇 사진 풀 동기화 결과")
@@ -76,6 +79,12 @@ data class AdminReviewBotPhotoSyncResponse(
     val detachedReviewCount: Int,
     @field:Schema(description = "사진이 0장이 되어 소프트 삭제한 봇 리뷰 수(사진 없는 봇 리뷰 금지)", example = "0")
     val deletedReviewCount: Int,
+    @field:Schema(description = "사라진 사진 처리에 실패한 봇 리뷰 수(WARN, 다음 sync 가 다시 잡는다)", example = "0")
+    val failedReviewCount: Int,
+    @field:Schema(description = "image_refs 를 읽을 수 없어 건너뛴 봇 리뷰 id(스택 없는 WARN 1줄, 데이터 정정 대상)", example = "[]")
+    val unparseableReviewIds: List<Long>,
+    @field:Schema(description = "영향 리뷰 탐지 쿼리 자체가 실패해 리뷰 처리를 건너뛰었는지(행 삭제는 이미 반영)", example = "false")
+    val detectionFailed: Boolean,
     @field:Schema(description = "스토리지 목록이 비어 삭제 단계를 건너뛰었는지(일시 장애 방어)", example = "false")
     val removalSkipped: Boolean,
     @field:Schema(description = "풀 키(sha256(korean_name)[:12])별 S3 에 있는 장수", example = """{"6a2c1605affd": 3}""")
@@ -90,6 +99,9 @@ data class AdminReviewBotPhotoSyncResponse(
                 removedCount = result.removedCount,
                 detachedReviewCount = result.detachedReviewCount,
                 deletedReviewCount = result.deletedReviewCount,
+                failedReviewCount = result.failedReviewCount,
+                unparseableReviewIds = result.unparseableReviewIds,
+                detectionFailed = result.detectionFailed,
                 removalSkipped = result.removalSkipped,
                 imagesPerKey = result.imagesPerKey,
             )

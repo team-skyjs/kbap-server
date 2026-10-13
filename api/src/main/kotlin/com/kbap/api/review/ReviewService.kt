@@ -86,7 +86,7 @@ class ReviewService(
         place: ReviewPlace?,
     ): ReviewResponse {
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
-        memberService.increaseReviewCount(memberId)
+        if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         foodRepository.increaseReviewCount(foodId)
 
         val review = reviewRepository.save(
@@ -106,7 +106,7 @@ class ReviewService(
 
         val firstReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 1L
         if (firstReviewOfFood) {
-            memberService.increaseUniqueReviewedFoodCount(memberId)
+            if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
         rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood))
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount = 0, likedByMe = false)
