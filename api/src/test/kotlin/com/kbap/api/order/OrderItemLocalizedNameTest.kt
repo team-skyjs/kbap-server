@@ -12,6 +12,7 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
@@ -107,6 +108,16 @@ class OrderItemLocalizedNameTest : BehaviorSpec() {
                     namesOf(detail(memberId, orderId, "ja")) shouldBe listOf("エゴマカルグクス", "잔치국수", null)
                     namesOf(detail(memberId, orderId, "en-US,en;q=0.9")) shouldBe listOf(null, null, null)
                     namesOf(detail(memberId, orderId, null)) shouldBe listOf(null, null, null)
+
+                    val firstItemId = en.path("items")[0].path("id").asLong()
+                    val restored = mapper.readTree(
+                        mockMvc.delete("/api/orders/$orderId/items/$firstItemId/image") {
+                            header("X-API-Version", "1.0")
+                            header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(memberId, MemberRole.USER)}")
+                            header("Accept-Language", "en")
+                        }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload")
+                    namesOf(restored) shouldBe listOf("Perilla Seed Kalguksu", "Banquet Noodles", null)
                 }
             }
         }
