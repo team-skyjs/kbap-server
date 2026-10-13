@@ -90,6 +90,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             fakeGenerator.reset()
             storage.heads.clear()
             storage.lastModified.clear()
+            storage.deleted.clear()
         }
         afterSpec { TestTables.clearAll(dataSource) }
 
@@ -129,6 +130,23 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
+            `when`("S3 에서 지워진 사진이 있으면") {
+                then("다음 sync 가 그 행을 소프트 삭제하고 removedCount 로 알린다 — 봇 리뷰에 죽은 경로가 붙지 않는다") {
+                    accountService.ensureBots(2)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload().path("registeredCount").asInt() shouldBe 3
+                    storage.delete(poolPath("후라이드치킨", 2))
+
+                    val second = syncPayload()
+
+                    second.path("removedCount").asInt() shouldBe 1
+                    second.path("registeredCount").asInt() shouldBe 0
+                    second.path("skippedCount").asInt() shouldBe 2
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 2
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '${poolPath("후라이드치킨", 2)}' AND status = 'DELETED'") shouldBe 1
+                }
+            }
+
             `when`("봇 계정이 없으면") {
                 then("400 — 풀 소유자가 없다") {
                     stubObjects("후라이드치킨", 3)
@@ -140,6 +158,34 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             `when`("관리자 토큰이 없으면") {
                 then("401") {
                     mockMvc.post("/api/admin/review-bots/images/sync").andReturn().response.status shouldBe 401
+                }
+            }
+        }
+
+        given("풀 경로에 대한 일반 업로드 완료 신고 — POST /api/images/complete") {
+            `when`("로그인 회원이 결정적 풀 경로로 완료 신고를 보내면") {
+                then("400 으로 거절하고 스토리지 삭제도 행 생성도 없다 — 풀 사진을 지우거나 가로채지 못한다") {
+                    val member = accountService.ensureBots(1).bots.single()
+                    val path = poolPath("후라이드치킨", 1)
+                    storage.stub(path, "image/webp", 100_001L)
+
+                    val mismatch = mockMvc.post("/api/images/complete") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(member.id, MemberRole.USER)}")
+                        header("X-API-Version", "1.0")
+                        contentType = org.springframework.http.MediaType.APPLICATION_JSON
+                        content = """{"path":"$path","contentType":"image/webp","size":1}"""
+                    }.andReturn().response
+                    val exact = mockMvc.post("/api/images/complete") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(member.id, MemberRole.USER)}")
+                        header("X-API-Version", "1.0")
+                        contentType = org.springframework.http.MediaType.APPLICATION_JSON
+                        content = """{"path":"$path","contentType":"image/webp","size":100001}"""
+                    }.andReturn().response
+
+                    mismatch.status shouldBe 400
+                    exact.status shouldBe 400
+                    storage.deleted.size shouldBe 0
+                    count("SELECT COUNT(*) FROM uploaded_image") shouldBe 0
                 }
             }
         }
@@ -218,6 +264,40 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     pool.containsAll(second) shouldBe true
                     first.toSet() shouldNotBe second.toSet()
                     count("SELECT COUNT(*) FROM food_review WHERE food_id = ${food.id}") shouldBe 2
+                }
+            }
+
+            `when`("풀 없는 음식 5개가 후보 앞에 있고 풀 있는 음식 1개가 뒤에 있으면") {
+                then("앞의 5개는 메모리에서 걸러 텍스트 생성 없이 지나가고, 뒤의 1개에 쓴다 — 생성 호출 1회, 요약에 풀 없음 5") {
+                    accountService.ensureBots(2)
+                    val withoutPool = (1..5).map { seedFood("봇대상음식$it") }
+                    val withPool = seedFood("봇대상음식6")
+                    stubObjects("봇대상음식6", 3)
+                    syncPayload()
+
+                    val summary = writer().writeDue(at(22))
+
+                    botReviewFoodIds() shouldBe listOf(withPool.id)
+                    fakeGenerator.requests.size shouldBe 1
+                    summary.skippedNoPool shouldBe withoutPool.size
+                    summary.written shouldBe 1
+                }
+            }
+
+            `when`("정지된 봇이 오늘 이미 목록 음식에 썼으면") {
+                then("그 음식은 오늘 다시 쓰지 않는다 — 오늘 게이트도 봇 계정 전체 기준") {
+                    val bots = accountService.ensureBots(3).bots
+                    val chicken = seedFood("후라이드치킨")
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    val suspended = bots.maxBy { it.id }
+                    insertBotReview(suspended.id, chicken.id, LocalDateTime.now().minusMinutes(5))
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ${suspended.id}") } }
+                    val seeded = maxReviewId()
+
+                    writer().writeDue(at(22))
+
+                    botReviewFoodIds(seeded) shouldBe emptyList()
                 }
             }
 
