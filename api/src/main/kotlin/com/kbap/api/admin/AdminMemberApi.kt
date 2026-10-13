@@ -42,9 +42,10 @@ interface AdminMemberApi {
     @Operation(
         summary = "회원 스캔 무제한 해제 취소",
         description = """
-            회원의 스캔 무제한 해제(리뷰 작성·광고 3회)를 되돌린다. 한 트랜잭션에서 `scan_unlocked=false`, 그 회원의 광고 적립
-            이력(`member_ad_reward`)을 소프트 삭제(적립 수 0), 스캔 수는 무료 한도(3)보다 작으면 한도로 올린다 — 무제한 동안
-            스캔 수가 오르지 않아 취소 직후 무료 횟수가 남아 보이는 문제를 막는다(한도보다 크면 그대로 둔다). 스캔 이력은 그대로.
+            회원의 스캔 무제한 해제(리뷰 작성·광고 3회)를 되돌린다(재시험용 QA 도구). 한 트랜잭션에서 그 회원의 광고 적립
+            이력(`member_ad_reward`)을 소프트 삭제(적립 수 0)한 뒤 회원 행을 잠가 `scan_unlocked=false` 로 바꾼다 — 적립 경로와
+            같은 잠금 순서. 스캔 수가 무료 한도(3)보다 작으면 한도로 올려 리셋 직후 바로 제한 상태가 되게 하고, 크면 그대로 둔다.
+            스캔 이력은 그대로. 지운 적립의 rewardKey 는 다시 신고해도 400(COMMON-002)이다.
             같은 회원에 다시 호출해도 같은 결과(멱등). 봇 계정은 400 COMMON-002, 없는·탈퇴 회원은 400 MEMBER-003.
             응답 `{scanUnlocked, adRewardCount, scanCount, scanRemaining}`. 관리자 상세(`GET /api/admin/members/{id}`)의
             `scanUnlocked`·`adRewardCount`·`scanCount` 로 버튼 노출을 정한다(KB-762).

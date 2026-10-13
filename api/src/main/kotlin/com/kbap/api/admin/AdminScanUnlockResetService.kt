@@ -17,9 +17,9 @@ class AdminScanUnlockResetService(
 
     @Transactional
     fun resetScanUnlock(adminId: Long, memberId: Long): AdminScanUnlockResetResponse {
+        val removedRewards = adRewardRepository.deleteAllByMemberId(memberId)
         val member = memberRepository.findByIdForUpdate(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         if (member.isBot) throw BusinessException(ErrorCode.INVALID_REQUEST)
-        val removedRewards = adRewardRepository.deleteAllByMemberId(member.id)
         member.resetScanUnlock()
         log.info("관리자 스캔 무제한 해제 취소 adminId={} memberId={} 광고적립삭제={} scanCount={}", adminId, member.id, removedRewards, member.scanCount)
         return AdminScanUnlockResetResponse(
