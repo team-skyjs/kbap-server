@@ -32,6 +32,49 @@ class HomeMarketingPopularPropertiesTest : BehaviorSpec({
                 properties(ids = listOf(6L, 4L, 6L, 5L)).activeFoodIds(inside) shouldContainExactly listOf(6L, 4L, 5L)
             }
         }
+
+        `when`("시작 전이면") {
+            then("빈 목록이다") {
+                properties().activeFoodIds(startsAt.minusSeconds(1)).shouldBeEmpty()
+            }
+        }
+
+        `when`("종료 이후면") {
+            then("빈 목록이다") {
+                properties().activeFoodIds(endsAt.plusSeconds(1)).shouldBeEmpty()
+            }
+        }
+
+        `when`("시작 시각 정각이면") {
+            then("활성이다") {
+                properties().activeFoodIds(startsAt) shouldContainExactly listOf(6L, 4L, 5L)
+            }
+        }
+
+        `when`("종료 시각 정각이면") {
+            then("빈 목록이다") {
+                properties().activeFoodIds(endsAt).shouldBeEmpty()
+            }
+        }
+
+        `when`("시작·종료 중 하나가 null 이면") {
+            then("빈 목록이다") {
+                properties(starts = null).activeFoodIds(inside).shouldBeEmpty()
+                properties(ends = null).activeFoodIds(inside).shouldBeEmpty()
+            }
+        }
+
+        `when`("시작이 종료보다 늦으면") {
+            then("빈 목록이다") {
+                properties(starts = endsAt, ends = startsAt).activeFoodIds(inside).shouldBeEmpty()
+            }
+        }
+
+        `when`("기간 안이지만 food-ids 가 비어 있으면") {
+            then("빈 목록이다") {
+                properties(ids = emptyList()).activeFoodIds(inside).shouldBeEmpty()
+            }
+        }
     }
 
     given("env 플레이스홀더 바인딩") {

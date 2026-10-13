@@ -2,6 +2,7 @@ package com.kbap.api.home
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.food.PopularFoodIdCache
@@ -9,6 +10,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
@@ -45,6 +47,15 @@ class HomeMarketingPopularTest : BehaviorSpec() {
 
         fun popularIds(memberId: Long?, version: String) =
             payload(memberId, version).path("popularFoods").map { it.path("foodId").asLong() }
+
+        fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+
+        fun seedExtraViews(foodId: Long, count: Int) = repeat(count) {
+            execute(
+                "INSERT INTO food_view_log (food_id, member_id, status, created_at, updated_at) " +
+                    "VALUES ($foodId, NULL, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+            )
+        }
 
         beforeContainer {
             HomeTestSeed.reset(dataSource)
@@ -89,6 +100,63 @@ class HomeMarketingPopularTest : BehaviorSpec() {
 
                     home.path("authenticated").asBoolean() shouldBe false
                     home.path("popularFoods").map { it.path("foodId").asLong() } shouldContainExactly listOf(3L, 1L, 2L)
+                }
+            }
+        }
+
+        given("1.0 홈 — 마케팅 기간 안") {
+            `when`("1.0 헤더로 조회하면") {
+                then("popularFoods 는 조회 수 집계 결과이고 설정 순서가 아니다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 3)
+                    seedExtraViews(foodId = 2L, count = 2)
+
+                    popularIds(null, "1.0") shouldContainExactly listOf(2L, 3L, 1L)
+                    popularIds(null, "2.1") shouldContainExactly listOf(3L, 1L, 2L)
+                }
+            }
+
+            `when`("1.0 과 2.1 로 같은 회원이 조회하면") {
+                then("popularFoods 를 뺀 payload 가 같다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 3)
+                    seedExtraViews(foodId = 2L, count = 2)
+                    HomeTestSeed.seedMember(dataSource, memberId = 11L, codes = listOf("EGG"))
+
+                    val v10 = payload(11L, "1.0") as ObjectNode
+                    val v21 = payload(11L, "2.1") as ObjectNode
+                    v10.remove("popularFoods")
+                    v21.remove("popularFoods")
+
+                    v21 shouldBe v10
+                }
+            }
+        }
+
+        given("2.1 홈 — 노출 불가 음식") {
+            `when`("목록의 음식 1 이 READY 가 아니면") {
+                then("popularFoods 는 3, 2 이고 길이 2 다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 3)
+                    execute("UPDATE food SET content_status = 'FAILED' WHERE id = 1")
+
+                    popularIds(null, "2.1") shouldContainExactly listOf(3L, 2L)
+                }
+            }
+
+            `when`("목록의 음식 1 이 삭제되면") {
+                then("popularFoods 는 3, 2 다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 3)
+                    execute("UPDATE food SET status = 'DELETED' WHERE id = 1")
+
+                    popularIds(null, "2.1") shouldContainExactly listOf(3L, 2L)
+                }
+            }
+
+            `when`("목록의 음식이 전부 READY 가 아니면") {
+                then("popularFoods 는 빈 배열이고 조회 수 집계로 폴백하지 않는다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 4)
+                    execute("UPDATE food SET content_status = 'FAILED' WHERE id IN (1, 2, 3)")
+
+                    popularIds(null, "2.1").shouldBeEmpty()
+                    popularIds(null, "1.0") shouldContainExactly listOf(4L)
                 }
             }
         }
