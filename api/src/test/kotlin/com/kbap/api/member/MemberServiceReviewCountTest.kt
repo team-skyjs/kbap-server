@@ -23,6 +23,11 @@ class MemberServiceReviewCountTest : BehaviorSpec() {
     @Autowired
     private lateinit var memberRepository: MemberJpaRepository
 
+    @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
+    private fun <T> inTransaction(block: () -> T): T = org.springframework.transaction.support.TransactionTemplate(transactionManager).execute { block() }!!
+
     init {
         fun newMember(): Member =
             memberRepository.save(
@@ -60,7 +65,7 @@ class MemberServiceReviewCountTest : BehaviorSpec() {
                     memberService.increaseReviewCount(member.id)
                     memberService.increaseUniqueReviewedFoodCount(member.id)
                     memberService.increaseReviewCount(member.id)
-                    memberService.decreaseReviewCount(member.id)
+                    inTransaction { memberRepository.decreaseReviewCount(member.id) } shouldBe 1
                     counts(member.id) shouldBe (1 to 1)
                 }
             }
@@ -69,20 +74,16 @@ class MemberServiceReviewCountTest : BehaviorSpec() {
                     val member = newMember()
                     memberService.increaseReviewCount(member.id)
                     memberService.increaseUniqueReviewedFoodCount(member.id)
-                    memberService.decreaseReviewCount(member.id)
-                    memberService.decreaseUniqueReviewedFoodCount(member.id)
+                    inTransaction { memberRepository.decreaseReviewCount(member.id) } shouldBe 1
+                    inTransaction { memberRepository.decreaseUniqueReviewedFoodCount(member.id) } shouldBe 1
                     counts(member.id) shouldBe (0 to 0)
                 }
             }
             `when`("카운트가 0 인 회원을 감소시키면") {
-                then("하한 가드로 MEMBER_NOT_FOUND 를 던지고 0 이 유지된다") {
+                then("리포지토리 하한 가드가 0행을 돌려주고 0 이 유지된다 — 예외는 호출자 몫(리뷰 삭제는 0행을 허용)") {
                     val member = newMember()
-                    shouldThrow<BusinessException> {
-                        memberService.decreaseReviewCount(member.id)
-                    }.errorCode shouldBe ErrorCode.MEMBER_NOT_FOUND
-                    shouldThrow<BusinessException> {
-                        memberService.decreaseUniqueReviewedFoodCount(member.id)
-                    }.errorCode shouldBe ErrorCode.MEMBER_NOT_FOUND
+                    inTransaction { memberRepository.decreaseReviewCount(member.id) } shouldBe 0
+                    inTransaction { memberRepository.decreaseUniqueReviewedFoodCount(member.id) } shouldBe 0
                     counts(member.id) shouldBe (0 to 0)
                 }
             }

@@ -243,7 +243,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             }
 
             `when`("사라진 사진을 참조하는 리뷰 하나의 처리가 실패하면") {
-                then("그 리뷰가 참조하던 사진 행은 ACTIVE 로 남아 다음 sync 가 다시 잡는다 — 리뷰 처리가 성공한 뒤에만 행을 지운다") {
+                then("사진 행은 즉시 지워지고, 실패한 리뷰는 기록된 경로 전체(상태 무관) 기준으로 다음 sync 가 다시 잡는다") {
                     val bots = accountService.ensureBots(2).bots
                     val food = seedFood("봇대상음식1")
                     stubObjects("봇대상음식1", 3)
@@ -267,22 +267,50 @@ class ReviewBotPhotoTest : BehaviorSpec() {
 
                     val first = syncPayload()
 
+                    first.path("removedCount").asInt() shouldBe 2
                     first.path("deletedReviewCount").asInt() shouldBe 1
                     count("SELECT COUNT(*) FROM food_review WHERE id = ${fine.reviewId} AND status = 'DELETED'") shouldBe 1
                     count("SELECT unique_reviewed_food_count FROM member WHERE id = ${bots[0].id}") shouldBe 0
                     count("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = ${fine.reviewId} AND event = 'REVIEW_DELETED'") shouldBe 1
                     count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'ACTIVE'") shouldBe 1
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p1' AND status = 'ACTIVE'") shouldBe 1
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p2' AND status = 'DELETED'") shouldBe 1
-                    first.path("removedCount").asInt() shouldBe 1
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path IN ('$p1', '$p2') AND status = 'DELETED'") shouldBe 2
 
                     dataSource.connection.use { c -> c.createStatement().use { it.execute("""UPDATE food_review SET image_refs = '["$p1"]' WHERE id = $brokenId""") } }
                     val second = syncPayload()
 
+                    second.path("removedCount").asInt() shouldBe 0
                     second.path("deletedReviewCount").asInt() shouldBe 1
-                    second.path("removedCount").asInt() shouldBe 1
                     count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'DELETED'") shouldBe 1
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p1' AND status = 'DELETED'") shouldBe 1
+                }
+            }
+
+            `when`("사진 행이 지워진 뒤에 그 경로를 참조하는 봇 리뷰가 생기면(작성기 틱과의 경쟁)") {
+                then("다음 sync 가 기록된 경로 전체 기준으로 잡아 그 사진을 떼어낸다 — 영구 404 가 없다") {
+                    val bots = accountService.ensureBots(1).bots
+                    val food = seedFood("봇대상음식1")
+                    stubObjects("봇대상음식1", 3)
+                    syncPayload()
+                    val p1 = poolPath("봇대상음식1", 1)
+                    val p2 = poolPath("봇대상음식1", 2)
+                    storage.delete(p1)
+                    syncPayload().path("removedCount").asInt() shouldBe 1
+                    val now = LocalDateTime.now()
+                    val raceId = dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, image_refs, status, created_at, updated_at) VALUES (?, ?, 4, 'race review text here', ?, 'ACTIVE', ?, ?)",
+                            java.sql.Statement.RETURN_GENERATED_KEYS,
+                        ).use { ps ->
+                            ps.setLong(1, bots[0].id); ps.setLong(2, food.id); ps.setString(3, """["$p1", "$p2"]"""); ps.setObject(4, now); ps.setObject(5, now)
+                            ps.executeUpdate()
+                            ps.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
+                        }
+                    }
+
+                    val next = syncPayload()
+
+                    next.path("removedCount").asInt() shouldBe 0
+                    next.path("detachedReviewCount").asInt() shouldBe 1
+                    imageRefsOf(raceId) shouldBe listOf(p2)
                 }
             }
 
@@ -321,6 +349,44 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     forced.path("removalSkipped").asBoolean() shouldBe false
                     forced.path("removedCount").asInt() shouldBe 7
                     count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 5
+                }
+            }
+
+            `when`("활성 풀 행이 가드 하한(10)이면") {
+                then("6 사라지면 건너뛰고, 9행에서 5 사라지면 지운다(하한 경계)") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 10)
+                    syncPayload()
+                    (1..6).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+                    val tenRows = syncPayload()
+                    tenRows.path("removalSkipped").asBoolean() shouldBe true
+                    syncPayload(force = true).path("removedCount").asInt() shouldBe 6
+
+                    storage.heads.clear(); storage.lastModified.clear()
+                    TestTables.clearAll(dataSource)
+                    accountService.ensureBots(1)
+                    stubObjects("비빔밥", 9)
+                    syncPayload()
+                    (1..5).forEach { storage.delete(poolPath("비빔밥", it)) }
+                    val nineRows = syncPayload()
+
+                    nineRows.path("removalSkipped").asBoolean() shouldBe false
+                    nineRows.path("removedCount").asInt() shouldBe 5
+                }
+            }
+
+            `when`("목록이 비었는데 force=true 로 부르면") {
+                then("그래도 건너뛴다 — 빈 목록은 항상 가드(WARN)") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    storage.heads.clear(); storage.lastModified.clear()
+
+                    val forced = syncPayload(force = true)
+
+                    forced.path("removalSkipped").asBoolean() shouldBe true
+                    forced.path("removedCount").asInt() shouldBe 0
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
                 }
             }
 
