@@ -221,6 +221,29 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
+            `when`("풀 소유 봇이 정지·탈퇴된 뒤에도") {
+                then("풀은 그대로 보이고 남은 봇이 사진을 붙여 쓴다 — 소유자 조건은 '봇 계정'이지 '활성 봇'이 아니다") {
+                    val bots = accountService.ensureBots(3).bots
+                    val food = seedFood("봇대상음식1")
+                    stubObjects("봇대상음식1", 3)
+                    syncPayload().path("registeredCount").asInt() shouldBe 3
+                    val owner = bots.minBy { it.id }
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ${owner.id}") } }
+
+                    writer().writeDue(at(22))
+                    val afterSuspended = maxReviewId()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET status = 'DELETED' WHERE id = ${owner.id}") } }
+                    writer().writeDue(at(22, daysFromNow = 1))
+                    val afterWithdrawn = maxReviewId()
+
+                    afterSuspended shouldNotBe 0L
+                    afterWithdrawn shouldNotBe afterSuspended
+                    imageRefsOf(afterSuspended).size shouldBeInRange 1..3
+                    imageRefsOf(afterWithdrawn).size shouldBeInRange 1..3
+                    count("SELECT COUNT(*) FROM food_review WHERE food_id = ${food.id} AND member_id <> ${owner.id}") shouldBe 2
+                }
+            }
+
             `when`("사진 풀이 없는 음식뿐이면") {
                 then("목록 음식이라도 건너뛴다 — 사진 없는 봇 리뷰 0, 텍스트 생성 호출 0") {
                     accountService.ensureBots(3)
