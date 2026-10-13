@@ -47,6 +47,7 @@ class ReviewBotWriter(
         val due = plan.dueUntil(kst.hour) - reviewRepository.countReviewBotReviewsSince(dayStart).toInt()
         if (due <= 0) return
         val botIds = bots.map { it.id }.toSet()
+        val poolOwnerIds = photoPool.ownerIds()
         var written = 0
         var afterReviewCount = 0L
         var afterFoodId = 0L
@@ -58,7 +59,7 @@ class ReviewBotWriter(
                 log.warn("리뷰 봇 — 시간 예산({})을 넘겨 이번 틱을 멈춥니다", timeBudget)
                 break
             }
-            if (tried.add(foodId) && writeOne(foodId, bots, generator, random) != null) written++
+            if (tried.add(foodId) && writeOne(foodId, bots, poolOwnerIds, generator, random) != null) written++
         }
         candidates@ while (written < due && pages++ < MAX_PAGES) {
             val page = reviewRepository.findReviewBotCandidatePage(dayStart, afterReviewCount, afterFoodId, due * CANDIDATE_FACTOR)
@@ -69,7 +70,7 @@ class ReviewBotWriter(
                     log.warn("리뷰 봇 — 시간 예산({})을 넘겨 이번 틱을 멈춥니다", timeBudget)
                     break@candidates
                 }
-                if (tried.add(candidate.foodId) && writeOne(candidate.foodId, bots, generator, random) != null) written++
+                if (tried.add(candidate.foodId) && writeOne(candidate.foodId, bots, poolOwnerIds, generator, random) != null) written++
             }
             afterReviewCount = page.last().reviewCount
             afterFoodId = page.last().foodId
@@ -87,12 +88,12 @@ class ReviewBotWriter(
             .map { it.id }
     }
 
-    private fun writeOne(foodId: Long, bots: List<Member>, generator: ReviewTextGenerator, random: Random): Long? {
+    private fun writeOne(foodId: Long, bots: List<Member>, poolOwnerIds: Set<Long>, generator: ReviewTextGenerator, random: Random): Long? {
         val botIds = bots.map { it.id }.toSet()
         val reviewed = reviewRepository.findReviewerIdsOfFood(foodId, bots.map { it.id }).toSet()
         val bot = bots.filterNot { it.id in reviewed }.randomOrNull(random) ?: return null
         val food = foodRepository.findById(foodId).orElse(null)?.takeIf { it.isReady() } ?: return null
-        val pool = photoPool.pathsFor(food.koreanName, botIds)
+        val pool = photoPool.pathsFor(food.koreanName, poolOwnerIds)
         if (pool.isEmpty()) {
             log.info("리뷰 봇 — 사진 풀이 비어 건너뜁니다 foodId={} key={}", foodId, ReviewBotPhotoPool.keyOf(food.koreanName))
             return null
@@ -109,7 +110,7 @@ class ReviewBotWriter(
         val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, botIds)?.imageRefs.orEmpty().toSet()
         val photos = ReviewBotPhotoPool.pickCombination(pool, previous, random)
         return runCatching {
-            reviewService.createBotReview(bot.id, foodId, rating, content, photos, botIds).reviewId
+            reviewService.createBotReview(bot.id, foodId, rating, content, photos, poolOwnerIds).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 

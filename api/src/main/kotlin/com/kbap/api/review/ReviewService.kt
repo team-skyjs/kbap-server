@@ -65,10 +65,10 @@ class ReviewService(
         rating: Int,
         content: String,
         imagePaths: List<String>,
-        botIds: Set<Long>,
+        poolOwnerIds: Set<Long>,
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
-        if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, REVIEW_BOT_IMAGE_SEGMENT, botIds)) {
+        if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, REVIEW_BOT_IMAGE_SEGMENT, poolOwnerIds)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
         return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)

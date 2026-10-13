@@ -2,6 +2,7 @@ package com.kbap.api.reviewbot
 
 import com.kbap.api.image.ImageUploadProperties
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.member.MemberJpaRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -10,14 +11,18 @@ import kotlin.random.Random
 @Component
 class ReviewBotPhotoPool(
     private val uploadedImageRepository: UploadedImageJpaRepository,
+    private val memberRepository: MemberJpaRepository,
     uploadProperties: ImageUploadProperties,
 ) {
     val prefix: String = poolPrefix(uploadProperties.keyPrefix)
 
     @Transactional(readOnly = true)
-    fun pathsFor(koreanName: String, botIds: Set<Long>): List<String> =
+    fun ownerIds(): Set<Long> = memberRepository.findBotMemberIdsAnyStatus().toSet()
+
+    @Transactional(readOnly = true)
+    fun pathsFor(koreanName: String, ownerIds: Set<Long>): List<String> =
         uploadedImageRepository.findByPathStartingWithOrderByPath(prefix + keyOf(koreanName) + "/")
-            .filter { it.memberId in botIds && keyOfPath(it.path) != null }
+            .filter { it.memberId in ownerIds && keyOfPath(it.path) != null }
             .map { it.path }
 
     companion object {
