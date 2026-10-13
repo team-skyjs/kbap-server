@@ -28,6 +28,8 @@ class AdminScanUnlockResetTest : BehaviorSpec() {
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
     @Autowired private lateinit var memberRepository: MemberJpaRepository
+    @Autowired private lateinit var adRewardRepository: com.kbap.common.domain.member.MemberAdRewardJpaRepository
+    @Autowired private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
 
     init {
         val mapper = jacksonObjectMapper()
@@ -141,6 +143,49 @@ class AdminScanUnlockResetTest : BehaviorSpec() {
 
                     response.status shouldBe 400
                     code(response) shouldBe "MEMBER-003"
+                }
+            }
+
+            `when`("리셋의 잠금 순서를 보면") {
+                then("광고 적립 소프트 삭제(UPDATE) 다음에 회원 행 잠금 조회(findByIdForUpdate) — 적립 경로(보상 insert → 회원 UPDATE)와 같은 순서") {
+                    val member = unlockedMember(scanCount = 0, adRewards = 1)
+                    val calls = mutableListOf<String>()
+                    fun <T : Any> recording(type: Class<T>, target: T): T =
+                        java.lang.reflect.Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
+                            if (method.declaringClass != Any::class.java) calls += method.name
+                            try {
+                                method.invoke(target, *(args ?: emptyArray()))
+                            } catch (e: java.lang.reflect.InvocationTargetException) {
+                                throw e.targetException
+                            }
+                        }.let(type::cast)
+                    val service = AdminScanUnlockResetService(
+                        recording(MemberJpaRepository::class.java, memberRepository),
+                        recording(com.kbap.common.domain.member.MemberAdRewardJpaRepository::class.java, adRewardRepository),
+                    )
+
+                    org.springframework.transaction.support.TransactionTemplate(transactionManager).execute { service.resetScanUnlock(0, member.id) }
+
+                    calls shouldBe listOf("deleteAllByMemberId", "findByIdForUpdate")
+                    count("SELECT scan_unlocked FROM member WHERE id = ${member.id}") shouldBe 0
+                }
+            }
+
+            `when`("리셋 뒤 회원이 예전 rewardKey 를 다시 신고하면") {
+                then("400 COMMON-002 — 지운 적립의 키는 unique 로 남아 재사용할 수 없다(의도된 동작)") {
+                    val member = unlockedMember(scanCount = 0, adRewards = 1)
+                    reset(member.id).status shouldBe 200
+
+                    val reclaim = mockMvc.post("/api/members/me/ad-rewards") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(member.id, MemberRole.USER)}")
+                        header("X-API-Version", "1.0")
+                        contentType = org.springframework.http.MediaType.APPLICATION_JSON
+                        content = """{"rewardKey":"reset-${member.id}-0","adUnitId":"ca-app-pub-3940256099942544/5224354917"}"""
+                    }.andReturn().response
+
+                    reclaim.status shouldBe 400
+                    code(reclaim) shouldBe "COMMON-002"
+                    count("SELECT COUNT(*) FROM member_ad_reward WHERE member_id = ${member.id} AND status = 'ACTIVE'") shouldBe 0
                 }
             }
 
