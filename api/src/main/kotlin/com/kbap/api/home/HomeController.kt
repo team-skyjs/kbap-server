@@ -1,6 +1,8 @@
 package com.kbap.api.home
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberIdOrNull
 import com.kbap.common.domain.LanguageCode
@@ -8,6 +10,7 @@ import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -20,8 +23,10 @@ class HomeController(
     override fun home(
         @Valid @ModelAttribute request: HomeRequest,
         @AuthMemberIdOrNull memberId: Long?,
+        @RequestHeader(ApiHeaders.API_VERSION) apiVersion: String,
     ): ResponseEntity<BaseResponse<HomeResponse>> {
-        val result = homeService.getHome(memberId, LanguageCode.from(request.lang))
+        val marketingPopular = ApiVersions.isAtLeast(apiVersion, ApiVersions.HOME_MARKETING_POPULAR)
+        val result = homeService.getHome(memberId, LanguageCode.from(request.lang), marketingPopular)
         return ResponseEntity.ok(BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null)))
     }
 }

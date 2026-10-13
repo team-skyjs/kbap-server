@@ -10,8 +10,6 @@ import com.kbap.common.domain.LanguageCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.LocalDateTime
-import java.time.ZoneId
 
 @Service
 class HomeService(
@@ -21,25 +19,23 @@ class HomeService(
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,
     private val popularFoodIdCache: PopularFoodIdCache,
-    private val marketingPopular: HomeMarketingPopularProperties,
+    private val marketingPopularProperties: HomeMarketingPopularProperties,
     transactionManager: PlatformTransactionManager,
 ) {
     private val readOnlyTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
 
-    fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
-        val popularFoodIds = popularFoodIdCache.getPopularFoodIds(POPULAR_SIZE)
-        val curatedFoodIds = marketingPopular.activeFoodIds(LocalDateTime.now(SEOUL)).take(POPULAR_SIZE)
-        return readOnlyTransaction.execute {
-            if (curatedFoodIds.isEmpty()) assembleHome(memberId, lang, popularFoodIds, curated = false)
-            else assembleHome(memberId, lang, curatedFoodIds, curated = true)
-        }!!
+    fun getHome(memberId: Long?, lang: LanguageCode, marketingPopular: Boolean = false): HomeResult {
+        val popularFoodIds =
+            if (marketingPopular) marketingPopularProperties.foodIds.distinct()
+            else popularFoodIdCache.getPopularFoodIds(POPULAR_SIZE)
+        return readOnlyTransaction.execute { assembleHome(memberId, lang, popularFoodIds, marketingPopular) }!!
     }
 
-    private fun assembleHome(memberId: Long?, lang: LanguageCode, popularFoodIds: List<Long>, curated: Boolean): HomeResult {
+    private fun assembleHome(memberId: Long?, lang: LanguageCode, popularFoodIds: List<Long>, marketingPopular: Boolean): HomeResult {
         val member = memberId?.let { memberService.getMember(it) }
         val avoidedSubstances = ingredientService.getAvoidedIngredients(member?.id, lang)
         val popularFoods =
-            if (curated) foodService.getCuratedFoods(member?.id, lang, popularFoodIds)
+            if (marketingPopular) foodService.getRandomCuratedFoods(member?.id, lang, popularFoodIds, POPULAR_SIZE)
             else foodService.getPopularFoods(member?.id, lang, popularFoodIds)
         val mostReviewedFoods = foodService.getMostReviewedFoods(member?.id, lang, MOST_REVIEWED_SIZE)
         val recentScans = member
@@ -60,7 +56,6 @@ class HomeService(
     }
 
     companion object {
-        private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
         const val POPULAR_SIZE = 10
         const val RECENT_SCAN_SIZE = 10
         const val MOST_REVIEWED_SIZE = 10

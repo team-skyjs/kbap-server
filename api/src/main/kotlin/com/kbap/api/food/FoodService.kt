@@ -204,8 +204,11 @@ class FoodService(
         summaryViews(loadInGivenOrder(popularFoodIds), lang, memberId)
 
     @Transactional(readOnly = true)
-    fun getCuratedFoods(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
-        summaryViews(loadInGivenOrder(ids).filter { it.isReady() }, lang, memberId)
+    fun getRandomCuratedFoods(memberId: Long?, lang: LanguageCode, ids: List<Long>, size: Int): List<FoodSummaryView> {
+        if (ids.isEmpty()) return emptyList()
+        val pool = foodRepository.findByIdIn(ids).filter { it.isReady() }
+        return summaryViews(pool.shuffled().take(size), lang, memberId)
+    }
 
     @Transactional(readOnly = true)
     fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {
