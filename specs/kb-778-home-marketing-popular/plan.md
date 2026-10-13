@@ -6,7 +6,7 @@
 
 ## Summary
 
-기존 `GET /api/home` 핸들러 하나가 요청의 `X-API-Version` 헤더 문자열을 보고(`AuthController` 의 기기 연결 분기와 같은 `ApiVersions.isAtLeast`) **1.2 이상이면** DB 풀(`home_marketing_popular_food` 테이블)의 READY 음식에서 **호출마다 무작위 최대 10개**를 `popularFoods` 로 내려주고, 미만이면 기존 조회 수 집계(KB-725 캐시)를 쓴다. 기간 설정·폴백 없음(풀은 비우지 않는다고 가정). 풀은 처음 yml/env 설정이었다가 사용자 요청으로 테이블로 옮겼다(2026-10-13 ④). `1.2` 은 `WebConfig.addSupportedVersions` 로 등록해 매핑 선언 없이 받는다. 경로·`HomeResponse` 계약·DB 스키마 무변경.
+기존 `GET /api/home` 핸들러 하나가 요청의 `X-API-Version` 헤더 문자열을 보고(`AuthController` 의 기기 연결 분기와 같은 `ApiVersions.isAtLeast`) **1.2 이상이면** DB 풀(`food_marketing_popular` 테이블)의 READY 음식에서 **호출마다 무작위 최대 10개**를 `popularFoods` 로 내려주고, 미만이면 기존 조회 수 집계(KB-725 캐시)를 쓴다. 기간 설정·폴백 없음(풀은 비우지 않는다고 가정). 풀은 처음 yml/env 설정이었다가 사용자 요청으로 테이블로 옮겼다(2026-10-13 ④). `1.2` 은 `WebConfig.addSupportedVersions` 로 등록해 매핑 선언 없이 받는다. 경로·`HomeResponse` 계약·DB 스키마 무변경.
 
 > 개정(2026-10-13): ① 상위 버전 오버로드 + 기간 + 설정 순서 → ② 버전 분기 제거 → ③ 매핑 하나에서 요청 버전으로 분기, 기간 제거, 랜덤 10, 폴백 없음(사용자 결정).
 
@@ -16,7 +16,7 @@
 
 **Primary Dependencies**: Spring Boot 4.1, Spring Data JPA·Flyway(기존), Spring Framework 7 API 버저닝(`ApiVersionConfigurer.addSupportedVersions`, 기존 `ApiVersions`/`SemanticApiVersionParser`). 신규 라이브러리 없음.
 
-**Storage**: MySQL — 신규 테이블 `home_marketing_popular_food`(Flyway 1건, food_id 유니크·FK) + `food` 읽기(`findByIdIn` 재사용).
+**Storage**: MySQL — 신규 테이블 `food_marketing_popular`(Flyway 1건, food_id 유니크·FK) + `food` 읽기(`findByIdIn` 재사용).
 
 **Testing**: Kotest BehaviorSpec — `@IntegrationTest`(MockMvc 에 `X-API-Version` 헤더 지정, 풀은 테이블에 직접 INSERT). 단위 테스트 없음(설정 바인딩이 사라짐)
 
@@ -39,7 +39,7 @@
 | I. Test-First | PASS | 통합(1.2 풀 전부·12→10·풀 밖 제외·비READY/삭제/풀 행 DELETED/빈 풀/전부 제외·회원 위험도·언어·인기 외 payload 동일·1.0/1.1 집계·2.0 풀)을 구현 전 Red 로 작성. |
 | II. Bounded Contexts | PASS | 풀 엔티티·리포지토리는 `common.domain.food`(음식 id 만 참조, 같은 컨텍스트). 분기는 `api.home`, 버전 판정은 `api.core`(web 계층). 도메인은 헤더를 모른다. |
 | III. Dependency Direction | PASS | `api.home` → `api.food.FoodService` → `common.domain.food`. 새 seam·어댑터 없음. |
-| IV. Persistence Ownership | PASS | 엔티티=도메인 모델(`HomeMarketingPopularFood`, BaseEntity 상속, JPA 연관 없음 — `foodId` 값), FK·유니크는 Flyway 스키마가 강제. 리포지토리는 public, `FoodService` 가 직접 쓴다. READY 판정은 엔티티 메서드 `Food.isReady()`. 트랜잭션 경계는 `FoodService` 메서드 `@Transactional(readOnly = true)` + `HomeService.readOnlyTransaction` 기존 구조 유지. |
+| IV. Persistence Ownership | PASS | 엔티티=도메인 모델(`FoodMarketingPopular`, BaseEntity 상속, JPA 연관 없음 — `foodId` 값), FK·유니크는 Flyway 스키마가 강제. 리포지토리는 public, `FoodService` 가 직접 쓴다. READY 판정은 엔티티 메서드 `Food.isReady()`. 트랜잭션 경계는 `FoodService` 메서드 `@Transactional(readOnly = true)` + `HomeService.readOnlyTransaction` 기존 구조 유지. |
 | V. Language Policy | PASS | lang 처리 무변경 — 이름 번역·폴백은 `summaryViews` 가 요청마다 수행. |
 | 추가 제약 | PASS | 엔티티 비노출(기존 `FoodSummaryResponse`). 응답 계약 무변경. 마이그레이션은 timestamp 버전·독립 실행. |
 
@@ -66,10 +66,10 @@ specs/kb-778-home-marketing-popular/
 
 ```text
 api/src/main/resources/db/migration/
-└── V2026.10.13.20.42.36__home_marketing_popular_food_table.sql   # 신규 — food_id UNIQUE + FK food
+└── V2026.10.13.20.42.36__food_marketing_popular_table.sql   # 신규 — food_id UNIQUE + FK food
 common/src/main/kotlin/com/kbap/common/domain/food/
-├── model/HomeMarketingPopularFood.kt       # 신규 — @Entity(foodId), BaseEntity
-└── HomeMarketingPopularFoodJpaRepository.kt # 신규 — findAllFoodIds() JPQL projection
+├── model/FoodMarketingPopular.kt       # 신규 — @Entity(foodId), BaseEntity
+└── FoodMarketingPopularJpaRepository.kt # 신규 — findAllFoodIds() JPQL projection
 api/src/main/kotlin/com/kbap/api/core/
 ├── ApiVersions.kt                    # 기존 + HOME_MARKETING_POPULAR = "1.2"
 └── config/WebConfig.kt               # + addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR)
@@ -80,7 +80,7 @@ api/src/main/kotlin/com/kbap/api/home/
 api/src/main/kotlin/com/kbap/api/food/
 └── FoodService.kt                    # + getRandomMarketingPopularFoods(memberId, lang, size): findAllFoodIds → findByIdIn → isReady → shuffled().take
 api/src/test/kotlin/com/kbap/api/home/
-├── HomeTestSeed.kt                   # reset 에 DELETE FROM home_marketing_popular_food (food 보다 먼저)
+├── HomeTestSeed.kt                   # reset 에 DELETE FROM food_marketing_popular (food 보다 먼저)
 └── HomeMarketingPopularTest.kt       # 신규 — @IntegrationTest, 풀 행 INSERT, 헤더 1.2 / 1.0 / 1.1 / 2.0
 ```
 
@@ -92,7 +92,7 @@ api/src/test/kotlin/com/kbap/api/home/
 // FoodService
 @Transactional(readOnly = true)
 fun getRandomMarketingPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> {
-    val ids = homeMarketingPopularFoodRepository.findAllFoodIds()
+    val ids = foodMarketingPopularRepository.findAllFoodIds()
     if (ids.isEmpty()) return emptyList()
     return summaryViews(foodRepository.findByIdIn(ids).filter { it.isReady() }.shuffled().take(size), lang, memberId)
 }

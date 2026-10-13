@@ -8,7 +8,7 @@
 
 **Organization**: 스토리별 묶음. 통합 테스트는 한 파일(`HomeMarketingPopularTest.kt`)에 스토리별 `given` 을 쌓고, 단위 테스트도 한 파일(`HomeMarketingPopularPropertiesTest.kt`)에 쌓는다.
 
-> **2026-10-13 개정 이력**: ① Phase 3~6 — `2.1+` 오버로드 + 기간 + 설정 순서(커밋됨). ② Phase 8 — 사용자 정정 "별도 API 아님" 으로 버전 분기 제거. ③ Phase 9 — 사용자 재정정 "2.1 요청이면 무조건 지정 id 중 10개" — 핸들러 하나 + 헤더 분기, 기간 제거, 랜덤 10, 폴백 없음. ④ Phase 10 — 번호를 `1.2` 로(현재 앱 기본 헤더 1.1 의 다음). ⑤ Phase 11 — 풀을 yml/env 에서 테이블 `home_marketing_popular_food` 로. 아래 Phase 3~10 의 "2.1"·"설정" 은 당시 기록이다.
+> **2026-10-13 개정 이력**: ① Phase 3~6 — `2.1+` 오버로드 + 기간 + 설정 순서(커밋됨). ② Phase 8 — 사용자 정정 "별도 API 아님" 으로 버전 분기 제거. ③ Phase 9 — 사용자 재정정 "2.1 요청이면 무조건 지정 id 중 10개" — 핸들러 하나 + 헤더 분기, 기간 제거, 랜덤 10, 폴백 없음. ④ Phase 10 — 번호를 `1.2` 로(현재 앱 기본 헤더 1.1 의 다음). ⑤ Phase 11 — 풀을 yml/env 에서 테이블 `food_marketing_popular` 로. 아래 Phase 3~10 의 "2.1"·"설정" 은 당시 기록이다.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -148,8 +148,8 @@
 
 ## Phase 11: 풀을 DB 테이블로 (2026-10-13 사용자 요청)
 
-- [X] T025 Flyway `V2026.10.13.20.42.36__home_marketing_popular_food_table.sql`(food_id UNIQUE + FK food, BaseEntity 컬럼), 엔티티 `common.domain.food.model.HomeMarketingPopularFood(foodId)`, 리포지토리 `HomeMarketingPopularFoodJpaRepository.findAllFoodIds()`. `FoodService.getRandomMarketingPopularFoods(memberId, lang, size)` 가 리포지토리에서 id 를 읽어 READY 필터·셔플. `HomeService` 는 풀이면 캐시를 생략하고 그 메서드를 호출. `HomeMarketingPopularProperties`·`PropertiesConfig` 애너테이션·yml 키(base/test)·바인딩 단위 테스트 삭제.
-- [X] T026 `HomeTestSeed.reset` 에 `DELETE FROM home_marketing_popular_food`(food 보다 먼저). `HomeMarketingPopularTest` 는 `seedPool(...)` 로 행을 INSERT — 풀 전부·12→10·풀 밖 제외·비READY/삭제/풀 행 DELETED/빈 풀/전부 제외·회원 위험도·언어·인기 외 payload 동일·1.0/1.1 집계·2.0 풀(14건). `./gradlew build` Green. spec/plan/research/data-model/contracts/quickstart·위키·PR 동기화.
+- [X] T025 Flyway `V2026.10.13.20.42.36__food_marketing_popular_table.sql`(food_id UNIQUE + FK food, BaseEntity 컬럼), 엔티티 `common.domain.food.model.FoodMarketingPopular(foodId)`, 리포지토리 `FoodMarketingPopularJpaRepository.findAllFoodIds()`. `FoodService.getRandomMarketingPopularFoods(memberId, lang, size)` 가 리포지토리에서 id 를 읽어 READY 필터·셔플. `HomeService` 는 풀이면 캐시를 생략하고 그 메서드를 호출. `HomeMarketingPopularProperties`·`PropertiesConfig` 애너테이션·yml 키(base/test)·바인딩 단위 테스트 삭제.
+- [X] T026 `HomeTestSeed.reset` 에 `DELETE FROM food_marketing_popular`(food 보다 먼저). `HomeMarketingPopularTest` 는 `seedPool(...)` 로 행을 INSERT — 풀 전부·12→10·풀 밖 제외·비READY/삭제/풀 행 DELETED/빈 풀/전부 제외·회원 위험도·언어·인기 외 payload 동일·1.0/1.1 집계·2.0 풀(14건). `./gradlew build` Green. spec/plan/research/data-model/contracts/quickstart·위키·PR 동기화.
 
 ---
 

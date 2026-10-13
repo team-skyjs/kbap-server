@@ -1,15 +1,15 @@
 # Data Model: 홈 인기 음식 마케팅 풀
 
-## 신규 테이블 — `home_marketing_popular_food` (Flyway `V2026.10.13.20.42.36__home_marketing_popular_food_table.sql`)
+## 신규 테이블 — `food_marketing_popular` (Flyway `V2026.10.13.20.42.36__food_marketing_popular_table.sql`)
 
 | 컬럼 | 타입 | 제약 | 의미 |
 |------|------|------|------|
 | `id` | BIGINT AI | PK | BaseEntity |
-| `food_id` | BIGINT | NOT NULL, UNIQUE `uq_home_marketing_popular_food_food_id`, FK → `food.id` | 풀에 든 음식 |
+| `food_id` | BIGINT | NOT NULL, UNIQUE `uq_food_marketing_popular_food_id`, FK → `food.id` | 풀에 든 음식 |
 | `status` | ENUM('ACTIVE','DELETED') | NOT NULL | 소프트 삭제(BaseEntity) — DELETED 는 풀에서 제외 |
 | `created_at`/`updated_at` | DATETIME(6) | NOT NULL | BaseEntity |
 
-- 엔티티 `com.kbap.common.domain.food.model.HomeMarketingPopularFood(foodId)`, 리포지토리 `HomeMarketingPopularFoodJpaRepository.findAllFoodIds()`(JPQL projection, `@SQLRestriction` 로 ACTIVE 만).
+- 엔티티 `com.kbap.common.domain.food.model.FoodMarketingPopular(foodId)`, 리포지토리 `FoodMarketingPopularJpaRepository.findAllFoodIds()`(JPQL projection, `@SQLRestriction` 로 ACTIVE 만).
 - 운영자가 DB 에서 직접 INSERT / `status=DELETED`. 관리자 API 없음.
 
 ## 버전 판정 — `ApiVersions` (`com.kbap.api.core`, 기존)

@@ -13,7 +13,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 결정과 기각 대안, �
 
 - 현재 앱 전역 기본 헤더가 `1.1`(kbap-fe `client.ts`)이라 다음 릴리스 마커 `1.2` 를 쓴다. 비교는 "1.2 이상" 이므로 스캔처럼 `2.0` 을 보내는 요청도 풀을 받는다(baseline 의미, 테스트로 고정). 1차의 `2.1` 은 "최고 마커 다음" 논리였으나 홈 실사용 헤더 기준으로 정정.
 
-## R2. 풀 저장소 — 테이블 `home_marketing_popular_food` (관리자 API 없음)
+## R2. 풀 저장소 — 테이블 `food_marketing_popular` (관리자 API 없음)
 
 - **Decision**: 행 = 음식 1개(`food_id` 유니크, food FK, BaseEntity 소프트 삭제). 리포지토리 `findAllFoodIds()` 가 ACTIVE 행의 id 를 돌려주고 `FoodService` 가 READY 필터·셔플한다. 캐시 없음.
 - **Rationale**: 2026-10-13 사용자 요청 — "yml/env 주입보다 DB 에서 관리하는 게 편하다". 배포 없이 행만 넣고 빼면 다음 요청부터 반영되고, 2대 인스턴스가 같은 DB 를 보므로 무효화 문제가 없다. id 만 들고 원본은 매 요청 읽어 stale 이 없다(KB-413 "id 만" 원칙).

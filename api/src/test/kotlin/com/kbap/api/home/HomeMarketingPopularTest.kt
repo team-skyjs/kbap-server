@@ -54,7 +54,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
 
         fun seedPool(vararg foodIds: Long) = foodIds.forEach {
             execute(
-                "INSERT INTO home_marketing_popular_food (food_id, status, created_at, updated_at) " +
+                "INSERT INTO food_marketing_popular (food_id, status, created_at, updated_at) " +
                     "VALUES ($it, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
             )
         }
@@ -129,7 +129,7 @@ class HomeMarketingPopularTest : BehaviorSpec() {
                 then("그 음식은 popularFoods 에 없다") {
                     HomeTestSeed.seedReadyFoods(dataSource, 3)
                     seedPool(1L, 2L, 3L)
-                    execute("UPDATE home_marketing_popular_food SET status = 'DELETED' WHERE food_id = 2")
+                    execute("UPDATE food_marketing_popular SET status = 'DELETED' WHERE food_id = 2")
 
                     popularIds(null, "1.2") shouldContainExactlyInAnyOrder listOf(1L, 3L)
                 }

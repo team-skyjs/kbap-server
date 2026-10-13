@@ -6,7 +6,7 @@
 
 | `X-API-Version` | `popularFoods` |
 |------|----------------|
-| 1.2 이상 | `home_marketing_popular_food` 풀 중 READY 이고 존재하는 음식에서 **호출마다 무작위 최대 10건**. 삭제·미존재·비READY 는 풀에서 제외, 빈자리 미보충, 전부 제외면 `[]`. 폴백 없음 |
+| 1.2 이상 | `food_marketing_popular` 풀 중 READY 이고 존재하는 음식에서 **호출마다 무작위 최대 10건**. 삭제·미존재·비READY 는 풀에서 제외, 빈자리 미보충, 전부 제외면 `[]`. 폴백 없음 |
 | 1.2 미만(1.0·1.1) | 최근 30일 조회 수 상위 10건(KB-714·KB-725 캐시) — 종전과 동일 |
 
 - 각 항목의 `overallRiskStatus`·`bookmarked`·`review`·`name`(lang) 은 요청자 기준으로 계산된다(종전과 동일).
@@ -16,9 +16,9 @@
 ## 풀 관리 (DB)
 
 ```sql
-INSERT INTO home_marketing_popular_food (food_id, status, created_at, updated_at)
+INSERT INTO food_marketing_popular (food_id, status, created_at, updated_at)
 VALUES (6, 'ACTIVE', NOW(6), NOW(6)), (4, 'ACTIVE', NOW(6), NOW(6));   -- 추가
-UPDATE home_marketing_popular_food SET status = 'DELETED' WHERE food_id = 4; -- 제외
+UPDATE food_marketing_popular SET status = 'DELETED' WHERE food_id = 4; -- 제외
 ```
 
 `food_id` 유니크·food FK. 다음 요청부터 즉시 반영(캐시 없음). 비어 있으면 1.2 의 `popularFoods` 는 `[]` 다(운영상 비우지 않는다).

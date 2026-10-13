@@ -3,13 +3,13 @@
 -- food_id 유니크로 중복 등록을 막고, FK 로 존재하지 않는 음식을 막는다(소프트 삭제 구조라 ON DELETE 없음).
 -- 비활성화는 행 삭제 또는 status=DELETED. 풀이 비면 1.2 이상 홈의 popularFoods 는 빈 목록이다(집계 폴백 없음).
 
-CREATE TABLE home_marketing_popular_food
+CREATE TABLE food_marketing_popular
 (
     id         BIGINT                    NOT NULL AUTO_INCREMENT PRIMARY KEY,
     food_id    BIGINT                    NOT NULL,
     status     ENUM ('ACTIVE','DELETED') NOT NULL DEFAULT 'ACTIVE',
     created_at DATETIME(6)               NOT NULL,
     updated_at DATETIME(6)               NOT NULL,
-    CONSTRAINT uq_home_marketing_popular_food_food_id UNIQUE (food_id),
-    CONSTRAINT fk_home_marketing_popular_food_food FOREIGN KEY (food_id) REFERENCES food (id)
+    CONSTRAINT uq_food_marketing_popular_food_id UNIQUE (food_id),
+    CONSTRAINT fk_food_marketing_popular_food FOREIGN KEY (food_id) REFERENCES food (id)
 );

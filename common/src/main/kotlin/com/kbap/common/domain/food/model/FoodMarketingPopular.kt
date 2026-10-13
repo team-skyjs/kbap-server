@@ -8,10 +8,10 @@ import jakarta.persistence.UniqueConstraint
 
 @Entity
 @Table(
-    name = "home_marketing_popular_food",
-    uniqueConstraints = [UniqueConstraint(name = "uq_home_marketing_popular_food_food_id", columnNames = ["food_id"])],
+    name = "food_marketing_popular",
+    uniqueConstraints = [UniqueConstraint(name = "uq_food_marketing_popular_food_id", columnNames = ["food_id"])],
 )
-class HomeMarketingPopularFood(
+class FoodMarketingPopular(
     @Column(name = "food_id", nullable = false)
     var foodId: Long = 0,
 ) : BaseEntity()
