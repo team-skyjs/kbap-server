@@ -65,6 +65,7 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
             storage.lastModified.clear()
             storage.deleted.clear()
             storage.headCalls.clear()
+            storage.headDelayMillis = 0
         }
 
         given("업로드 완료 신고의 경로 소유 검증 — POST /api/images/complete") {
@@ -164,23 +165,29 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
             }
 
             `when`("같은 본인 키로 완료 신고가 동시에 두 번 오면") {
-                then("둘 다 200 이고 행은 1개다 — 두 번째 save 의 unique 위반은 재조회로 흡수한다") {
+                then("둘 다 findByPath 를 지나 head 까지 간 뒤에도(head 지연) 둘 다 200, 행 1, 삭제 0 — 두 번째 save 의 unique 위반은 재조회로 흡수한다") {
                     val ownKey = issued(owner = 19L, purpose = "review", ext = "webp")
                     storage.stub(ownKey, "image/webp", 2048)
+                    storage.headDelayMillis = 700
                     val tokenValue = token(19L)
                     val start = java.util.concurrent.CountDownLatch(1)
                     val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
-                    val statuses = (1..2).map {
-                        pool.submit(java.util.concurrent.Callable {
-                            start.await()
-                            complete(tokenValue, ownKey, "image/webp", 2048).status
-                        })
+                    val results = try {
+                        val statuses = (1..2).map {
+                            pool.submit(java.util.concurrent.Callable {
+                                start.await()
+                                complete(tokenValue, ownKey, "image/webp", 2048).status
+                            })
+                        }
+                        start.countDown()
+                        statuses.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+                    } finally {
+                        pool.shutdownNow()
                     }
-                    start.countDown()
-                    val results = statuses.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
-                    pool.shutdown()
 
                     results shouldBe listOf(200, 200)
+                    storage.headCalls.count { it == ownKey } shouldBe 2
+                    storage.deleted.size shouldBe 0
                     rows(ownKey) shouldBe 1
                 }
             }
