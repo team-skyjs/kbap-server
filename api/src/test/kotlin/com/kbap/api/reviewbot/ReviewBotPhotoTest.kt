@@ -66,10 +66,10 @@ class ReviewBotPhotoTest : BehaviorSpec() {
         fun count(sql: String): Long = (query(sql).single().single() as Number).toLong()
         fun poolPath(koreanName: String, n: Int) = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf(koreanName) + "/$n.webp"
         fun stubObjects(koreanName: String, count: Int = 3) = (1..count).forEach { storage.stub(poolPath(koreanName, it), "image/webp", 100_000L + it) }
-        fun sync() = mockMvc.post("/api/admin/review-bots/images/sync") {
+        fun sync(force: Boolean = false) = mockMvc.post("/api/admin/review-bots/images/sync" + if (force) "?force=true" else "") {
             header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
         }.andReturn().response
-        fun syncPayload() = mapper.readTree(sync().also { it.status shouldBe 200 }.contentAsString).path("payload")
+        fun syncPayload(force: Boolean = false) = mapper.readTree(sync(force).also { it.status shouldBe 200 }.contentAsString).path("payload")
         fun seedFood(koreanName: String): Food = foodRepository.save(Food(koreanName = koreanName, description = "설명", contentStatus = FoodContentStatus.READY))
         fun writer(min: Int = 1, max: Int = 1) = ReviewBotWriter(
             accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, priorityList, photoPool, min, max, Duration.ofMinutes(15),
@@ -269,6 +269,8 @@ class ReviewBotPhotoTest : BehaviorSpec() {
 
                     first.path("deletedReviewCount").asInt() shouldBe 1
                     count("SELECT COUNT(*) FROM food_review WHERE id = ${fine.reviewId} AND status = 'DELETED'") shouldBe 1
+                    count("SELECT unique_reviewed_food_count FROM member WHERE id = ${bots[0].id}") shouldBe 0
+                    count("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = ${fine.reviewId} AND event = 'REVIEW_DELETED'") shouldBe 1
                     count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'ACTIVE'") shouldBe 1
                     count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p1' AND status = 'ACTIVE'") shouldBe 1
                     count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p2' AND status = 'DELETED'") shouldBe 1
@@ -304,18 +306,50 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
-            `when`("삭제 대상이 기존 활성 풀 행의 절반을 넘으면") {
-                then("잘린 목록으로 본다 — 삭제 단계를 건너뛰고(removalSkipped) 행은 그대로다") {
+            `when`("활성 풀 행이 10개 이상이고 삭제 대상이 절반을 넘으면") {
+                then("잘린 목록으로 보고 건너뛴다(removalSkipped) — force=true 면 가드를 무시하고 지운다") {
                     accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 4)
+                    stubObjects("후라이드치킨", 12)
                     syncPayload()
-                    (1..3).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+                    (1..7).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+
+                    val guarded = syncPayload()
+                    val forced = syncPayload(force = true)
+
+                    guarded.path("removalSkipped").asBoolean() shouldBe true
+                    guarded.path("removedCount").asInt() shouldBe 0
+                    forced.path("removalSkipped").asBoolean() shouldBe false
+                    forced.path("removedCount").asInt() shouldBe 7
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 5
+                }
+            }
+
+            `when`("삭제 대상이 정확히 절반이면") {
+                then("가드에 걸리지 않고 지운다(경계는 '초과')") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 12)
+                    syncPayload()
+                    (1..6).forEach { storage.delete(poolPath("후라이드치킨", it)) }
 
                     val result = syncPayload()
 
-                    result.path("removalSkipped").asBoolean() shouldBe true
-                    result.path("removedCount").asInt() shouldBe 0
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 4
+                    result.path("removalSkipped").asBoolean() shouldBe false
+                    result.path("removedCount").asInt() shouldBe 6
+                }
+            }
+
+            `when`("활성 풀 행이 10개 미만이면") {
+                then("절반을 넘게 사라져도 그냥 지운다 — 작은 풀은 가드 없이(출구 없는 영구 스킵 방지)") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    (1..2).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+
+                    val result = syncPayload()
+
+                    result.path("removalSkipped").asBoolean() shouldBe false
+                    result.path("removedCount").asInt() shouldBe 2
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 1
                 }
             }
 
@@ -476,9 +510,9 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             }
 
             `when`("목록 음식의 봇 리뷰 3건이 전부 삭제됐으면") {
-                then("평생 상한은 활성 리뷰만 세므로 다시 우선순위 대상이다 — 사진 소실로 지워진 음식이 영영 빠지지 않는다(기존 순이면 id 가 앞선 일반 음식이 먼저다)") {
-                    val bots = accountService.ensureBots(4).bots
-                    seedFood("봇대상음식1")
+                then("평생 상한은 상태 무관이라 여전히 목록에서 제외되고, 그 봇들도 그 음식에 소진돼 일반 음식만 쓴다(#306 의미 유지 — 예진 결정 10/13)") {
+                    val bots = accountService.ensureBots(3).bots
+                    val plain = seedFood("봇대상음식1")
                     val chicken = seedFood("후라이드치킨")
                     listOf("후라이드치킨", "봇대상음식1").forEach { stubObjects(it, 3) }
                     syncPayload()
@@ -487,9 +521,9 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food_review SET status = 'DELETED' WHERE food_id = ${chicken.id}") } }
                     val seeded = maxReviewId()
 
-                    writer().writeDue(at(22))
+                    writer(min = 2, max = 2).writeDue(at(22))
 
-                    botReviewFoodIds(seeded) shouldBe listOf(chicken.id)
+                    botReviewFoodIds(seeded) shouldBe listOf(plain.id)
                 }
             }
 
