@@ -5,6 +5,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.port.storage.StorageObjectStore
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.image.model.UploadedImage
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,9 +24,10 @@ class ImageUploadService(
         declaredContentType: String,
         declaredSize: Long,
     ): UploadedImage {
-        val guestInstallation = guestInstallationOf(memberId, installationId, path)
-        PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, memberId ?: PresignedUploadService.GUEST_OWNER_KEY)
+        val guestInstallation = guestInstallationOf(memberId, installationId)
+        val purpose = PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, PresignedUploadService.ownerKeyOf(memberId, guestInstallation))
             ?: throw BusinessException(ErrorCode.UPLOAD_PATH_NOT_ISSUED)
+        if (guestInstallation != null && purpose != UploadPurpose.FEEDBACK) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
         uploadedImageRepository.findByPath(path)?.let { existing ->
             val owned = (memberId != null && existing.isOwnedBy(memberId)) ||
                 (guestInstallation != null && existing.isOwnedByInstallation(guestInstallation))
@@ -71,9 +73,8 @@ class ImageUploadService(
         )
     }
 
-    private fun guestInstallationOf(memberId: Long?, installationId: String?, path: String): String? {
+    private fun guestInstallationOf(memberId: Long?, installationId: String?): String? {
         if (memberId != null) return null
-        if (!path.contains(FEEDBACK_SEGMENT)) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
         return installationId?.let(ApiHeaders::validInstallationId)
             ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
     }
@@ -82,7 +83,4 @@ class ImageUploadService(
     fun verifyImageAccess(memberId: Long, path: String): UploadedImage? =
         uploadedImageRepository.findByPath(path)?.takeIf { it.isOwnedBy(memberId) }
 
-    companion object {
-        private const val FEEDBACK_SEGMENT = "images/feedback/"
-    }
 }

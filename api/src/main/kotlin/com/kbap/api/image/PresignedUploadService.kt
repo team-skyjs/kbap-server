@@ -6,6 +6,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.image.model.UploadPurpose
 import org.springframework.stereotype.Service
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.UUID
@@ -29,39 +30,46 @@ class PresignedUploadService(
         if (input.contentLength > properties.maxBytes) {
             throw BusinessException(ErrorCode.IMAGE_TOO_LARGE)
         }
-        val key = objectKey(purpose, input.memberId ?: GUEST_OWNER_KEY, input.contentType)
+        val key = issuedKey(properties.keyPrefix, purpose, ownerKeyOf(input.memberId, input.installationId), input.contentType)
         return port.issue(key, input.contentType, input.contentLength, properties.uploadTtl)
     }
 
-    private fun objectKey(purpose: UploadPurpose, memberId: Long, contentType: String): String {
-        val date = LocalDate.now(ZoneOffset.UTC)
-        val prefix = properties.keyPrefix.trim('/')
-        val baseKey = "images/%s/%04d/%02d/%d_%s.%s".format(
-            purpose.prefix,
-            date.year,
-            date.monthValue,
-            memberId,
-            UUID.randomUUID(),
-            extensionOf(contentType),
-        )
-        return if (prefix.isEmpty()) baseKey else "$prefix/$baseKey"
-    }
-
     companion object {
-        const val GUEST_OWNER_KEY = 0L
-        private val ISSUED_KEY = Regex("""^images/([a-z]+)/\d{4}/\d{2}/(\d+)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{2,5}$""")
+        private val ISSUED_KEY = Regex("""^images/([a-z]+)/\d{4}/\d{2}/(\d+|g[0-9a-f]{12})_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{2,5}$""")
 
-        fun issuedPurposeOf(path: String, keyPrefix: String, ownerKey: Long): UploadPurpose? {
+        fun ownerKeyOf(memberId: Long?, installationId: String?): String =
+            memberId?.toString() ?: guestOwnerKey(installationId ?: throw BusinessException(ErrorCode.INVALID_REQUEST))
+
+        fun guestOwnerKey(installationId: String): String =
+            "g" + MessageDigest.getInstance("SHA-256").digest(installationId.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+                .substring(0, 12)
+
+        fun issuedKey(keyPrefix: String, purpose: UploadPurpose, ownerKey: String, contentType: String): String {
+            val date = LocalDate.now(ZoneOffset.UTC)
+            val prefix = keyPrefix.trim('/')
+            val baseKey = "images/%s/%04d/%02d/%s_%s.%s".format(
+                purpose.prefix,
+                date.year,
+                date.monthValue,
+                ownerKey,
+                UUID.randomUUID(),
+                extensionOf(contentType),
+            )
+            return if (prefix.isEmpty()) baseKey else "$prefix/$baseKey"
+        }
+
+        fun issuedPurposeOf(path: String, keyPrefix: String, ownerKey: String): UploadPurpose? {
             val prefix = keyPrefix.trim('/')
             val relative = if (prefix.isEmpty()) path else path.removePrefix("$prefix/").takeIf { it != path } ?: return null
             val match = ISSUED_KEY.matchEntire(relative) ?: return null
-            if (match.groupValues[2] != ownerKey.toString()) return null
+            if (match.groupValues[2] != ownerKey) return null
             return UploadPurpose.entries.firstOrNull { it.prefix == match.groupValues[1] }
         }
-    }
 
-    private fun extensionOf(contentType: String): String {
-        val subtype = contentType.substringAfterLast('/').lowercase()
-        return if (subtype == "jpeg") "jpg" else subtype
+        private fun extensionOf(contentType: String): String {
+            val subtype = contentType.substringAfterLast('/').lowercase()
+            return if (subtype == "jpeg") "jpg" else subtype
+        }
     }
 }
