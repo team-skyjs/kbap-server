@@ -4,6 +4,8 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.config.ApiErrors
 import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -64,6 +66,7 @@ interface OrderApi {
 
             - `totalPrice` 는 가격이 있는 항목의 (단가 × 수량) 합이다. 가격이 없는 항목(스캔 미인식)은 제외된다.
             - 음식 사진은 항목마다 `items[].imageRef` 로 내려간다(사진이 없으면 기본 대체 이미지). 상세에는 별도 썸네일 목록이 없다.
+            - `items[].name` 은 `Accept-Language`(지원 언어 코드 하나) 기준 음식 이름이다 — 공개 음식만, 아니면 null 이라 화면은 `name ?: menuName`.
             - 타인의 주문이거나 존재하지 않으면 404(ORDER-002)로 통일한다 — 주문 존재 여부를 노출하지 않는다.
         """,
     )
@@ -73,7 +76,12 @@ interface OrderApi {
     )
     @SecurityRequirement(name = "bearerAuth")
     @ApiErrors(ErrorCode.ORDER_NOT_FOUND)
-    fun getOrderDetail(memberId: Long, orderId: Long): ResponseEntity<BaseResponse<OrderDetailResponse>>
+    fun getOrderDetail(
+        memberId: Long,
+        orderId: Long,
+        @Parameter(`in` = ParameterIn.HEADER, name = "Accept-Language", description = ACCEPT_LANGUAGE_DESCRIPTION, example = "en")
+        acceptLanguage: String?,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>>
 
     @Operation(
         summary = "주문 장소 교체",
@@ -91,7 +99,13 @@ interface OrderApi {
     )
     @SecurityRequirement(name = "bearerAuth")
     @ApiErrors(ErrorCode.ORDER_NOT_FOUND, ErrorCode.MEMBER_NOT_FOUND)
-    fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): ResponseEntity<BaseResponse<OrderDetailResponse>>
+    fun updatePlace(
+        memberId: Long,
+        orderId: Long,
+        request: OrderPlaceUpdateRequest,
+        @Parameter(`in` = ParameterIn.HEADER, name = "Accept-Language", description = ACCEPT_LANGUAGE_DESCRIPTION, example = "en")
+        acceptLanguage: String?,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>>
 
     @Operation(
         summary = "주문 항목 사진을 내 사진으로 교체",
@@ -117,6 +131,8 @@ interface OrderApi {
         orderId: Long,
         itemId: Long,
         request: OrderItemImageUpdateRequest,
+        @Parameter(`in` = ParameterIn.HEADER, name = "Accept-Language", description = ACCEPT_LANGUAGE_DESCRIPTION, example = "en")
+        acceptLanguage: String?,
     ): ResponseEntity<BaseResponse<OrderDetailResponse>>
 
     @Operation(
@@ -132,5 +148,14 @@ interface OrderApi {
     )
     @SecurityRequirement(name = "bearerAuth")
     @ApiErrors(ErrorCode.ORDER_NOT_FOUND, ErrorCode.ORDER_ITEM_NOT_FOUND)
-    fun restoreItemImage(memberId: Long, orderId: Long, itemId: Long): ResponseEntity<BaseResponse<OrderDetailResponse>>
+    fun restoreItemImage(
+        memberId: Long,
+        orderId: Long,
+        itemId: Long,
+        @Parameter(`in` = ParameterIn.HEADER, name = "Accept-Language", description = ACCEPT_LANGUAGE_DESCRIPTION, example = "en")
+        acceptLanguage: String?,
+    ): ResponseEntity<BaseResponse<OrderDetailResponse>>
 }
+
+private const val ACCEPT_LANGUAGE_DESCRIPTION =
+    "응답 items[].name 의 언어 — 지원 코드 하나(ko·en·ja·zh-Hans·zh-Hant·vi·id·th·ru·es). 없거나 다른 값이면 name 은 null"

@@ -7,6 +7,7 @@ import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.place.ReverseGeocoder
 import jakarta.validation.Valid
+import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -52,16 +54,18 @@ class OrderController(
     override fun getOrderDetail(
         @AuthMemberId memberId: Long,
         @PathVariable orderId: Long,
+        @RequestHeader(HttpHeaders.ACCEPT_LANGUAGE, required = false) acceptLanguage: String?,
     ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(orderService.getOrderDetail(memberId, orderId)))
+        ResponseEntity.ok(BaseResponse.ok(orderService.getOrderDetail(memberId, orderId, languageOf(acceptLanguage))))
 
     @PatchMapping("/{orderId}/place")
     override fun updatePlace(
         @AuthMemberId memberId: Long,
         @PathVariable orderId: Long,
         @Valid @RequestBody request: OrderPlaceUpdateRequest,
+        @RequestHeader(HttpHeaders.ACCEPT_LANGUAGE, required = false) acceptLanguage: String?,
     ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(orderService.updatePlace(memberId, orderId, request)))
+        ResponseEntity.ok(BaseResponse.ok(orderService.updatePlace(memberId, orderId, request, languageOf(acceptLanguage))))
 
     @PutMapping("/{orderId}/items/{itemId}/image")
     override fun replaceItemImage(
@@ -69,14 +73,21 @@ class OrderController(
         @PathVariable orderId: Long,
         @PathVariable itemId: Long,
         @Valid @RequestBody request: OrderItemImageUpdateRequest,
+        @RequestHeader(HttpHeaders.ACCEPT_LANGUAGE, required = false) acceptLanguage: String?,
     ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(orderService.replaceItemImage(memberId, orderId, itemId, request.imagePath!!)))
+        ResponseEntity.ok(
+            BaseResponse.ok(orderService.replaceItemImage(memberId, orderId, itemId, request.imagePath!!, languageOf(acceptLanguage))),
+        )
 
     @DeleteMapping("/{orderId}/items/{itemId}/image")
     override fun restoreItemImage(
         @AuthMemberId memberId: Long,
         @PathVariable orderId: Long,
         @PathVariable itemId: Long,
+        @RequestHeader(HttpHeaders.ACCEPT_LANGUAGE, required = false) acceptLanguage: String?,
     ): ResponseEntity<BaseResponse<OrderDetailResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(orderService.restoreItemImage(memberId, orderId, itemId)))
+        ResponseEntity.ok(BaseResponse.ok(orderService.restoreItemImage(memberId, orderId, itemId, languageOf(acceptLanguage))))
+
+    private fun languageOf(acceptLanguage: String?): LanguageCode? =
+        LanguageCode.entries.firstOrNull { it.code == acceptLanguage?.trim() }
 }
