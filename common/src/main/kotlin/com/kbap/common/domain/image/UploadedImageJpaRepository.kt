@@ -55,7 +55,7 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     fun findRecordedPathsAnyStatus(@Param("paths") paths: Collection<String>): List<String>
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(nativeQuery = true, value = "update uploaded_image u set u.status = 'ACTIVE' where u.object_path in (:paths) and u.status = 'DELETED'")
+    @Query(nativeQuery = true, value = "update uploaded_image u set u.status = 'ACTIVE', u.updated_at = now(6) where u.object_path in (:paths) and u.status = 'DELETED'")
     fun restoreDeletedByPaths(@Param("paths") paths: Collection<String>): Int
 
     @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.object_path = :path")
