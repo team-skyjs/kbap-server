@@ -434,10 +434,10 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             }
 
             `when`("목록 음식의 봇 리뷰 3건이 전부 삭제됐으면") {
-                then("평생 상한은 활성 리뷰만 세므로 다시 우선순위 대상이다 — 사진 소실로 지워진 음식이 영영 빠지지 않는다") {
+                then("평생 상한은 활성 리뷰만 세므로 다시 우선순위 대상이다 — 사진 소실로 지워진 음식이 영영 빠지지 않는다(기존 순이면 id 가 앞선 일반 음식이 먼저다)") {
                     val bots = accountService.ensureBots(4).bots
-                    val chicken = seedFood("후라이드치킨")
                     seedFood("봇대상음식1")
+                    val chicken = seedFood("후라이드치킨")
                     listOf("후라이드치킨", "봇대상음식1").forEach { stubObjects(it, 3) }
                     syncPayload()
                     val yesterday = LocalDateTime.now().minusDays(1)
