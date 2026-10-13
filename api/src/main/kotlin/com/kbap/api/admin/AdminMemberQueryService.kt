@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.member.MemberAdRewardJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -28,6 +29,7 @@ class AdminMemberQueryService(
     private val orderRepository: OrderJpaRepository,
     private val orderItemRepository: OrderItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
+    private val adRewardRepository: MemberAdRewardJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
@@ -56,7 +58,7 @@ class AdminMemberQueryService(
     fun getMemberDetail(id: Long): AdminMemberDetailResponse {
         val member = memberRepository.findAnyById(id)
             ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), imagePublicBaseUrl)
+        return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), adRewardRepository.countByMemberId(id), imagePublicBaseUrl)
     }
 
     @Transactional(readOnly = true)
