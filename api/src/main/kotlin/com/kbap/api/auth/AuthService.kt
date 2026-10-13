@@ -57,19 +57,18 @@ class AuthService(
             throw e
         }
 
-        val memberId = refreshTokenStore.consume(parsed.jti)
-            ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
-
-        if (memberService.getMemberOrNull(memberId) == null) {
+        if (memberService.getMemberOrNull(parsed.memberId) == null) {
             throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
 
-        val rotated = tokenIssuer.issueRefreshToken(memberId)
-        refreshTokenStore.save(rotated.jti, memberId, refreshTtl)
+        val successor = tokenIssuer.issueRefreshToken(parsed.memberId)
+        val rotation = refreshTokenStore.rotate(parsed.jti, successor, refreshTtl, REFRESH_ROTATION_GRACE)
+            ?.takeIf { it.memberId == parsed.memberId }
+            ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
 
         return RefreshResult(
-            accessToken = tokenIssuer.issueAccessToken(memberId, MemberRole.USER),
-            refreshToken = rotated.token,
+            accessToken = tokenIssuer.issueAccessToken(rotation.memberId, MemberRole.USER),
+            refreshToken = rotation.refreshToken,
         )
     }
 
@@ -125,7 +124,8 @@ class AuthService(
         }
     }
 
-    private companion object {
+    companion object {
+        val REFRESH_ROTATION_GRACE: Duration = Duration.ofSeconds(60)
         const val STAGE_DEVICE_RELEASE = "device_release"
         const val STAGE_MEMBER_WITHDRAW = "member_withdraw"
     }
