@@ -48,6 +48,8 @@ class ReviewBotPhotoTest : BehaviorSpec() {
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
     @Autowired private lateinit var priorityList: ReviewBotPriorityList
     @Autowired private lateinit var photoPool: ReviewBotPhotoPool
+    @Autowired private lateinit var uploadedImageRepository: com.kbap.common.domain.image.UploadedImageJpaRepository
+    @Autowired private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
 
     private val seoul = ZoneId.of("Asia/Seoul")
     private val mapper = jacksonObjectMapper()
@@ -140,10 +142,94 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     val second = syncPayload()
 
                     second.path("removedCount").asInt() shouldBe 1
+                    second.path("removalSkipped").asBoolean() shouldBe false
                     second.path("registeredCount").asInt() shouldBe 0
                     second.path("skippedCount").asInt() shouldBe 2
                     count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 2
                     count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '${poolPath("후라이드치킨", 2)}' AND status = 'DELETED'") shouldBe 1
+                }
+            }
+
+            `when`("지워졌던 경로에 사진을 다시 올리면") {
+                then("다음 sync 가 DELETED 행을 되살려 풀로 돌아온다(restoredCount) — 행 중복 없이") {
+                    accountService.ensureBots(2)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    storage.delete(poolPath("후라이드치킨", 2))
+                    syncPayload().path("removedCount").asInt() shouldBe 1
+                    storage.stub(poolPath("후라이드치킨", 2), "image/webp", 100_002L)
+
+                    val third = syncPayload()
+
+                    third.path("restoredCount").asInt() shouldBe 1
+                    third.path("registeredCount").asInt() shouldBe 0
+                    third.path("skippedCount").asInt() shouldBe 2
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%'") shouldBe 3
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
+                }
+            }
+
+            `when`("스토리지가 접두에 빈 목록을 돌려주면") {
+                then("삭제 단계를 건너뛴다(removalSkipped) — 일시 장애로 풀 전체를 지우지 않는다") {
+                    accountService.ensureBots(2)
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    storage.heads.clear()
+                    storage.lastModified.clear()
+
+                    val empty = syncPayload()
+
+                    empty.path("removalSkipped").asBoolean() shouldBe true
+                    empty.path("removedCount").asInt() shouldBe 0
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
+                }
+            }
+
+            `when`("지워진 사진을 봇 리뷰가 참조하고 있으면") {
+                then("그 리뷰의 image_refs 에서 떼고(detached), 사진이 0장이 되는 리뷰는 소프트 삭제한다(deleted) — 죽은 이미지가 남지 않는다") {
+                    val bots = accountService.ensureBots(2).bots
+                    val food = seedFood("봇대상음식1")
+                    stubObjects("봇대상음식1", 3)
+                    syncPayload()
+                    val p1 = poolPath("봇대상음식1", 1)
+                    val p2 = poolPath("봇대상음식1", 2)
+                    val review = reviewService.createBotReview(bots[0].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p1, p2), photoPool.ownerIds())
+                    storage.delete(p1)
+
+                    val afterFirst = syncPayload()
+
+                    afterFirst.path("removedCount").asInt() shouldBe 1
+                    afterFirst.path("detachedReviewCount").asInt() shouldBe 1
+                    afterFirst.path("deletedReviewCount").asInt() shouldBe 0
+                    imageRefsOf(review.reviewId) shouldBe listOf(p2)
+
+                    storage.delete(p2)
+                    val afterSecond = syncPayload()
+
+                    afterSecond.path("removedCount").asInt() shouldBe 1
+                    afterSecond.path("detachedReviewCount").asInt() shouldBe 0
+                    afterSecond.path("deletedReviewCount").asInt() shouldBe 1
+                    count("SELECT COUNT(*) FROM food_review WHERE id = ${review.reviewId} AND status = 'DELETED'") shouldBe 1
+                    count("SELECT review_count FROM food WHERE id = ${food.id}") shouldBe 0
+                }
+            }
+
+            `when`("페이지 크기 2로 오브젝트 5개를 훑으면") {
+                then("여러 페이지를 끝까지 읽어 5장 등록하고, 1장을 지우면 삭제 반영도 전 페이지 기준으로 한다") {
+                    accountService.ensureBots(1)
+                    stubObjects("후라이드치킨", 5)
+                    val paged = ReviewBotPhotoSyncService(storage, uploadedImageRepository, accountService, photoPool, reviewRepository, reviewService, transactionManager, pageSize = 2)
+
+                    val first = paged.sync()
+                    storage.delete(poolPath("후라이드치킨", 5))
+                    val second = paged.sync()
+
+                    first.registeredCount shouldBe 5
+                    first.imagesPerKey[ReviewBotPhotoPool.keyOf("후라이드치킨")] shouldBe 5
+                    second.registeredCount shouldBe 0
+                    second.skippedCount shouldBe 4
+                    second.removedCount shouldBe 1
+                    second.removalSkipped shouldBe false
                 }
             }
 
@@ -281,6 +367,37 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     fakeGenerator.requests.size shouldBe 1
                     summary.skippedNoPool shouldBe withoutPool.size
                     summary.written shouldBe 1
+                }
+            }
+
+            `when`("오늘 쓴 봇 리뷰가 모더레이션으로 삭제됐으면") {
+                then("목록 음식이라도 같은 날 다시 쓰지 않는다 — 오늘 게이트는 상태 무관(후보 쿼리와 같은 기준)") {
+                    val bots = accountService.ensureBots(3).bots
+                    val chicken = seedFood("후라이드치킨")
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+                    insertBotReview(bots[0].id, chicken.id, LocalDateTime.now().minusMinutes(5))
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food_review SET status = 'DELETED' WHERE food_id = ${chicken.id}") } }
+                    val seeded = maxReviewId()
+
+                    writer().writeDue(at(22))
+
+                    botReviewFoodIds(seeded) shouldBe emptyList()
+                }
+            }
+
+            `when`("목록 이름의 풀 없는 음식이 페이지 후보에도 나오면") {
+                then("풀 없음은 1번만 센다 — 우선순위 단계에서 시도한 음식은 페이지에서 다시 세지 않는다") {
+                    accountService.ensureBots(2)
+                    seedFood("후라이드치킨")
+                    val withPool = seedFood("봇대상음식1")
+                    stubObjects("봇대상음식1", 3)
+                    syncPayload()
+
+                    val summary = writer().writeDue(at(22))
+
+                    summary.skippedNoPool shouldBe 1
+                    botReviewFoodIds() shouldBe listOf(withPool.id)
                 }
             }
 
