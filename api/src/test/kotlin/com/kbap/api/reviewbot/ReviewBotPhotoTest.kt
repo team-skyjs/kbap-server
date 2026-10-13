@@ -242,6 +242,48 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
+            `when`("사라진 사진을 참조하는 리뷰 하나의 처리가 실패하면") {
+                then("그 리뷰가 참조하던 사진 행은 ACTIVE 로 남아 다음 sync 가 다시 잡는다 — 리뷰 처리가 성공한 뒤에만 행을 지운다") {
+                    val bots = accountService.ensureBots(2).bots
+                    val food = seedFood("봇대상음식1")
+                    stubObjects("봇대상음식1", 3)
+                    syncPayload()
+                    val p1 = poolPath("봇대상음식1", 1)
+                    val p2 = poolPath("봇대상음식1", 2)
+                    val fine = reviewService.createBotReview(bots[0].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p2), photoPool.ownerIds())
+                    val now = LocalDateTime.now()
+                    val brokenId = dataSource.connection.use { c ->
+                        c.prepareStatement(
+                            "INSERT INTO food_review (member_id, food_id, rating, content, image_refs, status, created_at, updated_at) VALUES (?, ?, 4, 'broken refs review text', ?, 'ACTIVE', ?, ?)",
+                            java.sql.Statement.RETURN_GENERATED_KEYS,
+                        ).use { ps ->
+                            ps.setLong(1, bots[1].id); ps.setLong(2, food.id); ps.setString(3, """["$p1", {"not": "a path"}]"""); ps.setObject(4, now); ps.setObject(5, now)
+                            ps.executeUpdate()
+                            ps.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
+                        }
+                    }
+                    storage.delete(p1)
+                    storage.delete(p2)
+
+                    val first = syncPayload()
+
+                    first.path("deletedReviewCount").asInt() shouldBe 1
+                    count("SELECT COUNT(*) FROM food_review WHERE id = ${fine.reviewId} AND status = 'DELETED'") shouldBe 1
+                    count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'ACTIVE'") shouldBe 1
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p1' AND status = 'ACTIVE'") shouldBe 1
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p2' AND status = 'DELETED'") shouldBe 1
+                    first.path("removedCount").asInt() shouldBe 1
+
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("""UPDATE food_review SET image_refs = '["$p1"]' WHERE id = $brokenId""") } }
+                    val second = syncPayload()
+
+                    second.path("deletedReviewCount").asInt() shouldBe 1
+                    second.path("removedCount").asInt() shouldBe 1
+                    count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'DELETED'") shouldBe 1
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '$p1' AND status = 'DELETED'") shouldBe 1
+                }
+            }
+
             `when`("봇의 review_count 가 이미 0 인 상태에서 그 봇의 리뷰가 사진 소실로 삭제되면") {
                 then("sync 는 성공하고 리뷰는 삭제되며 카운터는 음수가 되지 않는다 — 한 리뷰의 실패가 전체를 되돌리지 않는다") {
                     val bots = accountService.ensureBots(2).bots
