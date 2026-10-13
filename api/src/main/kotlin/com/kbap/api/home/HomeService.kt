@@ -28,13 +28,11 @@ class HomeService(
 
     fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
         val popularFoodIds = popularFoodIdCache.getPopularFoodIds(POPULAR_SIZE)
-        return readOnlyTransaction.execute { assembleHome(memberId, lang, popularFoodIds, curated = false) }!!
-    }
-
-    fun getMarketingHome(memberId: Long?, lang: LanguageCode): HomeResult {
         val curatedFoodIds = marketingPopular.activeFoodIds(LocalDateTime.now(SEOUL)).take(POPULAR_SIZE)
-        if (curatedFoodIds.isEmpty()) return getHome(memberId, lang)
-        return readOnlyTransaction.execute { assembleHome(memberId, lang, curatedFoodIds, curated = true) }!!
+        return readOnlyTransaction.execute {
+            if (curatedFoodIds.isEmpty()) assembleHome(memberId, lang, popularFoodIds, curated = false)
+            else assembleHome(memberId, lang, curatedFoodIds, curated = true)
+        }!!
     }
 
     private fun assembleHome(memberId: Long?, lang: LanguageCode, popularFoodIds: List<Long>, curated: Boolean): HomeResult {

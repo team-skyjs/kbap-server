@@ -6,20 +6,11 @@
 ./gradlew :api:test            # 단위(HomeMarketingPopularPropertiesTest) + 통합(HomeMarketingPopularTest) + OpenApiSnapshotTest 드리프트 가드
 ```
 
-통합 테스트 전제(`api/src/test/resources/application.yml`):
+통합 테스트 전제: 공유 컨텍스트의 테스트 yml 은 **비활성 창**(2000-01-01~01-02)이라 기존 홈 테스트는 집계를 본다. `HomeMarketingPopularTest` 는 실제 빈들로 `HomeService` 를 직접 조립하며 활성 설정(어제~내일, ids 3,1,999,2)과 종료 설정을 바꿔 끼운다.
 
-```yaml
-kbap:
-  home:
-    marketing-popular:
-      starts-at: 2000-01-01T00:00:00
-      ends-at: 2100-01-01T00:00:00
-      food-ids: 3,1,999,2
-```
-
-- 통합 테스트는 항상 기간 안: 2.1 응답 `popularFoods` id = `[3, 1, 2]`(999 제외). 음식 1 을 `FAILED` 로 바꾸면 `[3, 2]`.
-- 기간 밖·경계·미설정·역전 창은 `HomeMarketingPopularPropertiesTest`(단위)로 고정.
-- 기존 홈 테스트(`HomeControllerTest`·`HomeGuestTest`·`HomePopularCacheTest`)는 기본 헤더 1.0 이라 영향 없음(검증 본문 무수정).
+- 활성: `popularFoods` id = `[3, 1, 2]`(999 제외). 음식 1 을 `FAILED` 로 바꾸면 `[3, 2]`. 전부 FAILED 면 `[]`(집계 폴백 없음).
+- 종료: 집계 순서(`[2, 3, 1]` — 음식 2 조회 2건 추가).
+- 경계·미설정·역전 창·중복·env 바인딩은 `HomeMarketingPopularPropertiesTest`(단위).
 
 ## 2. 로컬 실측
 
@@ -31,13 +22,10 @@ HOME_MARKETING_POPULAR_FOOD_IDS=6,4,5 \
 DB_USERNAME=root DB_PASSWORD=root SPRING_PROFILES_ACTIVE=local SERVER_PORT=8081 \
 ./gradlew :api:bootRun --no-daemon
 
-curl -s 'http://localhost:8081/api/home?lang=en' -H 'X-API-Version: 2.1' | jq '.payload.popularFoods[].foodId'   # [6,4,5] (READY 인 것만)
-curl -s 'http://localhost:8081/api/home?lang=en' -H 'X-API-Version: 1.0' | jq '.payload.popularFoods[].foodId'   # 조회 수 집계
+curl -s 'http://localhost:8081/api/home?lang=en' -H 'X-API-Version: 1.0' | jq '.payload.popularFoods[].foodId'   # [6,4,5] (READY 인 것만, 버전 무관)
 ```
 
-env 를 전부 비우고 띄워 기동이 성공하고 2.1 이 집계를 내려주는지도 한 번 본다(빈 env 바인딩).
-
-Swagger: `http://localhost:8081/swagger-ui/index.html` 그룹 드롭다운에 `X-API-Version 2.1` 이 있고 홈 오퍼레이션이 실린다.
+env 를 전부 비우고 띄워 기동이 성공하고 홈이 집계를 내려주는지도 한 번 본다(빈 env 바인딩).
 
 ## 3. 캠페인 켜기 / 끄기
 
@@ -47,6 +35,5 @@ Swagger: `http://localhost:8081/swagger-ui/index.html` 그룹 드롭다운에 `X
 
 ## 4. 머지 전 체크
 
-- `OpenApiConfig` 에 `apiVersion21Doc` 빈 추가됐는지(없으면 `OpenApiSnapshotTest` 실패).
-- 1.0 홈 응답 무변경 — `HomeControllerTest` 전부 통과.
-- 지식 위키 `api-versioning-policy.md` 표에 홈 `2.1+` 행 추가, `INDEX.md` 갱신.
+- 기존 홈 테스트(`HomeControllerTest`·`HomeGuestTest`·`HomePopularCacheTest`) 무수정 통과.
+- 지식 위키 `home-marketing-popular-config.md`·`INDEX.md` 갱신.

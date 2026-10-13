@@ -2,12 +2,11 @@
 
 Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 플랜이 고른 결정과 기각한 대안이다.
 
-## R1. 버전 번호 — `2.1+`
+## R1. 버전 분기 없음 — 기존 홈 응답에서 대체
 
-- **Decision**: `GET /api/home` 의 새 매핑은 `version = "2.1+"`. 기본(무버전) 매핑은 그대로 둔다.
-- **Rationale**: 번호는 앱 릴리스 마커(위키 `api-versioning-policy`). 현재 최고 마커 `2.0`(스캔)은 이미 릴리스된 앱이 보내는 값이라, `2.0+` 에 홈을 걸면 "구 앱은 영향 없음"(FR-001)을 보장할 수 없다(클라이언트가 전 엔드포인트에 같은 헤더를 보내는 경우). 다음 마커 `2.1` 을 연다. 기본 핸들러에 `version = "1.0"` 을 못박지 않는다 — 온보딩만 1.1 로 올린 앱이 홈에서 매칭 실패한다(위키 함정 1).
-- **Alternatives considered**: `2.0+` 재사용 — 클라이언트가 홈에 1.0 을 보내는 현 상태에선 안전하지만 릴리스 마커 의미가 깨지고 2.0 앱 거동이 바뀔 가능성이 있어 기각. `1.2+` — 2.0 보다 낮은 번호를 새로 여는 건 2.0 앱이 임시 목록을 받는 결과(baseline 매칭)라 기각.
-- **따라오는 작업**: `OpenApiConfig` 에 `apiVersion21Doc` 그룹 빈 추가(없으면 `OpenApiSnapshotTest` "모든 선언 버전이 그룹으로 노출된다" 실패), 안내 문구 `1.0/1.1/2.0/2.1`. 오버로드 메서드의 `@Operation(operationId = "homeMarketingPopular")` 명시(springdoc operationId 충돌 — 위키 함정 2). FE 가 이 기능을 다른 릴리스 번호에 싣기로 하면 문자열 한 곳만 바꾼다.
+- **Decision**: `GET /api/home` 의 기존(무버전) 매핑 하나가 전 버전에 같은 규칙을 적용한다. 별도 `X-API-Version` 매핑·오퍼레이션·Swagger 그룹을 두지 않는다.
+- **Rationale**: 2026-10-13 사용자 정정 — 요구는 "홈 조회 API 의 popularFoods 를 대체"이지 별도 API 가 아니다. 클라이언트 변경 없이 서버 설정만으로 켜고 끄는 것이 목적이라 버전 분기는 오히려 앱 릴리스에 묶인다.
+- **Alternatives considered**: `2.1+` 매핑을 같은 컨트롤러에 추가(1차 구현, PR #398 초기) — Jira 본문 문구를 따른 것이었으나 폐기. 기록으로 남기는 함정: 새 릴리스 번호를 열면 `OpenApiConfig` 그룹 빈·오버로드 `operationId` 가 따라오고 `OpenApiSnapshotTest` 가 이를 강제한다.
 
 ## R2. 설정 저장소 — yml + env 플레이스홀더 (테이블·관리자 API 없음)
 
@@ -21,7 +20,7 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 플랜이 고른
 - **Decision**: `HomeService` 가 `LocalDateTime.now(ZoneId.of("Asia/Seoul"))` 로 기간을 판정한다. `Clock` 빈·테스트 `MutableClock` 은 두지 않는다(2026-10-13 사용자 결정).
 - **Rationale**: 기간 판정은 순수 함수(`activeFoodIds(now)`)라 전/후·경계·미설정·역전·빈 목록을 단위 테스트로 전부 고정할 수 있고, 폴백은 `getHome` 위임이라 통합에서 따로 틀릴 여지가 없다. Clock 빈은 "기간 밖 폴백 통합 테스트" 하나를 위해 설정 클래스·testFixtures 이동·`IntegrationTest` 변경을 요구해 비용이 더 컸다.
 - **Alternatives considered**: `Clock` 빈 + batch `MutableClock` 승격 — Jira DoD 문구("통합 테스트: 기간 밖 폴백")에는 맞지만 기각. PR 본문에 "기간 밖은 단위 테스트" 를 명시한다. 프로퍼티 분기용 두 번째 컨텍스트 — KB-392 금지.
-- **통합 테스트 전제**: 테스트 yml 창을 2000-01-01~2100-01-01 로 고정해 통합 테스트는 항상 기간 안이다.
+- **통합 테스트 전제**: 테스트 yml 창은 비활성(2000-01-01~01-02)이라 기존 홈 테스트는 집계를 본다. 활성·종료 동작은 `HomeMarketingPopularTest` 가 실제 빈들로 `HomeService` 를 직접 조립(활성/종료 설정 인스턴스)해 검증한다 — 컨텍스트를 늘리지 않고 기간 밖 폴백까지 통합 수준에서 잡힌다.
 
 ## R4. READY 필터 위치 — `FoodService.getCuratedFoods` 신설, 1.0 경로 무변경
 
@@ -29,11 +28,11 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 플랜이 고른
 - **Rationale**: `findPopular` 가 SQL 에서 READY 를 거르므로 1.0 경로는 재필터가 불필요하고, `loadInGivenOrder` 에 필터를 넣으면 KB-725 가 "최대 TTL 지연 감수"로 결정한 1.0 거동이 바뀐다(FR-001 위반). READY 판정은 엔티티 메서드(`Food.isReady()`)를 쓴다.
 - **Alternatives considered**: `getPopularFoods(readyOnly: Boolean)` 플래그 — 호출부 가독성이 떨어져 기각. 리포지토리에 `findByIdInAndContentStatus` 파생 쿼리 — 순서 보존을 다시 해야 해 이득 없음.
 
-## R5. 폴백 경로 — `getMarketingHome` 이 `getHome` 에 위임
+## R5. 폴백 경로 — `getHome` 안의 분기
 
-- **Decision**: 활성 목록이 비면(기간 밖·미설정·빈 목록·시작≥종료) `getMarketingHome` 은 `getHome` 을 그대로 호출한다.
+- **Decision**: `getHome` 이 집계 id 와 활성 목록을 둘 다 트랜잭션 밖에서 구한 뒤, 활성 목록이 비면(기간 밖·미설정·빈 목록·시작≥종료) 집계 id 로 기존 조립을 탄다.
 - **Rationale**: FR-004 "기존 조회 수 집계 결과와 동일" 을 코드 경로 동일로 보장. 캐시 호출이 트랜잭션 밖이어야 하는 KB-725 제약(`check(!isActualTransactionActive)`)도 그대로 지켜진다.
-- **주의**: 활성 목록이 있어도 조회 수 집계 캐시는 **건드리지 않는다**(호출도 안 함) — 캐시의 `refreshAfterWrite` 는 접근이 있어야 돈다. 캠페인 기간이 TTL(2일)보다 길면 종료 직후 2.1 첫 요청이 콜드 집계를 밟을 수 있다. 1.0 앱 트래픽이 캐시를 계속 데우므로 실무상 문제없고, 1.0 트래픽이 0 이 되는 시점엔 캐시 자체가 의미 없다 — 스펙 엣지 케이스 문구("캐시는 계속 유지·갱신")는 이 전제로 충족된다.
+- **Codex 리뷰 반영(P2)**: 활성 중에도 `getHome` 이 집계 캐시를 매 요청 호출한다(히트라 비용 없음). 캐시의 `refreshAfterWrite`·만료는 접근이 있어야 돌기 때문에, 캠페인이 TTL(2일)보다 길면 종료 직후 첫 요청이 콜드 집계를 밟고 실패 시 빈 섹션이 나갈 수 있었다. 버전 분기가 없어진 지금은 전 트래픽이 이 경로라 더더욱 필요하다.
 
 ## R6. 중복·상한
 
@@ -42,4 +41,4 @@ Technical Context 에 NEEDS CLARIFICATION 은 없다. 아래는 플랜이 고른
 
 ## R7. Swagger 문서
 
-- **Decision**: `HomeApi` 에 2.1 오퍼레이션을 추가하고, 기존 설명의 "인기 음식: 무작위 10개" 문구(현행 아님 — KB-714 이후 조회 수 집계)를 조회 수 집계 + 2.1 임시 목록으로 현행화한다. 헤더 입력란·기본값은 `OpenApiConfig` 커스터마이저가 매핑에서 자동 생성하므로 `@Parameter` 를 달지 않는다.
+- **Decision**: 기존 홈 오퍼레이션 설명의 "인기 음식: 무작위 10개" 문구(현행 아님 — KB-714 이후 조회 수 집계)를 조회 수 집계 + 마케팅 기간 대체 규칙으로 현행화한다. 오퍼레이션·그룹 추가 없음.

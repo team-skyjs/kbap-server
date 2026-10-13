@@ -8,10 +8,12 @@
 
 **Organization**: 스토리별 묶음. 통합 테스트는 한 파일(`HomeMarketingPopularTest.kt`)에 스토리별 `given` 을 쌓고, 단위 테스트도 한 파일(`HomeMarketingPopularPropertiesTest.kt`)에 쌓는다.
 
+> **2026-10-13 정정(사용자)**: 요구는 "홈 조회 API 의 popularFoods 를 대체"이지 별도 버전 매핑이 아니다. Phase 3~6 은 2.1+ 매핑 기준으로 수행·커밋됐고, Phase 8 이 버전 분기를 걷어내 기존 `getHome` 안으로 접었다. 아래 Phase 3~6 의 "2.1"·"1.0" 문구는 당시 기록이다.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: 다른 파일·선행 의존 없음 → 병렬 가능
-- **[Story]**: US1(2.1 임시 목록 노출), US2(1.0 무변경), US3(기간 밖·빈 목록 폴백), US4(비READY·미존재 제외)
+- **[Story]**: US1(임시 목록 노출), US2(인기 섹션 외 불변), US3(기간 밖·빈 목록 폴백), US4(비READY·미존재 제외)
 
 ## Path Conventions
 
@@ -115,6 +117,16 @@
 - [X] T015 [P] quickstart.md 2절대로 로컬 실측한다 — env 세 개를 주고 `:api:bootRun`(8081, `--no-daemon`, `DB_USERNAME=root DB_PASSWORD=root`), `curl` 로 2.1 이 설정 순서·1.0 이 집계인지 확인. env 를 전부 비우고 다시 띄워 기동 성공 + 2.1 이 집계를 내려주는지 확인. Swagger 그룹 드롭다운에 `X-API-Version 2.1` 과 홈 오퍼레이션(`homeMarketingPopular`)이 보이는지 확인.
 - [X] T016 [P] 지식 위키를 갱신한다 — `../../../../kbap-agenthub/wiki/api-versioning-policy.md` 의 버전 매핑 표에 홈 `/api/home` 무버전 / `2.1+`(마케팅 인기 목록) 행을 추가하고, `wiki/home-marketing-popular-config.md` 를 새로 써서 설정 키·env·켜고 끄는 절차·READY/미존재 제외·테이블 대신 설정을 고른 이유(2026-10-13)·dev 대조표 위치를 남긴 뒤 `INDEX.md` 에 한 줄 추가, 허브에서 커밋.
 - [X] T017 `./gradlew build` 전체 Green(ArchUnit 포함 — `HomeMarketingPopularProperties` 가 `api.home` 에 있어 경계 위반 없음) 확인 후 `open-draft-pr-to-develop` 스킬로 PR 을 열고 ready 전환, Codex 리뷰 도착을 확인한다.
+
+---
+
+## Phase 8: 버전 분기 제거 — 기존 홈 응답에서 대체 (2026-10-13 정정)
+
+**Purpose**: `2.1+` 매핑·오퍼레이션·Swagger 그룹을 지우고 기존 `GET /api/home` 의 `popularFoods` 를 활성 설정 목록으로 대체한다. Codex P2(집계 캐시 워밍)도 함께 반영.
+
+- [X] T018 `HomeController` 의 `homeWithMarketingPopular` 오버로드, `HomeApi` 의 2.1 오퍼레이션, `OpenApiConfig` 의 `apiVersion21Doc` 빈·안내 문구 `2.1` 을 제거한다. `HomeApi` 홈 설명의 인기 음식 문단에 마케팅 기간 대체 규칙을 적는다.
+- [X] T019 `HomeService.getHome` 이 집계 id(`popularFoodIdCache` — 활성 중에도 매 요청 호출해 데워 둠)와 `activeFoodIds(now).take(POPULAR_SIZE)` 를 트랜잭션 밖에서 구한 뒤, 활성 목록이 있으면 `curated = true` 로 조립한다. `getMarketingHome` 삭제.
+- [X] T020 테스트 yml 창을 비활성(2000-01-01~01-02)으로 바꿔 기존 홈 테스트가 집계를 보게 하고, `HomeMarketingPopularTest` 를 실제 빈들로 `HomeService` 를 직접 조립(활성/종료 설정 인스턴스)하는 형태로 다시 쓴다 — 활성 순서·회원 위험도·언어·종료 폴백·HTTP 비활성 집계·비READY/삭제/전부 제외 8건. `./gradlew :api:test` Green, spec/plan/research/contracts/quickstart·위키·PR 본문을 정정한다.
 
 ---
 

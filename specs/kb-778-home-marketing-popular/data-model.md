@@ -23,11 +23,10 @@ DB 스키마 변경 없음. 신규 엔티티·마이그레이션 없음.
 
 ## 홈 조립 입력 — `HomeService`
 
-| 경로 | 인기 id 출처 | READY 필터 | 상한 |
+| 상태 | 인기 id 출처 | READY 필터 | 상한 |
 |------|-------------|-----------|------|
-| `getHome` (1.0) | `PopularFoodIdCache.getPopularFoodIds(10)` | SQL(`findPopular`)이 이미 적용 | 10 |
-| `getMarketingHome` (2.1+) 활성 | `activeFoodIds(now).take(10)` | `Food.isReady()` 후필터 | ≤10 |
-| `getMarketingHome` 비활성 | `getHome` 위임 | — | — |
+| 비활성 | `PopularFoodIdCache.getPopularFoodIds(10)` | SQL(`findPopular`)이 이미 적용 | 10 |
+| 활성 | `activeFoodIds(now).take(10)` (캐시도 매 요청 호출해 데워 둠) | `Food.isReady()` 후필터 | ≤10 |
 
 ## 기존 엔티티 — `Food` (변경 없음)
 
