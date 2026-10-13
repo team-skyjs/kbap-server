@@ -61,7 +61,7 @@ class ReviewBotPhotoSyncService internal constructor(
         var restored = 0
         stored.chunked(pageSize).forEach { chunk ->
             val chunkPaths = chunk.map { it.path }
-            val recorded = chunkPaths.filter { it in recordedPaths }.toSet()
+            val recorded = uploadedImageRepository.findRecordedPathsAnyStatus(chunkPaths).toSet()
             val toRestore = recorded.filterNot { it in activePaths }
             if (toRestore.isNotEmpty()) restored += transaction.execute { uploadedImageRepository.restoreDeletedByPaths(toRestore) }!!
             for (obj in chunk) {
@@ -159,14 +159,18 @@ class ReviewBotPhotoSyncService internal constructor(
                 unparseable += row.id
                 return@forEach
             }
-            val outcome = runCatching {
-                transaction.execute { detachOrDelete(row.id, missingRecorded) }!!
-            }.onFailure { log.warn("리뷰 봇 사진 풀 동기화 — 리뷰 {} 의 사라진 사진 처리 실패(다음 동기화가 기록 경로 기준으로 다시 잡는다)", row.id, it) }.getOrNull()
-            when (outcome) {
-                Outcome.DETACHED -> detached++
-                Outcome.DELETED -> deleted++
-                else -> failed++
-            }
+            runCatching { transaction.execute { detachOrDelete(row.id, missingRecorded) }!! }
+                .onSuccess { outcome ->
+                    when (outcome) {
+                        Outcome.DETACHED -> detached++
+                        Outcome.DELETED -> deleted++
+                        Outcome.UNCHANGED -> Unit
+                    }
+                }
+                .onFailure {
+                    failed++
+                    log.warn("리뷰 봇 사진 풀 동기화 — 리뷰 {} 의 사라진 사진 처리 실패(삭제 후 30일 안의 다음 동기화가 다시 잡는다)", row.id, it)
+                }
         }
         return Removal(0, detached, deleted, failed, unparseable, false)
     }
