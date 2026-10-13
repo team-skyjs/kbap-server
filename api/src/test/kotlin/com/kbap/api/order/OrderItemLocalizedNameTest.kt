@@ -86,7 +86,7 @@ class OrderItemLocalizedNameTest : BehaviorSpec() {
                     )
                     val translated = seedFood("들깨칼국수", """{"en":"Perilla Seed Kalguksu","ja":"エゴマカルグクス"}""", "READY")
                     val englishOnly = seedFood("잔치국수", """{"en":"Banquet Noodles"}""", "READY")
-                    val pending = seedFood("이상한국수", "{}", "PENDING")
+                    val pending = seedFood("이상한국수", "{}", "PENDING_REVIEW")
                     val body = """{"imagePath":"kb782/menu.jpg","items":[""" +
                         listOf(translated to "들깨 칼국수", englishOnly to "잔치국수", pending to "이상한국수")
                             .joinToString(",") { (id, menu) -> """{"menuName":"$menu","quantity":1,"price":1000,"foodId":$id}""" } +
