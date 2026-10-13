@@ -9,7 +9,7 @@ description: "Task list template for feature implementation"
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Test-First is **NON-NEGOTIABLE** (Constitution Principle I). Every user story MUST include failing tests written BEFORE its implementation (Red → Green → Refactor).
+**Tests**: OPTIONAL. Generate test tasks only when the spec or the user explicitly asks for them.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -80,9 +80,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
-
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+### Tests for User Story 1 (OPTIONAL — only if explicitly requested)
 
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
@@ -106,7 +104,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
+### Tests for User Story 2 (OPTIONAL — only if explicitly requested)
 
 - [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
@@ -128,7 +126,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (REQUIRED — Test-First: write these tests FIRST, ensure they FAIL) ⚠️
+### Tests for User Story 3 (OPTIONAL — only if explicitly requested)
 
 - [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
@@ -179,7 +177,7 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests MUST be written and FAIL before implementation (Test-First, Constitution I)
+- Tests (if requested) can be written before or after implementation
 - Models before services
 - Services before endpoints
 - Core implementation before integration
