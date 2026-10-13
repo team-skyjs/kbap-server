@@ -87,6 +87,14 @@ spring:
         speech: none
 
 kbap:
+  # 홈 인기 음식 마케팅 임시 목록(KB-778) — X-API-Version 2.1+ 홈에서만 적용되고 1.0 은 조회 수 집계 그대로다.
+  # 시각은 Asia/Seoul ISO(예: 2026-11-01T00:00:00), 시작 포함·종료 제외. food-ids 는 노출 순서의 음식 id 콤마 목록.
+  # 셋 중 하나라도 비어 있거나 기간 밖이면 조회 수 집계로 폴백한다. READY 가 아닌 음식은 제외되고 빈자리는 채우지 않는다.
+  home:
+    marketing-popular:
+      starts-at: ${HOME_MARKETING_POPULAR_STARTS_AT:}
+      ends-at: ${HOME_MARKETING_POPULAR_ENDS_AT:}
+      food-ids: ${HOME_MARKETING_POPULAR_FOOD_IDS:}
   # 콘텐츠 아웃박스 — 회수 잡은 batch 프로세스가 돌리고 방치 카운트는 여기(api) 가 센다.
   # 두 프로세스가 yml 을 따로 읽으므로 같은 환경변수를 양쪽에 매핑해 둔다. 한쪽만 고치면
   # 잡은 새 기준으로 돌고 대시보드는 옛 기준으로 세면서 양쪽 다 "정상" 으로 보인다.

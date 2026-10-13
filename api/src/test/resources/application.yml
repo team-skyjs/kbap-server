@@ -22,6 +22,12 @@ spring:
         speech: none
 
 kbap:
+  # 홈 마케팅 인기 목록(KB-778) 고정 창 — 통합 테스트는 항상 기간 안이다. 기간 밖은 단위 테스트. 999 는 시드하지 않는 미존재 id.
+  home:
+    marketing-popular:
+      starts-at: 2000-01-01T00:00:00
+      ends-at: 2100-01-01T00:00:00
+      food-ids: 3,1,999,2
   # 기존 리뷰 언어 채우기는 통합 컨텍스트 기동 때 돌지 않게 끈다 — 채우기 테스트가 직접 만들어 돌린다.
   review:
     language-backfill:

@@ -24,4 +24,13 @@ class HomeController(
         val result = homeService.getHome(memberId, LanguageCode.from(request.lang))
         return ResponseEntity.ok(BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null)))
     }
+
+    @GetMapping(version = "2.1+")
+    override fun homeWithMarketingPopular(
+        @Valid @ModelAttribute request: HomeRequest,
+        @AuthMemberIdOrNull memberId: Long?,
+    ): ResponseEntity<BaseResponse<HomeResponse>> {
+        val result = homeService.getMarketingHome(memberId, LanguageCode.from(request.lang))
+        return ResponseEntity.ok(BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null)))
+    }
 }

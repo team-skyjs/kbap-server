@@ -34,9 +34,9 @@ interface HomeApi {
 
             ## 각 섹션
             - **기피 성분**: 회원 프로필에 저장된 회피 성분(코드 + 지역화 성분명). 설정한 성분이 없으면 빈 배열.
-            - **인기 음식**: 인기도 지표가 쌓이기 전까지 완성(READY) 음식 카탈로그에서 **무작위로 최대 10개**를 내려준다.
-              **호출마다 달라지고** 한 응답 안에서는 중복이 없다. 완성 음식이 10개보다 적으면 있는 만큼만 온다.
-              응답 형태는 메뉴 목록·검색과 동일하므로, 추후 실제 인기도 정렬로 바뀌어도 클라이언트는 수정할 필요가 없다.
+            - **인기 음식**: 최근 30일 조회 수 상위 **최대 10개**(조회 수 내림차순, 동률은 id 내림차순). 완성(READY) 음식만 포함되며
+              서버가 일정 시간 캐시하므로 조회 수 변화가 즉시 반영되지는 않는다. 응답 형태는 메뉴 목록·검색과 동일하다.
+              `X-API-Version: 2.1` 이상은 마케팅 기간에 운영 설정 목록으로 대체된다 — 2.1 오퍼레이션 설명 참조.
             - **최근 스캔**: 스캔 시각 내림차순, 같은 메뉴는 가장 최근 1건만 남겨 중복 없이 최대 10개.
               음식 정보가 모두 채워진(READY) 메뉴만 포함된다. 이력이 없으면 빈 배열.
 
@@ -51,6 +51,32 @@ interface HomeApi {
         ],
     )
     fun home(
+        @ParameterObject request: HomeRequest,
+        memberId: Long?,
+    ): ResponseEntity<BaseResponse<HomeResponse>>
+
+    @Operation(
+        operationId = "homeMarketingPopular",
+        summary = "홈 화면 조회 — 마케팅 인기 음식 (2.1+)",
+        description = """
+            1.0 과 경로·요청·응답 스키마가 같고 **인기 음식 선택 규칙만** 다르다.
+
+            - **마케팅 적용 기간 안이고 운영 설정 목록이 있으면** `popularFoods` 는 조회 수와 무관하게 **설정된 음식 목록을 설정 순서대로** 내려준다.
+              콘텐츠가 완성(READY)되지 않았거나 삭제된 음식은 제외하며, 제외로 생긴 빈자리는 채우지 않는다(전부 제외되면 빈 배열). 최대 10개.
+            - **적용 기간 밖이거나 목록이 비어 있으면** 1.0 과 동일하게 최근 30일 조회 수 상위 목록을 내려준다.
+
+            각 음식의 위험도(`overallRiskStatus`)·북마크·평점·표시 언어는 1.0 과 같은 규칙으로 요청자 기준 계산된다.
+            `avoidedSubstances`·`mostReviewedFoods`·`recentScans`·`authenticated` 는 1.0 과 같다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공 — 회원은 세 섹션, 비회원은 인기 음식만(개인화 섹션은 빈 배열)"),
+            ApiResponse(responseCode = "400", description = "lang 누락·빈/공백"),
+            ApiResponse(responseCode = "401", description = "인증 헤더는 있으나 토큰이 위조·만료됨"),
+        ],
+    )
+    fun homeWithMarketingPopular(
         @ParameterObject request: HomeRequest,
         memberId: Long?,
     ): ResponseEntity<BaseResponse<HomeResponse>>

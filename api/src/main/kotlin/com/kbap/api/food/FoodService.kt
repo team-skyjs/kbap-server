@@ -204,6 +204,10 @@ class FoodService(
         summaryViews(loadInGivenOrder(popularFoodIds), lang, memberId)
 
     @Transactional(readOnly = true)
+    fun getCuratedFoods(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(ids), lang, memberId)
+
+    @Transactional(readOnly = true)
     fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {
         val scans = scanHistoryRepository.findRecentScannedFoods(memberId, PageRequest.of(0, size))
         return summaryViews(scans.map { it.food }, lang, memberId).zip(scans) { summary, scan ->

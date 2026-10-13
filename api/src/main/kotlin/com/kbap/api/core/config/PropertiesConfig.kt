@@ -1,13 +1,16 @@
 package com.kbap.api.core.config
 
 import com.kbap.api.food.FoodImageProperties
+import com.kbap.api.home.HomeMarketingPopularProperties
 import com.kbap.api.image.ImageUploadProperties
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Duration
 
 @Configuration
+@EnableConfigurationProperties(HomeMarketingPopularProperties::class)
 class PropertiesConfig {
     @Bean
     fun foodImageProperties(
