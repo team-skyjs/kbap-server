@@ -2,7 +2,9 @@ package com.kbap.api.reviewbot
 
 import com.kbap.api.image.ImageUploadProperties
 import com.kbap.common.domain.image.UploadedImageJpaRepository
+import com.kbap.common.domain.image.model.UploadedImage
 import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.review.model.Review
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -20,14 +22,23 @@ class ReviewBotPhotoPool(
     fun ownerIds(): Set<Long> = memberRepository.findBotMemberIdsAnyStatus().toSet()
 
     @Transactional(readOnly = true)
-    fun pathsFor(koreanName: String, ownerIds: Set<Long>): List<String> =
-        uploadedImageRepository.findByPathStartingWithOrderByPath(prefix + keyOf(koreanName) + "/")
-            .filter { it.memberId in ownerIds && keyOfPath(it.path) != null }
-            .map { it.path }
+    fun snapshot(ownerIds: Set<Long>): PoolSnapshot =
+        PoolSnapshot(
+            uploadedImageRepository.findByPathStartingWithOrderByPath(prefix)
+                .filter { it.memberId in ownerIds }
+                .mapNotNull { row -> keyOfPath(row.path)?.let { key -> key to row.path } }
+                .groupBy({ it.first }, { it.second }),
+        )
+
+    class PoolSnapshot(private val pathsByKey: Map<String, List<String>>) {
+        val keyCount: Int get() = pathsByKey.size
+
+        fun pathsFor(koreanName: String): List<String> = pathsByKey[keyOf(koreanName)].orEmpty()
+
+        fun hasPool(koreanName: String): Boolean = pathsFor(koreanName).isNotEmpty()
+    }
 
     companion object {
-        const val SEGMENT = "images/review-bot/"
-        const val MAX_PHOTOS = 3
         private val OBJECT_PATTERN = Regex("""^(?:.*/)?images/review-bot/([0-9a-f]{12})/\d+\.webp$""")
 
         fun keyOf(koreanName: String): String =
@@ -39,11 +50,11 @@ class ReviewBotPhotoPool(
 
         fun poolPrefix(keyPrefix: String): String {
             val trimmed = keyPrefix.trim('/')
-            return (if (trimmed.isEmpty()) "" else "$trimmed/") + SEGMENT
+            return (if (trimmed.isEmpty()) "" else "$trimmed/") + UploadedImage.REVIEW_BOT_SEGMENT
         }
 
         fun pickCombination(pool: List<String>, previous: Set<String>, random: Random): List<String> {
-            val largest = minOf(MAX_PHOTOS, pool.size)
+            val largest = minOf(Review.MAX_IMAGE_COUNT, pool.size)
             val candidates = (1..largest).flatMap { size -> combinations(pool, size) }.filter { it.toSet() != previous }
             return candidates.ifEmpty { listOf(pool.take(largest)) }.random(random)
         }

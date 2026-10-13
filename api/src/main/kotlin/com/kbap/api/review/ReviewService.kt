@@ -7,6 +7,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.UploadedImageService
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.domain.image.model.UploadedImage
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
 import com.kbap.api.block.MemberBlockService
@@ -68,7 +69,7 @@ class ReviewService(
         poolOwnerIds: Set<Long>,
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
-        if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, REVIEW_BOT_IMAGE_SEGMENT, poolOwnerIds)) {
+        if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, UploadedImage.REVIEW_BOT_SEGMENT, poolOwnerIds)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
         return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
@@ -362,7 +363,6 @@ class ReviewService(
 
         const val PAGE_SIZE = 50
         const val RECENT_REVIEWS_SIZE = 5
-        const val REVIEW_BOT_IMAGE_SEGMENT = "images/review-bot/"
     }
 }
 
