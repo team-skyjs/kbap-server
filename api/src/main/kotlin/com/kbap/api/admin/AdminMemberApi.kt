@@ -21,6 +21,7 @@ interface AdminMemberApi {
             `memberStatus` 는 ACTIVE·SUSPENDED·WITHDRAWN(탈퇴) 중 하나다.
 
             - `q` 를 주면 닉네임·이메일 부분 일치로 검색하고, 숫자면 멤버 id 일치도 함께 매칭한다.
+            - 각 항목의 `isBot` 은 리뷰 봇 계정 여부다. `isBot` 파라미터로 봇만/사람만 거를 수 있다.
             - 페이지 크기는 서버 고정(20)이며, 응답에 전체 건수(`totalCount`)를 포함한다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
         """,
@@ -37,6 +38,8 @@ interface AdminMemberApi {
         page: Int,
         @Parameter(description = "닉네임·이메일 부분 일치 검색어(숫자면 멤버 id 일치도 매칭)", example = "김밥")
         q: String?,
+        @Parameter(description = "true 면 봇 계정만, false 면 사람 계정만, 생략하면 전체(q 와 함께 쓰면 둘 다 만족하는 건)", example = "false")
+        isBot: Boolean?,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>>
 
     @Operation(

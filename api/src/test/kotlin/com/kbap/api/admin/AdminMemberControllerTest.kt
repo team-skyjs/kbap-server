@@ -100,6 +100,42 @@ class AdminMemberControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("봇 계정과 사람 계정이 섞여 있으면") {
+                then("목록·상세 모두 isBot 으로 구분하고, isBot 필터는 단독·검색어와 함께 모두 동작한다") {
+                    val human = saveMember("uid-human", nickname = "김밥러버")
+                    val bot = saveMember("uid-bot", nickname = "김밥봇")
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET is_bot = 1 WHERE id = ${bot.id}") } }
+
+                    getJson(path).andExpect {
+                        jsonPath("$.payload.items.length()") { value(2) }
+                        jsonPath("$.payload.items[0].id") { value(bot.id) }
+                        jsonPath("$.payload.items[0].isBot") { value(true) }
+                        jsonPath("$.payload.items[1].isBot") { value(false) }
+                    }
+                    getJson("$path?isBot=true").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(bot.id) }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                    }
+                    getJson("$path?isBot=false").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(human.id) }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                    }
+                    getJson("$path?q=김밥&isBot=false").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.items[0].id") { value(human.id) }
+                        jsonPath("$.payload.totalCount") { value(1) }
+                    }
+                    getJson("$path?q=${human.id}&isBot=true").andExpect {
+                        jsonPath("$.payload.items.length()") { value(0) }
+                        jsonPath("$.payload.totalCount") { value(0) }
+                    }
+                    getJson("$path/${bot.id}").andExpect { jsonPath("$.payload.isBot") { value(true) } }
+                    getJson("$path/${human.id}").andExpect { jsonPath("$.payload.isBot") { value(false) } }
+                }
+            }
+
             `when`("검색어 q 로 닉네임을 찾으면") {
                 then("부분 일치 건만 내려준다") {
                     saveMember("uid-1", nickname = "김밥러버")

@@ -27,6 +27,8 @@ data class AdminMemberListItemResponse(
     val provider: SocialProvider,
     val memberStatus: String,
     val onboardingCompleted: Boolean,
+    @field:Schema(description = "리뷰 봇 계정 여부", example = "false")
+    val isBot: Boolean,
     val createdAt: LocalDateTime,
 ) {
     companion object {
@@ -38,6 +40,7 @@ data class AdminMemberListItemResponse(
                 provider = member.provider,
                 memberStatus = adminMemberStatusOf(member),
                 onboardingCompleted = member.onboardingCompleted,
+                isBot = member.isBot,
                 createdAt = member.createdAt,
             )
     }
@@ -58,6 +61,8 @@ data class AdminMemberDetailResponse(
     val scanCount: Int,
     val scanUnlocked: Boolean,
     val adRewardCount: Long,
+    @field:Schema(description = "리뷰 봇 계정 여부", example = "false")
+    val isBot: Boolean,
     val reviewCount: Int,
     val orderCount: Long,
     val sanctions: List<String>,
@@ -81,6 +86,7 @@ data class AdminMemberDetailResponse(
                 scanCount = member.scanCount,
                 scanUnlocked = member.scanUnlocked,
                 adRewardCount = adRewardCount,
+                isBot = member.isBot,
                 reviewCount = member.reviewCount,
                 orderCount = orderCount,
                 sanctions = emptyList(),
