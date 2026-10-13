@@ -25,15 +25,14 @@ class ImageUploadService(
         declaredSize: Long,
     ): UploadedImage {
         val guestInstallation = guestInstallationOf(memberId, installationId)
-        val purpose = PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, PresignedUploadService.ownerKeyOf(memberId, guestInstallation))
-            ?: throw BusinessException(ErrorCode.UPLOAD_PATH_NOT_ISSUED)
-        if (guestInstallation != null && purpose != UploadPurpose.FEEDBACK) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
         uploadedImageRepository.findByPath(path)?.let { existing ->
             val owned = (memberId != null && existing.isOwnedBy(memberId)) ||
                 (guestInstallation != null && existing.isOwnedByInstallation(guestInstallation))
             if (owned) return existing
-            throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
         }
+        val purpose = PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, PresignedUploadService.ownerKeyOf(memberId, guestInstallation))
+            ?: throw BusinessException(ErrorCode.UPLOAD_PATH_NOT_ISSUED)
+        if (guestInstallation != null && purpose != UploadPurpose.FEEDBACK) throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
         if (guestInstallation == null) return register(memberId, null, path, declaredContentType, declaredSize)
         return guestUploadQuota.consume(guestInstallation) {
             register(null, guestInstallation, path, declaredContentType, declaredSize)
