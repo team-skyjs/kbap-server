@@ -113,6 +113,7 @@ enum class ErrorCode(
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
     IMAGE_TOO_LARGE("UPLOAD-003", 400, "허용된 이미지 크기를 초과했습니다"),
+    UPLOAD_PATH_NOT_ISSUED("UPLOAD-004", 400, "이 계정에 발급된 업로드 경로가 아닙니다"),
 
     TRANSLATION_FAILED("TRANSLATION-001", 503, "번역을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요"),
 }

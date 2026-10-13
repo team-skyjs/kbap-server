@@ -47,8 +47,17 @@ class PresignedUploadService(
         return if (prefix.isEmpty()) baseKey else "$prefix/$baseKey"
     }
 
-    private companion object {
+    companion object {
         const val GUEST_OWNER_KEY = 0L
+        private val ISSUED_KEY = Regex("""^images/([a-z]+)/\d{4}/\d{2}/(\d+)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{2,5}$""")
+
+        fun issuedPurposeOf(path: String, keyPrefix: String, ownerKey: Long): UploadPurpose? {
+            val prefix = keyPrefix.trim('/')
+            val relative = if (prefix.isEmpty()) path else path.removePrefix("$prefix/").takeIf { it != path } ?: return null
+            val match = ISSUED_KEY.matchEntire(relative) ?: return null
+            if (match.groupValues[2] != ownerKey.toString()) return null
+            return UploadPurpose.entries.firstOrNull { it.prefix == match.groupValues[1] }
+        }
     }
 
     private fun extensionOf(contentType: String): String {

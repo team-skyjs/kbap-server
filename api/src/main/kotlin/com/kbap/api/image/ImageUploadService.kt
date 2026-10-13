@@ -24,6 +24,8 @@ class ImageUploadService(
         declaredSize: Long,
     ): UploadedImage {
         val guestInstallation = guestInstallationOf(memberId, installationId, path)
+        PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, memberId ?: PresignedUploadService.GUEST_OWNER_KEY)
+            ?: throw BusinessException(ErrorCode.UPLOAD_PATH_NOT_ISSUED)
         uploadedImageRepository.findByPath(path)?.let { existing ->
             val owned = (memberId != null && existing.isOwnedBy(memberId)) ||
                 (guestInstallation != null && existing.isOwnedByInstallation(guestInstallation))
