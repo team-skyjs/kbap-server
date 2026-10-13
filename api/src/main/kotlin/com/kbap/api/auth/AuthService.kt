@@ -62,7 +62,7 @@ class AuthService(
         }
 
         val successor = tokenIssuer.issueRefreshToken(parsed.memberId)
-        val rotation = refreshTokenStore.rotate(parsed.jti, successor, refreshTtl, REFRESH_ROTATION_GRACE)
+        val rotation = refreshTokenStore.rotate(parsed.jti, parsed.memberId, successor, refreshTtl, REFRESH_ROTATION_GRACE)
             ?.takeIf { it.memberId == parsed.memberId }
             ?: throw BusinessException(ErrorCode.INVALID_REFRESH_TOKEN)
 
