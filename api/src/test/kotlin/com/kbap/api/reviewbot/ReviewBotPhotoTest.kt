@@ -300,18 +300,19 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             }
 
             `when`("삭제된 행이 있는 상태에서 다음 sync 의 가드 분모를 보면") {
-                then("활성 행만 센다 — 12 중 2 삭제 뒤 6 더 사라지면 10 기준 절반 초과로 건너뛴다(any-status 로 세면 12 기준이라 지나감)") {
+                then("활성 행만 센다 — 12 중 2 삭제 뒤 5 더 사라지면 10 기준 정확히 절반이라 지운다(any-status 로 세면 12 중 7 이라 건너뛴다)") {
                     accountService.ensureBots(1)
                     stubObjects("후라이드치킨", 12)
                     syncPayload()
                     (1..2).forEach { storage.delete(poolPath("후라이드치킨", it)) }
                     syncPayload().path("removedCount").asInt() shouldBe 2
-                    (3..8).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+                    (3..7).forEach { storage.delete(poolPath("후라이드치킨", it)) }
 
                     val result = syncPayload()
 
-                    result.path("removalSkipped").asBoolean() shouldBe true
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 10
+                    result.path("removalSkipped").asBoolean() shouldBe false
+                    result.path("removedCount").asInt() shouldBe 5
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 5
                 }
             }
 
