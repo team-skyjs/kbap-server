@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 구현 방식
 
-구현(`/speckit-implement`·tasks.md 진행·단발 수정)은 **기본적으로 메인 세션이 직접 수행**한다 — 역할 분할형 TDD 하네스(test-writer→implementer 왕복)는 2026-08-14 제거했다(구현 단계가 느려지고 과한 코드가 나오는 문제). 헌법 원칙 I(Test-First: Red→Green→Refactor)은 그대로 유효하며 직접 구현에서 지킨다. 리뷰는 필요할 때만 `kbap-code-review`·`kbap-db-review` 스킬(에이전트: code-reviewer·database-expert)을 명시 호출한다.
+구현(`/speckit-implement`·tasks.md 진행·단발 수정)은 **기본적으로 메인 세션이 직접 수행**한다 — 역할 분할형 TDD 하네스(test-writer→implementer 왕복)는 2026-08-14 제거했다(구현 단계가 느려지고 과한 코드가 나오는 문제). 테스트는 사용자가 요청하거나 스펙이 명시할 때만 작성한다(헌법 원칙 I, 2026-10-14 개정 — Test-First 강제 폐지). 리뷰는 필요할 때만 `kbap-code-review`·`kbap-db-review` 스킬(에이전트: code-reviewer·database-expert)을 명시 호출한다.
 
 ## 하네스: 팀 구현 (opt-in)
 
