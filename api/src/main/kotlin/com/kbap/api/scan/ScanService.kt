@@ -91,6 +91,8 @@ class ScanService(
                 price = menu.priceKrw,
                 imageRef = foodService.resolveImageUrlOrDefault(food.takeIf { matched }),
                 avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
+                substituted = false,
+                originalScannedName = null,
             )
         }
 
