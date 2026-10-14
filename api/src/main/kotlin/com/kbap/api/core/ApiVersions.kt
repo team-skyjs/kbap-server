@@ -4,6 +4,7 @@ import org.springframework.web.accept.SemanticApiVersionParser
 
 object ApiVersions {
     const val HOME_MARKETING_POPULAR = "1.2"
+    const val SCAN_SUBSTITUTION = "3.0"
 
     private val parser = SemanticApiVersionParser()
 
