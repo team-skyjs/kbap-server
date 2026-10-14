@@ -95,7 +95,7 @@ description: "Task list — 메뉴판 스캔 신규 메뉴의 유사 음식 대�
 
 - [X] T012 `./gradlew build` 전체 그린 확인 — 특히 `ScanControllerTest`(2.0 시나리오·1.0 `similarFood` 부재)·`OpenApiSnapshotTest`("선언 버전 ⊆ 그룹" 가드 — 매핑 선언이 늘지 않아 통과해야 함, 스키마 이름 충돌 없음)·`ModuleBoundaryTest`(arch). 실패하면 원인을 고치고 재실행, 테스트를 완화하지 않는다.
 - [ ] T013 quickstart.md §2(벡터 off — 3.0 false/null·2.0 null/null·1.0 필드 없음)·§6(2.5 → 400, 3.0 → 200) 로컬 실측 — `specs/kb-787-scan-similar-substitute/quickstart.md`. §3·§5(벡터 on) 는 dev 자격 증명이 있을 때만.
-- [ ] T014 커밋 — 한국어 Conventional Commits(`feat(scan): 스캔 신규 메뉴를 유사 완성 음식으로 대체 응답 — X-API-Version 3.0 식별 필드 (KB-787)`), 본문에 설계 근거(상수 0.6·가상 스레드 병렬·2.0 null·KB-343 복원) 기록, `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` 으로 마감. draft PR 은 `open-draft-pr-to-develop` 스킬.
+- [X] T014 커밋 — 한국어 Conventional Commits(`feat(scan): 스캔 신규 메뉴를 유사 완성 음식으로 대체 응답 — X-API-Version 3.0 식별 필드 (KB-787)`), 본문에 설계 근거(상수 0.6·가상 스레드 병렬·2.0 null·KB-343 복원) 기록, `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` 으로 마감. draft PR 은 `open-draft-pr-to-develop` 스킬.
 - [ ] T015 [P] 지식 위키 반영(머지 후) — `../kbap-agenthub/wiki/api-versioning-policy.md` 에 3.0 마커(스캔 대체 식별 필드·addSupportedVersions 등록·그룹 없음) 한 줄, `menu-scan-pipeline.md` 에 대체 단계·matchKey 와의 관계(한글 음절 동일 표기는 벡터 전에 매칭) 한 줄 — `update-agenthub` 스킬.
 
 ---
