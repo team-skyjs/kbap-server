@@ -31,7 +31,12 @@ class SimilarFoodService(
                             ?.takeIf { it.score >= SIMILARITY_THRESHOLD }
                             ?.let { name to it.foodId }
                     }
-                }.mapNotNull { it.get() }.toMap()
+                }.mapNotNull { future ->
+                    runCatching { future.get() }.getOrElse { e ->
+                        log.warn("유사 음식 벡터 검색 실패 — 해당 항목은 유사 대체 없이 응답합니다", e)
+                        null
+                    }
+                }.toMap()
             }
             if (foodIdByName.isEmpty()) return emptyMap()
 
