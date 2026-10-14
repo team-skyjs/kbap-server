@@ -28,7 +28,7 @@ class ScanFacade(
         lang: LanguageCode,
     ): ScanResult {
         val member = memberService.getMember(memberId)
-        val result = scanService.scan(member, imagePath, ocrItems, lang, requireDetectedMenu = false)
+        val result = scanService.scan(member, imagePath, ocrItems, lang, requireDetectedMenu = false, substituteSimilar = false)
         memberService.increaseScanCount(memberId)
         return result
     }
@@ -45,7 +45,7 @@ class ScanFacade(
             if (!member.scanUnlocked && !memberService.getMember(memberId).isScanAllowed()) {
                 throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             }
-            val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true)
+            val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, substituteSimilar = true)
             memberService.increaseScanCount(memberId)
             releaseReservationQuietly(memberId, jti)
             return result
