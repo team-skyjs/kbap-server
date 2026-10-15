@@ -126,6 +126,16 @@ class ReviewDetailControllerTest : BehaviorSpec() {
                     payload.path("food").path("koreanName").asText() shouldBe "상세설렁탕"
                 }
             }
+            `when`("앱이 보내는 X-API-Version 1.1 로 조회하면") {
+                then("1.0+ 매핑으로 같은 단건 응답이 온다") {
+                    val res = mockMvc.get("/api/reviews/$reviewId") {
+                        header("X-API-Version", "1.1")
+                        param("lang", "en")
+                    }.andReturn().response
+                    res.status shouldBe 200
+                    res.json().path("payload").path("reviewId").asLong() shouldBe reviewId
+                }
+            }
             `when`("lang=ko 로 조회하면") {
                 then("food.name 이 이미 한국어라 koreanName 은 null 이다") {
                     val food = getReview("/api/reviews/$reviewId", lang = "ko").json().path("payload").path("food")
