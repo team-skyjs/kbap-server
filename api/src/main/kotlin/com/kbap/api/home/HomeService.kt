@@ -18,7 +18,12 @@ class HomeService(
     private val reviewService: ReviewService,
 ) {
     @Transactional(readOnly = true)
-    fun getHome(memberId: Long?, lang: LanguageCode, marketingPopular: Boolean = false): HomeResult {
+    fun getHome(
+        memberId: Long?,
+        lang: LanguageCode,
+        marketingPopular: Boolean = false,
+        topRated: Boolean = false,
+    ): HomeResult {
         val member = memberId?.let { memberService.getMember(it) }
         val avoidedSubstances = ingredientService.getAvoidedIngredients(member?.id, lang)
         val popularFoods =
@@ -28,7 +33,10 @@ class HomeService(
         val recentScans = member
             ?.let { foodService.getRecentScannedFoods(it.id, lang, RECENT_SCAN_SIZE) }
             .orEmpty()
-        val foodIds = (popularFoods + mostReviewedFoods + recentScans.map { it.summary }).map { it.foodId }
+        val topRatedFoods = if (topRated) topRatedFoods(member?.id, lang) else null
+        val foodIds = (
+            popularFoods + mostReviewedFoods + recentScans.map { it.summary } + topRatedFoods.orEmpty().map { it.summary }
+        ).map { it.foodId }
         val bookmarkedFoodIds = bookmarkService.getBookmarkedFoodIds(member?.id, foodIds)
         val ratings = reviewService.getFoodRatings(foodIds)
 
@@ -39,12 +47,20 @@ class HomeService(
             recentScans = recentScans,
             bookmarkedFoodIds = bookmarkedFoodIds,
             ratings = ratings,
+            topRatedFoods = topRatedFoods,
         )
+    }
+
+    private fun topRatedFoods(memberId: Long?, lang: LanguageCode): List<TopRatedFoodView> {
+        val ratings = reviewService.getTopRatedFoods(TOP_RATED_SIZE).associateBy { it.foodId }
+        return foodService.getFoodSummariesInOrder(memberId, lang, ratings.keys.toList())
+            .map { TopRatedFoodView(it, ratings.getValue(it.foodId)) }
     }
 
     companion object {
         const val POPULAR_SIZE = 10
         const val RECENT_SCAN_SIZE = 10
         const val MOST_REVIEWED_SIZE = 10
+        const val TOP_RATED_SIZE = 20
     }
 }

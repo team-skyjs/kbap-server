@@ -264,6 +264,20 @@ class ReviewService(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun getTopRatedFoods(size: Int): List<TopRatedFoodRating> =
+        reviewRepository.findTopRatedFoods(size).map {
+            val present = listOfNotNull(it.taste, it.servingSpeed, it.staffKindness)
+            TopRatedFoodRating(
+                foodId = it.foodId,
+                reviewCount = it.reviewCount,
+                taste = it.taste.roundToFirstDecimal(),
+                servingSpeed = it.servingSpeed?.roundToFirstDecimal(),
+                staffKindness = it.staffKindness?.roundToFirstDecimal(),
+                overallRating = present.average().roundToFirstDecimal(),
+            )
+        }
+
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
     @Transactional(readOnly = true)
@@ -367,4 +381,13 @@ class ReviewService(
 data class FoodRating(
     val averageRating: Double,
     val reviewCount: Long,
+)
+
+data class TopRatedFoodRating(
+    val foodId: Long,
+    val reviewCount: Long,
+    val taste: Double,
+    val servingSpeed: Double?,
+    val staffKindness: Double?,
+    val overallRating: Double,
 )
