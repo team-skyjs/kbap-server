@@ -18,6 +18,13 @@ data class ReviewPageRequest(
     val cursor: String? = null,
 )
 
+@Schema(description = "리뷰 단건 조회 파라미터")
+data class ReviewDetailRequest(
+    @field:NotBlank(message = "lang 은 필수입니다")
+    @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
+    val lang: String,
+)
+
 @Schema(description = "음식별 리뷰 목록 조회 파라미터")
 data class ReviewListRequest(
     @field:NotBlank(message = "lang 은 필수입니다")

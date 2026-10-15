@@ -102,6 +102,7 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption(
                         "POST",
                         Regex("^${ApiPaths.API}/reports$"),
