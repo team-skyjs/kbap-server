@@ -53,6 +53,31 @@ class PresignedUploadServiceTest : BehaviorSpec({
     ) = ImageUploadInput(memberId, installationId = null, purpose = purpose, contentType = contentType, contentLength = contentLength)
 
     given("이미지 업로드 URL 발급") {
+        `when`("게스트가 문의 사진 업로드를 발급받으면") {
+            then("검증된 설치 식별자의 해시를 키에 넣어 후속 소유 검증과 호환된다") {
+                val port = RecordingPort()
+                val service = PresignedUploadService(properties("prod"), port, GuestUploadQuota { "release-check-guest-0001" })
+
+                service.issueUploadUrl(ImageUploadInput(null, "raw-installation", "FEEDBACK", "image/jpeg", 500L))
+
+                port.keys.single() shouldMatch Regex("""^prod/images/feedback/\d{4}/\d{2}/ga747b7735c42_[0-9a-f-]{36}\.jpg$""")
+            }
+        }
+
+        `when`("서로 다른 게스트가 문의 사진 업로드를 발급받으면") {
+            then("설치별 소유자 구간이 다르다") {
+                val port = RecordingPort()
+                val service = PresignedUploadService(properties(), port, passingQuota)
+                listOf("release-check-guest-0001", "release-check-guest-0002").forEach {
+                    service.issueUploadUrl(ImageUploadInput(null, it, "FEEDBACK", "image/jpeg", 500L))
+                }
+
+                val owners = port.keys.map { it.substringAfterLast('/').substringBefore('_') }
+                owners.forEach { it shouldMatch Regex("g[0-9a-f]{12}") }
+                (owners[0] == owners[1]) shouldBe false
+            }
+        }
+
         `when`("지원하지 않는 용도로 요청하면") {
             then("UPLOAD-002 로 거절한다") {
                 val service = PresignedUploadService(properties(), RecordingPort(), passingQuota)
