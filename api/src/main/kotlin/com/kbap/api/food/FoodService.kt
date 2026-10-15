@@ -207,6 +207,10 @@ class FoodService(
         summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)
 
     @Transactional(readOnly = true)
+    fun getFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(ids), lang, memberId)
+
+    @Transactional(readOnly = true)
     fun getRandomMarketingPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> {
         val ids = foodMarketingPopularRepository.findAllFoodIds()
         if (ids.isEmpty()) return emptyList()

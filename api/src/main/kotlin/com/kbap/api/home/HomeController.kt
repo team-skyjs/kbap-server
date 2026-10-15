@@ -26,7 +26,8 @@ class HomeController(
         @RequestHeader(ApiHeaders.API_VERSION) apiVersion: String,
     ): ResponseEntity<BaseResponse<HomeResponse>> {
         val marketingPopular = ApiVersions.isAtLeast(apiVersion, ApiVersions.HOME_MARKETING_POPULAR)
-        val result = homeService.getHome(memberId, LanguageCode.from(request.lang), marketingPopular)
+        val topRated = ApiVersions.isAtLeast(apiVersion, ApiVersions.HOME_TOP_RATED)
+        val result = homeService.getHome(memberId, LanguageCode.from(request.lang), marketingPopular, topRated)
         return ResponseEntity.ok(BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null)))
     }
 }

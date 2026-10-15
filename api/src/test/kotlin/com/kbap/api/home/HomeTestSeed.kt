@@ -6,6 +6,7 @@ object HomeTestSeed {
     fun reset(dataSource: DataSource) = execute(
         dataSource,
         listOf(
+            "DELETE FROM bookmark",
             "DELETE FROM member_block",
             "DELETE FROM member_ranking_event",
             "DELETE FROM food_review",
@@ -44,6 +45,35 @@ object HomeTestSeed {
             "INSERT INTO food_review (member_id, food_id, rating, status, created_at, updated_at) " +
                 "VALUES ($memberId, $foodId, 5, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))"
         } + "UPDATE food SET review_count = review_count + ${memberIds.size} WHERE id = $foodId",
+    )
+
+    fun seedRatedReview(
+        dataSource: DataSource,
+        foodId: Long,
+        memberId: Long,
+        taste: Int,
+        speed: Int = 0,
+        kindness: Int = 0,
+        status: String = "ACTIVE",
+    ) = execute(
+        dataSource,
+        listOf(
+            "INSERT INTO food_review (member_id, food_id, rating, serving_speed_rating, staff_kindness_rating, status, created_at, updated_at) " +
+                "VALUES ($memberId, $foodId, $taste, $speed, $kindness, '$status', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+        ),
+    )
+
+    fun seedBookmark(dataSource: DataSource, memberId: Long, foodId: Long) = execute(
+        dataSource,
+        listOf(
+            "INSERT INTO bookmark (member_id, food_id, status, created_at, updated_at) " +
+                "VALUES ($memberId, $foodId, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+        ),
+    )
+
+    fun updateFood(dataSource: DataSource, foodId: Long, set: String) = execute(
+        dataSource,
+        listOf("UPDATE food SET $set WHERE id = $foodId"),
     )
 
     fun seedPlainMember(dataSource: DataSource, memberId: Long) = execute(
