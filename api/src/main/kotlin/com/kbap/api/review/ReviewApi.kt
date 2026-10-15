@@ -141,6 +141,28 @@ interface ReviewApi {
     ): ResponseEntity<BaseResponse<ReviewListPage>>
 
     @Operation(
+        summary = "리뷰 단건 — 비회원 조회 가능",
+        description = """
+            리뷰 한 건을 목록 항목과 같은 모양으로 조회한다(리뷰 상세 화면·딥링크). 인증 없이(비회원) 호출할 수 있다.
+            음식 요약(food)은 항상 채워진다. 본인 리뷰인데 음식이 삭제된 경우만 food 필드가 생략된다.
+            삭제·존재하지 않음·차단한 작성자·음식이 삭제된 타인 리뷰는 모두 REVIEW-001 이다. 본인 리뷰는 차단·음식 판정과 무관하게 보인다.
+            비회원 조회의 likedByMe 는 항상 false 다. lang 은 비회원도 필수(누락 400)다.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "lang 누락·reviewId 숫자 아님(COMMON-002), 볼 수 없는 리뷰(REVIEW-001)"),
+        ],
+    )
+    @ApiErrors(ErrorCode.REVIEW_NOT_FOUND)
+    fun getReview(
+        memberId: Long?,
+        @Parameter(description = "조회할 리뷰 id", example = "42") reviewId: Long,
+        @ParameterObject request: ReviewDetailRequest,
+    ): ResponseEntity<BaseResponse<ReviewResponse>>
+
+    @Operation(
         summary = "내 리뷰 목록",
         description = """
             내가 쓴 리뷰를 최신순 50건 keyset 커서 방식으로 조회한다(프로필 탭 진입).
