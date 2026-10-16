@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-10-16T14:16:11.789885+09:00",
+  "observedAt": "2026-10-16T14:32:14.758978+09:00",
   "baseCommit": "173426ec3b86c1d5003ddb958b7c9c8315bae8a9",
   "testCounts": {
     "api": {
@@ -22,13 +22,15 @@
     }
   },
   "localHttpCount": 62,
-  "localHttpHost": "http://127.0.0.1:54446",
-  "sourceDigestSha256": "15cdb33e877e427712365876e5fb62c1c79d5968c4994d5e50aa4c880d55d736",
+  "localHttpHost": "http://127.0.0.1:62294",
+  "sourceDigestSha256": "9c19fdafb8d6a5d7931c983a9f522fa01e4c37dafb203f3d2a8345fb89a6c897",
   "sourceDigestMethod": "SHA256(JSON sorted path→SHA256 over api/src,batch/src,common/src files; Python json.dumps(sort_keys=True))",
   "localArtifactSha256": {
-    "/private/tmp/curation-final-build.log": "527de028554386010dfccb3f984ca1257071d60d9087e82403ca6e894f5bca25",
-    "/private/tmp/curation-http-results.json": "f857e7e75335d4a1b71859e4721c1ca1933b4615fd08c28f88434fa95e97d51c",
-    "/private/tmp/curation-openapi.json": "695f27bed0f7999cb6bbe524b8585d2529f62628988e76312edc7a5cc34a4a79"
+    "/private/tmp/curation-final-build3.log": "d8f01f0a3d022ff9347e7718daffdb37050755ce0c1176a7e4530b7baa7a9036",
+    "/private/tmp/curation-final-build2.log": "e6922fa1bea6f9dd29922b510f4407456e7af09b18d470bed4a8977736c42bef",
+    "/private/tmp/curation-published-at-red.log": "2906ba935db71de8b878eab97f72de7067305678b59a41f7922e6d7b12e58059",
+    "/private/tmp/curation-http-results.json": "61f61c65fa3b3bad520000bcd8cc04f3e16be5ab1116858cfffd6e9ff8e614bc",
+    "/private/tmp/curation-openapi.json": "ba0278889cdf27f5413b1611cbff921d946ef4d03e447e6362e57a5aadab124e"
   },
   "migrationSha256": "39aec57bd4689cce72c6bbd1fde3de149f8efbd68dd72e1e1a54dcdeab8572fb",
   "realS3UploadExecuted": false,

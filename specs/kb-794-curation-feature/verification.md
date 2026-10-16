@@ -2,13 +2,15 @@
 
 기능 브랜치 기준이며 dev에 새 계약이 배포됐다는 기록이 아니다. 모든 콘텐츠는 로컬 합성 fixture다. 실제 사진 업로드, 외부 링크 접근, 콘텐츠 게시, 유료 모델 호출, prod 쓰기를 수행하지 않았다.
 
-최종 결과: 전체 `./gradlew build` 성공(16m 19s). 2859개 중 2857개 통과·2개 건너뜀, 실패/오류 0. api 2120 / common 646 / batch 93. 최신 bootJar의 실제 로컬 HTTP 62건 통과. Sentry 구조 검사·ArchUnit·동시 최초 게시·동시 자산 완료 포함. 상세 근거는 `specs/kb-794-curation-feature/verification.md` 및 manifest 참조.
+최종 결과: 전체 `./gradlew build` 성공(최종 2m 55s; common/batch는 직전 성공 결과 재사용). 2859개 중 2857개 통과·2개 건너뜀, 실패/오류 0. api 2120 / common 646 / batch 93. 최신 bootJar의 실제 로컬 HTTP 62건 통과. Sentry 구조 검사·ArchUnit·동시 최초 게시·동시 자산 완료 포함. 상세 근거는 `specs/kb-794-curation-feature/verification.md` 및 manifest 참조.
 
 ## 재현과 범위
 
 `./gradlew build --console=plain`로 api/common/batch 전체를 검증한다. 결과와 소스 digest는 `verification-manifest.json`에 기록한다. MySQL Testcontainers의 실제 Flyway→Hibernate validate가 새 common 엔티티 매핑도 검사한다. 선행 SQL은 SHA256 `39aec57bd4689cce72c6bbd1fde3de149f8efbd68dd72e1e1a54dcdeab8572fb`로 동일하다.
 
 검증기는 불완전 구현으로 시작한 Red 2건→Green 2건, 공개 HTTP 경로는 404 Red→미게시 200 Green을 거쳤다. 확대 회귀 중 동일 초안 저장의 version 미증가를 실제 실패로 확인하고 강제 version 증가로 수정했다. MockMvc 기본 버전 헤더 때문에 생긴 잘못된 누락 테스트는 헤더를 명시 제거하도록 고쳤다. 별도 ControllerAdvice가 기존 Sentry 구조 검사를 위반한 문제는 중앙 예외 처리기를 유지하는 MVC 등록으로 수정했다. 이 이전 실행들은 최종 성공 근거에 합산하지 않는다.
+
+독립 검토에서 승인 계약의 공개 상세 `publishedAt` 누락을 발견했다. 실제 공개 HTTP의 PathNotFound 실패(7개 중 1개)를 재현한 뒤 DTO/게시 시각 매핑을 보완했다. 후속 회귀에서 테스트 전용 기본 Jackson 변환기의 날짜 미지원 실패가 발생해 공개 정보 노출 검사를 실제 MockMvc JSON으로 바꿨다. 서버 실행 파일의 62건 HTTP는 게시 시각·Swagger를 포함해 재검증했다. 최종 전체 실행은 manifest의 `curation-final-build3.log`를 기준으로 한다.
 
 ## 회귀 시나리오
 

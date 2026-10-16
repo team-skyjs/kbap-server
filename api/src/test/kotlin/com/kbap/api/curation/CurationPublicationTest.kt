@@ -13,6 +13,8 @@ import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.concurrent.TimeUnit
@@ -30,6 +32,7 @@ class CurationPublicationTest : BehaviorSpec() {
     @Autowired private lateinit var assets: CurationAssetRepository
     @Autowired private lateinit var admins: AdminAccountJpaRepository
     @Autowired private lateinit var jdbc: JdbcTemplate
+    @Autowired private lateinit var mvc: MockMvc
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
     private var adminId = 0L
     private val documents = mutableMapOf<String, CurationDocument>()
@@ -102,9 +105,14 @@ class CurationPublicationTest : BehaviorSpec() {
                         detail.resolvedLang shouldBe lang
                         detail.items.map { it.position } shouldBe (1..10).toList()
                         detail.items.all { it.name.startsWith(lang) } shouldBe true
-                        val json = jacksonObjectMapper().writeValueAsString(detail)
+                        val json = mvc.get("/api/curations/seoul/sights?lang=$lang") { header("X-API-Version", "1.0") }
+                            .andExpect { status { isOk() } }.andReturn().response.contentAsString
                         listOf("rights", "staging", "evidence", "adminId", "draftDocument").forEach { json.contains(it) shouldBe false }
                     }
+                    val response = mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }
+                        .andExpect { status { isOk() }; jsonPath("$.payload.publishedAt") { exists() }; jsonPath("$.payload.publishedBy") { doesNotExist() } }.andReturn()
+                    val publishedAt = jacksonObjectMapper().readTree(response.response.contentAsString).path("payload").path("publishedAt").asText()
+                    LocalDateTime.parse(publishedAt) shouldBe service.getAdminDetail(adminId, "sights").publishedAt
                     val before = service.getDetail("sights", "en")
                     val d = service.getAdminDetail(adminId, "sights")
                     val saved = service.updateDraft(adminId, "dev", "sights", d.version, documents.getValue("sights").let { it.copy(items = it.items.take(9)) })

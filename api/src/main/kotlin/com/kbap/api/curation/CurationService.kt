@@ -41,7 +41,7 @@ class CurationService(
         val doc = published(row)
         val language = resolveLanguage(listOf(doc), LanguageCode.from(requestedLang).code, false)
         val card = card(row, doc, language)
-        return CurationDetail(key, card.title, card.description, card.coverImageUrl, 10, row.publishedRevision, requestedLang, language, language != requestedLang,
+        return CurationDetail(key, card.title, card.description, card.coverImageUrl, 10, row.publishedRevision, row.publishedAt ?: unavailable(), requestedLang, language, language != requestedLang,
             doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), image(row, item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }) })
     }
 

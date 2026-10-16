@@ -115,7 +115,9 @@ class CurationHttpTest : BehaviorSpec() {
             `when`("Swagger 문서를 조회하면") {
                 then("공개와 관리자 업로드 및 게시 계약을 찾을 수 있다") {
                     val response = mvc.get("/v3/api-docs/1.0").andExpect { status { isOk() } }.andReturn().response.contentAsString
-                    val paths = jacksonObjectMapper().readTree(response).path("paths")
+                    val schema = jacksonObjectMapper().readTree(response)
+                    schema.path("components").path("schemas").path("CurationDetail").path("properties").has("publishedAt") shouldBe true
+                    val paths = schema.path("paths")
                     paths.has("/api/curations/seoul") shouldBe true
                     paths.has("/api/admin/curations/seoul/{collectionKey}/publish") shouldBe true
                     paths.has("/api/admin/curations/seoul/{collectionKey}/assets/{assetId}/complete") shouldBe true

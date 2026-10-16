@@ -1,7 +1,7 @@
 {
   "synthetic": true,
-  "host": "http://127.0.0.1:54446",
-  "observedAt": "2026-10-16T14:10:32.751849+09:00",
+  "host": "http://127.0.0.1:62294",
+  "observedAt": "2026-10-16T14:26:08.980401+09:00",
   "examples": [
     {
       "method": "GET",
@@ -80,6 +80,7 @@
           "coverImageUrl": "https://example.invalid/curation/dev/final/stations",
           "itemCount": 10,
           "publishedRevision": 1,
+          "publishedAt": "2026-10-16T14:26:06.893392",
           "requestedLang": "en",
           "resolvedLang": "en",
           "fallbackUsed": false,

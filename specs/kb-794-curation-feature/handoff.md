@@ -6,7 +6,7 @@
 
 GET `/api/curations/seoul?lang=en`, GET `/api/curations/seoul/{sights|stations|restaurants}?lang=en`. Authorization 불필요. lang/버전헤더 누락과 blank400, 미지원lang→en. 모든 응답 no-store. 기존 /api/home 계약 무변.
 
-index payload: state(PUBLISHED/UNPUBLISHED), sectionVersion, requestedLang(원 요청), resolvedLang, fallbackUsed, collections. 정상게시3카드/정상미게시0카드이며 null/2카드 성공은 없다. 카드 title/description/coverImageUrl/itemCount10/publishedRevision. 상세는 collectionKey/title/description/coverImageUrl/itemCount/publishedRevision/lang정보/items를 제공한다. 항목entryId/position1부터/name/area/introduction/recommendationReason/imageUrl/externalUrl/nearby 문자열배열. 내부증빙·foodId·위험도·credit 없음.
+index payload: state(PUBLISHED/UNPUBLISHED), sectionVersion, requestedLang(원 요청), resolvedLang, fallbackUsed, collections. 정상게시3카드/정상미게시0카드이며 null/2카드 성공은 없다. 카드 title/description/coverImageUrl/itemCount10/publishedRevision. 상세는 collectionKey/title/description/coverImageUrl/itemCount/publishedRevision/publishedAt/lang정보/items를 제공한다. 항목entryId/position1부터/name/area/introduction/recommendationReason/imageUrl/externalUrl/nearby 문자열배열. 내부증빙·foodId·위험도·credit 없음.
 
 최초3모음 전 상세404. 최초활성 후 하나내림은 홈숨김+그상세404, 나머지상세200. index미게시 때 홈캐시만 제거하고 detail404일 때 해당상세만 제거한다. 네트워크/5xx는 마지막성공값과 오류를 유지한다. 예외적 번역결손은 전체모음 또는 카드3개가 en으로 fallback; en결손503. 사진CDN 실패가 텍스트/외부CTA를 지우는 이유는 아니다.
 
