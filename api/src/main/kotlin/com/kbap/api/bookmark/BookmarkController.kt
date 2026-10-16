@@ -3,6 +3,12 @@ package com.kbap.api.bookmark
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.util.CursorParser
+import com.kbap.api.core.SearchPage
+import com.kbap.api.food.FoodListingCursor
+import com.kbap.api.food.FoodListingRequest
+import com.kbap.api.food.FoodListingService
+import com.kbap.api.food.FoodListingSort
+import com.kbap.api.food.RiskFilterParser
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.food.FoodSummaryResponse
@@ -24,7 +30,29 @@ import org.springframework.web.bind.annotation.RestController
 class BookmarkController(
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,
+    private val listingService: FoodListingService,
 ) : BookmarkApi {
+    @GetMapping(version = "3.1+")
+    override fun listSorted(
+        @Valid @ModelAttribute request: FoodListingRequest,
+        @AuthMemberId memberId: Long,
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>> {
+        val result = listingService.getFoodListingPage(
+            lang = LanguageCode.from(request.lang),
+            sort = FoodListingSort.parse(request.sort),
+            cursor = FoodListingCursor.parse(request.cursor),
+            memberId = memberId,
+            risks = RiskFilterParser.parse(request.risk),
+            saved = true,
+        )
+        val ratings = reviewService.getFoodRatings(result.items.map { it.foodId })
+        return ResponseEntity.ok(BaseResponse.ok(SearchPage(
+            items = result.items.map { FoodSummaryResponse.from(it, bookmarked = true, ratings[it.foodId]) },
+            hasNext = result.hasNext,
+            nextCursor = result.nextCursor,
+        )))
+    }
+
     @PostMapping
     override fun register(
         @AuthMemberId memberId: Long,

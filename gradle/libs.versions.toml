@@ -1,4 +1,5 @@
 [versions]
+icu4j = "77.1"
 java = "21"
 kotlin = "2.3.21"
 spring-boot = "4.1.0"
@@ -32,6 +33,7 @@ spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 
 [libraries]
+icu4j = { module = "com.ibm.icu:icu4j", version.ref = "icu4j" }
 # --- Kotlin / Jackson ---
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 # 벡터 저장소(KB-319 검색·KB-328 적재): S3 Vectors — 버전은 aws-bom 이 관리.
