@@ -70,6 +70,13 @@ enum class ErrorCode(
     IMAGE_UPLOAD_RATE_LIMITED("IMAGE-006", 429, "하루에 올릴 수 있는 사진 수를 넘었습니다. 내일 다시 시도해 주세요"),
     ORDER_ITEM_IMAGE_NOT_VERIFIED("IMAGE-007", 400, "본인이 주문 항목 용도(ORDER_ITEM)로 올린 사진만 쓸 수 있습니다"),
 
+    CURATION_NOT_FOUND("CURATION-001", 404, "공개된 모음을 찾을 수 없습니다"),
+    CURATION_PUBLICATION_INVALID("CURATION-002", 400, "게시할 내용을 확인해 주세요"),
+    CURATION_VERSION_CONFLICT("CURATION-003", 409, "모음이 변경되었습니다. 다시 조회해 주세요"),
+    CURATION_ENVIRONMENT_MISMATCH("CURATION-004", 409, "요청 환경이 서버 환경과 다릅니다"),
+    CURATION_ASSET_INVALID("CURATION-005", 400, "사용할 수 없는 큐레이션 사진입니다"),
+    CURATION_UNAVAILABLE("CURATION-006", 503, "큐레이션을 불러올 수 없습니다"),
+
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
     MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),
     MENU_BOARD_NOT_DETECTED("SCAN-003", 400, "메뉴판을 인식하지 못했습니다. 메뉴판이 잘 보이게 다시 찍어주세요"),

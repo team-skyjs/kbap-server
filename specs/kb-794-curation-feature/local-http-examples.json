@@ -1,0 +1,275 @@
+{
+  "synthetic": true,
+  "host": "http://127.0.0.1:62294",
+  "observedAt": "2026-10-16T14:26:08.980401+09:00",
+  "examples": [
+    {
+      "method": "GET",
+      "path": "/api/curations/seoul?lang=en",
+      "status": 200,
+      "cacheControl": "no-store",
+      "body": {
+        "success": true,
+        "payload": {
+          "state": "UNPUBLISHED",
+          "sectionVersion": 0,
+          "requestedLang": "en",
+          "resolvedLang": "en",
+          "fallbackUsed": false,
+          "collections": []
+        },
+        "message": null,
+        "code": null
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/curations/seoul?lang=en",
+      "status": 200,
+      "cacheControl": "no-store",
+      "body": {
+        "success": true,
+        "payload": {
+          "state": "PUBLISHED",
+          "sectionVersion": 5,
+          "requestedLang": "en",
+          "resolvedLang": "en",
+          "fallbackUsed": false,
+          "collections": [
+            {
+              "collectionKey": "sights",
+              "title": "en title",
+              "description": "en description",
+              "coverImageUrl": "https://example.invalid/curation/dev/final/sights",
+              "itemCount": 10,
+              "publishedRevision": 2
+            },
+            {
+              "collectionKey": "stations",
+              "title": "en title",
+              "description": "en description",
+              "coverImageUrl": "https://example.invalid/curation/dev/final/stations",
+              "itemCount": 10,
+              "publishedRevision": 1
+            },
+            {
+              "collectionKey": "restaurants",
+              "title": "en title",
+              "description": "en description",
+              "coverImageUrl": "https://example.invalid/curation/dev/final/restaurants",
+              "itemCount": 10,
+              "publishedRevision": 1
+            }
+          ]
+        },
+        "message": null,
+        "code": null
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/curations/seoul/stations?lang=en",
+      "status": 200,
+      "cacheControl": "no-store",
+      "body": {
+        "success": true,
+        "payload": {
+          "collectionKey": "stations",
+          "title": "en title",
+          "description": "en description",
+          "coverImageUrl": "https://example.invalid/curation/dev/final/stations",
+          "itemCount": 10,
+          "publishedRevision": 1,
+          "publishedAt": "2026-10-16T14:26:06.893392",
+          "requestedLang": "en",
+          "resolvedLang": "en",
+          "fallbackUsed": false,
+          "items": [
+            {
+              "entryId": "e2274f9a-19eb-5fd1-9720-a8ebfe80bd1b",
+              "position": 1,
+              "name": "en name1",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/1",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "ad62094a-6f28-586f-bee7-3bb2144dee65",
+              "position": 2,
+              "name": "en name2",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/2",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "0f3c2d2d-7881-5fb3-9b9a-52e2315267de",
+              "position": 3,
+              "name": "en name3",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/3",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "fad84343-f8fd-5d20-9a4d-518d99207450",
+              "position": 4,
+              "name": "en name4",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/4",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "af3126b3-86a0-53b5-90c9-d3fe2fae2007",
+              "position": 5,
+              "name": "en name5",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/5",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "a184cb82-473f-50e2-b30a-f07d2805f201",
+              "position": 6,
+              "name": "en name6",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/6",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "af72d36c-443a-54ea-8280-c859584f44bf",
+              "position": 7,
+              "name": "en name7",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/7",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "a3e435b8-5082-511e-8f70-478c9617ff61",
+              "position": 8,
+              "name": "en name8",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/8",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "0c1f2686-78e4-5ae6-b653-687f5d616819",
+              "position": 9,
+              "name": "en name9",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/9",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            },
+            {
+              "entryId": "cdef9843-56d1-5e1f-a179-cb47b502d7fd",
+              "position": 10,
+              "name": "en name10",
+              "area": "en area",
+              "introduction": "en intro",
+              "recommendationReason": "en reason",
+              "imageUrl": "https://example.invalid/curation/dev/final/stations",
+              "externalUrl": "https://example.invalid/stations/10",
+              "nearby": [
+                "en nearby0",
+                "en nearby1"
+              ]
+            }
+          ]
+        },
+        "message": null,
+        "code": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/curations/seoul/sights/validate",
+      "status": 409,
+      "cacheControl": "no-store",
+      "body": {
+        "success": false,
+        "payload": null,
+        "message": "요청 환경이 서버 환경과 다릅니다",
+        "code": "CURATION-004"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/curations/seoul/sights/publish",
+      "status": 400,
+      "cacheControl": "no-store",
+      "body": {
+        "success": false,
+        "payload": {
+          "errors": [
+            {
+              "path": "items",
+              "reason": "ITEM_COUNT",
+              "entryId": null,
+              "locale": null
+            },
+            {
+              "path": "editorialReview",
+              "reason": "EDITORIAL_REVIEW_MISSING",
+              "entryId": null,
+              "locale": null
+            }
+          ],
+          "version": 6
+        },
+        "message": "게시할 내용을 확인해 주세요",
+        "code": "CURATION-002"
+      }
+    }
+  ]
+}
