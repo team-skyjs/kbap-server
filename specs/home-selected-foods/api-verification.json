@@ -1,0 +1,108 @@
+{
+  "execution": "local Spring MockMvc + Testcontainers MySQL/Redis",
+  "deployed": false,
+  "selectedAndRegressionSuites": [
+    {
+      "name": "com.kbap.api.admin.AdminFoodListControllerTest",
+      "tests": "39",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.openapi.OpenApiSnapshotTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.food.FoodDetailControllerTest",
+      "tests": "14",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.home.HomeTopRatedTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.home.HomePopularCacheTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.food.FoodSearchControllerTest",
+      "tests": "34",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.home.HomeControllerTest",
+      "tests": "15",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.food.SelectedFoodsControllerTest",
+      "tests": "31",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.home.HomeGuestTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.architecture.ModuleBoundaryTest",
+      "tests": "30",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.kbap.api.food.FoodListControllerTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "fullBuild": {
+    "command": "./gradlew build --console=plain",
+    "result": "SUCCESS",
+    "duration": "4m34s",
+    "modules": {
+      "api": {
+        "tests": 2125,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 2
+      },
+      "common": {
+        "tests": 646,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "batch": {
+        "tests": 93,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  }
+}

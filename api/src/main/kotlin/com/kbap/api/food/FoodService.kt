@@ -207,6 +207,10 @@ class FoodService(
         summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)
 
     @Transactional(readOnly = true)
+    fun getReadyFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(ids).filter { it.isReady() }, lang, memberId)
+
+    @Transactional(readOnly = true)
     fun getFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
         summaryViews(loadInGivenOrder(ids), lang, memberId)
 
