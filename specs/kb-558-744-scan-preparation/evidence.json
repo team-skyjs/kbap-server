@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-10-16T13:19:35.160404+09:00",
+  "base": "173426ec3b86c1d5003ddb958b7c9c8315bae8a9",
+  "sources": [
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/bridge/codex/2026-10-16-pr407-and-scan-implementation-handoff.md",
+      "sha256": "2663318bb1b3141aa0c661da161ec2a80168bc58ec54fa7ecafbe1f8498c4334"
+    },
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/specs/001-personalized-menu-mvp/discovery-scan-ads-plan-2026-10-16.md",
+      "sha256": "76bb2e79faed63d2851757109de8d396b65dd02637a7432acf2c442c807f8799"
+    },
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/specs/001-personalized-menu-mvp/discovery-scan-contract-addendum-2026-10-16.md",
+      "sha256": "6957ae21dde97acc1f88275839d6638e97f699f9d022c710cd0771b522ba584d"
+    },
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/specs/001-personalized-menu-mvp/multi-scan-contract-review-2026-10-16.md",
+      "sha256": "4b40ce92420f0a7ee1aaefbf7cfd87f52abfb133a8a1fe052aaf41c78514d488"
+    }
+  ],
+  "validation": "JSON parse and unique fixture IDs only; no runtime/DDL/model tests",
+  "sequence": "Q0 independent review; curation feature implementation first after center gate release; scan Q1 SQL-only preparation next, Q2 mapping only after its own dev/prod migration gate"
+}
