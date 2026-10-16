@@ -95,6 +95,18 @@ class ReviewBotPhotoInventoryTest : BehaviorSpec() {
                 }
             }
         }
+        given("일반 게시글과 문자열 사진 참조") {
+            `when`("저장소 경로 중 일부를 커뮤니티와 회원 프로필이 참조하면") {
+                then("각 경로의 참조만 찾아 보류한다") {
+                    val normal = ordinary()
+                    val food = food()
+                    val paths = (1..3).map { path(food, it) }
+                    exec("INSERT INTO community_post(member_id, content, image_refs, status, created_at, updated_at) VALUES(${normal.id}, '사진', JSON_ARRAY('${paths[0]}'), 'ACTIVE', NOW(6), NOW(6))")
+                    exec("UPDATE member SET profile_image_url='https://example.invalid/${paths[1]}' WHERE id=${normal.id}")
+                    catalog.getOrdinaryReferencedPaths(paths).toSet() shouldBe paths.take(2).toSet()
+                }
+            }
+        }
         given("기존 일반 리뷰 삭제 의미") {
             `when`("회원 리뷰 카운트가 이미 영이면") {
                 then("기존 예외와 트랜잭션 롤백을 유지한다") {

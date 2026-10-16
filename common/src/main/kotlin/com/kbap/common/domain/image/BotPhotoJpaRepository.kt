@@ -27,15 +27,15 @@ interface BotPhotoJpaRepository : Repository<UploadedImage, Long> {
     """)
     fun hasOrdinaryReference(@Param("path") path: String): Long
     @Query(nativeQuery = true, value = """
-        select p.path from json_table(:pathsJson, '$[*]' columns(path varchar(512) path '$')) p
+        select candidate.path from json_table(:pathsJson, '$[*]' columns(path varchar(512) path '$')) candidate
         where (
           exists (select 1 from food_review r left join member m on m.id = r.member_id
-            where (m.id is null or m.is_bot = 0) and json_search(r.image_refs, 'one', concat('%', p.path)) is not null)
-          or exists (select 1 from community_post p where json_search(p.image_refs, 'one', concat('%', p.path)) is not null)
-          or exists (select 1 from feedback f where json_search(f.image_refs, 'one', concat('%', p.path)) is not null)
-          or exists (select 1 from member m where right(m.profile_image_url, char_length(p.path)) = p.path)
-          or exists (select 1 from orders o where right(o.image_path, char_length(p.path)) = p.path)
-          or exists (select 1 from order_item i where right(i.image_path, char_length(p.path)) = p.path)
+            where (m.id is null or m.is_bot = 0) and json_search(r.image_refs, 'one', concat('%', candidate.path)) is not null)
+          or exists (select 1 from community_post p where json_search(p.image_refs, 'one', concat('%', candidate.path)) is not null)
+          or exists (select 1 from feedback f where json_search(f.image_refs, 'one', concat('%', candidate.path)) is not null)
+          or exists (select 1 from member m where right(m.profile_image_url, char_length(candidate.path)) = cast(candidate.path as binary))
+          or exists (select 1 from orders o where right(o.image_path, char_length(candidate.path)) = cast(candidate.path as binary))
+          or exists (select 1 from order_item i where right(i.image_path, char_length(candidate.path)) = cast(candidate.path as binary))
         )
     """)
     fun getOrdinaryReferencedPaths(@Param("pathsJson") pathsJson: String): List<String>
