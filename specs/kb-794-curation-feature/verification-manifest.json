@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-16T14:16:11.789885+09:00",
+  "baseCommit": "173426ec3b86c1d5003ddb958b7c9c8315bae8a9",
+  "testCounts": {
+    "api": {
+      "tests": 2120,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "batch": {
+      "tests": 93,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "common": {
+      "tests": 646,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "localHttpCount": 62,
+  "localHttpHost": "http://127.0.0.1:54446",
+  "sourceDigestSha256": "15cdb33e877e427712365876e5fb62c1c79d5968c4994d5e50aa4c880d55d736",
+  "sourceDigestMethod": "SHA256(JSON sorted path→SHA256 over api/src,batch/src,common/src files; Python json.dumps(sort_keys=True))",
+  "localArtifactSha256": {
+    "/private/tmp/curation-final-build.log": "527de028554386010dfccb3f984ca1257071d60d9087e82403ca6e894f5bca25",
+    "/private/tmp/curation-http-results.json": "f857e7e75335d4a1b71859e4721c1ca1933b4615fd08c28f88434fa95e97d51c",
+    "/private/tmp/curation-openapi.json": "695f27bed0f7999cb6bbe524b8585d2529f62628988e76312edc7a5cc34a4a79"
+  },
+  "migrationSha256": "39aec57bd4689cce72c6bbd1fde3de149f8efbd68dd72e1e1a54dcdeab8572fb",
+  "realS3UploadExecuted": false,
+  "devFeatureDeploymentVerified": false,
+  "productionWriteExecuted": false
+}
