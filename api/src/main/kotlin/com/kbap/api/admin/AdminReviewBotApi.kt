@@ -2,6 +2,8 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountsResult
+import com.kbap.api.reviewbot.ReviewBotPhotoInventory
+import com.kbap.api.reviewbot.ReviewBotPhotoSyncResult
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -32,6 +34,14 @@ interface AdminReviewBotApi {
     )
     @SecurityRequirement(name = "bearerAuth")
     fun ensureBots(request: AdminReviewBotRequest): ResponseEntity<BaseResponse<AdminReviewBotResponse>>
+
+    @Operation(summary = "봇 사진 inventory", description = "읽기 전용. 소실·일반 참조·소유 충돌을 보고하며 기존 리뷰와 등록행을 변경하지 않는다.")
+    @SecurityRequirement(name = "bearerAuth")
+    fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>>
+
+    @Operation(summary = "봇 사진 신규 등록", description = "photo-sync-enabled 기본 false. gate OFF면 거절. 자동 삭제·복원·소유권 이전 없이 정상 신규 사진만 등록한다.")
+    @SecurityRequirement(name = "bearerAuth")
+    fun syncPhotos(): ResponseEntity<BaseResponse<ReviewBotPhotoSyncResult>>
 }
 
 @Schema(description = "리뷰 봇 계정 보장 요청")

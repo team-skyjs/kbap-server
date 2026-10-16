@@ -27,6 +27,7 @@ class ReviewBotWriter(
     private val ingredientRepository: IngredientJpaRepository,
     private val reviewService: ReviewService,
     private val generator: ReviewTextGenerator?,
+    private val photos: ReviewBotPhotoService,
     @Value("\${kbap.review-bot.min-per-day:8}") private val minPerDay: Int,
     @Value("\${kbap.review-bot.max-per-day:12}") private val maxPerDay: Int,
     @Value("\${kbap.review-bot.time-budget:15m}") private val timeBudget: Duration,
@@ -70,6 +71,8 @@ class ReviewBotWriter(
         val reviewed = reviewRepository.findReviewerIdsOfFood(foodId, bots.map { it.id }).toSet()
         val bot = bots.filterNot { it.id in reviewed }.randomOrNull(random) ?: return null
         val food = foodRepository.findById(foodId).orElse(null)?.takeIf { it.isReady() } ?: return null
+        val paths = photos.getAvailablePaths(food.koreanName).shuffled(random).take(3)
+        if (paths.isEmpty()) return null
         val rating = ReviewBotCountries.rating(random)
         val request = ReviewDraftRequest(
             foodName = food.displayName(LanguageCode.EN),
@@ -79,8 +82,9 @@ class ReviewBotWriter(
             rating = rating,
         )
         val content = generateAcceptable(foodId, generator, request) ?: return null
+        if (!photos.getAvailablePaths(food.koreanName).containsAll(paths)) return null
         return runCatching {
-            reviewService.createReview(bot.id, foodId, rating, null, null, content, null, null).reviewId
+            reviewService.createBotReview(bot.id, foodId, rating, content, paths).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 
