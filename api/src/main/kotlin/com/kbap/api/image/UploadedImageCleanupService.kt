@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
+import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -25,6 +26,7 @@ class UploadedImageCleanupService(
     @Value("\${kbap.uploaded-image-cleanup.max-per-run:100}") private val maxPerRun: Int,
     transactionManager: PlatformTransactionManager,
     private val metrics: UploadCleanupMetrics,
+    private val redisTemplate: StringRedisTemplate,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
@@ -44,11 +46,14 @@ class UploadedImageCleanupService(
         }
         var deleted = 0
         var failed = 0
-        var afterId = 0L
+        var afterId = redisTemplate.opsForValue().get(CURSOR_KEY)?.toLongOrNull()?.takeIf { it >= 0 } ?: 0L
         var attempted = 0
         while (attempted < maxPerRun) {
             val ids = uploadedImageRepository.findOrphanIds(before, afterId, minOf(pageSize, maxPerRun - attempted))
-            if (ids.isEmpty()) break
+            if (ids.isEmpty()) {
+                redisTemplate.delete(CURSOR_KEY)
+                break
+            }
             attempted += ids.size
             ids.forEach { id ->
                 when (deleteOne(id, before)) {
@@ -58,9 +63,10 @@ class UploadedImageCleanupService(
                 }
             }
             afterId = ids.last()
+            redisTemplate.opsForValue().set(CURSOR_KEY, afterId.toString())
         }
         if (failed > 0) {
-            log.warn("미참조 업로드 정리 — {}건 삭제, {}건 실패(행은 ACTIVE 로 남아 다음 실행에서 다시 시도한다)", deleted, failed)
+            log.warn("미참조 업로드 정리 — {}건 삭제, {}건 실패(행은 ACTIVE 로 남아 전체 순회 뒤 다시 시도한다)", deleted, failed)
         } else {
             log.info("미참조 업로드 정리 — {}건 삭제", deleted)
         }
@@ -133,6 +139,10 @@ class UploadedImageCleanupService(
         }
 
     private enum class DeleteOutcome { DELETED, SKIPPED, FAILED }
+
+    companion object {
+        const val CURSOR_KEY = "upload-cleanup:recorded-cursor"
+    }
 }
 
 data class UploadedImageCleanupResult(
