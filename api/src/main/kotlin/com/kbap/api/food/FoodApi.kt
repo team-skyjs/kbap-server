@@ -17,6 +17,13 @@ import org.springframework.http.ResponseEntity
 @Tag(name = "음식", description = "음식 목록·검색·상세 조회 API")
 @SecurityRequirement(name = "bearerAuth")
 interface FoodApi {
+    @Operation(summary = "음식 목록 정렬 조회 (3.1+)", description = FOOD_LISTING_DESCRIPTION)
+    @ApiErrors(ErrorCode.INVALID_CURSOR, ErrorCode.FOOD_LISTING_STALE)
+    fun browseSorted(
+        @ParameterObject request: FoodListingRequest,
+        memberId: Long?,
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>>
+
     @Operation(
         summary = "음식 목록 조회 (무한 스크롤, no-offset)",
         description = """

@@ -7,6 +7,7 @@
 - `GET /api/foods`, `GET /api/bookmarks`에 `X-API-Version: 3.1` 이상 계약을 추가한다. 기존 1.x/2.0/3.0 응답은 그대로 숫자 nextCursor다.
 - 새 계약의 `sort`: `default`(생략 기본), `name_asc`, `name_desc`. 기본순은 기존 foodId DESC / bookmarkId DESC를 보존한다. 미정의 값은 400 COMMON-002.
 - 새 계약은 모든 정렬에서 문자열 nextCursor를 반환한다. FE는 해석·숫자 변환 없이 그대로 전달한다. 이전 숫자 커서는 새 계약에서 400 FOOD-002다.
+- FE 연결은 이 두 목록 요청의 버전 선택을 명시한다. 앱 공통 헤더를 일괄 3.1로 올리는 작업은 이 PR 범위가 아니다. 기존 서버에서 scans는 2.0 이상 별도 계약, 3.0 이상 substitution 노출이므로 다른 요청의 버전도 함께 바꾸면 해당 계약 검증이 필요하다.
 - lang 필수, 미지원 값은 기존 LanguageCode 규칙에 따라 en. 위험도 CSV와 인증 규칙은 기존과 동일하다. 홈·검색·스캔 내역 정렬은 변경하지 않는다.
 
 ## 비교 규칙

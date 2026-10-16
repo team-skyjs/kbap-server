@@ -38,3 +38,7 @@ MySQL 8.4에서 기존 `utf8mb4_0900_ai_ci`로 `메뉴 10 < 메뉴 2`가 참인 
 ## 정적 검토
 
 `kbap-code-review` 체크리스트로 DTO/응답 봉투, api→common 의존, 서비스 읽기 트랜잭션, 공용 엔티티 스키마 무변경, 무주석 Kotlin, BehaviorSpec 한국어 테스트, 구 API 호환을 확인했다. 모듈 경계 테스트도 통과했다. 독립 리뷰와 CI는 별도 결과로 구분한다.
+
+## 독립 리뷰 반영
+
+기존 엔드포인트의 새 버전을 같은 컨트롤러에 배치하라는 AGENTS 규칙에 맞춰 FoodListingController/FoodListingApi를 제거하고 기존 FoodController/FoodApi 및 BookmarkController/BookmarkApi에 3.1 매핑을 옮겼다. 비교기·서비스·커서 로직은 동일하다. 이 배치 수정 후 라우팅/기존 응답/Swagger/모듈 경계 56개가 통과했다(1m 46s, 실패 0). 전체 build와 실제 TCP HTTP/성능 실측은 배치 수정 전 커밋 243cc6f1 기준이며, 최신 커밋의 전체 검증은 CI에서 확인한다.
