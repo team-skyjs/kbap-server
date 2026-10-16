@@ -1,5 +1,6 @@
 package com.kbap.api.image
 
+import com.kbap.common.util.BotImagePaths
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.port.storage.StorageObjectStore
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
@@ -100,10 +101,19 @@ class UploadedImageCleanupService(
 
     fun getLatestOrphanCounts(): OrphanUploadCounts? = latestOrphanCounts
 
-    protected fun countOrphansIn(before: LocalDateTime): Map<String, Long> =
-        UploadedImageJpaRepository.CLEANUP_SEGMENTS.associate { segment ->
-            segment.removePrefix("images/").trimEnd('/') to uploadedImageRepository.countOrphansIn(before, segment)
+    protected fun countOrphansIn(before: LocalDateTime): Map<String, Long> {
+        val counts = UploadedImageJpaRepository.CLEANUP_SEGMENTS.associateWith { 0L }.toMutableMap()
+        var afterId = 0L
+        while (true) {
+            val page = uploadedImageRepository.findOrphanPathPage(before, afterId, 500)
+            if (page.isEmpty()) break
+            page.filterNot { BotImagePaths.isProtected(it.path) }.forEach { image ->
+                counts.keys.filter { image.path.contains(it) }.forEach { segment -> counts[segment] = counts.getValue(segment) + 1 }
+            }
+            afterId = page.last().id
         }
+        return counts.mapKeys { (segment, _) -> segment.removePrefix("images/").trimEnd('/') }
+    }
 
     private fun orphanCutoff(): LocalDateTime = LocalDateTime.now().minusDays(retentionDays)
 
@@ -111,6 +121,7 @@ class UploadedImageCleanupService(
         try {
             transaction.execute {
                 val upload = uploadedImageRepository.findByIdForUpdate(id) ?: return@execute DeleteOutcome.SKIPPED
+                if (BotImagePaths.isProtected(upload.path)) return@execute DeleteOutcome.SKIPPED
                 if (uploadedImageRepository.countOrphan(id, before) == 0L) return@execute DeleteOutcome.SKIPPED
                 storageObjectStore.delete(upload.path)
                 upload.delete()

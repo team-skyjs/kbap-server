@@ -101,6 +101,25 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
         fun activePaths(): Set<String> = uploadedImageRepository.findAll().map { it.path }.toSet()
 
+        given("봇 경로가 일반 정리 후보에 섞인 경우") {
+            `when`("목적 경로 안에 전용 경로와 별칭이 있으면") {
+                then("집계와 실제 삭제에서 제외하고 일반 경로만 정리한다") {
+                    reset()
+                    val protected = listOf(
+                        "prod/images/review/../../images/review-bot/key/1.webp",
+                        "prod/images/review/prod/images/review-bot/key/2.webp",
+                        "dev/images/feedback/dev%2Fimages%2Freview-bot%2Fkey%2F3.webp",
+                    )
+                    protected.forEach { upload(it) }
+                    upload("dev/images/review/normal.webp")
+                    cleanupService(dryRun = true).refreshOrphanCounts()!!.counts.values.sum() shouldBe 1L
+                    cleanupService().cleanup().deletedCount shouldBe 1
+                    activePaths() shouldContainExactlyInAnyOrder protected
+                    storage.deleted shouldContainExactlyInAnyOrder listOf("dev/images/review/normal.webp")
+                }
+            }
+        }
+
         given("정리가 쥐는 잠금 범위") {
             `when`("다른 트랜잭션이 리뷰 행을 쓰는 중(미커밋)에 정리가 돌면") {
                 then("기다리지 않고 미참조 업로드를 지운다 — 삭제 문이 리뷰·글·문의·회원·주문 테이블을 잠금 읽기로 훑지 않는다") {
