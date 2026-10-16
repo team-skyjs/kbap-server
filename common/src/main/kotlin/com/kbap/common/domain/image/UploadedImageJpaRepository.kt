@@ -1,6 +1,7 @@
 package com.kbap.common.domain.image
 
 import com.kbap.common.domain.image.model.UploadedImage
+import com.kbap.common.util.BotImagePaths
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
@@ -39,6 +40,9 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     )
     fun countOrphansIn(@Param("before") before: LocalDateTime, @Param("segment") segment: String): Long
 
+    @Query(nativeQuery = true, value = "select u.id as id, u.object_path as path from uploaded_image u where $ORPHAN and u.id > :afterId order by u.id limit :size")
+    fun findOrphanPathPage(@Param("before") before: LocalDateTime, @Param("afterId") afterId: Long, @Param("size") size: Int): List<OrphanImagePath>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UploadedImage u where u.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): UploadedImage?
@@ -58,7 +62,7 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/")
 
-        fun isCleanupTarget(path: String): Boolean = CLEANUP_SEGMENTS.any { path.contains(it) }
+        fun isCleanupTarget(path: String): Boolean = !BotImagePaths.isProtected(path) && CLEANUP_SEGMENTS.any { path.contains(it) }
 
         private const val CLEANUP_PURPOSE =
             "(locate('images/review/', u.object_path) > 0 " +

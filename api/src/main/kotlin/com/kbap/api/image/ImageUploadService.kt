@@ -1,5 +1,6 @@
 package com.kbap.api.image
 
+import com.kbap.common.util.BotImagePaths
 import com.kbap.api.core.ApiHeaders
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -23,6 +24,7 @@ class ImageUploadService(
         declaredContentType: String,
         declaredSize: Long,
     ): UploadedImage {
+        if (BotImagePaths.isProtected(path)) throw BusinessException(ErrorCode.UPLOADED_OBJECT_NOT_FOUND)
         val guestInstallation = guestInstallationOf(memberId, installationId, path)
         uploadedImageRepository.findByPath(path)?.let { existing ->
             val owned = (memberId != null && existing.isOwnedBy(memberId)) ||
