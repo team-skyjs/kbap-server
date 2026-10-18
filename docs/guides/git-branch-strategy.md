@@ -13,6 +13,7 @@
 - main에만 존재하는 변경은 main → develop 정상 merge로 조상 관계를 보존한다. cherry-pick 금지. 동기화에서 rebase·force-push·ours/theirs 일괄 선택을 하지 않는다.
 - 충돌을 양쪽 의도를 보존하며 해결할 수 없다면 main revert 대상·의존·자동 prod 배포 영향을 먼저 보고한다. revert를 자동 실행하지 않는다.
 - 동기화 PR 제목과 merge 커밋은 `Merge main into develop`로 작성하며 릴리스 번호를 붙이지 않는다. 이 PR은 기능 PR이 아니므로 develop 대상이어도 squash 금지다.
+- main base PR 제목은 Draft 포함 예외 없이 `Merge develop into main (release yy.mm.N)`이다(`CLAUDE.md`의 릴리스 PR 제목 규약). N은 같은 달 main merged PR 수를 0부터 세고 열린 릴리스 PR 다음 번호로 정한다. 생성 직전 원격 이력을 다시 조회하며 임의 지정하지 않는다. 이미 merged된 PR 제목은 변경하지 않는다.
 - 실제 최근 릴리스 #369·#391은 `Merge develop into main (release 26.10.1)`·`Merge develop into main (release 26.10.2)`였다. 이후 릴리스는 직전 실제 이력과 승인된 범위를 확인해 번호를 정한다. 배포 태그 `prod-YYYYMMDD-<sha7>`는 릴리스 제목 번호와 별도다. 이미 공개된 커밋·태그를 이름 통일 목적으로 재작성하지 않는다.
 - 2026-10-19 조회 기준 develop ruleset은 PR squash만 허용하고 merge queue도 SQUASH를 사용한다. 정상 동기화 merge와 상충하므로 관리자 우회·설정 변경·squash 대체를 임의 실행하지 않고 최소 예외안을 보고한다. 기능 PR의 기본 보호는 유지한다.
 - develop에 실제 merge하면 dev API 자동 배포가 발생한다. batch는 해당 워크플로 경로 조건을 별도로 확인한다. PR 생성·CI 성공은 배포 완료를 뜻하지 않는다.
@@ -121,7 +122,7 @@ Conventional Commits + 한국어 본문(기존 repo 스타일 유지). 코드 �
 
 ## 5. PR 규약
 
-- 제목 = (squash 시) 커밋 메시지 → **conventional 1줄**.
+- 기능 PR 제목 = (squash 시) 커밋 메시지 → **conventional 1줄**. main base는 위 릴리스 제목 규약을 따른다. main→develop 동기화는 `Merge main into develop`이다.
 - 본문에 `Closes #N`(여러 기능이면 각각), 상위 릴리스 이슈는 `Refs #4`.
 - **Jira 추적 태스크면 PR→Jira 링크**: PR 본문에 이슈 URL + `Refs KB-NN`. 대응 GitHub 이슈가 없으면 `close #` 는 비운다. **Jira 이슈에는 별도 완료/DoD 코멘트를 달지 않는다**(링크로 충분). GitHub for Jira 앱 설치 시 커밋/브랜치의 `KB-NN` 로 Development 패널 자동 연동.
 - base 브랜치 = **`develop`** (릴리스 PR 만 `main`).
