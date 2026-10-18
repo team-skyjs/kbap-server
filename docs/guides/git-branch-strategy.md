@@ -4,7 +4,6 @@
 > 현재 모델: **`main` + `staging-*` + `develop`** (git-flow). 릴리스마다 `develop` 에서 임시 `staging-<yyyymmdd>` 를 따 QA·스테이징 배포 후 `main`·`develop` 양쪽에 머지하고 삭제한다. `hotfix/*` 는 추후 확장.
 > 브랜치→배포 매핑(KB-172): `develop` push→dev · `staging-*` push→staging · `main` push→prod. 이미지 태그는 전 환경 커밋 sha. 상세는 [specs/kb-172-deploy-automation](../../specs/kb-172-deploy-automation/).
 
-
 ## 2026-10-19 사용자 지시: 동기화와 릴리스 승인
 
 이 절은 아래 과거 문구와 충돌할 때 우선한다.

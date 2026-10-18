@@ -240,11 +240,11 @@ class SelectedFoodsControllerTest : BehaviorSpec() {
                 `when`("지원 버전 $version 으로 요청하면") {
                     then("새 버전 없이 선정 목록 계약을 제공한다") {
                         val baseline = mvc.get("/api/foods/selected") {
-                        param("ids", "2,999,1")
-                        param("lang", "en")
-                        header("X-API-Version", "1.1")
-                    }.andExpect { status { isOk() } }.andReturn()
-                    val response = mvc.get("/api/foods/selected") {
+                            param("ids", "2,999,1")
+                            param("lang", "en")
+                            header("X-API-Version", "1.1")
+                        }.andExpect { status { isOk() } }.andReturn()
+                        val response = mvc.get("/api/foods/selected") {
                             param("ids", "2,999,1")
                             param("lang", "en")
                             header("X-API-Version", version)
