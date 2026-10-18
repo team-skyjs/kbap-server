@@ -9,7 +9,7 @@
 
 이 절은 아래 과거 문구와 충돌할 때 우선한다.
 
-- 기본 릴리스는 develop의 통합 변경을 main에 정상 merge한다. 기능의 main 직접 PR·머지는 예진의 개별 명시 승인이 필요하다. 규칙 변경 자체를 개별 main 승인으로 해석하지 않는다.
+- 기본 릴리스는 develop의 통합 변경을 main에 정상 merge한다. 기능의 main 직접 실제 merge·반영은 예진의 개별 명시 승인이 필요하다. 검토용 Draft·분리안 준비 자체에 추가 승인을 요구하지 않는다. Draft 존재나 규칙 변경 자체를 개별 main 반영 승인으로 해석하지 않는다.
 - main에만 존재하는 변경은 main → develop 정상 merge로 조상 관계를 보존한다. cherry-pick 금지. 동기화에서 rebase·force-push·ours/theirs 일괄 선택을 하지 않는다.
 - 충돌을 양쪽 의도를 보존하며 해결할 수 없다면 main revert 대상·의존·자동 prod 배포 영향을 먼저 보고한다. revert를 자동 실행하지 않는다.
 - 동기화 PR 제목과 merge 커밋은 `Merge main into develop`로 작성하며 릴리스 번호를 붙이지 않는다. 이 PR은 기능 PR이 아니므로 develop 대상이어도 squash 금지다.
