@@ -4,6 +4,19 @@
 > 현재 모델: **`main` + `staging-*` + `develop`** (git-flow). 릴리스마다 `develop` 에서 임시 `staging-<yyyymmdd>` 를 따 QA·스테이징 배포 후 `main`·`develop` 양쪽에 머지하고 삭제한다. `hotfix/*` 는 추후 확장.
 > 브랜치→배포 매핑(KB-172): `develop` push→dev · `staging-*` push→staging · `main` push→prod. 이미지 태그는 전 환경 커밋 sha. 상세는 [specs/kb-172-deploy-automation](../../specs/kb-172-deploy-automation/).
 
+
+## 2026-10-19 사용자 지시: 동기화와 릴리스 승인
+
+이 절은 아래 과거 문구와 충돌할 때 우선한다.
+
+- 기본 릴리스는 develop의 통합 변경을 main에 정상 merge한다. 기능의 main 직접 PR·머지는 예진의 개별 명시 승인이 필요하다. 규칙 변경 자체를 개별 main 승인으로 해석하지 않는다.
+- main에만 존재하는 변경은 main → develop 정상 merge로 조상 관계를 보존한다. cherry-pick 금지. 동기화에서 rebase·force-push·ours/theirs 일괄 선택을 하지 않는다.
+- 충돌을 양쪽 의도를 보존하며 해결할 수 없다면 main revert 대상·의존·자동 prod 배포 영향을 먼저 보고한다. revert를 자동 실행하지 않는다.
+- 동기화 PR 제목과 merge 커밋은 `Merge main into develop`로 작성하며 릴리스 번호를 붙이지 않는다. 이 PR은 기능 PR이 아니므로 develop 대상이어도 squash 금지다.
+- 실제 최근 릴리스 #369·#391은 `Merge develop into main (release 26.10.1)`·`Merge develop into main (release 26.10.2)`였다. 이후 릴리스는 직전 실제 이력과 승인된 범위를 확인해 번호를 정한다. 배포 태그 `prod-YYYYMMDD-<sha7>`는 릴리스 제목 번호와 별도다. 이미 공개된 커밋·태그를 이름 통일 목적으로 재작성하지 않는다.
+- 2026-10-19 조회 기준 develop ruleset은 PR squash만 허용하고 merge queue도 SQUASH를 사용한다. 정상 동기화 merge와 상충하므로 관리자 우회·설정 변경·squash 대체를 임의 실행하지 않고 최소 예외안을 보고한다. 기능 PR의 기본 보호는 유지한다.
+- develop에 실제 merge하면 dev API 자동 배포가 발생한다. batch는 해당 워크플로 경로 조건을 별도로 확인한다. PR 생성·CI 성공은 배포 완료를 뜻하지 않는다.
+
 ## 1. 브랜치 모델
 
 | 브랜치 | 분기 원천 | 머지 대상 | 머지 방식 | 비고 |
