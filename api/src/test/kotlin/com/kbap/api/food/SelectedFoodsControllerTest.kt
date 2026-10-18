@@ -160,7 +160,7 @@ class SelectedFoodsControllerTest : BehaviorSpec() {
                     }.andExpect { status { isUnauthorized() } }
                 }
             }
-            listOf("missing", "1.2", "1.3", "3.0", "99.0").forEach { version ->
+            listOf("missing", "99.0").forEach { version ->
                 `when`("버전이 $version 이면") {
                     then("기존 버전 필수 규칙을 적용한다") {
                         mvc.get("/api/foods/selected") {
@@ -236,7 +236,7 @@ class SelectedFoodsControllerTest : BehaviorSpec() {
         }
 
         given("기존 출시 버전과 Swagger 계약") {
-            listOf("1.0", "1.1", "2.0").forEach { version ->
+            listOf("1.0", "1.1", "1.2", "1.3", "2.0", "3.0").forEach { version ->
                 `when`("지원 버전 $version 으로 요청하면") {
                     then("새 버전 없이 선정 목록 계약을 제공한다") {
                         mvc.get("/api/foods/selected") {
