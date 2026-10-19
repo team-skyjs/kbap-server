@@ -16,6 +16,7 @@ import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.domain.order.model.OrderPlaceSnapshot
+import com.kbap.common.util.BotImagePaths
 import com.kbap.common.util.CursorParser
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
@@ -56,7 +57,7 @@ class OrderService(
     }
 
     private fun verifyScanImage(memberId: Long, imagePath: String) {
-        if (UploadedImageJpaRepository.isCleanupTarget(imagePath)) {
+        if (BotImagePaths.isProtected(imagePath) || UploadedImageJpaRepository.isCleanupTarget(imagePath)) {
             throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
         }
         imageUploadService.verifyImageAccess(memberId, imagePath)
