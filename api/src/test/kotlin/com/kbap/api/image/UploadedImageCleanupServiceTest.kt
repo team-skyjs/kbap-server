@@ -39,6 +39,9 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
+
     init {
         val memberId = 7101L
         val foodId = 7101L
@@ -49,7 +52,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
             pageSize: Int = 100,
             maxPerRun: Int = 100,
             meters: SimpleMeterRegistry = SimpleMeterRegistry(),
-        ) = UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, maxPerRun, transactionManager, UploadCleanupMetrics(meters))
+        ) = UploadedImageCleanupService(uploadedImageRepository, storage, 7, dryRun, pageSize, maxPerRun, transactionManager, UploadCleanupMetrics(meters), redisTemplate)
 
         fun gauge(meters: SimpleMeterRegistry, purpose: String, kind: String): Double? =
             meters.find(UploadCleanupMetrics.NAME).tags("cleanup", "recorded", "purpose", purpose, "kind", kind).gauge()?.value()
@@ -61,6 +64,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
         fun reset() {
             TestTables.clearAll(dataSource)
+            redisTemplate.delete("upload-cleanup:recorded-cursor")
             storage.deleted.clear()
             storage.failDeletes = false
             exec(
@@ -100,6 +104,25 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
         )
 
         fun activePaths(): Set<String> = uploadedImageRepository.findAll().map { it.path }.toSet()
+
+        given("봇 경로가 일반 정리 후보에 섞인 경우") {
+            `when`("목적 경로 안에 전용 경로와 별칭이 있으면") {
+                then("집계와 실제 삭제에서 제외하고 일반 경로만 정리한다") {
+                    reset()
+                    val protected = listOf(
+                        "prod/images/review/../../images/review-bot/key/1.webp",
+                        "prod/images/review/prod/images/review-bot/key/2.webp",
+                        "dev/images/feedback/dev%2Fimages%2Freview-bot%2Fkey%2F3.webp",
+                    )
+                    protected.forEach { upload(it) }
+                    upload("dev/images/review/normal.webp")
+                    cleanupService(dryRun = true).refreshOrphanCounts()!!.counts.values.sum() shouldBe 1L
+                    cleanupService().cleanup().deletedCount shouldBe 1
+                    activePaths() shouldContainExactlyInAnyOrder protected
+                    storage.deleted shouldContainExactlyInAnyOrder listOf("dev/images/review/normal.webp")
+                }
+            }
+        }
 
         given("정리가 쥐는 잠금 범위") {
             `when`("다른 트랜잭션이 리뷰 행을 쓰는 중(미커밋)에 정리가 돌면") {
@@ -330,7 +353,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                     val meters = SimpleMeterRegistry()
                     var fail = false
                     val service = object : UploadedImageCleanupService(
-                        uploadedImageRepository, storage, 7, true, 100, 100, transactionManager, UploadCleanupMetrics(meters),
+                        uploadedImageRepository, storage, 7, true, 100, 100, transactionManager, UploadCleanupMetrics(meters), redisTemplate,
                     ) {
                         override fun countOrphansIn(before: java.time.LocalDateTime): Map<String, Long> =
                             if (fail) throw IllegalStateException("테스트 — 건수 질의 실패") else super.countOrphansIn(before)
@@ -376,6 +399,49 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
         }
 
         given("실행당 상한") {
+            `when`("보호 경로가 실행 상한보다 앞에 쌓이면") {
+                then("새 서비스 실행도 저장된 위치부터 이어서 일반 사진을 정리한다") {
+                    reset()
+                    (1..7).forEach { upload("dev/images/review/../review-bot/alias$it.webp") }
+                    val ordinary = "dev/images/review/ordinary.webp"
+                    upload(ordinary)
+
+                    repeat(2) {
+                        cleanupService(pageSize = 2, maxPerRun = 3).cleanup().deletedCount shouldBe 0
+                        storage.deleted.shouldBeEmpty()
+                    }
+                    cleanupService(pageSize = 2, maxPerRun = 3).cleanup().deletedCount shouldBe 1
+                    storage.deleted shouldBe listOf(ordinary)
+                    activePaths().size shouldBe 7
+                    redisTemplate.hasKey("upload-cleanup:recorded-cursor") shouldBe false
+                }
+            }
+
+            `when`("조회 도중 커서가 유실되면") {
+                then("상한 안에서 처음부터 다시 보고 이후 실행에서 계속 진행한다") {
+                    reset()
+                    (1..3).forEach { upload("dev/images/review/../review-bot/lost$it.webp") }
+                    upload("dev/images/review/after-loss.webp")
+                    cleanupService(maxPerRun = 3).cleanup().deletedCount shouldBe 0
+                    redisTemplate.delete(UploadedImageCleanupService.CURSOR_KEY)
+                    cleanupService(maxPerRun = 3).cleanup().deletedCount shouldBe 0
+                    storage.deleted.shouldBeEmpty()
+                    cleanupService(maxPerRun = 3).cleanup().deletedCount shouldBe 1
+                }
+            }
+
+            `when`("실패한 삭제 뒤까지 한 바퀴 조회하면") {
+                then("다음 실행은 처음으로 돌아와 실패한 사진을 재시도한다") {
+                    reset()
+                    upload("dev/images/review/retry.webp")
+                    storage.failDeletes = true
+                    cleanupService(maxPerRun = 1).cleanup().failedCount shouldBe 1
+                    cleanupService(maxPerRun = 1).cleanup().failedCount shouldBe 0
+                    storage.failDeletes = false
+                    cleanupService(maxPerRun = 1).cleanup().deletedCount shouldBe 1
+                }
+            }
+
             `when`("대상이 실행당 상한보다 많으면") {
                 then("상한까지만 지우고 멈춘다 — 남은 대상은 다음 실행이 이어서 지운다") {
                     reset()

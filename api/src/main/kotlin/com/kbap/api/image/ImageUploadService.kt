@@ -1,5 +1,6 @@
 package com.kbap.api.image
 
+import com.kbap.common.util.BotImagePaths
 import com.kbap.api.core.ApiHeaders
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -25,6 +26,7 @@ class ImageUploadService(
         declaredContentType: String,
         declaredSize: Long,
     ): UploadedImage {
+        if (BotImagePaths.isProtected(path)) throw BusinessException(ErrorCode.UPLOAD_PATH_NOT_ISSUED)
         val guestInstallation = guestInstallationOf(memberId, installationId)
         uploadedImageRepository.findByPath(path)?.takeIf { it.ownedBy(memberId, guestInstallation) }?.let { return it }
         val purpose = PresignedUploadService.issuedPurposeOf(path, uploadProperties.keyPrefix, PresignedUploadService.ownerKeyOf(memberId, guestInstallation))
