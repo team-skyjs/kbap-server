@@ -75,6 +75,9 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+    @Autowired
+    private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
+
     init {
         fun clearAll() {
             dataSource.connection.use { c ->
@@ -289,6 +292,7 @@ class AdminDashboardMetricsServiceTest : BehaviorSpec() {
                 100,
                 transactionManager,
                 com.kbap.api.image.UploadCleanupMetrics(io.micrometer.core.instrument.simple.SimpleMeterRegistry()),
+                redisTemplate,
             ) {
                 var countQueries = 0
 
