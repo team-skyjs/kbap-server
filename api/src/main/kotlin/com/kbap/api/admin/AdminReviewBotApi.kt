@@ -2,9 +2,11 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountsResult
-import com.kbap.api.reviewbot.ReviewBotPhotoInventory
 import com.kbap.api.reviewbot.ReviewBotPhotoSyncResult
+import com.kbap.api.reviewbot.ReviewBotPhotoInventory
+import com.kbap.api.reviewbot.ReviewBotPhotoHold
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
@@ -35,13 +37,64 @@ interface AdminReviewBotApi {
     @SecurityRequirement(name = "bearerAuth")
     fun ensureBots(request: AdminReviewBotRequest): ResponseEntity<BaseResponse<AdminReviewBotResponse>>
 
-    @Operation(summary = "봇 사진 inventory", description = "읽기 전용. 소실·일반 참조·소유 충돌을 보고하며 기존 리뷰와 등록행을 변경하지 않는다.")
+    @Operation(summary = "리뷰 봇 사진 재고 조회", description = "사용 가능·미등록·보류 사진을 조회한다. 등록행·리뷰·저장소를 변경하지 않는다.")
     @SecurityRequirement(name = "bearerAuth")
     fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>>
 
-    @Operation(summary = "봇 사진 신규 등록", description = "photo-sync-enabled 기본 false. gate OFF면 거절. 자동 삭제·복원·소유권 이전 없이 정상 신규 사진만 등록한다.")
+    @Operation(
+        summary = "리뷰 봇 사진 등록 및 보류 보고",
+        description = """
+            스토리지의 {key-prefix}/images/review-bot/<key>/<n>.webp 를 활성 봇 소유로 등록한다.
+            key는 sha256(korean_name)[:12] 소문자 hex다. 별도 photo-sync-enabled 설정이 켜져 있어야 등록할 수 있다.
+            소실·일반 참조·소유 또는 상태 충돌은 held에 보고한다. 등록행 복구, 소유 변경, 사진 분리, 리뷰 삭제는 수행하지 않는다.
+            기존 리뷰는 그대로 남아 소실 사진이 깨져 보일 수 있다. 새 리뷰에는 사용 가능한 사진만 1~3장 붙인다.
+            기존 force 파라미터는 호환을 위해 받지만 삭제·복구를 허용하지 않는다. 삭제·복구 관련 카운터는 항상 0이다.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "등록 수·보류 사유 및 호환 카운터"),
+        ApiResponse(responseCode = "400", description = "등록 기능이 꺼져 있거나 활성 봇 계정이 없음(COMMON-002)"),
+        ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+    )
     @SecurityRequirement(name = "bearerAuth")
-    fun syncPhotos(): ResponseEntity<BaseResponse<ReviewBotPhotoSyncResult>>
+    fun syncPhotoPool(
+        @Parameter(description = "호환용 파라미터. true여도 자동 삭제·복구하지 않는다", example = "false")
+        force: Boolean,
+    ): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>>
+}
+
+@Schema(description = "리뷰 봇 사진 등록 및 보류 결과")
+data class AdminReviewBotPhotoSyncResponse(
+    val registeredCount: Int,
+    val skippedCount: Int,
+    val restoredCount: Int,
+    val removedCount: Int,
+    val detachedReviewCount: Int,
+    val deletedReviewCount: Int,
+    val failedReviewCount: Int,
+    val unparseableReviewIds: List<Long>,
+    val detectionFailed: Boolean,
+    val removalSkipped: Boolean,
+    val imagesPerKey: Map<String, Int>,
+    val held: List<ReviewBotPhotoHold>,
+) {
+    companion object {
+        fun from(result: ReviewBotPhotoSyncResult): AdminReviewBotPhotoSyncResponse =
+            AdminReviewBotPhotoSyncResponse(
+                registeredCount = result.registeredCount,
+                skippedCount = result.skippedCount,
+                restoredCount = 0,
+                removedCount = 0,
+                detachedReviewCount = 0,
+                deletedReviewCount = 0,
+                failedReviewCount = 0,
+                unparseableReviewIds = emptyList(),
+                detectionFailed = false,
+                removalSkipped = true,
+                imagesPerKey = result.imagesPerKey,
+                held = result.held,
+            )
+    }
 }
 
 @Schema(description = "리뷰 봇 계정 보장 요청")

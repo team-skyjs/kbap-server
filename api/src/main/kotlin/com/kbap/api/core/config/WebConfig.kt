@@ -3,6 +3,7 @@ package com.kbap.api.core.config
 import com.kbap.api.admin.AdminAuthorizationInterceptor
 import com.kbap.api.admin.AdminPageAuthInterceptor
 import com.kbap.api.core.ApiHeaders
+import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
@@ -30,6 +31,7 @@ class WebConfig(
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
         configurer.useRequestHeader(ApiHeaders.API_VERSION)
             .useVersionResolver(exemptPathVersionResolver())
+            .addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR, ApiVersions.HOME_TOP_RATED, ApiVersions.SCAN_SUBSTITUTION)
             .setVersionRequired(true)
     }
 

@@ -5,7 +5,6 @@ import com.kbap.api.TestTables
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.image.ImageUploadProperties
 import com.kbap.api.review.ReviewService
-import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -17,7 +16,6 @@ import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.model.Review
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -62,7 +60,7 @@ class ReviewBotPhotoInventoryTest : BehaviorSpec() {
                     val path = path(food)
                     storage.stub(path, "image/webp", 512)
                     service().sync().registeredCount shouldBe 1
-                    val review = reviewService.createBotReview(bot.id, food.id, 5, "사진이 포함된 리뷰입니다", listOf(path))
+                    val review = reviewService.createBotReview(bot.id, food.id, 5, "사진이 포함된 리뷰입니다", listOf(path), setOf(bot.id))
                     storage.heads.remove(path)
                     service().getAvailablePaths(food.koreanName) shouldBe emptyList()
                     service().sync().held.single().reason shouldBe "MISSING_OBJECT"
@@ -109,14 +107,15 @@ class ReviewBotPhotoInventoryTest : BehaviorSpec() {
         }
         given("기존 일반 리뷰 삭제 의미") {
             `when`("회원 리뷰 카운트가 이미 영이면") {
-                then("기존 예외와 트랜잭션 롤백을 유지한다") {
+                then("develop의 카운터 하한과 리뷰 삭제 동작을 유지한다") {
                     val normal = ordinary()
                     val food = food()
                     val review = reviewService.createReview(normal.id, food.id, 5, null, null, "일반 리뷰입니다", null, null)
                     exec("UPDATE member SET review_count=0 WHERE id=${normal.id}")
-                    shouldThrow<BusinessException> { reviewService.deleteReview(normal.id, review.reviewId) }
-                    reviews.findById(review.reviewId).isPresent shouldBe true
-                    foods.findById(food.id).orElseThrow().reviewCount shouldBe 1
+                    reviewService.deleteReview(normal.id, review.reviewId)
+                    reviews.findById(review.reviewId).isPresent shouldBe false
+                    foods.findById(food.id).orElseThrow().reviewCount shouldBe 0
+                    members.findById(normal.id).orElseThrow().reviewCount shouldBe 0
                 }
             }
         }

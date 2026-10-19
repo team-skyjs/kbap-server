@@ -53,6 +53,9 @@ class ReviewBotTest : BehaviorSpec() {
     @Autowired private lateinit var photoStorage: FakeStorageObjectStore
     @Autowired private lateinit var writerBean: ReviewBotWriter
     @Autowired private lateinit var lockProvider: LockProvider
+    @Autowired private lateinit var priorityList: ReviewBotPriorityList
+    @Autowired private lateinit var photoPool: ReviewBotPhotoPool
+    @Autowired private lateinit var uploadProperties: com.kbap.api.image.ImageUploadProperties
 
     private val seoul = ZoneId.of("Asia/Seoul")
 
@@ -78,18 +81,33 @@ class ReviewBotTest : BehaviorSpec() {
             foodRepository.save(Food(koreanName = "봇대상음식$it", description = "설명 $it", contentStatus = FoodContentStatus.READY))
         }
 
-        fun preparePhotos() {
-            val owner = accountService.getBots().minByOrNull { it.id } ?: return
-            foodRepository.findAll().forEach { food ->
-                val path = photos.prefix + ReviewBotPhotoService.keyOf(food.koreanName) + "/1.webp"
-                photoStorage.stub(path, "image/webp", 512)
-                photoCatalog.register(owner.id, path, photoStorage.head(path)!!)
+        fun writer(min: Int = 8, max: Int = 12, budget: Duration = Duration.ofMinutes(15)) = ReviewBotWriter(
+            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, photos, priorityList, photoPool, min, max, budget,
+        )
+
+        fun seedPoolsForAllFoods() {
+            val owner = query("SELECT MIN(id) FROM member WHERE is_bot = 1").single().single() as? Number ?: return
+            val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix)
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO uploaded_image (member_id, object_path, content_type, size_bytes, status, created_at, updated_at) " +
+                        "SELECT ?, ?, 'image/webp', 100000, 'ACTIVE', NOW(6), NOW(6) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM uploaded_image u WHERE u.object_path = ?)",
+                ).use { ps ->
+                    query("SELECT korean_name FROM food").map { it.single() as String }.forEach { name ->
+                        (1..3).forEach { n ->
+                            val path = prefix + ReviewBotPhotoPool.keyOf(name) + "/$n.webp"
+                            photoStorage.stub(path, "image/webp", 100000)
+                            ps.setLong(1, owner.toLong()); ps.setString(2, path); ps.setString(3, path); ps.addBatch()
+                        }
+                    }
+                    ps.executeBatch()
+                }
             }
         }
 
-        fun writer(min: Int = 8, max: Int = 12, budget: Duration = Duration.ofMinutes(15), prepare: Boolean = true): ReviewBotWriter {
-            if (prepare) preparePhotos()
-            return ReviewBotWriter(accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, photos, min, max, budget)
+        fun run(w: ReviewBotWriter, now: ZonedDateTime) {
+            seedPoolsForAllFoods()
+            w.writeDue(now)
         }
 
         fun todayAt(hour: Int): ZonedDateTime = ZonedDateTime.now(seoul).withHour(hour).withMinute(0).withSecond(0).withNano(0)
@@ -181,14 +199,14 @@ class ReviewBotTest : BehaviorSpec() {
                 then("LLM 호출 전 또는 저장 전에 제외한다") {
                     accountService.ensureBots(1)
                     seedFoods(1)
-                    writer(min = 1, max = 1, prepare = false).writeDue(todayAt(22))
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
                     fakeGenerator.requests.size shouldBe 0
                     botReviewCount() shouldBe 0
                     fakeGenerator.reply = {
                         photoStorage.heads.clear()
                         "The noodles were warm and savory with a pleasant texture and a balanced flavor."
                     }
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
                     fakeGenerator.requests.size shouldBe 1
                     botReviewCount() shouldBe 0
                 }
@@ -203,7 +221,7 @@ class ReviewBotTest : BehaviorSpec() {
                     val now = todayAt(22)
                     val plan = ReviewBotDailyPlan.of(now.toLocalDate(), 8, 12, 9, 22)
 
-                    writer().writeDue(now)
+                    run(writer(), now)
 
                     botReviewCount() shouldBe plan.target.toLong()
                     count("SELECT COUNT(*) FROM (SELECT food_id FROM food_review GROUP BY food_id HAVING COUNT(*) > 1) t") shouldBe 0
@@ -218,10 +236,10 @@ class ReviewBotTest : BehaviorSpec() {
                     accountService.ensureBots(12)
                     seedFoods(20)
                     val now = todayAt(22)
-                    writer().writeDue(now)
+                    run(writer(), now)
                     val first = botReviewCount()
 
-                    writer().writeDue(now)
+                    run(writer(), now)
 
                     botReviewCount() shouldBe first
                 }
@@ -233,8 +251,8 @@ class ReviewBotTest : BehaviorSpec() {
                     seedFoods(3)
                     val now = todayAt(22)
 
-                    writer(min = 12, max = 12).writeDue(now)
-                    writer(min = 12, max = 12).writeDue(now)
+                    run(writer(min = 12, max = 12), now)
+                    run(writer(min = 12, max = 12), now)
 
                     botReviewCount() shouldBe 3
                     count("SELECT COUNT(*) FROM (SELECT food_id FROM food_review GROUP BY food_id HAVING COUNT(*) > 1) t") shouldBe 0
@@ -255,7 +273,7 @@ class ReviewBotTest : BehaviorSpec() {
                         }
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     botReviewCount() shouldBe 1
                 }
@@ -273,7 +291,7 @@ class ReviewBotTest : BehaviorSpec() {
                         ).use { ps -> ps.setLong(1, bots[0].id); ps.setLong(2, moderated.id); ps.setObject(3, earlier); ps.setObject(4, earlier); ps.executeUpdate() }
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     count("SELECT COUNT(*) FROM food_review WHERE food_id = ${moderated.id} AND status = 'ACTIVE'") shouldBe 0
                     count("SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE'") shouldBe 1
@@ -291,7 +309,7 @@ class ReviewBotTest : BehaviorSpec() {
                         ).use { ps -> ps.setLong(1, bot.id); ps.setLong(2, food.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.executeUpdate() }
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     count("SELECT COUNT(*) FROM food_review WHERE member_id = ${bot.id} AND status = 'ACTIVE'") shouldBe 0
                 }
@@ -304,7 +322,7 @@ class ReviewBotTest : BehaviorSpec() {
                     val now = todayAt(9)
                     val plan = ReviewBotDailyPlan.of(now.toLocalDate(), 8, 12, 9, 22)
 
-                    writer().writeDue(now)
+                    run(writer(), now)
 
                     botReviewCount() shouldBe plan.dueUntil(9).toLong()
                 }
@@ -320,7 +338,7 @@ class ReviewBotTest : BehaviorSpec() {
                     }
                     reviewService.createReview(human.id, crowded.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(empty.id)
@@ -347,7 +365,7 @@ class ReviewBotTest : BehaviorSpec() {
 
                     val seededUpTo = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.id > $seededUpTo")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(untouched.id)
@@ -367,7 +385,7 @@ class ReviewBotTest : BehaviorSpec() {
 
                     val seededUpTo = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.member_id FROM food_review r WHERE r.food_id = ${food.id} AND r.id > $seededUpTo")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(bots[1].id)
@@ -380,7 +398,7 @@ class ReviewBotTest : BehaviorSpec() {
                     seedFoods(5)
                     fakeGenerator.reply = { "Loved this place, the restaurant staff were great and the photo does not do it justice." }
 
-                    writer().writeDue(todayAt(22))
+                    run(writer(), todayAt(22))
 
                     botReviewCount() shouldBe 0
                     (fakeGenerator.requests.size > 0).shouldBeTrue()
@@ -392,7 +410,7 @@ class ReviewBotTest : BehaviorSpec() {
                     accountService.ensureBots(5)
                     seedFoods(5)
 
-                    writer(budget = Duration.ZERO).writeDue(todayAt(22))
+                    run(writer(budget = Duration.ZERO), todayAt(22))
 
                     botReviewCount() shouldBe 0
                     fakeGenerator.requests.size shouldBe 0
@@ -412,7 +430,7 @@ class ReviewBotTest : BehaviorSpec() {
                         else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(behind.id)
@@ -433,7 +451,7 @@ class ReviewBotTest : BehaviorSpec() {
                         else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     botReviewCount() shouldBe 0
                     fakeGenerator.requests.size shouldBe blocked.size * 2
@@ -448,13 +466,11 @@ class ReviewBotTest : BehaviorSpec() {
                         LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, Duration.ofMinutes(5), Duration.ZERO),
                     ).orElseThrow()
 
-                    preparePhotos()
-                    writerBean.writeDue(todayAt(22))
+                    run(writerBean, todayAt(22))
                     botReviewCount() shouldBe 0
 
                     lock.unlock()
-                    preparePhotos()
-                    writerBean.writeDue(todayAt(22))
+                    run(writerBean, todayAt(22))
                     (botReviewCount() > 0).shouldBeTrue()
                 }
             }

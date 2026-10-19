@@ -73,7 +73,10 @@ class ReviewBotPhotoService(
                 if (added) registered++ else held += ReviewBotPhotoHold(path, "REGISTRATION_CONFLICT")
             }
         }
-        return ReviewBotPhotoSyncResult(registered, held)
+        return ReviewBotPhotoSyncResult(
+            registered, held, inventory.available.size,
+            (inventory.available + inventory.unregistered).groupingBy { ReviewBotPhotoPool.keyOfPath(it)!! }.eachCount().toSortedMap(),
+        )
     }
 
     fun getAvailablePaths(koreanName: String): List<String> {
@@ -91,4 +94,9 @@ class ReviewBotPhotoService(
 
 data class ReviewBotPhotoHold(val path: String, val reason: String)
 data class ReviewBotPhotoInventory(val available: List<String>, val unregistered: List<String>, val held: List<ReviewBotPhotoHold>)
-data class ReviewBotPhotoSyncResult(val registeredCount: Int, val held: List<ReviewBotPhotoHold>)
+data class ReviewBotPhotoSyncResult(
+    val registeredCount: Int,
+    val held: List<ReviewBotPhotoHold>,
+    val skippedCount: Int,
+    val imagesPerKey: Map<String, Int>,
+)

@@ -26,18 +26,19 @@ interface ScanV2Api {
             결과에 영향을 주지 않는 것이 v1 과의 핵심 차이다.
 
             ## v1 과의 차이
-            | | v1 (X-API-Version 미전송·1.x) | v2 (X-API-Version 2.0 이상) |
-            |---|---|---|
-            | 요청 | `imagePath` + `items`(클라이언트 OCR, 필수) | `imagePath` 만 |
-            | 판독 근거 | 사진 + 클라이언트 OCR 병용 | **사진 단독** |
-            | 응답 `idx` | 있음(OCR 항목 매칭 키) | **없음** — 클라이언트가 그릴 박스를 서버가 알지 못한다 |
+            | | v1 (X-API-Version 미전송·1.x) | v2 (X-API-Version 2.0 이상) | 3.0 (X-API-Version 3.0 이상) |
+            |---|---|---|---|
+            | 요청 | `imagePath` + `items`(클라이언트 OCR, 필수) | `imagePath` 만 | v2 와 동일 |
+            | 판독 근거 | 사진 + 클라이언트 OCR 병용 | **사진 단독** | v2 와 동일 |
+            | 응답 `idx` | 있음(OCR 항목 매칭 키) | **없음** — 클라이언트가 그릴 박스를 서버가 알지 못한다 | v2 와 동일 |
+            | 응답 `substituted`·`originalScannedName` | 없음 | 항상 null | **값 노출** — 유사 음식 대체 여부와 대체 전 메뉴명 |
 
             v1 은 구버전 앱 계약으로 동결한다. 신규 클라이언트는 이 API 를 쓴다.
 
             ## 흐름
             1. 서버 비전이 사진에서 메뉴별 표기 이름·표준 한국어 이름·가격을 추출한다(가격 축약 표기는 원 단위 정수로 복원).
             2. 표준 한국어명으로 저장된 음식을 조회한다. 처음 보는 음식이면 조사 대기 상태로 등록한다.
-            3. 매칭에 실패한(미등록) 메뉴는 대체 없이 추출 결과 그대로(정제 한국어명·가격·riskLevel UNKNOWN) 내려간다 — v1 과 동일 원칙.
+            3. 이번 스캔에서 새로 등록된 메뉴는 메뉴명 임베딩으로 벡터 색인에서 가장 유사한 음식 1건을 찾아 유사도 0.6 이상이고 완성(READY) 상태면 그 음식으로 대체한다(`matched=true`, 3.0 이상은 `substituted=true`·`originalScannedName` 으로 식별). 대체 불가·이미 등록돼 있던 미완성 메뉴는 추출 결과 그대로(정제 한국어명·가격·riskLevel UNKNOWN) 내려간다.
             4. 항목마다 음식 사진 URL(`imageRef`)이 함께 내려간다 — 매칭 음식은 대표 이미지, 비매칭·이미지 없는 음식은 디폴트 음식 이미지.
 
             메뉴판이 아닌 사진 등 추출 항목이 0개면 400(SCAN-003)으로 거절한다 — 재촬영 안내.
@@ -85,6 +86,7 @@ interface ScanV2Api {
             required = true,
         )
         scanTicket: String,
+        apiVersion: String,
         @ParameterObject langRequest: ScanLangRequest,
         @Parameter(
             description = "환산 통화의 ISO 4217 코드(예: USD·JPY). 필수 — 회원 프로필 통화 설정과 무관하게 " +

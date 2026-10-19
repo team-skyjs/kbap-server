@@ -1,6 +1,8 @@
 package com.kbap.api.scan
 
+import com.kbap.api.core.ApiHeaders
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.common.core.error.BusinessException
@@ -28,6 +30,7 @@ class ScanV2Controller(
     override fun scan(
         @AuthMemberId memberId: Long,
         @RequestHeader(SCAN_TICKET_HEADER) scanTicket: String,
+        @RequestHeader(ApiHeaders.API_VERSION) apiVersion: String,
         @Valid @ModelAttribute langRequest: ScanLangRequest,
         @RequestParam currency: String,
         @Valid @RequestBody request: ScanV2Request,
@@ -40,7 +43,10 @@ class ScanV2Controller(
             scanTicket,
         )
         val krwPerUnit = exchangeRateClient.getKrwPerUnitOrNull(requestedCurrency)
-        return ResponseEntity.ok(BaseResponse.ok(ScanV2Response.from(result, requestedCurrency, krwPerUnit)))
+        val exposeSubstitution = ApiVersions.isAtLeast(apiVersion, ApiVersions.SCAN_SUBSTITUTION)
+        return ResponseEntity.ok(
+            BaseResponse.ok(ScanV2Response.from(result, requestedCurrency, krwPerUnit, exposeSubstitution)),
+        )
     }
 
     private fun requestedCurrency(raw: String): CurrencyCode =

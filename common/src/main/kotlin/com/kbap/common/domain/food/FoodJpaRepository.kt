@@ -291,7 +291,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun increaseReviewCount(@Param("foodId") foodId: Long): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId")
+    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId and f.reviewCount > 0")
     fun decreaseReviewCount(@Param("foodId") foodId: Long): Int
 
     companion object {
