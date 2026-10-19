@@ -17,9 +17,9 @@ interface BotPhotoJpaRepository : Repository<UploadedImage, Long> {
     @Query(nativeQuery = true, value = """
         select (
           exists (select 1 from food_review r left join member m on m.id = r.member_id
-            where (m.id is null or m.is_bot = 0) and json_search(r.image_refs, 'one', concat('%', :path)) is not null)
-          or exists (select 1 from community_post p where json_search(p.image_refs, 'one', concat('%', :path)) is not null)
-          or exists (select 1 from feedback f where json_search(f.image_refs, 'one', concat('%', :path)) is not null)
+            where (m.id is null or m.is_bot = 0) and json_search(r.image_refs, 'one', concat('%', replace(replace(replace(:path, '\\', '\\\\'), '%', '\\%'), '_', '\\_'))) is not null)
+          or exists (select 1 from community_post p where json_search(p.image_refs, 'one', concat('%', replace(replace(replace(:path, '\\', '\\\\'), '%', '\\%'), '_', '\\_'))) is not null)
+          or exists (select 1 from feedback f where json_search(f.image_refs, 'one', concat('%', replace(replace(replace(:path, '\\', '\\\\'), '%', '\\%'), '_', '\\_'))) is not null)
           or exists (select 1 from member m where right(m.profile_image_url, char_length(:path)) = :path)
           or exists (select 1 from orders o where right(o.image_path, char_length(:path)) = :path)
           or exists (select 1 from order_item i where right(i.image_path, char_length(:path)) = :path)
@@ -30,9 +30,9 @@ interface BotPhotoJpaRepository : Repository<UploadedImage, Long> {
         select candidate.path from json_table(:pathsJson, '$[*]' columns(path varchar(512) path '$')) candidate
         where (
           exists (select 1 from food_review r left join member m on m.id = r.member_id
-            where (m.id is null or m.is_bot = 0) and json_search(r.image_refs, 'one', concat('%', candidate.path)) is not null)
-          or exists (select 1 from community_post p where json_search(p.image_refs, 'one', concat('%', candidate.path)) is not null)
-          or exists (select 1 from feedback f where json_search(f.image_refs, 'one', concat('%', candidate.path)) is not null)
+            where (m.id is null or m.is_bot = 0) and json_search(r.image_refs, 'one', concat('%', replace(replace(replace(candidate.path, '\\', '\\\\'), '%', '\\%'), '_', '\\_'))) is not null)
+          or exists (select 1 from community_post p where json_search(p.image_refs, 'one', concat('%', replace(replace(replace(candidate.path, '\\', '\\\\'), '%', '\\%'), '_', '\\_'))) is not null)
+          or exists (select 1 from feedback f where json_search(f.image_refs, 'one', concat('%', replace(replace(replace(candidate.path, '\\', '\\\\'), '%', '\\%'), '_', '\\_'))) is not null)
           or exists (select 1 from member m where right(m.profile_image_url, char_length(candidate.path)) = cast(candidate.path as binary))
           or exists (select 1 from orders o where right(o.image_path, char_length(candidate.path)) = cast(candidate.path as binary))
           or exists (select 1 from order_item i where right(i.image_path, char_length(candidate.path)) = cast(candidate.path as binary))

@@ -25,7 +25,9 @@ class ReviewBotPhotoService(
         require(properties.keyPrefix.trim('/').split('/').all { it.isEmpty() || it.matches(Regex("[A-Za-z0-9_-]+")) })
     }
 
-    fun getInventory(): ReviewBotPhotoInventory {
+    fun getInventory(): ReviewBotPhotoInventory = classify(listStored())
+
+    private fun listStored(): Set<String> {
         val stored = linkedSetOf<String>()
         var after: String? = null
         while (true) {
@@ -37,6 +39,10 @@ class ReviewBotPhotoService(
             stored.addAll(paths)
             after = paths.last()
         }
+        return stored
+    }
+
+    private fun classify(stored: Set<String>): ReviewBotPhotoInventory {
         val records = catalog.getRecords(prefix).associateBy { it.path }
         val ordinaryReferences = catalog.getOrdinaryReferencedPaths((stored + records.keys).filter { filePattern.matches(it) })
         val held = mutableListOf<ReviewBotPhotoHold>()
@@ -62,7 +68,8 @@ class ReviewBotPhotoService(
     @Synchronized
     fun sync(): ReviewBotPhotoSyncResult {
         if (!syncEnabled) throw BusinessException(ErrorCode.INVALID_REQUEST)
-        val inventory = getInventory()
+        val stored = listStored()
+        val inventory = classify(stored)
         val owner = accounts.getBots().minByOrNull { it.id } ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         var registered = 0
         val held = inventory.held.toMutableList()
@@ -77,7 +84,7 @@ class ReviewBotPhotoService(
         }
         return ReviewBotPhotoSyncResult(
             registered, held, inventory.available.size,
-            (inventory.available + inventory.unregistered).groupingBy { ReviewBotPhotoPool.keyOfPath(it)!! }.eachCount().toSortedMap(),
+            stored.filter { filePattern.matches(it) }.groupingBy { ReviewBotPhotoPool.keyOfPath(it)!! }.eachCount().toSortedMap(),
         )
     }
 
