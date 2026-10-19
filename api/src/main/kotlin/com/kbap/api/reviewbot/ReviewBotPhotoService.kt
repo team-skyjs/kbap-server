@@ -3,6 +3,7 @@ package com.kbap.api.reviewbot
 import com.kbap.api.image.ImageUploadProperties
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.port.storage.StorageObjectMetadata
 import com.kbap.common.port.storage.StorageObjectStore
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
@@ -48,6 +49,7 @@ class ReviewBotPhotoService(
                 path in ordinaryReferences -> "ORDINARY_REFERENCE"
                 row != null && !row.usableOwner -> "OWNER_OR_STATUS"
                 path !in stored -> "MISSING_OBJECT"
+                row != null && !hasValidMetadata(path) -> "MISSING_OR_INVALID_METADATA"
                 else -> null
             }
             if (reason != null) held += ReviewBotPhotoHold(path, reason)
@@ -66,7 +68,7 @@ class ReviewBotPhotoService(
         val held = inventory.held.toMutableList()
         inventory.unregistered.forEach { path ->
             val metadata = storage.head(path)
-            if (metadata == null || metadata.contentType != "image/webp" || metadata.sizeBytes <= 0) {
+            if (metadata == null || !isValid(metadata)) {
                 held += ReviewBotPhotoHold(path, "MISSING_OR_INVALID_METADATA")
             } else {
                 val added = try { catalog.register(owner.id, path, metadata) } catch (_: DataIntegrityViolationException) { false }
@@ -79,12 +81,12 @@ class ReviewBotPhotoService(
         )
     }
 
-    fun getAvailablePaths(koreanName: String): List<String> {
-        val foodPrefix = prefix + keyOf(koreanName) + "/"
-        return getInventory().available.filter { it.startsWith(foodPrefix) }.filter { path ->
-            storage.head(path)?.let { it.contentType == "image/webp" && it.sizeBytes > 0 } == true
-        }
-    }
+    fun isStillUsable(paths: Collection<String>): Boolean =
+        paths.all { filePattern.matches(it) && hasValidMetadata(it) } && catalog.getOrdinaryReferencedPaths(paths).isEmpty()
+
+    private fun hasValidMetadata(path: String): Boolean = storage.head(path)?.let(::isValid) == true
+
+    private fun isValid(metadata: StorageObjectMetadata): Boolean = metadata.contentType == "image/webp" && metadata.sizeBytes > 0
 
     companion object {
         fun keyOf(koreanName: String): String = MessageDigest.getInstance("SHA-256").digest(koreanName.toByteArray(Charsets.UTF_8))

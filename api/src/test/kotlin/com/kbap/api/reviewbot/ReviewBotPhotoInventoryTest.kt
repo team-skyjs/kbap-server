@@ -62,7 +62,7 @@ class ReviewBotPhotoInventoryTest : BehaviorSpec() {
                     service().sync().registeredCount shouldBe 1
                     val review = reviewService.createBotReview(bot.id, food.id, 5, "사진이 포함된 리뷰입니다", listOf(path), setOf(bot.id))
                     storage.heads.remove(path)
-                    service().getAvailablePaths(food.koreanName) shouldBe emptyList()
+                    service().getInventory().available shouldBe emptyList()
                     service().sync().held.single().reason shouldBe "MISSING_OBJECT"
                     reviews.findById(review.reviewId).orElseThrow().imageRefs shouldBe listOf(path)
                     images.findByPath(path)!!.memberId shouldBe bot.id

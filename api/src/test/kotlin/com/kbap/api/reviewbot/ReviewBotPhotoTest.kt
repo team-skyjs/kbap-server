@@ -190,7 +190,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                         count("SELECT COUNT(*) FROM uploaded_image WHERE status='ACTIVE'") shouldBe 2
                         imageRefsOf(review.reviewId) shouldBe listOf(path)
                         reviewRepository.findById(review.reviewId).isPresent shouldBe true
-                        photos.getAvailablePaths(food.koreanName) shouldBe emptyList()
+                        photos.getInventory().available.filter { it.contains(ReviewBotPhotoPool.keyOf(food.koreanName)) } shouldBe emptyList()
                         storage.deleted.size shouldBe 0
                     }
                 }

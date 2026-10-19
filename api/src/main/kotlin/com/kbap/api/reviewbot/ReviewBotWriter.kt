@@ -119,8 +119,7 @@ class ReviewBotWriter(
         val reviewed = reviewRepository.findReviewerIdsOfFood(foodId, bots.map { it.id }).toSet()
         val bot = bots.filterNot { it.id in reviewed }.randomOrNull(random) ?: return null
         if (!food.isReady()) return null
-        val available = photoService.getAvailablePaths(food.koreanName).filter { it in pool }
-        if (available.isEmpty()) return null
+        val available = pool
         val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, poolOwnerIds)?.imageRefs.orEmpty().toSet()
         val photos = ReviewBotPhotoPool.pickCombination(available, previous, random)
         val rating = ReviewBotCountries.rating(random)
@@ -132,7 +131,7 @@ class ReviewBotWriter(
             rating = rating,
         )
         val content = generateAcceptable(foodId, generator, request) ?: return null
-        if (!photoService.getAvailablePaths(food.koreanName).containsAll(photos)) return null
+        if (!photoService.isStillUsable(photos)) return null
         return runCatching {
             reviewService.createBotReview(bot.id, foodId, rating, content, photos, poolOwnerIds).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
