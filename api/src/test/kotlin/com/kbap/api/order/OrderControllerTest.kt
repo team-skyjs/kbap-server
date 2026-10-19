@@ -337,6 +337,44 @@ class OrderControllerTest : BehaviorSpec() {
                 }
             }
 
+            listOf(
+                "prod/images/review-bot/key/order-0.webp",
+                "dev/images/review-bot/key/order-1.webp",
+                "prod/images/review/../../images/review-bot/key/order-2.webp",
+                "prod/images/./review-bot/key/order-3.webp",
+                "prod/images/x/../review-bot/key/order-4.webp",
+                "prod%2Fimages%2Freview-bot%2Fkey%2Forder-5.webp",
+                "prod%252Fimages%252Freview-bot%252Fkey%252Forder-6.webp",
+                "prod\\images\\review-bot\\key\\order-7.webp",
+                "prod/images/REVIEW-BOT/key/order-8.webp",
+                "prod/images/review-bot/invalid-order-9",
+            ).forEachIndexed { index, path ->
+                `when`("본인 소유 업로드 행이 있는 봇 보호 경로 $path 로 주문하면") {
+                    then("400 SCAN-001로 거절하고 주문과 항목을 저장하지 않는다") {
+                        val memberId = 99210L + index
+                        seedVerifiedImage(memberId, path)
+                        val food = seedReadyFood("봇보호주문음식$index")
+                        val body = mapper.writeValueAsString(
+                            mapOf(
+                                "imagePath" to path,
+                                "items" to listOf(mapOf("foodId" to food, "menuName" to "봇보호주문음식", "quantity" to 1, "price" to 5000)),
+                            ),
+                        )
+                        placeOrder(accessToken(memberId), body).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("SCAN-001") }
+                        }
+                        storedItemCountOf(path) shouldBe 0L
+                        dataSource.connection.use { c ->
+                            c.prepareStatement("SELECT COUNT(*) FROM orders WHERE image_path = ?").use { ps ->
+                                ps.setString(1, path)
+                                ps.executeQuery().use { rs -> rs.next().shouldBeTrue(); rs.getLong(1) shouldBe 0L }
+                            }
+                        }
+                    }
+                }
+            }
+
             `when`("타인이 업로드한 이미지로 주문하면") {
                 then("400 SCAN-001 로 거절된다") {
                     val ownerId = 918L
