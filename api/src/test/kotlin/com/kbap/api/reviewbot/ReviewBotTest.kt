@@ -194,6 +194,42 @@ class ReviewBotTest : BehaviorSpec() {
             }
         }
 
+        given("등록된 사진의 메타데이터 재검증 — Codex P2") {
+            `when`("등록된 사진이 비-webp 나 0바이트로 덮어써지면") {
+                then("재고에서 available 이 아니라 held(MISSING_OR_INVALID_METADATA) 로 분류되고 새 리뷰에 쓰이지 않는다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    seedPoolsForAllFoods()
+                    val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf(food.koreanName)
+                    photoStorage.stub("$prefix/2.webp", "image/png", 100000)
+                    photoStorage.stub("$prefix/3.webp", "image/webp", 0)
+
+                    val inventory = photos.getInventory()
+
+                    inventory.available shouldBe listOf("$prefix/1.webp")
+                    inventory.held.filter { it.reason == "MISSING_OR_INVALID_METADATA" }.map { it.path }.sorted() shouldBe listOf("$prefix/2.webp", "$prefix/3.webp")
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    query("SELECT image_refs FROM food_review").map { it.single().toString() } shouldBe listOf("[\"$prefix/1.webp\"]")
+                }
+            }
+        }
+
+        given("틱당 사진 재고 1회 — Codex P2") {
+            `when`("한 틱에 여러 음식을 쓰면") {
+                then("봇 사진 접두 전체 목록은 틱마다 한 번만 훑는다(후보마다 다시 훑지 않는다)") {
+                    accountService.ensureBots(12)
+                    seedFoods(20)
+                    seedPoolsForAllFoods()
+                    photoStorage.fullListingStarts.clear()
+
+                    writer().writeDue(todayAt(22))
+
+                    (botReviewCount() > 1) shouldBe true
+                    photoStorage.fullListingStarts.size shouldBe 1
+                }
+            }
+        }
+
         given("사진이 없는 새 리뷰 작성 방지") {
             `when`("사진이 없거나 생성 도중 소실되면") {
                 then("LLM 호출 전 또는 저장 전에 제외한다") {
