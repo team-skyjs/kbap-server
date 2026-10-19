@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-19T14:40:25.475929+09:00",
+  "baseContractHead": "abafa3783b01526dc45d403ecf11f28d761ba8cf",
+  "sources": [
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/bridge/codex/2026-10-16-scan-q1-technical-decisions.md",
+      "sha256": "0c06ff1b7c6cd6657b03a221e82d23e0473a0498755022536132509f7426f999"
+    },
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/bridge/codex/2026-10-16-scan-execution-delta-and-test-matrix.md",
+      "sha256": "65f13483434cba6cc5f4a9c8ce5da05ceb218449cb587d4674b16a34ee92d235"
+    },
+    {
+      "path": "/Users/yejinkim/dev/kfood/spec/bridge/codex/2026-10-17-scan-implementation-start-handoff.md",
+      "sha256": "d2efaa4bf52e677cfeb59de356dc9694be7441a18fd92dcb93aba7a275c17ae5"
+    }
+  ],
+  "validation": "JSON parse, unique fixture IDs, source linkage and git diff --check; no runtime/DDL/model tests",
+  "executed": false
+}

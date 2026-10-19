@@ -1,5 +1,6 @@
 # Q1 가산 SQL 선행 설계 — SQL 미생성
 
+> 2026-10-19 후속: [W0 실행 확정·복구 계약](execution-delta.md)이 재조회 순서·L1~L3·미결정 게이트를 보완한다. Q1의 상세 저장/전환 결정은 해당 문서의 근거 목록을 따른다. 원안의 미정 항목을 다시 결정하지 않는다.
 기준과 권한은 contract.md. 다음은 최소 영속 구조 제안이며 실제 DDL·마이그레이션 파일이 아니다. Q0 검토 후 api Flyway만 담은 선행 Draft PR을 만든다. 파일 버전은 실제 생성 시 로컬 timestamp. dev/prod 적용과 API/batch 기동을 확인한 뒤 동일 파일을 포함하는 기능 PR로 진행한다. 이번 큐레이션 #403 통과를 스캔 스키마 통과로 재사용하지 않는다.
 
 모든 신규 엔티티 테이블에 BaseEntity의 id BIGINT IDENTITY, status, created_at/updated_at을 포함. 기존 members/orders/scan_history 컬럼을 바꾸거나 필수 백필하지 않고 관계 테이블을 더한다. FK는 실제 기존 테이블명/PK 타입을 DDL 작성 전에 대조, ON DELETE CASCADE 없음. 소프트 삭제 후 멱등 unique를 재사용하지 않는다.
