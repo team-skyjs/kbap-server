@@ -50,6 +50,7 @@ class ReviewBotTest : BehaviorSpec() {
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
     @Autowired private lateinit var photos: ReviewBotPhotoService
     @Autowired private lateinit var photoCatalog: ReviewBotPhotoCatalog
+    @Autowired private lateinit var botPhotoRepository: com.kbap.common.domain.image.BotPhotoJpaRepository
     @Autowired private lateinit var photoStorage: FakeStorageObjectStore
     @Autowired private lateinit var writerBean: ReviewBotWriter
     @Autowired private lateinit var lockProvider: LockProvider
@@ -210,6 +211,46 @@ class ReviewBotTest : BehaviorSpec() {
                     inventory.held.filter { it.reason == "MISSING_OR_INVALID_METADATA" }.map { it.path }.sorted() shouldBe listOf("$prefix/2.webp", "$prefix/3.webp")
                     writer(min = 1, max = 1).writeDue(todayAt(22))
                     query("SELECT image_refs FROM food_review").map { it.single().toString() } shouldBe listOf("[\"$prefix/1.webp\"]")
+                }
+            }
+        }
+
+        given("사진 sync 의 키별 개수·일반 참조 판정 — Codex P2 2차") {
+            fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+            fun humanMember(uid: String): Long {
+                execute("INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) VALUES ('GOOGLE', '$uid', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))")
+                return count("SELECT id FROM member WHERE provider_uid = '$uid'")
+            }
+
+            `when`("저장소에 있는 사진 하나가 일반 리뷰 참조로 보류되면") {
+                then("imagesPerKey 는 그 키의 저장소 객체 3개를 모두 센다 — 보류된 객체도 빠지지 않는다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    val key = ReviewBotPhotoPool.keyOf(food.koreanName)
+                    val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + key
+                    (1..3).forEach { photoStorage.stub("$prefix/$it.webp", "image/webp", 100000) }
+                    val human = humanMember("human-ref")
+                    execute("INSERT INTO food_review (member_id, food_id, rating, image_refs, status) VALUES ($human, ${food.id}, 5, JSON_ARRAY('$prefix/3.webp'), 'ACTIVE')")
+
+                    val result = photos.sync()
+
+                    result.registeredCount shouldBe 2
+                    result.held.map { it.reason } shouldBe listOf("ORDINARY_REFERENCE")
+                    result.imagesPerKey shouldBe mapOf(key to 3)
+                }
+            }
+
+            `when`("일반 리뷰가 후보 경로의 '_' 자리에 다른 글자를 가진 경로를 참조하면") {
+                then("와일드카드로 오인하지 않는다 — 후보는 일반 참조가 아니다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    val candidate = "local/images/review-bot/aa_bbbbbbbbb/1.webp"
+                    val human = humanMember("human-wild")
+                    execute("INSERT INTO food_review (member_id, food_id, rating, image_refs, status) VALUES ($human, ${food.id}, 5, JSON_ARRAY('local/images/review-bot/aaXbbbbbbbbb/1.webp'), 'ACTIVE')")
+
+                    photoCatalog.getOrdinaryReferencedPaths(listOf(candidate)) shouldBe emptySet()
+                    botPhotoRepository.hasOrdinaryReference(candidate) shouldBe 0L
+                    photoCatalog.getOrdinaryReferencedPaths(listOf("local/images/review-bot/aaXbbbbbbbbb/1.webp")) shouldBe setOf("local/images/review-bot/aaXbbbbbbbbb/1.webp")
                 }
             }
         }
