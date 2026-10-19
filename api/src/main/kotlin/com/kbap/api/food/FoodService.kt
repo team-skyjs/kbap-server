@@ -3,6 +3,7 @@ package com.kbap.api.food
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodMarketingPopularJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.RiskLevel
@@ -27,12 +28,14 @@ import java.time.ZoneId
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
+    private val foodMarketingPopularRepository: FoodMarketingPopularJpaRepository,
     private val foodImageRepository: FoodImageJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val popularFoodIdCache: PopularFoodIdCache,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -200,8 +203,20 @@ class FoodService(
     }
 
     @Transactional(readOnly = true)
-    fun getPopularFoods(memberId: Long?, lang: LanguageCode, popularFoodIds: List<Long>): List<FoodSummaryView> =
-        summaryViews(loadInGivenOrder(popularFoodIds), lang, memberId)
+    fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)
+
+    @Transactional(readOnly = true)
+    fun getFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(ids), lang, memberId)
+
+    @Transactional(readOnly = true)
+    fun getRandomMarketingPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> {
+        val ids = foodMarketingPopularRepository.findAllFoodIds()
+        if (ids.isEmpty()) return emptyList()
+        val pool = foodRepository.findByIdIn(ids).filter { it.isReady() }
+        return summaryViews(pool.shuffled().take(size), lang, memberId)
+    }
 
     @Transactional(readOnly = true)
     fun getReadyFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =

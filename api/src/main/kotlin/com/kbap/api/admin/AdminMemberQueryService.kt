@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.member.MemberAdRewardJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -28,17 +29,19 @@ class AdminMemberQueryService(
     private val orderRepository: OrderJpaRepository,
     private val orderItemRepository: OrderItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
+    private val adRewardRepository: MemberAdRewardJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
-    fun searchMemberPage(page: Int, query: String? = null): AdminMemberListResponse {
+    fun searchMemberPage(page: Int, query: String? = null, isBot: Boolean? = null): AdminMemberListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
         val pageable = PageRequest.of(page - 1, PAGE_SIZE)
         val result = when (keyword) {
-            null -> memberRepository.findPageAnyStatus(pageable)
+            null -> memberRepository.findPageAnyStatus(isBot, pageable)
             else -> memberRepository.searchPageAnyStatusByKeyword(
                 LikeWildcards.escape(keyword),
                 keyword.toLongOrNull() ?: NO_MEMBER_ID,
+                isBot,
                 pageable,
             )
         }
@@ -56,7 +59,7 @@ class AdminMemberQueryService(
     fun getMemberDetail(id: Long): AdminMemberDetailResponse {
         val member = memberRepository.findAnyById(id)
             ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), imagePublicBaseUrl)
+        return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), adRewardRepository.countByMemberId(id), imagePublicBaseUrl)
     }
 
     @Transactional(readOnly = true)

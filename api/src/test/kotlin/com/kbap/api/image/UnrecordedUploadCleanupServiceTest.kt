@@ -449,7 +449,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                             return PresignedUpload("https://s3/$key", emptyMap(), "https://cdn.test/$key", key, Instant.EPOCH)
                         }
                     }
-                    val presign = PresignedUploadService(properties(keyPrefix = "dev"), port, GuestUploadQuota { it.orEmpty() })
+                    val presign = PresignedUploadService(properties(keyPrefix = "dev"), port, GuestUploadQuota { requireNotNull(it) })
                     val prefixes = UnrecordedUploadCleanupService.uploadPrefixes("dev")
 
                     UploadPurpose.entries.forEach { purpose ->

@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.time.LocalDateTime
@@ -56,12 +55,7 @@ class PopularFoodIdCache internal constructor(
             },
         )
 
-    fun getPopularFoodIds(size: Int): List<Long> {
-        check(!TransactionSynchronizationManager.isActualTransactionActive()) {
-            "인기 음식 집계는 호출자의 트랜잭션 안에서 돌면 안 된다 — 캐시 조회를 트랜잭션 앞으로 옮겨라"
-        }
-        return cache.get(size)!!.ids
-    }
+    fun getPopularFoodIds(size: Int): List<Long> = cache.get(size)!!.ids
 
     fun invalidateAll() = cache.invalidateAll()
 
