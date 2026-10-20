@@ -956,6 +956,26 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 3
                 }
             }
+            `when`("v2 스캔 인식 중에 다른 경로가 마지막 무료 1회를 먼저 확정하면 — KB-831") {
+                then("결과를 내기 전 조건부 증가가 0행이라 403 SCAN-004, 횟수는 한도를 넘지 않는다") {
+                    val memberId = 8310L
+                    val path = "scan/8310/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("경합김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("경합김치찌개", "경합김치찌개", 9000, matchedIdx = null)))
+                    vision.duringExtract = { setScanCount(memberId, 3) }
+                    try {
+                        v2Scan(memberId, path).andExpect {
+                            status { isForbidden() }
+                            jsonPath("$.code") { value("SCAN-004") }
+                        }
+                    } finally {
+                        vision.duringExtract = {}
+                    }
+                    scanCountOf(memberId) shouldBe 3
+                }
+            }
             `when`("무료 3회를 소진한 미해금 회원이 v1 로 스캔하면") {
                 then("v1 은 크레딧 제한 밖이라 정상 스캔되고 카운트만 누적된다") {
                     val memberId = 642L
