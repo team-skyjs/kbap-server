@@ -20,7 +20,7 @@
 유단백	MILK	contains
 카제인	MILK	contains
 카세인	MILK	contains
-버터밀크	MILK	contains
+버터밀크	MILK	block
 발효유	MILK	contains
 요구르트	MILK	contains
 요거트	MILK	contains
@@ -133,6 +133,13 @@
 멸치	ANCHOVY	contains
 액젓	FISH_SAUCE	contains
 육수	BROTH	contains
+다시	DASHI	exact
+혼다시	DASHI	exact
+가쓰오부시	DASHI	contains
+가츠오부시	DASHI	contains
+가쓰오다시	DASHI	contains
+가츠오다시	DASHI	contains
+가다랑어포	DASHI	contains
 쇠고기	BEEF	contains
 소고기	BEEF	contains
 우육	BEEF	contains

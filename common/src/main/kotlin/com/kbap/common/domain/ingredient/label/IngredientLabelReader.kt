@@ -55,7 +55,7 @@ object IngredientLabelReader {
         val codes = token.split(SPACES).filter { it.length < token.length }.flatMap { exact[it].orEmpty() }.toMutableSet()
         var rest = token
         blocks.filter { it.term in rest }.forEach {
-            codes += it.codes
+            if (isIngredientMention(rest, it.term)) codes += it.codes
             rest = rest.replace(it.term, " ")
         }
         containing.filter { isIngredientMention(rest, it.term) }.forEach { codes += it.codes }
