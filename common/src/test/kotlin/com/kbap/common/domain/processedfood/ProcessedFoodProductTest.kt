@@ -35,6 +35,8 @@ class ProcessedFoodProductTest : BehaviorSpec({
                 ProcessedFoodProduct(manufacturer = "원주공장").displayMaker() shouldBe null
                 ProcessedFoodProduct(manufacturer = "알수없음", seller = "㈜농심/서울").displayMaker() shouldBe "농심"
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "오뚜기").displayMaker() shouldBe "오뚜기"
+                ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "㈜농심").displayMaker() shouldBe "농심"
+                ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "삼양식품(주)원주공장").displayMaker() shouldBe "삼양식품"
             }
         }
     }
