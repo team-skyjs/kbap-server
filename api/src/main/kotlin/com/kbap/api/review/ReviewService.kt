@@ -247,6 +247,10 @@ class ReviewService(
         return review
     }
 
+    @Transactional(readOnly = true)
+    fun getReview(viewerMemberId: Long?, reviewId: Long, lang: LanguageCode): ReviewResponse =
+        toResponses(listOf(getVisibleReview(viewerMemberId, reviewId)), viewerMemberId, lang, includeFood = true).single()
+
     private fun excludedMemberIds(viewerMemberId: Long): List<Long> =
         memberBlockService.getBlockedMemberIds(viewerMemberId).ifEmpty { listOf(-1L) }
 

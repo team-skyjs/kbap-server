@@ -117,6 +117,14 @@ class ReviewController(
         )
     }
 
+    @GetMapping("/reviews/{reviewId}")
+    override fun getReview(
+        @AuthMemberIdOrNull memberId: Long?,
+        @PathVariable reviewId: Long,
+        @Valid @ModelAttribute request: ReviewDetailRequest,
+    ): ResponseEntity<BaseResponse<ReviewResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(reviewService.getReview(memberId, reviewId, LanguageCode.from(request.lang))))
+
     private fun parseSort(raw: String?): Pair<ReviewSort, Boolean> =
         when (raw) {
             null, "latest" -> ReviewSort.LATEST to true
