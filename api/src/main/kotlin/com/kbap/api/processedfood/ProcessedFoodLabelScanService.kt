@@ -40,7 +40,7 @@ class ProcessedFoodLabelScanService(
         val text = ProcessedFoodLabelText.of(pages)
         val reading = IngredientLabelReader.read(text.allergens, text.rawMaterials.ifEmpty { null })
         val now = LocalDateTime.now()
-        val manifestHash = MessageDigest.getInstance("SHA-256").digest(text.rawText.toByteArray(Charsets.UTF_8))
+        val manifestHash = MessageDigest.getInstance("SHA-256").digest(pages.joinToString(PAGE_SEPARATOR).toByteArray(Charsets.UTF_8))
         if (analysisId == null) {
             val key = clientRequestId ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
             operations.findForUpdate(memberId, NAMESPACE, ProcessedFoodNameScanService.bytesOf(key))?.let { replayed ->
@@ -148,6 +148,7 @@ class ProcessedFoodLabelScanService(
         private const val FX_STATE = "NONE"
         private const val LIMITS_VERSION = "pfood-label-1"
         private const val MIN_HANGUL_TOKENS = 2
+        private const val PAGE_SEPARATOR = "\u0000"
         private const val MAX_FREE_RECALLS = 3
         private val FREE_RECALL_WINDOW: java.time.Duration = java.time.Duration.ofMinutes(30)
         private val CONTINUABLE = setOf(ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.REJECTED, ProcessedFoodNameScanState.LABEL_RESULT)
