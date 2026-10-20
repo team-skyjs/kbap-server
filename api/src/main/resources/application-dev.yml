@@ -43,6 +43,9 @@ kbap:
   review:
     # 앱 2차(P-507) QA 가 dev 에서 가공식품 리뷰 작성을 돌릴 수 있게 dev 만 기본 ON. 운영·기본은 false 유지.
     processed-food-write-enabled: ${PROCESSED_FOOD_REVIEW_WRITE_ENABLED:true}
+  scan:
+    # 여러 장 스캔(KB-744) QA 가 dev 에서 묶음을 돌릴 수 있게 dev 만 기본 ON. 운영·기본은 false 유지.
+    batch-enabled: ${SCAN_BATCH_ENABLED:true}
   storage:
     # 실 S3 버킷·공개(CDN) 베이스. bucket 이 있어야 실 발급 어댑터가 조립된다(KB-145).
     bucket: ${STORAGE_BUCKET}
