@@ -22,6 +22,7 @@ import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.domain.review.ReviewLikeJpaRepository
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
+import com.kbap.common.domain.review.model.ReviewTargetType
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
@@ -242,7 +243,7 @@ class ReviewService(
 
     @Transactional(readOnly = true)
     fun getVisibleReview(viewerMemberId: Long?, reviewId: Long): Review {
-        val review = reviewRepository.findById(reviewId).orElseThrow { BusinessException(ErrorCode.REVIEW_NOT_FOUND) }
+        val review = reviewRepository.findById(reviewId).orElse(null)?.takeIf { it.targetType == ReviewTargetType.FOOD } ?: throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         if (viewerMemberId != null && review.isOwnedBy(viewerMemberId)) return review
         val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
         if (!reviewRepository.existsFeedVisible(reviewId, excluded, NO_EXCLUDED_REVIEW_IDS)) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
@@ -377,7 +378,7 @@ class ReviewService(
         ownedBy(memberId, reviewRepository.findByIdForUpdate(reviewId))
 
     private fun ownedBy(memberId: Long, review: Review?): Review {
-        if (review == null) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        if (review == null || review.targetType != ReviewTargetType.FOOD) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         if (!review.isOwnedBy(memberId)) {
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }
