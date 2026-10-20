@@ -260,6 +260,8 @@ URL은 absolute HTTPS, host 필수, userinfo·제어문자·실행 스킴·로�
 | 503 | CURATION-006 | **신규 가칭** 공개 콘텐츠 무결성/자산 확정 의존 장애. 빈 성공으로 변환하지 않음 |
 | 409 / 500 | COMMON-004 / COMMON-003 | **기존** DB 경합 / 예상하지 못한 서버 오류 |
 
+**운영 IAM 에 따른 예외(2026-10-20, #422 결정 A)**: 업로드 없이 complete 를 호출하면(staging 객체 없음) 400 이 아니라 **503(CURATION-006)** 이다. API 태스크 롤의 `s3:ListBucket` 은 `curation/<env>/*` prefix 조건부라 없는 객체 HEAD 에 적용되지 않아 S3 가 404 대신 403 을 돌려주기 때문이다(권한 최소 유지를 위해 조건 없는 ListBucket 은 주지 않는다). 어드민은 이 503 을 "다시 시도"로 안내한다.
+
 신규 번호는 ErrorCode enum에서 실제 충돌 확인 후 구현 PR에서 확정하고 Swagger에 등록한다. 업로드 IAM/S3 장애는 입력 오류(400)로 돌리지 않는다. public 상세의 404와 5xx는 다른 UI 상태다.
 
 게시 실패 응답 예시(미구현):

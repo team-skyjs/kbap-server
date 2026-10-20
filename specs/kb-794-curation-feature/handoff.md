@@ -32,4 +32,4 @@ validate는 `{expectedVersion}`으로 저장본만 검사하고 invalid도200(va
 
 완료 `{contentType,size}` → assetId/stateREADY/previewUrl. 발급관리자만완료가능, 이후다른활성관리자도같은모음READY자산편집가능. 완료가초안에자동첨부되지않는다. staging은 `curation/{dev|prod}/staging/UUID`, 최종은 `curation/{dev|prod}/final/UUID`이며 final에presign을발급하지않는다. HEAD형식/크기/ETag와 CopySourceIfMatch를검사하고 외부복사후DB잠금으로채택한다. 재시도는같은final, 패자복사본은채택되지않고기존final을삭제하지않는다.
 
-원본없음/소유·형식·기한위반400(CURATION-005), storage의존실패503(CURATION-006). 실제새prefix IAM/CORS/CDN/S3정책은로컬fake/SDK요청검증으로검증되지않는다. 운영연동은별도실측필요. 자동cleanup추가없음; 현재별도prefix를기존업로드정리대상에넣지않는다. 미참조복사본·staging정리는7일유예/모든draft와보존published참조보호/dry-run기술검증후별도작업이다.
+원본없음/소유·형식·기한위반400(CURATION-005), storage의존실패503(CURATION-006). 단 운영(dev·prod)에서는 업로드 없이 complete 하면 503(CURATION-006) — 조건부 ListBucket 이 HEAD 에 적용되지 않아 404 대신 403(#422 결정 A, 승인 계약 오류표 아래 메모). 실제새prefix IAM/CORS/CDN/S3정책은로컬fake/SDK요청검증으로검증되지않는다. 운영연동은별도실측필요. 자동cleanup추가없음; 현재별도prefix를기존업로드정리대상에넣지않는다. 미참조복사본·staging정리는7일유예/모든draft와보존published참조보호/dry-run기술검증후별도작업이다.
