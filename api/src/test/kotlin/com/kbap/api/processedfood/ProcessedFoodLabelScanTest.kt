@@ -81,6 +81,14 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     unmapped.contains("정제수") shouldBe true
                 }
             }
+            `when`("OCR 이 머리말을 띄어 쓰면(알레르기 유발 물질) — Codex P1") {
+                then("머리말 조각도 미매핑에 남지 않고 검출·성공은 그대로") {
+                    val p = label(member(88417L), null, "원재료 명: 정제수\n알레르기 유발 물질 함유: 우유").path("payload")
+                    p.path("unmapped").map { it.asText() }.filter { it in setOf("유발", "물질", "원재료 명", "명") } shouldBe emptyList()
+                    p.path("detections").map { it.path("code").asText() } shouldBe listOf("MILK")
+                    p.path("charged").asBoolean() shouldBe true
+                }
+            }
             `when`("머리말 뒤 81종 밖 재료가 하나뿐이면(생수·설탕·녹차) — 공부 막음") {
                 then("머리말이 성분표임을 보여 주므로 비머리말 한글 토큰 1개로 성공·차감") {
                     listOf(88413L to "원재료명: 정제수", 88414L to "원재료명: 백설탕", 88415L to "원재료명: 녹차잎 100%").forEach { (id, ocr) ->
