@@ -171,9 +171,10 @@ class ScanBatchService(
     @Transactional
     fun cancelBatch(memberId: Long, batchId: String): ScanBatchResponse {
         requireEnabled()
-        val operation = parse(batchId)?.let { operations.findForUpdate(memberId, NAMESPACE, bytesOf(it)) }
-            ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
         val now = LocalDateTime.now()
+        val operation = parse(batchId)?.let { operations.findForUpdate(memberId, NAMESPACE, bytesOf(it)) }
+            ?.takeIf { now.isBefore(it.resultExpiresAt) }
+            ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
         if (operation.lifecycle == ACTIVE) {
             if (now.isBefore(operation.expiresAt)) {
                 operation.lifecycle = CANCELLED
@@ -185,19 +186,19 @@ class ScanBatchService(
     }
 
     @Transactional
-    fun retryPhoto(memberId: Long, batchId: String, selectionIndex: Int): ScanBatchClaim {
+    fun retryPhoto(memberId: Long, batchId: String, selectionIndex: Int): UUID {
         requireEnabled()
         val key = parse(batchId) ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
         operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(key)) ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
-        return claimNext(memberId, key, selectionIndex) ?: throw BusinessException(ErrorCode.SCAN_BATCH_PHOTO_NOT_RETRYABLE)
+        prepare(memberId, key, selectionIndex, LocalDateTime.now()) ?: throw BusinessException(ErrorCode.SCAN_BATCH_PHOTO_NOT_RETRYABLE)
+        return key
     }
 
     @Transactional
     fun startAttempt(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? = claimNext(memberId, batchId, selectionIndex)
 
-    private fun claimNext(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? {
+    private fun prepare(memberId: Long, batchId: UUID, selectionIndex: Int, now: LocalDateTime): Pair<ScanOperation, ScanOperationPhoto>? {
         if (!batchSwitch.enabled) return null
-        val now = LocalDateTime.now()
         val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return null
         if (operation.lifecycle != ACTIVE || !now.isBefore(operation.expiresAt)) return null
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return null
@@ -209,8 +210,19 @@ class ScanBatchService(
             reserve(memberId, batchId, memberService.getMember(memberId), Duration.between(now, operation.expiresAt))
             operation.reservationState = RESERVATION_HELD
         }
+        return operation to photo
+    }
+
+    private fun claimNext(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? {
+        val now = LocalDateTime.now()
+        val (operation, photo) = prepare(memberId, batchId, selectionIndex, now) ?: return null
+        val callLimit = attempts.lockGlobalCallLimit() ?: DEFAULT_GLOBAL_CALL_LIMIT
+        if (attempts.countLiveCallSlots(now) >= callLimit || attempts.countLiveCallSlotsOfMember(memberId, now) >= PER_MEMBER_CALL_SLOTS) {
+            throw ScanBatchSlotsBusyException()
+        }
         val token = bytesOf(UUID.randomUUID())
-        photo.claim(token, now.plus(ATTEMPT_LEASE))
+        val leaseUntil = minOf(now.plus(ATTEMPT_LEASE), operation.expiresAt)
+        photo.claim(token, leaseUntil)
         val attempt = attempts.save(
             ScanAttempt(
                 operationId = operation.id,
@@ -222,8 +234,9 @@ class ScanBatchService(
                 claimToken = token,
                 state = ATTEMPT_RUNNING,
                 startedAt = now,
-                deadlineAt = now.plus(ATTEMPT_LEASE),
-                leaseUntil = now.plus(ATTEMPT_LEASE),
+                deadlineAt = leaseUntil,
+                leaseUntil = leaseUntil,
+                callSlotHeld = true,
             ),
         )
         return ScanBatchClaim(memberId, operation.id, photo.id, attempt.id, photo.attemptNo, token, photo.objectKey, batchId)
@@ -402,6 +415,8 @@ class ScanBatchService(
         private const val ENTITLEMENT_UNLIMITED = "UNLIMITED"
         val EXECUTION_WINDOW: Duration = Duration.ofMinutes(15)
         const val DAILY_UNCHARGED_ATTEMPT_LIMIT = 30
+        private const val DEFAULT_GLOBAL_CALL_LIMIT = 4
+        private const val PER_MEMBER_CALL_SLOTS = 3
         private val ATTEMPT_LIMIT_WINDOW: Duration = Duration.ofHours(24)
         private val ATTEMPT_LEASE: Duration = Duration.ofMinutes(2)
         private val RESULT_TTL: Duration = Duration.ofDays(7)

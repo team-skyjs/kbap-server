@@ -11,6 +11,9 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.task.TaskExecutor
 import org.springframework.core.task.TaskRejectedException
 import org.springframework.stereotype.Component
+import java.time.Duration
+import java.time.Instant
+import org.springframework.scheduling.TaskScheduler
 import java.util.UUID
 
 @Component
@@ -19,19 +22,16 @@ class ScanBatchRunner(
     private val batchSwitch: ScanBatchSwitch,
     private val extractor: MenuBoardLineExtractor,
     @Qualifier(ScanBatchExecutorConfig.SCAN_BATCH_EXECUTOR) private val executor: TaskExecutor,
+    private val scheduler: TaskScheduler,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val works = HashMap<WorkKey, BatchWork>()
 
     fun dispatch(memberId: Long, batchId: UUID, selectionIndexes: List<Int>) {
-        if (batchSwitch.executionEnabled) enqueue(memberId, batchId, selectionIndexes.map { Job.Pending(it) })
+        if (batchSwitch.executionEnabled) enqueue(memberId, batchId, selectionIndexes)
     }
 
-    fun runClaimed(claim: ScanBatchClaim) {
-        if (batchSwitch.executionEnabled) enqueue(claim.memberId, claim.batchId, listOf(Job.Claimed(claim)))
-    }
-
-    private fun enqueue(memberId: Long, batchId: UUID, jobs: List<Job>) {
+    private fun enqueue(memberId: Long, batchId: UUID, jobs: List<Int>) {
         val key = WorkKey(memberId, batchId)
         val work = synchronized(works) {
             works.getOrPut(key) { BatchWork() }.also { work -> jobs.filterNot { it in work.queue }.forEach(work.queue::addLast) }
@@ -70,18 +70,28 @@ class ScanBatchRunner(
                     null
                 }
             } ?: return
-            run(key.memberId, key.batchId, job)
+            if (!run(key.memberId, key.batchId, job)) {
+                synchronized(works) {
+                    work.queue.addFirst(job)
+                    work.active -= 1
+                }
+                scheduler.schedule({ spawn(key, work) }, Instant.now().plus(SLOT_WAIT))
+                return
+            }
         }
     }
 
-    private fun run(memberId: Long, batchId: UUID, job: Job) {
-        val claim = when (job) {
-            is Job.Claimed -> job.claim
-            is Job.Pending -> runCatching { batches.startAttempt(memberId, batchId, job.selectionIndex) }
-                .onFailure { log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, job.selectionIndex, it) }
-                .getOrNull()
-        } ?: return
+    private fun run(memberId: Long, batchId: UUID, selectionIndex: Int): Boolean {
+        val claim = try {
+            batches.startAttempt(memberId, batchId, selectionIndex)
+        } catch (e: ScanBatchSlotsBusyException) {
+            return false
+        } catch (e: Exception) {
+            log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, selectionIndex, e)
+            return true
+        } ?: return true
         extractAndRecord(claim)
+        return true
     }
 
     private fun extractAndRecord(claim: ScanBatchClaim) {
@@ -107,17 +117,13 @@ class ScanBatchRunner(
     private data class WorkKey(val memberId: Long, val batchId: UUID)
 
     private class BatchWork {
-        val queue = ArrayDeque<Job>()
+        val queue = ArrayDeque<Int>()
         var active = 0
-    }
-
-    private sealed interface Job {
-        data class Pending(val selectionIndex: Int) : Job
-        data class Claimed(val claim: ScanBatchClaim) : Job
     }
 
     companion object {
         const val PER_BATCH_CONCURRENCY = 3
+        private val SLOT_WAIT: Duration = Duration.ofMillis(500)
         const val RATE_LIMITED = "RATE_LIMITED"
         const val VISION_UNAVAILABLE = "VISION_UNAVAILABLE"
         const val RECOGNITION_FAILED = "RECOGNITION_FAILED"

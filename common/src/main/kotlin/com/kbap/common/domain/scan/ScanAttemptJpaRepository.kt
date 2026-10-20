@@ -15,4 +15,13 @@ interface ScanAttemptJpaRepository : JpaRepository<ScanAttempt, Long> {
         """,
     )
     fun countUnchargedSince(@Param("memberId") memberId: Long, @Param("since") since: LocalDateTime): Long
+
+    @Query(nativeQuery = true, value = "SELECT global_call_limit FROM scan_runtime_control WHERE singleton_key = 1 FOR UPDATE")
+    fun lockGlobalCallLimit(): Int?
+
+    @Query("select count(a) from ScanAttempt a where a.callSlotHeld = true and a.leaseUntil > :now")
+    fun countLiveCallSlots(@Param("now") now: LocalDateTime): Long
+
+    @Query("select count(a) from ScanAttempt a where a.memberId = :memberId and a.callSlotHeld = true and a.leaseUntil > :now")
+    fun countLiveCallSlotsOfMember(@Param("memberId") memberId: Long, @Param("now") now: LocalDateTime): Long
 }

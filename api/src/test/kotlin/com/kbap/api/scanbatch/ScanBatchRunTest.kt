@@ -67,6 +67,12 @@ class ScanBatchRunTest : BehaviorSpec() {
         suspend fun settled(owner: Member, batchId: String): JsonNode = eventually(15.seconds) {
             read(owner, batchId).also { payload -> payload.path("photos").none { it.path("state").asText() in setOf("PENDING", "RUNNING") } shouldBe true }
         }
+        suspend fun retried(owner: Member, batchId: String, index: Int, attemptNo: Int): JsonNode = eventually(15.seconds) {
+            read(owner, batchId).also { payload ->
+                val photo = payload.path("photos")[index]
+                (photo.path("attemptNo").asInt() == attemptNo && photo.path("state").asText() !in setOf("PENDING", "RUNNING")) shouldBe true
+            }
+        }
         fun states(payload: JsonNode) = payload.path("photos").map { it.path("state").asText() to it.path("errorReason").asText("") }
         fun scanCount(owner: Member) = sql("SELECT scan_count FROM member WHERE id = ${owner.id}")
 
@@ -107,8 +113,8 @@ class ScanBatchRunTest : BehaviorSpec() {
                     val batchId = create(owner, listOf(ok, broken))
                     settled(owner, batchId)
                     vision.program(broken, listOf(MenuBoardLine("김치찌개", "김치찌개", 9000, null), MenuBoardLine("냉면", "냉면", 8000, null)))
-                    retry(owner, batchId, 1).path("payload").path("photos")[1].path("state").asText() shouldBe "RUNNING"
-                    val payload = settled(owner, batchId)
+                    retry(owner, batchId, 1)
+                    val payload = retried(owner, batchId, 1, 2)
                     states(payload) shouldBe listOf("SUCCEEDED" to "", "SUCCEEDED" to "")
                     payload.path("items").map { it.path("rawName").asText() to it.path("sources").size() } shouldBe listOf("김치찌개" to 2, "냉면" to 1)
                     scanCount(owner) shouldBe 1
@@ -134,9 +140,9 @@ class ScanBatchRunTest : BehaviorSpec() {
                     vision.failOn(broken)
                     val batchId = create(owner, listOf(broken))
                     settled(owner, batchId)
-                    repeat(2) {
+                    (2..3).forEach { attempt ->
                         retry(owner, batchId, 0)
-                        settled(owner, batchId)
+                        retried(owner, batchId, 0, attempt)
                     }
                     val photo = read(owner, batchId).path("photos")[0]
                     photo.path("attemptNo").asInt() shouldBe 3
@@ -157,7 +163,7 @@ class ScanBatchRunTest : BehaviorSpec() {
                     redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId") shouldBe null
                     vision.program(a, listOf(MenuBoardLine("냉면", "냉면", 8000, null)))
                     retry(owner, batchId, 0)
-                    settled(owner, batchId).path("usageRecorded").asBoolean() shouldBe true
+                    retried(owner, batchId, 0, 2).path("usageRecorded").asBoolean() shouldBe true
                     scanCount(owner) shouldBe 1
                 }
             }

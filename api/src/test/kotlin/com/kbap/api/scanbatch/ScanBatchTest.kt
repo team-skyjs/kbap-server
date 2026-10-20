@@ -354,6 +354,90 @@ class ScanBatchTest : BehaviorSpec() {
                     batches.startAttempt(owner.id, batchId, 1) shouldNotBe null
                 }
             }
+            `when`("전역 동시 호출 슬롯(global_call_limit)이 다 차 있으면 — Codex P1(#439)") {
+                then("다른 회원·묶음이라도 새 시도는 슬롯이 빌 때까지 시작하지 않는다(결과 확정·lease 만료로 반환)") {
+                    sql("UPDATE scan_runtime_control SET global_call_limit = 2 WHERE singleton_key = 1")
+                    try {
+                        val first = member("batch-slot-a")
+                        val second = member("batch-slot-b")
+                        val a = UUID.fromString(newBatch(first, count = 2))
+                        val b = UUID.fromString(newBatch(second, count = 2))
+                        val a0 = batches.startAttempt(first.id, a, 0)!!
+                        val b0 = batches.startAttempt(second.id, b, 0)!!
+                        io.kotest.assertions.throwables.shouldThrow<ScanBatchSlotsBusyException> { batches.startAttempt(first.id, a, 1) }
+                        batches.recordSuccess(a0, extraction) shouldBe true
+                        val a1 = batches.startAttempt(first.id, a, 1)!!
+                        io.kotest.assertions.throwables.shouldThrow<ScanBatchSlotsBusyException> { batches.startAttempt(second.id, b, 1) }
+                        sql("UPDATE scan_attempt SET started_at = '1999-12-31 00:00:00', deadline_at = '2000-01-01 00:00:00', lease_until = '2000-01-01 00:00:00' WHERE id = ${a1.attemptId}")
+                        batches.startAttempt(second.id, b, 1) shouldNotBe null
+                        b0.attemptNo shouldBe 1
+                    } finally {
+                        sql("UPDATE scan_runtime_control SET global_call_limit = 4 WHERE singleton_key = 1")
+                    }
+                }
+            }
+            `when`("한 회원이 여러 묶음으로 슬롯을 잡으면 — 보안 리뷰(회원별 상한)") {
+                then("회원당 살아 있는 슬롯은 3 까지라 다른 회원 몫이 남는다") {
+                    val greedy = member("batch-slot-greedy")
+                    val other = member("batch-slot-other")
+                    val first = UUID.fromString(newBatch(greedy, count = 2))
+                    val second = UUID.fromString(newBatch(greedy, count = 2))
+                    batches.startAttempt(greedy.id, first, 0) shouldNotBe null
+                    batches.startAttempt(greedy.id, first, 1) shouldNotBe null
+                    batches.startAttempt(greedy.id, second, 0) shouldNotBe null
+                    io.kotest.assertions.throwables.shouldThrow<ScanBatchSlotsBusyException> { batches.startAttempt(greedy.id, second, 1) }
+                    batches.startAttempt(other.id, UUID.fromString(newBatch(other, count = 1)), 0) shouldNotBe null
+                }
+            }
+            `when`("다른 연결이 scan_runtime_control 행을 잠그고 있을 때 결과를 확정하면") {
+                then("확정 경로는 그 행을 잡지 않아 기다리지 않고 끝난다(잠금 순서: 시도 시작만 묶음 → 사진 → runtime_control)") {
+                    val owner = member("batch-commit-no-runtime-lock")
+                    val batchId = UUID.fromString(newBatch(owner, count = 1))
+                    val claim = batches.startAttempt(owner.id, batchId, 0)!!
+                    dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        holder.createStatement().use { it.executeQuery("SELECT id FROM scan_runtime_control WHERE singleton_key = 1 FOR UPDATE").close() }
+                        val pool = Executors.newSingleThreadExecutor()
+                        pool.submit<Boolean> { batches.recordSuccess(claim, extraction) }.get(5, TimeUnit.SECONDS) shouldBe true
+                        holder.rollback()
+                        pool.shutdown()
+                    }
+                }
+            }
+            `when`("결과 보관이 지난 묶음을 취소하면 — Codex P2(#439)") {
+                then("조회와 같이 404 SCAN-010(보관 경계 밖 결과를 돌려주지 않는다)") {
+                    val owner = member("batch-cancel-retired")
+                    val batchId = newBatch(owner)
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 8 DAY, result_expires_at = result_expires_at - INTERVAL 8 DAY WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    mvc.post("/api/scans/batches/$batchId/cancel") {
+                        header("X-API-Version", "3.3")
+                        header("Authorization", "Bearer ${tokens.issueAccessToken(owner.id, MemberRole.USER)}")
+                    }.andExpect { status { isNotFound() } }
+                }
+            }
+            `when`("실행이 꺼진 상태에서 실패 사진을 재시도하면 — Codex P2(#439)") {
+                then("200 이지만 시도를 만들지 않아 시도 횟수가 소진되지 않는다") {
+                    val owner = member("batch-retry-no-dispatch")
+                    val batchId = newBatch(owner, count = 1)
+                    batches.recordFailure(batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!, "RECOGNITION_FAILED")
+                    mvc.post("/api/scans/batches/$batchId/photos/0/retry") {
+                        header("X-API-Version", "3.3")
+                        header("Authorization", "Bearer ${tokens.issueAccessToken(owner.id, MemberRole.USER)}")
+                    }.andExpect { status { isOk() } }
+                    sql("SELECT COUNT(*) FROM scan_attempt a JOIN scan_operation o ON o.id = a.operation_id WHERE o.request_key = UUID_TO_BIN('$batchId', 0)") shouldBe 1
+                    read(owner, batchId).path("payload").path("photos")[0].path("attemptNo").asInt() shouldBe 1
+                }
+            }
+            `when`("실행 창 끝이 2분보다 가까울 때 시도를 시작하면 — Codex P2") {
+                then("시도 lease 는 묶음 실행 창 끝을 넘지 않는다") {
+                    val owner = member("batch-lease-cap")
+                    val batchId = UUID.fromString(newBatch(owner, count = 1))
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 870 SECOND WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    val claim = batches.startAttempt(owner.id, batchId, 0)!!
+                    sql("SELECT COUNT(*) FROM scan_operation_photo p JOIN scan_operation o ON o.id = p.operation_id WHERE p.id = ${claim.photoRowId} AND p.lease_until <= o.expires_at") shouldBe 1
+                    sql("SELECT COUNT(*) FROM scan_attempt a JOIN scan_operation o ON o.id = a.operation_id WHERE a.id = ${claim.attemptId} AND a.lease_until <= o.expires_at AND a.deadline_at <= o.expires_at") shouldBe 1
+                }
+            }
             `when`("결과 전에 취소하면") {
                 then("0회, 사진은 CANCELLED, 늦게 온 결과는 버려진다") {
                     val owner = member("batch-cancel")
