@@ -3,6 +3,7 @@ package com.kbap.api.scan
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodService
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -22,8 +23,8 @@ import com.kbap.common.port.llm.TextEmbeddingClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
 import javax.sql.DataSource
+import org.springframework.beans.factory.annotation.Autowired
 
 @IntegrationTest
 class ScanSimilarSubstitutionTest : BehaviorSpec() {
@@ -32,6 +33,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
     @Autowired private lateinit var foodService: FoodService
     @Autowired private lateinit var foodRepository: FoodJpaRepository
     @Autowired private lateinit var scanHistoryRepository: ScanHistoryJpaRepository
+    @Autowired private lateinit var memberService: MemberService
     @Autowired private lateinit var ingredientRepository: IngredientJpaRepository
     @Autowired private lateinit var memberRepository: MemberJpaRepository
     @Autowired private lateinit var dataSource: DataSource
@@ -54,7 +56,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.99)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService))
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService)
 
                     val result = service.scan(member, "scans/x.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 
