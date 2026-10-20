@@ -93,6 +93,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "합성착향료(버터향, 우유맛), 복숭아향, 딸기풍미")) shouldBe emptySet()
                 codes(IngredientLabelReader.read(null, "합성향료(버터향료)")) shouldBe emptySet()
                 codes(IngredientLabelReader.read(null, "버터향 설탕 우유맛 정제소금")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "땅콩버터향, 보리새우향")) shouldBe emptySet()
             }
         }
         `when`("맛·풍미 뒤에 분말·오일·유·베이스·시즈닝이 붙은 원료이면 — 놓침이 오탐보다 비싸다(종교 회피)") {
@@ -132,6 +133,18 @@ class IngredientLabelReaderTest : BehaviorSpec({
             then("랍스터만 검출하고 가재는 검출하지 않는다") {
                 codes(IngredientLabelReader.read(null, "바닷가재농축액")) shouldBe setOf(IngredientCode.LOBSTER)
                 codes(IngredientLabelReader.read(null, "민물가재")) shouldBe setOf(IngredientCode.CRAYFISH)
+            }
+        }
+        `when`("버터밀크이면 — Codex P2") {
+            then("우유만 검출하고 버터는 검출하지 않는다") {
+                codes(IngredientLabelReader.read(null, "버터밀크분말")) shouldBe setOf(MILK)
+            }
+        }
+        `when`("가다랑어 다시 원료이면 — Codex P2") {
+            then("다시로 검출하고 쇠고기다시(소고기 조미료)·다시마는 다시로 잡지 않는다") {
+                codes(IngredientLabelReader.read(null, "가쓰오부시, 혼다시, 가츠오다시")) shouldContain IngredientCode.DASHI
+                codes(IngredientLabelReader.read(null, "다시")) shouldBe setOf(IngredientCode.DASHI)
+                codes(IngredientLabelReader.read(null, "쇠고기다시, 다시마")) shouldBe setOf(IngredientCode.BEEF)
             }
         }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
