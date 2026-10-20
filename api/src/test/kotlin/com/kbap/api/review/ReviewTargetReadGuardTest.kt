@@ -75,6 +75,7 @@ class ReviewTargetReadGuardTest : BehaviorSpec() {
                     reviewService.getReviewPage(viewer.id, null, null, LanguageCode.EN, ReviewSort.LATEST, true, null, null, null).items.map { it.reviewId } shouldBe listOf(s.foodReviewId)
                     reviewService.getMyReviewPage(s.author.id, LanguageCode.EN, null).items.map { it.reviewId } shouldBe listOf(s.foodReviewId)
                     shouldThrow<BusinessException> { reviewService.getVisibleReview(viewer.id, s.productReviewId) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
+                    shouldThrow<BusinessException> { reviewService.getVisibleReview(s.author.id, s.productReviewId) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
                 }
             }
             `when`("어드민이 그 회원의 리뷰 목록을 보면") {
