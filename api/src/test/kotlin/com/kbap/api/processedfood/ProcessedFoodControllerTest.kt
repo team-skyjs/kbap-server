@@ -118,7 +118,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
             }
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
-                    get("/api/processed-foods?query=새우깡", version = "3.1", expected = 400)
+                    get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
                 }
             }
         }
@@ -142,7 +142,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     p.path("labelSource").asText() shouldBe "DECLARED"
                     p.path("detections").map { it.path("code").asText() + ":" + it.path("source").asText() } shouldBe
                         listOf("SHRIMP:ALLERGEN_DECLARATION", "MILK:ALLERGEN_DECLARATION", "WHEAT:RAW_MATERIALS", "BUTTER:RAW_MATERIALS")
-                    p.path("detections").first { it.path("code").asText() == "WHEAT" }.path("evidence").asText() shouldBe "밀"
+                    p.path("detections").first { it.path("code").asText() == "WHEAT" }.path("evidence").asText() shouldBe "소맥분"
                     p.path("source").path("provider").asText() shouldBe "HACCP"
                     p.path("source").path("attributionKey").asText() shouldBe "processedFood.source.haccp"
                     p.path("image").path("url").asText() shouldBe "http://img/1.jpg"

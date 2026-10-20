@@ -5,6 +5,7 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import java.time.Duration
 import java.time.LocalDateTime
 
 @Entity
@@ -111,7 +112,14 @@ class ProcessedFoodProduct(
         metaImageUrl = snapshot.metaImageUrl
     }
 
+    fun displayMaker(): String? =
+        listOf(manufacturer, seller).firstOrNull { !ProcessedFoodSnapshot.isUnknownMaker(it) }?.substringBefore('_')?.trim()
+            ?: makerSupplement?.trim()?.takeIf { it.isNotEmpty() }
+
+    fun isDiscontinued(latestSeenAt: LocalDateTime): Boolean = lastSeenAt.isBefore(latestSeenAt.minus(DISCONTINUED_AFTER))
+
     companion object {
+        val DISCONTINUED_AFTER: Duration = Duration.ofDays(3)
         const val SOURCE_HACCP = "HACCP"
         const val REPORT_NO_LENGTH = 20
         const val NAME_LENGTH = 200
