@@ -107,6 +107,17 @@ class ScanBatchMergeTest : BehaviorSpec() {
                     sql("SELECT COUNT(*) FROM scan_history_source") shouldBe 8
                 }
             }
+            `when`("원문 이름·가격은 같고 옵션만 다르면") {
+                then("합치지 않는다(옵션 없음끼리는 같음)") {
+                    val owner = member()
+                    val id = batch(owner, 2)
+                    succeed(owner, id, 0, listOf(MenuBoardLine("짜장면", "짜장면", 7000, null), MenuBoardLine("짜장면", "짜장면", 7000, "곱빼기")))
+                    succeed(owner, id, 1, listOf(MenuBoardLine("짜장면", "짜장면", 7000, null)))
+                    val result = items(owner, id)
+                    result.map { it.path("option").asText("") } shouldBe listOf("", "곱빼기")
+                    sources(result[0]) shouldBe listOf(0 to 0, 1 to 0)
+                }
+            }
             `when`("공백·전각 표기만 다른 같은 원문이면") {
                 then("정규화 뒤 같은 행으로 합쳐진다") {
                     val owner = member()
