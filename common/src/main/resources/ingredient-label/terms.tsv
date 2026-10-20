@@ -30,6 +30,8 @@
 기버터	GHEE	contains
 치즈	CHEESE	contains
 젤라틴	GELATIN	contains
+레닛	RENNET	contains
+렌넷	RENNET	contains
 꿀	HONEY	exact
 벌꿀	HONEY	contains
 코치닐	CARMINE	contains
@@ -104,7 +106,7 @@
 게장	CRAB	contains
 가재	CRAYFISH	contains
 랍스터	LOBSTER	contains
-바닷가재	LOBSTER	contains
+바닷가재	LOBSTER	block
 오징어	SQUID	contains
 문어	OCTOPUS	contains
 굴	OYSTER	exact
