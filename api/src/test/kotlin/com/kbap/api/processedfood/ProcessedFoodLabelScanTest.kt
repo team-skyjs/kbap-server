@@ -125,6 +125,20 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     avoidance shouldBe mapOf("SOY" to "DETECTED", "BUCKWHEAT" to "UNCONFIRMED")
                 }
             }
+            `when`("구두점 없는 표시란 다음 줄에 혼입 문구가 오면 — 공부 2R V6") {
+                then("밀·대두·쇠고기는 검출, 땅콩만 함유 가능") {
+                    val p = label(member(88315L, "SOY", "PEANUT"), null, "원재료명: 소맥분, 정제수\n알레르기 유발물질: 밀, 대두, 쇠고기 함유\n땅콩 혼입 가능").path("payload")
+                    p.path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SOY", "BEEF")
+                    p.path("mayContain").map { it.path("code").asText() } shouldBe listOf("PEANUT")
+                }
+            }
+            `when`("원재료 줄 다음 줄·다음 면이 함유 가능 문구면 — 공부 2R V1·V4") {
+                then("원재료 줄이 함유 가능에 붙어 사라지지 않아 성공한다") {
+                    val token = member(88316L)
+                    label(token, null, "원재료명: 감자, 새우\n메밀 혼입 가능").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
+                    label(member(88317L), null, "원재료명: 감자, 새우", "이 제품은 메밀을 사용한 제품과 같은 제조시설에서 제조합니다").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
+                }
+            }
             `when`("면 원소가 null 이면 — Codex P2") {
                 then("400(검증)") {
                     post("/api/processed-foods/scan/label", mapOf("analysisId" to null, "pages" to listOf(null), "lang" to "ko"), member(88313L), expected = 400)
