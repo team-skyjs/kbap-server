@@ -147,6 +147,14 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "쇠고기다시, 다시마")) shouldBe setOf(IngredientCode.BEEF)
             }
         }
+        `when`("메밀가루·꿀 복합어·발효주정이면 — Codex P2") {
+            then("메밀가루는 밀이 아니고, 아카시아꿀·사양꿀은 꿀, 발효주정은 알코올이다 — 양파꿀리는 꿀이 아니다") {
+                codes(IngredientLabelReader.read(null, "메밀가루")) shouldBe setOf(IngredientCode.BUCKWHEAT)
+                codes(IngredientLabelReader.read(null, "아카시아꿀, 사양꿀, 잡화꿀")) shouldBe setOf(IngredientCode.HONEY)
+                codes(IngredientLabelReader.read(null, "양파꿀리")) shouldBe setOf(IngredientCode.ONION)
+                codes(IngredientLabelReader.read(null, "발효주정, 곡물발효주정")) shouldBe setOf(IngredientCode.ALCOHOL)
+            }
+        }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
             then("라드(돼지 지방)로 검출한다") {
                 codes(IngredientLabelReader.read(null, "돼지창자, 돈지방, 당면")) shouldContain IngredientCode.LARD
