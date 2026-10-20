@@ -104,6 +104,41 @@ class DataGoKrClientTest : BehaviorSpec({
         }
     }
 
+    given("게이트웨이·프록시의 비JSON 응답 — Codex P1") {
+        `when`("본문에 요청 URL 이 섞여 인증키가 원문·퍼센트 인코딩·소문자 인코딩으로 들어 있으면") {
+            then("예외 메시지에 어떤 형태의 키도 남지 않는다") {
+                val (client, server) = fixture()
+                val body = "<html>502 Bad Gateway for /getCertImgListServiceV3?ServiceKey=$ENCODED_KEY&pageNo=1 " +
+                    "raw=$KEY lower=${ENCODED_KEY.lowercase()} serviceKey=$KEY&x=1</html>"
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL)))
+                    .andRespond(withSuccess(body, MediaType.TEXT_HTML))
+
+                val error = shouldThrow<PublicDataCallException> { DataGoKrHaccpProductSource(client).getPage("과자", 1, 100) }
+
+                error.message!! shouldNotContain KEY
+                error.message!! shouldNotContain ENCODED_KEY
+                error.message!!.lowercase() shouldNotContain ENCODED_KEY.lowercase()
+                error.message!! shouldContain "***"
+                error.cause shouldBe null
+            }
+        }
+    }
+
+    given("식품영양성분DB 결과 코드 — Codex P1") {
+        `when`("HTTP 200 이지만 본문 resultCode 가 성공(00)이 아니면") {
+            then("빈 결과(null)로 보지 않고 실패로 던진다 — 배치가 확인 표시를 남기지 않아 다음 회 재조회") {
+                val (client, server) = fixture()
+                server.expect(requestTo(org.hamcrest.Matchers.containsString("ITEM_REPORT_NO=2001054954178")))
+                    .andRespond(withSuccess("""{"header":{"resultCode":"22","resultMsg":"LIMITED NUMBER OF SERVICE REQUESTS EXCEEDS ERROR."},"body":{"pageNo":1,"totalCount":0,"numOfRows":10}}""", MediaType.APPLICATION_JSON))
+
+                val error = shouldThrow<PublicDataCallException> { DataGoKrFoodMakerLookup(client).getMakerOrNull("2001054954178") }
+
+                error.message!! shouldContain "resultCode=22"
+                server.verify()
+            }
+        }
+    }
+
     given("식품영양성분DB 제조사 조회") {
         `when`("품목보고번호로 상용제품 행이 있으면") {
             then("첫 MAKER_NM 을 돌려주고, 행이 없으면 null") {
