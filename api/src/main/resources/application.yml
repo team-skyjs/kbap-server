@@ -225,6 +225,7 @@ kbap:
     reward-unit-ids: ${ADS_REWARD_UNIT_IDS:ca-app-pub-3940256099942544/5224354917,ca-app-pub-3940256099942544/1712485313}
   review-bot:
     enabled: ${REVIEW_BOT_ENABLED:false}
+    photo-sync-enabled: ${REVIEW_BOT_PHOTO_SYNC_ENABLED:false}
     min-per-day: ${REVIEW_BOT_MIN_PER_DAY:8}
     max-per-day: ${REVIEW_BOT_MAX_PER_DAY:12}
     # 틱 하나의 시간 예산. 넘기면 남은 후보를 버리고 멈춘다(다음 틱이 누적 목표로 메운다). ShedLock lockAtMostFor(20분)보다 짧아야

@@ -28,6 +28,7 @@ class ReviewBotWriter(
     private val ingredientRepository: IngredientJpaRepository,
     private val reviewService: ReviewService,
     private val generator: ReviewTextGenerator?,
+    private val photoService: ReviewBotPhotoService,
     private val priorityList: ReviewBotPriorityList,
     private val photoPool: ReviewBotPhotoPool,
     @Value("\${kbap.review-bot.min-per-day:8}") private val minPerDay: Int,
@@ -51,7 +52,7 @@ class ReviewBotWriter(
         val due = plan.dueUntil(kst.hour) - reviewRepository.countReviewBotReviewsSince(dayStart).toInt()
         if (due <= 0) return ReviewBotTickSummary.EMPTY
         val poolOwnerIds = photoPool.ownerIds()
-        val pool = photoPool.snapshot(poolOwnerIds)
+        val pool = ReviewBotPhotoPool.PoolSnapshot(photoService.getInventory().available.groupBy { ReviewBotPhotoPool.keyOfPath(it)!! })
         var candidates = 0
         var skippedNoPool = 0
         var written = 0
@@ -118,6 +119,9 @@ class ReviewBotWriter(
         val reviewed = reviewRepository.findReviewerIdsOfFood(foodId, bots.map { it.id }).toSet()
         val bot = bots.filterNot { it.id in reviewed }.randomOrNull(random) ?: return null
         if (!food.isReady()) return null
+        val available = pool
+        val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, poolOwnerIds)?.imageRefs.orEmpty().toSet()
+        val photos = ReviewBotPhotoPool.pickCombination(available, previous, random)
         val rating = ReviewBotCountries.rating(random)
         val request = ReviewDraftRequest(
             foodName = food.displayName(LanguageCode.EN),
@@ -127,8 +131,7 @@ class ReviewBotWriter(
             rating = rating,
         )
         val content = generateAcceptable(foodId, generator, request) ?: return null
-        val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, poolOwnerIds)?.imageRefs.orEmpty().toSet()
-        val photos = ReviewBotPhotoPool.pickCombination(pool, previous, random)
+        if (!photoService.isStillUsable(photos)) return null
         return runCatching {
             reviewService.createBotReview(bot.id, foodId, rating, content, photos, poolOwnerIds).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()

@@ -3,6 +3,8 @@ package com.kbap.api.admin
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountsResult
 import com.kbap.api.reviewbot.ReviewBotPhotoSyncResult
+import com.kbap.api.reviewbot.ReviewBotPhotoInventory
+import com.kbap.api.reviewbot.ReviewBotPhotoHold
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
@@ -35,75 +37,62 @@ interface AdminReviewBotApi {
     @SecurityRequirement(name = "bearerAuth")
     fun ensureBots(request: AdminReviewBotRequest): ResponseEntity<BaseResponse<AdminReviewBotResponse>>
 
+    @Operation(summary = "리뷰 봇 사진 재고 조회", description = "사용 가능·미등록·보류 사진을 조회한다. 등록행·리뷰·저장소를 변경하지 않는다.")
+    @SecurityRequirement(name = "bearerAuth")
+    fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>>
+
     @Operation(
-        summary = "리뷰 봇 사진 풀 동기화(멱등)",
+        summary = "리뷰 봇 사진 등록 및 보류 보고",
         description = """
-            스토리지 접두 `{key-prefix}/images/review-bot/` 를 훑어 `<key>/<n>.webp`(key = sha256(korean_name)[:12] 소문자 hex) 꼴의
-            오브젝트를 `uploaded_image` 에 등록한다. 소유자는 활성 봇 중 id 가 가장 작은 계정. 이미 등록된 경로는 건너뛰어
-            재실행해도 행이 늘지 않는다. 스토리지에서 사라진 경로의 행은 소프트 삭제하고(`removedCount`) 그 경로를 참조하던 봇 리뷰에서 떼며(`detachedReviewCount`),
-            사진이 0장이 되는 봇 리뷰는 소프트 삭제한다(`deletedReviewCount`). 다시 올라온 경로의 행은 되살린다(`restoredCount`).
-            목록이 비면 항상, 활성 풀 행이 ${AdminReviewBotApi.REMOVAL_GUARD_MIN_ROWS}개 이상인데 절반 넘게 사라졌으면 잘린 목록으로 보고
-            삭제 단계를 건너뛴다(`removalSkipped`, WARN) — 잘린 목록이 아니면 `?force=true` 로 가드를 무시한다(빈 목록은 force 로도 안 지운다).
-            작은 풀(${AdminReviewBotApi.REMOVAL_GUARD_MIN_ROWS}개 미만)은 가드 없이 지운다. 사라진 경로를 참조하던 봇 리뷰는 활성 행과 삭제 후 30일 안의 행을 기준으로 찾아
-            그 30일 안의 sync 마다 다시 잡는다(이전 처리 실패·작성기 틱과의 경쟁 포함). 지워졌던 경로가 다시 올라오면 기간과 무관하게 되살린다. 기동 시 자동 스캔은 없다 — 사진을 올린 뒤 명시 호출한다(KB-747/KB-748).
-            봇 리뷰 작성기는 음식의 풀에서 1~3장을 골라 붙이고, 풀이 빈 음식은 건너뛴다.
+            스토리지의 {key-prefix}/images/review-bot/<key>/<n>.webp 를 활성 봇 소유로 등록한다.
+            key는 sha256(korean_name)[:12] 소문자 hex다. 별도 photo-sync-enabled 설정이 켜져 있어야 등록할 수 있다.
+            소실·일반 참조·소유 또는 상태 충돌은 held에 보고한다. 등록행 복구, 소유 변경, 사진 분리, 리뷰 삭제는 수행하지 않는다.
+            기존 리뷰는 그대로 남아 소실 사진이 깨져 보일 수 있다. 새 리뷰에는 사용 가능한 사진만 1~3장 붙인다.
+            기존 force 파라미터는 호환을 위해 받지만 삭제·복구를 허용하지 않는다. 삭제·복구 관련 카운터는 항상 0이다.
         """,
     )
     @ApiResponses(
-        ApiResponse(responseCode = "200", description = "동기화 결과 — 등록 수·건너뜀 수·키별 장수"),
-        ApiResponse(responseCode = "400", description = "활성 봇 계정이 없어 소유자를 정할 수 없음(COMMON-002) — 먼저 POST /api/admin/review-bots"),
+        ApiResponse(responseCode = "200", description = "등록 수·보류 사유 및 호환 카운터"),
+        ApiResponse(responseCode = "400", description = "등록 기능이 꺼져 있거나 활성 봇 계정이 없음(COMMON-002)"),
         ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
     )
     @SecurityRequirement(name = "bearerAuth")
     fun syncPhotoPool(
-        @Parameter(description = "true 면 잘린 목록 가드(활성 풀 행 ${AdminReviewBotApi.REMOVAL_GUARD_MIN_ROWS}개 이상에서 절반 초과 사라짐)를 무시하고 지운다 — 빈 목록은 force 로도 건너뛴다", example = "false")
+        @Parameter(description = "호환용 파라미터. true여도 자동 삭제·복구하지 않는다", example = "false")
         force: Boolean,
     ): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>>
-
-    companion object {
-        const val REMOVAL_GUARD_MIN_ROWS = 10
-    }
 }
 
-@Schema(description = "리뷰 봇 사진 풀 동기화 결과")
+@Schema(description = "리뷰 봇 사진 등록 및 보류 결과")
 data class AdminReviewBotPhotoSyncResponse(
-    @field:Schema(description = "이번 호출에서 uploaded_image 에 새로 등록한 사진 수", example = "180")
     val registeredCount: Int,
-    @field:Schema(description = "이미 등록돼 건너뛴 사진 수(재실행 시 전부 여기로)", example = "0")
     val skippedCount: Int,
-    @field:Schema(description = "지워졌다가 다시 올라와 되살린 행 수", example = "0")
     val restoredCount: Int,
-    @field:Schema(description = "스토리지에서 사라져 소프트 삭제한 행 수", example = "0")
     val removedCount: Int,
-    @field:Schema(description = "사라진 사진을 image_refs 에서 뗀 봇 리뷰 수", example = "0")
     val detachedReviewCount: Int,
-    @field:Schema(description = "사진이 0장이 되어 소프트 삭제한 봇 리뷰 수(사진 없는 봇 리뷰 금지)", example = "0")
     val deletedReviewCount: Int,
-    @field:Schema(description = "사라진 사진 처리에 실패한 봇 리뷰 수(WARN, 삭제 후 30일 안의 다음 sync 가 다시 잡는다)", example = "0")
     val failedReviewCount: Int,
-    @field:Schema(description = "image_refs 를 읽을 수 없어 건너뛴 봇 리뷰 id(스택 없는 WARN 1줄, 데이터 정정 대상 — 고치면 삭제 후 30일 안의 다음 sync 가 처리)", example = "[]")
     val unparseableReviewIds: List<Long>,
-    @field:Schema(description = "영향 리뷰 탐지 쿼리 자체가 실패해 리뷰 처리를 건너뛰었는지(행 삭제는 이미 반영)", example = "false")
     val detectionFailed: Boolean,
-    @field:Schema(description = "스토리지 목록이 비어 삭제 단계를 건너뛰었는지(일시 장애 방어)", example = "false")
     val removalSkipped: Boolean,
-    @field:Schema(description = "풀 키(sha256(korean_name)[:12])별 S3 에 있는 장수", example = """{"6a2c1605affd": 3}""")
     val imagesPerKey: Map<String, Int>,
+    val held: List<ReviewBotPhotoHold>,
 ) {
     companion object {
         fun from(result: ReviewBotPhotoSyncResult): AdminReviewBotPhotoSyncResponse =
             AdminReviewBotPhotoSyncResponse(
                 registeredCount = result.registeredCount,
                 skippedCount = result.skippedCount,
-                restoredCount = result.restoredCount,
-                removedCount = result.removedCount,
-                detachedReviewCount = result.detachedReviewCount,
-                deletedReviewCount = result.deletedReviewCount,
-                failedReviewCount = result.failedReviewCount,
-                unparseableReviewIds = result.unparseableReviewIds,
-                detectionFailed = result.detectionFailed,
-                removalSkipped = result.removalSkipped,
+                restoredCount = 0,
+                removedCount = 0,
+                detachedReviewCount = 0,
+                deletedReviewCount = 0,
+                failedReviewCount = 0,
+                unparseableReviewIds = emptyList(),
+                detectionFailed = false,
+                removalSkipped = true,
                 imagesPerKey = result.imagesPerKey,
+                held = result.held,
             )
     }
 }

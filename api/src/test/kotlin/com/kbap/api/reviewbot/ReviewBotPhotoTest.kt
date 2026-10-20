@@ -23,6 +23,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.Duration
 import java.time.LocalDateTime
@@ -47,6 +48,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
     @Autowired private lateinit var reviewService: ReviewService
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
     @Autowired private lateinit var priorityList: ReviewBotPriorityList
+    @Autowired private lateinit var photos: ReviewBotPhotoService
     @Autowired private lateinit var photoPool: ReviewBotPhotoPool
     @Autowired private lateinit var uploadedImageRepository: com.kbap.common.domain.image.UploadedImageJpaRepository
     @Autowired private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
@@ -72,7 +74,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
         fun syncPayload(force: Boolean = false) = mapper.readTree(sync(force).also { it.status shouldBe 200 }.contentAsString).path("payload")
         fun seedFood(koreanName: String): Food = foodRepository.save(Food(koreanName = koreanName, description = "설명", contentStatus = FoodContentStatus.READY))
         fun writer(min: Int = 1, max: Int = 1) = ReviewBotWriter(
-            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, priorityList, photoPool, min, max, Duration.ofMinutes(15),
+            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, photos, priorityList, photoPool, min, max, Duration.ofMinutes(15),
         )
         fun at(hour: Int, daysFromNow: Long = 0): ZonedDateTime = ZonedDateTime.now(seoul).plusDays(daysFromNow).withHour(hour).withMinute(0).withSecond(0).withNano(0)
         fun insertBotReview(botId: Long, foodId: Long, createdAt: LocalDateTime) {
@@ -95,6 +97,41 @@ class ReviewBotPhotoTest : BehaviorSpec() {
             storage.deleted.clear()
         }
         afterSpec { TestTables.clearAll(dataSource) }
+
+        given("관리자 사진 재고 조회와 Swagger 계약") {
+            `when`("관리자가 재고 GET을 호출하면") {
+                then("공통 응답 봉투에 미등록 재고를 담고 등록행과 저장소는 변경하지 않는다") {
+                    stubObjects("후라이드치킨", 1)
+                    val response = mockMvc.get("/api/admin/review-bots/images") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
+                        header("X-API-Version", "1.0")
+                    }.andReturn().response
+                    response.status shouldBe 200
+                    val body = mapper.readTree(response.contentAsString)
+                    body.path("success").asBoolean() shouldBe true
+                    body.path("payload").path("unregistered").size() shouldBe 1
+                    count("SELECT COUNT(*) FROM uploaded_image") shouldBe 0
+                    storage.deleted.size shouldBe 0
+                    mockMvc.get("/api/admin/review-bots/images").andReturn().response.status shouldBe 401
+                }
+            }
+            `when`("버전별 Swagger 문서를 조회하면") {
+                then("GET과 단일 sync POST 및 기존 응답 필드와 보류 목록을 명시한다") {
+                    listOf("1.0", "1.1", "2.0").forEach { version ->
+                        val response = mockMvc.get("/v3/api-docs/$version").andReturn().response
+                        response.status shouldBe 200
+                        val doc = mapper.readTree(response.contentAsString)
+                        doc.path("paths").path("/api/admin/review-bots/images").has("get") shouldBe true
+                        val sync = doc.path("paths").path("/api/admin/review-bots/images/sync").path("post")
+                        sync.path("parameters").any { it.path("name").asText() == "force" } shouldBe true
+                        val fields = doc.path("components").path("schemas").path("AdminReviewBotPhotoSyncResponse").path("properties")
+                        listOf("registeredCount", "skippedCount", "restoredCount", "removedCount", "detachedReviewCount", "deletedReviewCount", "failedReviewCount", "unparseableReviewIds", "detectionFailed", "removalSkipped", "imagesPerKey", "held").forEach {
+                            fields.has(it) shouldBe true
+                        }
+                    }
+                }
+            }
+        }
 
         given("우선순위 목록") {
             `when`("리소스를 읽으면") {
@@ -132,391 +169,56 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
-            `when`("S3 에서 지워진 사진이 있으면") {
-                then("다음 sync 가 그 행을 소프트 삭제하고 removedCount 로 알린다 — 봇 리뷰에 죽은 경로가 붙지 않는다") {
-                    accountService.ensureBots(2)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload().path("registeredCount").asInt() shouldBe 3
-                    storage.delete(poolPath("후라이드치킨", 2))
+            listOf(false, true).forEach { force ->
+                `when`("사진이 사라지고 force=$force 로 동기화하면") {
+                    then("등록행과 기존 리뷰를 유지하고 삭제·복구 카운터 0과 보류 사유를 반환한다") {
+                        val bot = accountService.ensureBots(1).bots.single()
+                        val food = seedFood("후라이드치킨")
+                        stubObjects("후라이드치킨", 2)
+                        syncPayload().path("registeredCount").asInt() shouldBe 2
+                        val path = poolPath("후라이드치킨", 1)
+                        val review = reviewService.createBotReview(bot.id, food.id, 4, "The chicken was crisp and juicy, a real treat.", listOf(path), setOf(bot.id))
+                        storage.heads.clear()
 
-                    val second = syncPayload()
+                        val result = syncPayload(force)
 
-                    second.path("removedCount").asInt() shouldBe 1
-                    second.path("removalSkipped").asBoolean() shouldBe false
-                    second.path("registeredCount").asInt() shouldBe 0
-                    second.path("skippedCount").asInt() shouldBe 2
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 2
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '${poolPath("후라이드치킨", 2)}' AND status = 'DELETED'") shouldBe 1
-                }
-            }
-
-            `when`("지워졌던 경로에 사진을 다시 올리면") {
-                then("다음 sync 가 DELETED 행을 되살려 풀로 돌아온다(restoredCount) — 행 중복 없이") {
-                    accountService.ensureBots(2)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload()
-                    storage.delete(poolPath("후라이드치킨", 2))
-                    syncPayload().path("removedCount").asInt() shouldBe 1
-                    storage.stub(poolPath("후라이드치킨", 2), "image/webp", 100_002L)
-
-                    val third = syncPayload()
-
-                    third.path("restoredCount").asInt() shouldBe 1
-                    third.path("registeredCount").asInt() shouldBe 0
-                    third.path("skippedCount").asInt() shouldBe 2
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%'") shouldBe 3
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
-                }
-            }
-
-            `when`("31일 넘게 DELETED 였던 경로에 사진을 다시 올리면") {
-                then("되살린다 — 되살리기 판정은 상태·기간 무관(30일 창은 리뷰 탐지에만)") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload()
-                    storage.delete(poolPath("후라이드치킨", 1))
-                    syncPayload().path("removedCount").asInt() shouldBe 1
-                    val longAgo = LocalDateTime.now().minusDays(31)
-                    dataSource.connection.use { c ->
-                        c.prepareStatement("UPDATE uploaded_image SET updated_at = ? WHERE object_path = ?").use { ps ->
-                            ps.setObject(1, longAgo); ps.setString(2, poolPath("후라이드치킨", 1)); ps.executeUpdate()
+                        listOf("removedCount", "restoredCount", "detachedReviewCount", "deletedReviewCount", "failedReviewCount").forEach {
+                            result.path(it).asInt() shouldBe 0
                         }
-                    }
-                    storage.stub(poolPath("후라이드치킨", 1), "image/webp", 100_001L)
-
-                    val result = syncPayload()
-
-                    result.path("restoredCount").asInt() shouldBe 1
-                    result.path("registeredCount").asInt() shouldBe 0
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
-                }
-            }
-
-            `when`("영향 리뷰 탐지 쿼리 자체가 실패하면") {
-                then("이미 커밋된 행 삭제(removedCount)는 응답에 남고 detectionFailed=true — 500 이 아니다") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload()
-                    storage.delete(poolPath("후라이드치킨", 1))
-                    val failingReviews = java.lang.reflect.Proxy.newProxyInstance(
-                        ReviewJpaRepository::class.java.classLoader,
-                        arrayOf(ReviewJpaRepository::class.java),
-                    ) { _, method, args ->
-                        if (method.name == "findActiveRefsReferencingAny") throw IllegalStateException("탐지 쿼리 실패 주입")
-                        try {
-                            method.invoke(reviewRepository, *(args ?: emptyArray()))
-                        } catch (e: java.lang.reflect.InvocationTargetException) {
-                            throw e.targetException
-                        }
-                    } as ReviewJpaRepository
-                    val service = ReviewBotPhotoSyncService(storage, uploadedImageRepository, accountService, photoPool, failingReviews, reviewService, transactionManager, pageSize = 1000)
-
-                    val result = service.sync()
-
-                    result.removedCount shouldBe 1
-                    result.detectionFailed shouldBe true
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path = '${poolPath("후라이드치킨", 1)}' AND status = 'DELETED'") shouldBe 1
-                }
-            }
-
-            `when`("스토리지가 접두에 빈 목록을 돌려주면") {
-                then("삭제 단계를 건너뛴다(removalSkipped) — 일시 장애로 풀 전체를 지우지 않는다") {
-                    accountService.ensureBots(2)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload()
-                    storage.heads.clear()
-                    storage.lastModified.clear()
-
-                    val empty = syncPayload()
-
-                    empty.path("removalSkipped").asBoolean() shouldBe true
-                    empty.path("removedCount").asInt() shouldBe 0
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
-                }
-            }
-
-            `when`("지워진 사진을 봇 리뷰가 참조하고 있으면") {
-                then("그 리뷰의 image_refs 에서 떼고(detached), 사진이 0장이 되는 리뷰는 소프트 삭제한다(deleted) — 죽은 이미지가 남지 않는다") {
-                    val bots = accountService.ensureBots(2).bots
-                    val food = seedFood("봇대상음식1")
-                    stubObjects("봇대상음식1", 3)
-                    syncPayload()
-                    val p1 = poolPath("봇대상음식1", 1)
-                    val p2 = poolPath("봇대상음식1", 2)
-                    val review = reviewService.createBotReview(bots[0].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p1, p2), photoPool.ownerIds())
-                    storage.delete(p1)
-
-                    val afterFirst = syncPayload()
-
-                    afterFirst.path("removedCount").asInt() shouldBe 1
-                    afterFirst.path("detachedReviewCount").asInt() shouldBe 1
-                    afterFirst.path("deletedReviewCount").asInt() shouldBe 0
-                    imageRefsOf(review.reviewId) shouldBe listOf(p2)
-
-                    storage.delete(p2)
-                    val afterSecond = syncPayload()
-
-                    afterSecond.path("removedCount").asInt() shouldBe 1
-                    afterSecond.path("detachedReviewCount").asInt() shouldBe 0
-                    afterSecond.path("deletedReviewCount").asInt() shouldBe 1
-                    count("SELECT COUNT(*) FROM food_review WHERE id = ${review.reviewId} AND status = 'DELETED'") shouldBe 1
-                    count("SELECT review_count FROM food WHERE id = ${food.id}") shouldBe 0
-                }
-            }
-
-            `when`("같은 사진을 참조하는 봇 리뷰가 여럿(A p1 / B p1,p2 / C p1)일 때 p1 이 지워지면") {
-                then("A·C 는 삭제되고 B 는 refs [p2] 가 DB 에 실제로 남으며 카운터가 맞는다 — 첫 삭제의 컨텍스트 clear 가 나머지 처리를 잃지 않는다") {
-                    val bots = accountService.ensureBots(3).bots
-                    val food = seedFood("봇대상음식1")
-                    stubObjects("봇대상음식1", 3)
-                    syncPayload()
-                    val p1 = poolPath("봇대상음식1", 1)
-                    val p2 = poolPath("봇대상음식1", 2)
-                    val owners = photoPool.ownerIds()
-                    val a = reviewService.createBotReview(bots[0].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p1), owners)
-                    val b = reviewService.createBotReview(bots[1].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p1, p2), owners)
-                    val c = reviewService.createBotReview(bots[2].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p1), owners)
-                    storage.delete(p1)
-
-                    val result = syncPayload()
-
-                    result.path("detachedReviewCount").asInt() shouldBe 1
-                    result.path("deletedReviewCount").asInt() shouldBe 2
-                    count("SELECT COUNT(*) FROM food_review WHERE id IN (${a.reviewId}, ${c.reviewId}) AND status = 'DELETED'") shouldBe 2
-                    count("SELECT COUNT(*) FROM food_review WHERE id = ${b.reviewId} AND status = 'ACTIVE'") shouldBe 1
-                    imageRefsOf(b.reviewId) shouldBe listOf(p2)
-                    count("SELECT review_count FROM food WHERE id = ${food.id}") shouldBe 1
-                    count("SELECT review_count FROM member WHERE id = ${bots[0].id}") shouldBe 0
-                    count("SELECT review_count FROM member WHERE id = ${bots[1].id}") shouldBe 1
-                    count("SELECT review_count FROM member WHERE id = ${bots[2].id}") shouldBe 0
-                }
-            }
-
-            `when`("사라진 사진을 참조하는 리뷰 하나의 처리가 실패하면") {
-                then("사진 행은 즉시 지워지고, image_refs 를 못 읽는 리뷰는 스택 없는 WARN 1줄로 건너뛰며(unparseableReviewIds) refs 를 고치면 다음 sync 가 처리한다") {
-                    val warnings = ch.qos.logback.classic.Logger::class.java.cast(org.slf4j.LoggerFactory.getLogger(ReviewBotPhotoSyncService::class.java))
-                    val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>().also { it.start(); warnings.addAppender(it) }
-                    try {
-                    val bots = accountService.ensureBots(2).bots
-                    val food = seedFood("봇대상음식1")
-                    stubObjects("봇대상음식1", 3)
-                    syncPayload()
-                    val p1 = poolPath("봇대상음식1", 1)
-                    val p2 = poolPath("봇대상음식1", 2)
-                    val fine = reviewService.createBotReview(bots[0].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p2), photoPool.ownerIds())
-                    val now = LocalDateTime.now()
-                    val brokenId = dataSource.connection.use { c ->
-                        c.prepareStatement(
-                            "INSERT INTO food_review (member_id, food_id, rating, content, image_refs, status, created_at, updated_at) VALUES (?, ?, 4, 'broken refs review text', ?, 'ACTIVE', ?, ?)",
-                            java.sql.Statement.RETURN_GENERATED_KEYS,
-                        ).use { ps ->
-                            ps.setLong(1, bots[1].id); ps.setLong(2, food.id); ps.setString(3, """["$p1", {"not": "a path"}]"""); ps.setObject(4, now); ps.setObject(5, now)
-                            ps.executeUpdate()
-                            ps.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
-                        }
-                    }
-                    storage.delete(p1)
-                    storage.delete(p2)
-
-                    val first = syncPayload()
-
-                    first.path("removedCount").asInt() shouldBe 2
-                    first.path("deletedReviewCount").asInt() shouldBe 1
-                    first.path("failedReviewCount").asInt() shouldBe 0
-                    first.path("unparseableReviewIds").map { it.asLong() } shouldBe listOf(brokenId)
-                    count("SELECT COUNT(*) FROM food_review WHERE id = ${fine.reviewId} AND status = 'DELETED'") shouldBe 1
-                    count("SELECT unique_reviewed_food_count FROM member WHERE id = ${bots[0].id}") shouldBe 0
-                    count("SELECT COUNT(*) FROM member_ranking_event WHERE review_id = ${fine.reviewId} AND event = 'REVIEW_DELETED'") shouldBe 1
-                    count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'ACTIVE'") shouldBe 1
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path IN ('$p1', '$p2') AND status = 'DELETED'") shouldBe 2
-
-                    val again = syncPayload()
-                    again.path("unparseableReviewIds").map { it.asLong() } shouldBe listOf(brokenId)
-                    val unparseableWarnings = appender.list.filter { it.level == ch.qos.logback.classic.Level.WARN && it.formattedMessage.contains("image_refs") && it.formattedMessage.contains(brokenId.toString()) }
-                    unparseableWarnings.size shouldBe 2
-                    unparseableWarnings.all { it.throwableProxy == null } shouldBe true
-
-                    dataSource.connection.use { c -> c.createStatement().use { it.execute("""UPDATE food_review SET image_refs = '["$p1"]' WHERE id = $brokenId""") } }
-                    val second = syncPayload()
-
-                    second.path("removedCount").asInt() shouldBe 0
-                    second.path("deletedReviewCount").asInt() shouldBe 1
-                    second.path("unparseableReviewIds").size() shouldBe 0
-                    count("SELECT COUNT(*) FROM food_review WHERE id = $brokenId AND status = 'DELETED'") shouldBe 1
-                    } finally {
-                        warnings.detachAppender(appender)
+                        result.path("removalSkipped").asBoolean() shouldBe true
+                        result.path("held").map { it.path("reason").asText() } shouldBe listOf("MISSING_OBJECT", "MISSING_OBJECT")
+                        count("SELECT COUNT(*) FROM uploaded_image WHERE status='ACTIVE'") shouldBe 2
+                        imageRefsOf(review.reviewId) shouldBe listOf(path)
+                        reviewRepository.findById(review.reviewId).isPresent shouldBe true
+                        photos.getInventory().available.filter { it.contains(ReviewBotPhotoPool.keyOf(food.koreanName)) } shouldBe emptyList()
+                        storage.deleted.size shouldBe 0
                     }
                 }
             }
 
-            `when`("삭제된 행이 있는 상태에서 다음 sync 의 가드 분모를 보면") {
-                then("활성 행만 센다 — 12 중 2 삭제 뒤 5 더 사라지면 10 기준 정확히 절반이라 지운다(any-status 로 세면 12 중 7 이라 건너뛴다)") {
+            `when`("DELETED 등록행의 사진이 다시 나타나면") {
+                then("force로도 행을 복구하지 않고 소유·상태 충돌로 보류한다") {
                     accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 12)
+                    stubObjects("후라이드치킨", 1)
                     syncPayload()
-                    (1..2).forEach { storage.delete(poolPath("후라이드치킨", it)) }
-                    syncPayload().path("removedCount").asInt() shouldBe 2
-                    (3..7).forEach { storage.delete(poolPath("후라이드치킨", it)) }
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE uploaded_image SET status='DELETED', updated_at=DATE_SUB(NOW(), INTERVAL 31 DAY)") } }
 
-                    val result = syncPayload()
+                    val result = syncPayload(true)
 
-                    result.path("removalSkipped").asBoolean() shouldBe false
-                    result.path("removedCount").asInt() shouldBe 5
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 5
+                    result.path("restoredCount").asInt() shouldBe 0
+                    result.path("held").single().path("reason").asText() shouldBe "OWNER_OR_STATUS"
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE status='DELETED'") shouldBe 1
+                    storage.deleted.size shouldBe 0
                 }
             }
 
-            `when`("사진 행이 지워진 뒤에 그 경로를 참조하는 봇 리뷰가 생기면(작성기 틱과의 경쟁)") {
-                then("다음 sync 가 기록된 경로 전체 기준으로 잡아 그 사진을 떼어낸다 — 영구 404 가 없다") {
-                    val bots = accountService.ensureBots(1).bots
-                    val food = seedFood("봇대상음식1")
-                    stubObjects("봇대상음식1", 3)
-                    syncPayload()
-                    val p1 = poolPath("봇대상음식1", 1)
-                    val p2 = poolPath("봇대상음식1", 2)
-                    storage.delete(p1)
-                    syncPayload().path("removedCount").asInt() shouldBe 1
-                    val now = LocalDateTime.now()
-                    val raceId = dataSource.connection.use { c ->
-                        c.prepareStatement(
-                            "INSERT INTO food_review (member_id, food_id, rating, content, image_refs, status, created_at, updated_at) VALUES (?, ?, 4, 'race review text here', ?, 'ACTIVE', ?, ?)",
-                            java.sql.Statement.RETURN_GENERATED_KEYS,
-                        ).use { ps ->
-                            ps.setLong(1, bots[0].id); ps.setLong(2, food.id); ps.setString(3, """["$p1", "$p2"]"""); ps.setObject(4, now); ps.setObject(5, now)
-                            ps.executeUpdate()
-                            ps.generatedKeys.use { rs -> rs.next(); rs.getLong(1) }
-                        }
-                    }
-
-                    val next = syncPayload()
-
-                    next.path("removedCount").asInt() shouldBe 0
-                    next.path("detachedReviewCount").asInt() shouldBe 1
-                    imageRefsOf(raceId) shouldBe listOf(p2)
-                }
-            }
-
-            `when`("봇의 review_count 가 이미 0 인 상태에서 그 봇의 리뷰가 사진 소실로 삭제되면") {
-                then("sync 는 성공하고 리뷰는 삭제되며 카운터는 음수가 되지 않는다 — 한 리뷰의 실패가 전체를 되돌리지 않는다") {
-                    val bots = accountService.ensureBots(2).bots
-                    val food = seedFood("봇대상음식1")
-                    stubObjects("봇대상음식1", 2)
-                    syncPayload()
-                    val p1 = poolPath("봇대상음식1", 1)
-                    val review = reviewService.createBotReview(bots[0].id, food.id, 4, "The dish was warm and comforting, with a deep savory broth.", listOf(p1), photoPool.ownerIds())
-                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET review_count = 0 WHERE id = ${bots[0].id}") } }
-                    storage.delete(p1)
-
-                    val result = syncPayload()
-
-                    result.path("deletedReviewCount").asInt() shouldBe 1
-                    count("SELECT COUNT(*) FROM food_review WHERE id = ${review.reviewId} AND status = 'DELETED'") shouldBe 1
-                    count("SELECT review_count FROM member WHERE id = ${bots[0].id}") shouldBe 0
-                    count("SELECT review_count FROM food WHERE id = ${food.id}") shouldBe 0
-                }
-            }
-
-            `when`("활성 풀 행이 10개 이상이고 삭제 대상이 절반을 넘으면") {
-                then("잘린 목록으로 보고 건너뛴다(removalSkipped) — force=true 면 가드를 무시하고 지운다") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 12)
-                    syncPayload()
-                    (1..7).forEach { storage.delete(poolPath("후라이드치킨", it)) }
-
-                    val guarded = syncPayload()
-                    val forced = syncPayload(force = true)
-
-                    guarded.path("removalSkipped").asBoolean() shouldBe true
-                    guarded.path("removedCount").asInt() shouldBe 0
-                    forced.path("removalSkipped").asBoolean() shouldBe false
-                    forced.path("removedCount").asInt() shouldBe 7
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 5
-                }
-            }
-
-            `when`("활성 풀 행이 가드 하한(10)이면") {
-                then("6 사라지면 건너뛰고, 9행에서 5 사라지면 지운다(하한 경계)") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 10)
-                    syncPayload()
-                    (1..6).forEach { storage.delete(poolPath("후라이드치킨", it)) }
-                    val tenRows = syncPayload()
-                    tenRows.path("removalSkipped").asBoolean() shouldBe true
-                    syncPayload(force = true).path("removedCount").asInt() shouldBe 6
-
-                    storage.heads.clear(); storage.lastModified.clear()
-                    TestTables.clearAll(dataSource)
-                    accountService.ensureBots(1)
-                    stubObjects("비빔밥", 9)
-                    syncPayload()
-                    (1..5).forEach { storage.delete(poolPath("비빔밥", it)) }
-                    val nineRows = syncPayload()
-
-                    nineRows.path("removalSkipped").asBoolean() shouldBe false
-                    nineRows.path("removedCount").asInt() shouldBe 5
-                }
-            }
-
-            `when`("목록이 비었는데 force=true 로 부르면") {
-                then("그래도 건너뛴다 — 빈 목록은 항상 가드(WARN)") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload()
-                    storage.heads.clear(); storage.lastModified.clear()
-
-                    val forced = syncPayload(force = true)
-
-                    forced.path("removalSkipped").asBoolean() shouldBe true
-                    forced.path("removedCount").asInt() shouldBe 0
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 3
-                }
-            }
-
-            `when`("삭제 대상이 정확히 절반이면") {
-                then("가드에 걸리지 않고 지운다(경계는 '초과')") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 12)
-                    syncPayload()
-                    (1..6).forEach { storage.delete(poolPath("후라이드치킨", it)) }
-
-                    val result = syncPayload()
-
-                    result.path("removalSkipped").asBoolean() shouldBe false
-                    result.path("removedCount").asInt() shouldBe 6
-                }
-            }
-
-            `when`("활성 풀 행이 10개 미만이면") {
-                then("절반을 넘게 사라져도 그냥 지운다 — 작은 풀은 가드 없이(출구 없는 영구 스킵 방지)") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 3)
-                    syncPayload()
-                    (1..2).forEach { storage.delete(poolPath("후라이드치킨", it)) }
-
-                    val result = syncPayload()
-
-                    result.path("removalSkipped").asBoolean() shouldBe false
-                    result.path("removedCount").asInt() shouldBe 2
-                    count("SELECT COUNT(*) FROM uploaded_image WHERE object_path LIKE '%images/review-bot/%' AND status = 'ACTIVE'") shouldBe 1
-                }
-            }
-
-            `when`("페이지 크기 2로 오브젝트 5개를 훑으면") {
-                then("여러 페이지를 끝까지 읽어 5장 등록하고, 1장을 지우면 삭제 반영도 전 페이지 기준으로 한다") {
-                    accountService.ensureBots(1)
-                    stubObjects("후라이드치킨", 5)
-                    val paged = ReviewBotPhotoSyncService(storage, uploadedImageRepository, accountService, photoPool, reviewRepository, reviewService, transactionManager, pageSize = 2)
-
-                    val first = paged.sync()
-                    storage.delete(poolPath("후라이드치킨", 5))
-                    val second = paged.sync()
-
-                    first.registeredCount shouldBe 5
-                    first.imagesPerKey[ReviewBotPhotoPool.keyOf("후라이드치킨")] shouldBe 5
-                    second.registeredCount shouldBe 0
-                    second.skippedCount shouldBe 4
-                    second.removedCount shouldBe 1
-                    second.removalSkipped shouldBe false
+            `when`("500개를 넘는 사진 재고를 조회하면") {
+                then("마지막 페이지까지 조회하고 저장소를 변경하지 않는다") {
+                    stubObjects("후라이드치킨", 501)
+                    val inventory = photos.getInventory()
+                    inventory.unregistered.size shouldBe 501
+                    inventory.held shouldBe emptyList()
+                    storage.deleted.size shouldBe 0
                 }
             }
 
@@ -725,8 +427,8 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
-            `when`("풀 소유 봇이 정지·탈퇴된 뒤에도") {
-                then("풀은 그대로 보이고 남은 봇이 사진을 붙여 쓴다 — 소유자 조건은 '봇 계정'이지 '활성 봇'이 아니다") {
+            `when`("풀 소유 봇이 정지·탈퇴되면") {
+                then("소유 변경 없이 보류하고 새 리뷰 작성에서 제외한다") {
                     val bots = accountService.ensureBots(3).bots
                     val food = seedFood("봇대상음식1")
                     stubObjects("봇대상음식1", 3)
@@ -740,11 +442,11 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     writer().writeDue(at(22, daysFromNow = 1))
                     val afterWithdrawn = maxReviewId()
 
-                    afterSuspended shouldNotBe 0L
-                    afterWithdrawn shouldNotBe afterSuspended
-                    imageRefsOf(afterSuspended).size shouldBeInRange 1..3
-                    imageRefsOf(afterWithdrawn).size shouldBeInRange 1..3
-                    count("SELECT COUNT(*) FROM food_review WHERE food_id = ${food.id} AND member_id <> ${owner.id}") shouldBe 2
+                    afterSuspended shouldBe 0L
+                    afterWithdrawn shouldBe 0L
+                    photos.getInventory().held.map { it.reason }.toSet() shouldBe setOf("OWNER_OR_STATUS")
+                    count("SELECT COUNT(*) FROM uploaded_image WHERE member_id = ${owner.id} AND status='ACTIVE'") shouldBe 3
+                    count("SELECT COUNT(*) FROM food_review WHERE food_id = ${food.id}") shouldBe 0
                 }
             }
 
