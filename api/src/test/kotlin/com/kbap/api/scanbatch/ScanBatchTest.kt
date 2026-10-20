@@ -368,7 +368,7 @@ class ScanBatchTest : BehaviorSpec() {
                         batches.recordSuccess(a0, extraction) shouldBe true
                         val a1 = batches.startAttempt(first.id, a, 1)!!
                         io.kotest.assertions.throwables.shouldThrow<ScanBatchSlotsBusyException> { batches.startAttempt(second.id, b, 1) }
-                        sql("UPDATE scan_attempt SET lease_until = '2000-01-01 00:00:00' WHERE id = ${a1.attemptId}")
+                        sql("UPDATE scan_attempt SET started_at = '1999-12-31 00:00:00', deadline_at = '2000-01-01 00:00:00', lease_until = '2000-01-01 00:00:00' WHERE id = ${a1.attemptId}")
                         batches.startAttempt(second.id, b, 1) shouldNotBe null
                         b0.attemptNo shouldBe 1
                     } finally {

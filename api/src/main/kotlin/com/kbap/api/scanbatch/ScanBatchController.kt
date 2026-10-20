@@ -44,7 +44,7 @@ class ScanBatchController(
         @PathVariable batchId: String,
         @PathVariable index: Int,
     ): ResponseEntity<BaseResponse<ScanBatchResponse>> {
-        runner.runClaimed(scanBatchService.retryPhoto(memberId, batchId, index))
+        runner.dispatch(memberId, scanBatchService.retryPhoto(memberId, batchId, index), listOf(index))
         return ResponseEntity.ok(BaseResponse.ok(scanBatchService.getBatch(memberId, batchId)))
     }
 
