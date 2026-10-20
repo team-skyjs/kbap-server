@@ -53,6 +53,12 @@ data class FoodDetailRequest(
 )
 
 @Schema(description = "선정 음식 요약 조회 요청")
+data class FoodIdolPicksRequest(
+    @field:NotBlank(message = "lang 은 필수입니다")
+    @field:Schema(description = LANG_DESCRIPTION, example = "en", requiredMode = Schema.RequiredMode.REQUIRED)
+    val lang: String,
+)
+
 data class FoodSelectedRequest(
     @field:Schema(description = "입력 순서를 유지할 양수 음식 ID CSV. 중복 없이 1~10개, ids 파라미터는 한 번만 지정", example = "3,1,2", requiredMode = Schema.RequiredMode.REQUIRED)
     val ids: String? = null,

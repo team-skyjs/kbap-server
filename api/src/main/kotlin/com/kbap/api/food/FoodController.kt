@@ -32,6 +32,7 @@ class FoodController(
     private val reviewService: ReviewService,
     private val memberService: MemberService,
     private val listingService: FoodListingService,
+    private val idolPickService: IdolPickService,
 ) : FoodApi {
     @GetMapping(version = "3.1+")
     override fun browseSorted(
@@ -76,6 +77,13 @@ class FoodController(
         val result = selectedFoodsService.getSelectedFoods(ids, LanguageCode.from(request.lang), memberId)
         return ResponseEntity.ok().header("Cache-Control", "private, no-store").body(BaseResponse.ok(result))
     }
+
+    @GetMapping("/idol-picks")
+    override fun idolPicks(
+        @Valid @ModelAttribute request: FoodIdolPicksRequest,
+        @AuthMemberIdOrNull memberId: Long?,
+    ): ResponseEntity<BaseResponse<IdolPicksResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(idolPickService.getIdolPicks(LanguageCode.from(request.lang), memberId)))
 
     @GetMapping("/search")
     override fun search(
