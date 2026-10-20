@@ -7,6 +7,7 @@ data class ProcessedFoodLabelText(
     val allergens: String?,
     val mayContain: String?,
     val rawMaterials: String,
+    val hasLabelLine: Boolean,
 ) {
     companion object {
         private val WHITESPACE = Regex("[ \\t\\u00A0]+")
@@ -25,6 +26,7 @@ data class ProcessedFoodLabelText(
                 allergens = declaration.joinToString("\n").ifEmpty { null },
                 mayContain = mayContain.joinToString("\n").ifEmpty { null },
                 rawMaterials = raw.joinToString("\n"),
+                hasLabelLine = declaration.isNotEmpty() || raw.any { "원재료" in it || it.count { c -> c == ',' } >= 2 },
             )
         }
     }

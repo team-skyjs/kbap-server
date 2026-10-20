@@ -138,10 +138,10 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                         it.path("charged").asBoolean() shouldBe false
                     }
                     label(token, id, "농심", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    long("SELECT COUNT(*) FROM scan_operation WHERE lifecycle = 'LABEL_RESULT' AND JSON_EXTRACT(request_document, '$.label.rawText') LIKE '%감자%'") shouldBe 1
                     label(token, id, "원재료명: 쌀, 정제소금, 효소").path("payload").path("charged").asBoolean() shouldBe false
                     label(token, id, "원재료명: 옥수수, 정제소금, 효소").path("payload").path("charged").asBoolean() shouldBe false
                     label(token, id, "원재료명: 보리, 정제소금, 효소", expected = 409).path("code").asText() shouldBe "PFOOD-007"
-                    long("SELECT COUNT(*) FROM scan_operation WHERE lifecycle = 'LABEL_RESULT' AND JSON_EXTRACT(request_document, '$.label.rawText') LIKE '%감자%'") shouldBe 1
                     scanCountOf(88305L) shouldBe 1
                     post("/api/processed-foods/scan/confirm", mapOf("analysisId" to id, "reportNo" to "PL-1"), token, expected = 409).path("code").asText() shouldBe "PFOOD-004"
                 }

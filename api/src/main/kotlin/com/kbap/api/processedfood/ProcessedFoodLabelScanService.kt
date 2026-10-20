@@ -38,7 +38,7 @@ class ProcessedFoodLabelScanService(
         val member = memberService.getMember(memberId)
         val text = ProcessedFoodLabelText.of(pages)
         val reading = IngredientLabelReader.read(text.allergens, text.rawMaterials.ifEmpty { null })
-        val readable = reading.detections.isNotEmpty() || reading.unmappedTokens.count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
+        val readable = text.hasLabelLine && reading.detections.isNotEmpty() || text.hasLabelLine && reading.unmappedTokens.count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
         val now = LocalDateTime.now()
         val operation = analysisId?.let { continued(memberId, it, now) }
         if (!readable) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ)
@@ -62,8 +62,13 @@ class ProcessedFoodLabelScanService(
         )
         val charged = target.usageRecordedAt == null
         if (charged) charge(memberId, key, target, member, now)
+        val previous = target.requestDocument["label"] as? Map<*, *>
+        val firstSucceededAt = previous?.get("firstSucceededAt") as? String ?: now.toString()
+        val recallCount = if (previous == null) 0 else (previous["recallCount"] as? Number)?.toInt()?.plus(1) ?: 1
         target.lifecycle = ProcessedFoodNameScanState.LABEL_RESULT.name
-        target.requestDocument = target.requestDocument + mapOf("label" to mapOf("rawText" to text.rawText, "pageCount" to pages.size))
+        target.requestDocument = target.requestDocument + mapOf(
+            "label" to mapOf("rawText" to text.rawText, "pageCount" to pages.size, "firstSucceededAt" to firstSucceededAt, "recallCount" to recallCount),
+        )
         val mayContain = text.mayContain?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
         return ProcessedFoodLabelScanResponse(
             analysisId = key.toString(),
@@ -84,7 +89,16 @@ class ProcessedFoodLabelScanService(
         val operation = (operations.findForUpdate(memberId, ProcessedFoodNameScanService.NAMESPACE, bytes) ?: operations.findForUpdate(memberId, NAMESPACE, bytes))
             ?.takeIf { now.isBefore(it.resultExpiresAt) }
             ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
-        if (ProcessedFoodNameScanState.valueOf(operation.lifecycle) !in CONTINUABLE) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_ALLOWED)
+        val state = ProcessedFoodNameScanState.valueOf(operation.lifecycle)
+        if (state !in CONTINUABLE) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_ALLOWED)
+        if (state == ProcessedFoodNameScanState.LABEL_RESULT) {
+            val label = operation.requestDocument["label"] as? Map<*, *>
+            val firstSucceededAt = (label?.get("firstSucceededAt") as? String)?.let(LocalDateTime::parse)
+            val recallCount = (label?.get("recallCount") as? Number)?.toInt() ?: 0
+            if (firstSucceededAt == null || !now.isBefore(firstSucceededAt.plus(FREE_RECALL_WINDOW)) || recallCount >= MAX_FREE_RECALLS) {
+                throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_ALLOWED)
+            }
+        }
         return operation
     }
 
@@ -120,6 +134,8 @@ class ProcessedFoodLabelScanService(
         private const val FX_STATE = "NONE"
         private const val LIMITS_VERSION = "pfood-label-1"
         private const val MIN_HANGUL_TOKENS = 2
+        private const val MAX_FREE_RECALLS = 3
+        private val FREE_RECALL_WINDOW: java.time.Duration = java.time.Duration.ofMinutes(30)
         private val CONTINUABLE = setOf(ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.REJECTED, ProcessedFoodNameScanState.LABEL_RESULT)
     }
 }
