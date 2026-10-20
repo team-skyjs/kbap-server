@@ -1,7 +1,6 @@
 package com.kbap.common.infra.publicdata
 
 import com.kbap.common.port.publicdata.FoodMakerLookup
-import com.kbap.common.port.publicdata.PublicDataCallException
 import tools.jackson.databind.JsonNode
 
 class DataGoKrFoodMakerLookup(
@@ -11,9 +10,8 @@ class DataGoKrFoodMakerLookup(
         val json = client.getJson(
             OPERATION, PATH, KEY_PARAM,
             mapOf("type" to "json", "pageNo" to 1, "numOfRows" to PAGE_SIZE, "ITEM_REPORT_NO" to reportNo),
+            SUCCESS,
         )
-        val resultCode = json.path("header").path("resultCode").asString()
-        if (resultCode != SUCCESS) throw PublicDataCallException("$OPERATION 실패 resultCode=$resultCode")
         val makers: List<String> = json.path("body").path("items").values().map { item: JsonNode -> item.path("MAKER_NM").asString().trim() }
         return makers.firstOrNull { maker: String -> maker.isNotEmpty() && maker != NO_VALUE }
     }

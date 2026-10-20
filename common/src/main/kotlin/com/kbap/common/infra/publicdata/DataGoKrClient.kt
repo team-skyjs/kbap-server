@@ -29,22 +29,37 @@ class DataGoKrClient internal constructor(
     override fun httpAttempts(): Long = attempts.get()
     private val mapper = JsonMapper.builder().build()
 
-    fun getJson(operation: String, path: String, keyParam: String, params: Map<String, Any>): JsonNode {
-        val body = try {
-            retryTemplate.execute<String> { fetch(path, keyParam, params) }
+    fun getJson(operation: String, path: String, keyParam: String, params: Map<String, Any>, successCode: String): JsonNode =
+        try {
+            retryTemplate.execute<JsonNode> { fetchChecked(operation, path, keyParam, params, successCode) }
         } catch (e: RetryException) {
-            throw PublicDataCallException("$operation 호출 실패(재시도 ${e.retryCount}회): ${describe(e.cause ?: e)}")
+            when (val cause = e.cause ?: e) {
+                is PublicDataCallException -> throw cause
+                is TransientResponseException -> throw PublicDataCallException("$operation 호출 실패(재시도 ${e.retryCount}회): ${cause.message}")
+                else -> throw PublicDataCallException("$operation 호출 실패(재시도 ${e.retryCount}회): ${describe(cause)}")
+            }
         }
+
+    private fun fetchChecked(operation: String, path: String, keyParam: String, params: Map<String, Any>, successCode: String): JsonNode {
+        val body = fetch(path, keyParam, params)
         val json = try {
             mapper.readTree(body)
         } catch (e: Exception) {
-            throw PublicDataCallException("$operation 응답이 JSON 이 아닙니다(${redact(body).take(BODY_SNIPPET)})")
+            throw TransientResponseException("응답이 JSON 이 아닙니다(${redact(body).take(BODY_SNIPPET)})")
         }
-        json.path("OpenAPI_ServiceResponse").path("cmmMsgHeader").path("errMsg").takeIf { !it.isMissingNode }?.let {
-            throw PublicDataCallException("$operation 거절: ${it.asString()}")
+        val rejection = json.path("OpenAPI_ServiceResponse").path("cmmMsgHeader")
+        if (!rejection.isMissingNode) {
+            val message = "거절 ${rejection.path("errMsg").asString()}(${rejection.path("returnReasonCode").asString()})"
+            if (rejection.path("returnReasonCode").asString() in TRANSIENT_CODES) throw TransientResponseException(message)
+            throw PublicDataCallException("$operation $message")
         }
-        return json
+        val resultCode = json.path("header").path("resultCode").asString()
+        if (resultCode == successCode) return json
+        if (resultCode in TRANSIENT_CODES) throw TransientResponseException("resultCode=$resultCode")
+        throw PublicDataCallException("$operation 실패 resultCode=$resultCode")
     }
+
+    private class TransientResponseException(message: String) : RuntimeException(message)
 
     private fun fetch(path: String, keyParam: String, params: Map<String, Any>): String {
         val variables = linkedMapOf<String, Any>(KEY_VARIABLE to serviceKey)
@@ -78,6 +93,7 @@ class DataGoKrClient internal constructor(
         private const val KEY_VARIABLE = "serviceKey"
         private const val MASK = "***"
         private const val BODY_SNIPPET = 120
+        private val TRANSIENT_CODES = setOf("01", "02", "04", "05", "23", "99")
         private val KEY_QUERY_VALUE = Regex("(?i)(service_?key=)[^&\\s\"'<>]*")
 
         fun defaultRetryPolicy(maxRetries: Long, initialDelay: Duration): RetryPolicy =
@@ -85,7 +101,10 @@ class DataGoKrClient internal constructor(
                 .maxRetries(maxRetries)
                 .delay(initialDelay)
                 .multiplier(2.0)
-                .predicate { it is ResourceAccessException || it is HttpServerErrorException || it is HttpClientErrorException.TooManyRequests }
+                .predicate {
+                    it is ResourceAccessException || it is HttpServerErrorException || it is HttpClientErrorException.TooManyRequests ||
+                        it is TransientResponseException
+                }
                 .build()
 
         fun create(baseUrl: String, serviceKey: String, retryPolicy: RetryPolicy): DataGoKrClient =

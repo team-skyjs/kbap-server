@@ -3,7 +3,6 @@ package com.kbap.common.infra.publicdata
 import com.kbap.common.port.publicdata.HaccpProduct
 import com.kbap.common.port.publicdata.HaccpProductPage
 import com.kbap.common.port.publicdata.HaccpProductSource
-import com.kbap.common.port.publicdata.PublicDataCallException
 import tools.jackson.databind.JsonNode
 
 class DataGoKrHaccpProductSource(
@@ -13,9 +12,8 @@ class DataGoKrHaccpProductSource(
         val json = client.getJson(
             OPERATION, PATH, KEY_PARAM,
             mapOf("prdkind" to foodType, "returnType" to "json", "pageNo" to pageNo, "numOfRows" to pageSize),
+            SUCCESS,
         )
-        val resultCode = json.path("header").path("resultCode").asString()
-        if (resultCode != SUCCESS) throw PublicDataCallException("$OPERATION 실패 resultCode=$resultCode")
         val body = json.path("body")
         val items: List<HaccpProduct> = body.path("items").values().mapNotNull { wrapper: JsonNode ->
             wrapper.path("item").takeIf { it.isObject }?.let(::toProduct)
