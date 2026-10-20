@@ -53,9 +53,23 @@ class ProcessedFoodLabelTextTest : BehaviorSpec({
             }
         }
         `when`("줄 끝이 쉼표·여는 괄호·가운뎃점이면(목록 계속)") {
-            then("다음 줄·다음 면과 이어 한 원재료 문장으로 본다") {
+            then("같은 면의 다음 줄과만 잇고, 면 경계는 잇지 않는다") {
                 val text = ProcessedFoodLabelText.of(listOf("원재료명: 밀가루(미국산,\n호주산), 백설탕·", "쇼트닝, 새우"))
-                text.rawMaterials shouldBe "원재료명: 밀가루(미국산, 호주산), 백설탕· 쇼트닝, 새우"
+                text.rawMaterials shouldBe "원재료명: 밀가루(미국산, 호주산), 백설탕·\n쇼트닝, 새우"
+            }
+        }
+        `when`("면 끝이 쉼표이고 다음 면이 함유 가능 문구면 — Codex P2") {
+            then("다음 면은 별도 문장이라 함유 가능으로 간다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 정제수, 새우,", "※땅콩 혼입 가능"))
+                text.rawMaterials shouldBe "원재료명: 정제수, 새우,"
+                text.mayContain shouldBe "※땅콩 혼입 가능"
+            }
+        }
+        `when`("원재료 줄 안에 ※·* 로 시작하는 문구가 이어 붙으면 — 공부 V8") {
+            then("※·* 앞에서 문장을 나눠 함유 가능 문구가 원재료에 섞이지 않는다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 정제수, 정제소금 ※땅콩 혼입 가능"))
+                text.rawMaterials shouldBe "원재료명: 정제수, 정제소금"
+                text.mayContain shouldBe "※땅콩 혼입 가능"
             }
         }
         `when`("여러 면에 같은 줄이 반복되거나 공백·전각만 다르면") {
