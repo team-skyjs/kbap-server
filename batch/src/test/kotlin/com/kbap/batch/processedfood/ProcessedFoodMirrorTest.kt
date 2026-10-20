@@ -185,6 +185,20 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
                 }
             }
 
+            `when`("유형은 모두 성공했고 보완만 전면 장애로 멈추면") {
+                then("그것만으로도 부분 완료다") {
+                    val many = (1..6).map { product("9300000000%03d".format(it), "봇면$it", "유탕면류", maker = "알수없음") }
+                    val lookup = FakeLookup(emptyMap())
+                    lookup.failing += many.map { it.reportNo }
+
+                    val summary = mirror(FakeSource(mapOf("유탕면" to many)), lookup, listOf("유탕면"), pageSize = 100).mirror()
+
+                    summary.failedTypes shouldBe emptyList()
+                    summary.makerLookupAborted shouldBe true
+                    summary.isPartial() shouldBe true
+                }
+            }
+
             `when`("유형 실패도 보완 중단도 없으면") {
                 then("부분 완료가 아니다") {
                     mirror(FakeSource(mapOf("유탕면" to ramen)), FakeLookup(emptyMap()), listOf("유탕면")).mirror().isPartial() shouldBe false
