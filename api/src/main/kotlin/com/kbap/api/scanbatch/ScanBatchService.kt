@@ -149,7 +149,8 @@ class ScanBatchService(
             operation.reservationState = RESERVATION_HELD
         }
         val token = bytesOf(UUID.randomUUID())
-        photo.claim(token, now.plus(ATTEMPT_LEASE))
+        val leaseUntil = minOf(now.plus(ATTEMPT_LEASE), operation.expiresAt)
+        photo.claim(token, leaseUntil)
         val attempt = attempts.save(
             ScanAttempt(
                 operationId = operation.id,
@@ -161,8 +162,8 @@ class ScanBatchService(
                 claimToken = token,
                 state = ATTEMPT_RUNNING,
                 startedAt = now,
-                deadlineAt = now.plus(ATTEMPT_LEASE),
-                leaseUntil = now.plus(ATTEMPT_LEASE),
+                deadlineAt = leaseUntil,
+                leaseUntil = leaseUntil,
             ),
         )
         return ScanBatchClaim(memberId, operation.id, photo.id, attempt.id, photo.attemptNo, token)
