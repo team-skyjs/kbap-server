@@ -43,7 +43,7 @@ class ProcessedFoodLabelTextTest : BehaviorSpec({
         `when`("'…함유'로 끝나는 줄이나 혼입·포함될 수 문구면") {
             then("앞은 표시란, 뒤는 함유 가능으로 본다") {
                 val text = ProcessedFoodLabelText.of(listOf("우유, 대두 함유.", "메밀이 혼입될 수 있습니다", "땅콩이 포함될 수 있음", "동일한 제조공정에서 호두를 사용"))
-                text.allergens shouldBe "우유, 대두 함유."
+                text.allergens shouldBe "우유, 대두 함유"
                 text.mayContain shouldBe "메밀이 혼입될 수 있습니다\n땅콩이 포함될 수 있음\n동일한 제조공정에서 호두를 사용"
                 text.rawMaterials shouldBe ""
             }

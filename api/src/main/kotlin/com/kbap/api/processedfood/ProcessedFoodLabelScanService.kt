@@ -35,6 +35,7 @@ class ProcessedFoodLabelScanService(
 
     @Transactional
     fun scanLabel(memberId: Long, analysisId: String?, pages: List<String>, language: String): ProcessedFoodLabelScanResponse {
+        if (analysisId == null) members.findByIdForUpdate(memberId)
         val member = memberService.getMember(memberId)
         val text = ProcessedFoodLabelText.of(pages)
         val reading = IngredientLabelReader.read(text.allergens, text.rawMaterials.ifEmpty { null })
