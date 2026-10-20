@@ -136,7 +136,7 @@ class CurationService(
     private fun all(releaseId: Long): List<CurationCollection> {
         val rows = collections.findByReleaseId(releaseId)
         if (rows.map { it.collectionKey }.toSet() != keys || rows.size != 3) unavailable()
-        return listOf("sights", "stations", "restaurants").map { key -> rows.single { it.collectionKey == key } }
+        return listOf("sights", "stations", "busan").map { key -> rows.single { it.collectionKey == key } }
     }
     private fun collection(key: String): CurationCollection = collections.findByCollectionKey(key) ?: throw BusinessException(ErrorCode.CURATION_NOT_FOUND)
     private fun locked(key: String, expected: Long): CurationCollection = (collections.lockByKey(key) ?: throw BusinessException(ErrorCode.CURATION_NOT_FOUND)).also { version(it, expected) }
@@ -183,5 +183,5 @@ class CurationService(
         if (errors.isNotEmpty()) throw BusinessException(ErrorCode.CURATION_PUBLICATION_INVALID, mapOf("errors" to errors, "version" to version))
     }
     private fun unavailable(): Nothing = throw BusinessException(ErrorCode.CURATION_UNAVAILABLE)
-    companion object { val keys = setOf("sights", "stations", "restaurants") }
+    companion object { val keys = setOf("sights", "stations", "busan") }
 }

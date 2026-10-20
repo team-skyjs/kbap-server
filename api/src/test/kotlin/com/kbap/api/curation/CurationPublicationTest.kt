@@ -12,6 +12,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
@@ -61,7 +62,7 @@ class CurationPublicationTest : BehaviorSpec() {
                 then("보존 스냅샷 셋을 공개 셋으로 오인하지 않는다") {
                     publish("sights"); publish("stations")
                     service.unpublish(adminId, "dev", "sights", service.getAdminDetail(adminId, "sights").version)
-                    publish("restaurants")
+                    publish("busan")
                     service.getIndex("en").state shouldBe "UNPUBLISHED"
                     shouldThrow<BusinessException> { service.getDetail("stations", "en") }.errorCode.code shouldBe "CURATION-001"
                     service.publish(adminId, "dev", "sights", service.getAdminDetail(adminId, "sights").version)
@@ -71,6 +72,23 @@ class CurationPublicationTest : BehaviorSpec() {
                     service.getIndex("en").state shouldBe "UNPUBLISHED"
                     service.getDetail("stations", "en").items.size shouldBe 10
                     shouldThrow<BusinessException> { service.getDetail("sights", "en") }.errorCode.code shouldBe "CURATION-001"
+                }
+            }
+        }
+        given("세 번째 모음 부산 명소(R-97)") {
+            `when`("세 모음을 게시하면") {
+                then("홈 카드는 sights·stations·busan 순서이고 옛 restaurants 키는 404 다") {
+                    shouldThrow<BusinessException> { service.getDetail("busan", "en") }.errorCode.code shouldBe "CURATION-001"
+                    CurationService.keys.forEach(::publish)
+                    service.getIndex("en").collections.map { it.collectionKey } shouldBe listOf("sights", "stations", "busan")
+                    service.getDetail("busan", "en").items.size shouldBe 10
+                    shouldThrow<BusinessException> { service.getDetail("restaurants", "en") }.errorCode.code shouldBe "CURATION-001"
+                    mvc.get("/api/curations/seoul/restaurants?lang=en") { header("X-API-Version", "1.0") }.andExpect { status { isNotFound() } }
+                }
+            }
+            `when`("DB 에 옛 restaurants 키를 쓰려 하면") {
+                then("키 CHECK 제약이 거절한다") {
+                    shouldThrow<DataAccessException> { jdbc.update("UPDATE curation_collection SET collection_key = 'restaurants' WHERE collection_key = 'busan'") }
                 }
             }
         }
@@ -204,20 +222,20 @@ class CurationPublicationTest : BehaviorSpec() {
 
             `when`("사진 표시 의무가 TEXT 로 게시되면") {
                 then("공개 카드·상세에 출처 문구를 내리고 NONE 사진은 null 이다") {
-                    val doc = documents.getValue("restaurants")
+                    val doc = documents.getValue("busan")
                     val credited = doc.cover!!.copy(rights = doc.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = "Photo: KTO / KOGL Type 1"))
-                    documents["restaurants"] = CurationFixtures.reviewed(doc.copy(cover = credited, items = listOf(doc.items.first().copy(image = credited)) + doc.items.drop(1)))
+                    documents["busan"] = CurationFixtures.reviewed(doc.copy(cover = credited, items = listOf(doc.items.first().copy(image = credited)) + doc.items.drop(1)))
                     val sights = documents.getValue("sights")
                     documents["sights"] = CurationFixtures.reviewed(sights.copy(cover = sights.cover!!.copy(rights = sights.cover!!.rights.copy(attributionText = "leftover"))))
                     CurationService.keys.forEach(::publish)
 
                     val cards = service.getIndex("en").collections.associateBy { it.collectionKey }
-                    cards.getValue("restaurants").coverImageAttribution shouldBe "Photo: KTO / KOGL Type 1"
+                    cards.getValue("busan").coverImageAttribution shouldBe "Photo: KTO / KOGL Type 1"
                     cards.getValue("sights").coverImageAttribution shouldBe null
-                    val detail = service.getDetail("restaurants", "en")
+                    val detail = service.getDetail("busan", "en")
                     detail.coverImageAttribution shouldBe "Photo: KTO / KOGL Type 1"
                     detail.items.map { it.imageAttribution } shouldBe listOf("Photo: KTO / KOGL Type 1") + List(9) { null }
-                    mvc.get("/api/curations/seoul/restaurants?lang=en") { header("X-API-Version", "1.0") }.andExpect {
+                    mvc.get("/api/curations/seoul/busan?lang=en") { header("X-API-Version", "1.0") }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.coverImageAttribution") { value("Photo: KTO / KOGL Type 1") }
                         jsonPath("$.payload.items[0].imageAttribution") { value("Photo: KTO / KOGL Type 1") }

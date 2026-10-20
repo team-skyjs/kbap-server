@@ -2,7 +2,7 @@
 
 작성: 2026-10-15 KST. **설계 검토용이며 미구현이다. 아래 신규 경로·필드·오류 코드·테이블은 dev Swagger에 존재하지 않는 제안이다.**
 
-확정 범위는 서울 관광지·역·식당 3모음, 모음당 10항목, 기존 10로케일, 항목당 외부 동작 1개다. 디자인 승인은 콘텐츠·사진 권리·API·DB 적용·배포·게시 승인이 아니다. KB-794는 이 문서 검토 뒤 별도 구현 발주한다.
+확정 범위는 서울 관광지·역 + 부산 명소 3모음(2026-10-20 R-97·KB-825 — 세 번째 모음을 식당에서 부산 명소로 교체), 모음당 10항목, 기존 10로케일, 항목당 외부 동작 1개다. 디자인 승인은 콘텐츠·사진 권리·API·DB 적용·배포·게시 승인이 아니다. KB-794는 이 문서 검토 뒤 별도 구현 발주한다.
 
 ## 1. 결론과 근거 수준
 
@@ -66,14 +66,14 @@
 
 | 정보 | 제안 규칙 |
 |---|---|
-| collectionKey | `sights`, `stations`, `restaurants` 고정 3값. 홈 순서도 이 순서. 생성/분야 추가 API 없음 |
+| collectionKey | `sights`, `stations`, `busan` 고정 3값(KB-825 — 구 `restaurants` 는 마이그레이션으로 `busan` 으로 바뀌었고 404). 홈 순서도 이 순서. 생성/분야 추가 API 없음. DB `ck_curation_collection_key` CHECK 가 같은 3값을 강제 |
 | entryId | 모음 안에서 유지하는 UUID. 편집/분석 식별자이며 food_id·기존 place 검색 ID가 아님. 최초 편집 때 생성, 변경·재정렬 때 유지 |
 | 순서 | items 배열 순서가 단일 출처. 공개 position은 서버가 1부터 계산. position 필드의 별도 쓰기를 받지 않음 |
 | placeIdentity | 내부 canonicalName + locationDiscriminator(주소/지점 또는 공식 역명·운영기관 등의 식별 근거). 역 주소가 조사 미확인이라는 이유로 가짜 주소를 만들지 않음 |
 | 중복 | 같은 entryId, 정규화한 canonicalName/locationDiscriminator, 같은 정규화 외부 URL의 반복은 게시 차단. 다국어 별칭만 다른 동일 장소는 운영 확인도 필요. 자동 지오코딩/동일 장소 추론 없음 |
 | 모음 | title/description의 로케일 map, cover(assetId+rights), items |
 | 항목 | name/area/introduction/recommendationReason의 로케일 map, image(assetId+rights), externalUrl 하나, nearby 배열, 내부 evidence |
-| nearby | 역만 2~3개. `{nearbyId, label:{locale:text}}`의 순서 있는 값 배열. 공개 응답은 문자열 배열. 관광지/식당은 빈 배열 |
+| nearby | 역만 2~3개. `{nearbyId, label:{locale:text}}`의 순서 있는 값 배열. 공개 응답은 문자열 배열. 관광지/부산 명소는 빈 배열 |
 | 내부 evidence | researchSources[], checkedOn, placeIdentity, externalLinkReview(URL·최종 목적지·확인일), editorialNotes, 게시 전 콘텐츠 확인 기록 |
 | rights | basis(직접 촬영/허락/라이선스), sourceOrEvidenceRef, rightsHolder, permittedUse, checkedOn, attributionRequirement/text. 서버는 근거의 존재와 확인 기록을 검증할 뿐 권리의 법적 유효성을 자동 판정하지 않음 |
 

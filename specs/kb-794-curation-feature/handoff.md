@@ -4,7 +4,7 @@
 
 ## 공개 조회
 
-GET `/api/curations/seoul?lang=en`, GET `/api/curations/seoul/{sights|stations|restaurants}?lang=en`. Authorization 불필요. lang/버전헤더 누락과 blank400, 미지원lang→en. 모든 응답 no-store. 기존 /api/home 계약 무변.
+GET `/api/curations/seoul?lang=en`, GET `/api/curations/seoul/{sights|stations|busan}?lang=en`(KB-825 — 세 번째 모음 부산 명소, 구 restaurants 404). Authorization 불필요. lang/버전헤더 누락과 blank400, 미지원lang→en. 모든 응답 no-store. 기존 /api/home 계약 무변.
 
 index payload: state(PUBLISHED/UNPUBLISHED), sectionVersion, requestedLang(원 요청), resolvedLang, fallbackUsed, collections. 정상게시3카드/정상미게시0카드이며 null/2카드 성공은 없다. 카드 title/description/coverImageUrl/coverImageAttribution(nullable, KB-823)/itemCount10/publishedRevision. 상세는 collectionKey/title/description/coverImageUrl/coverImageAttribution(nullable, KB-823)/itemCount/publishedRevision/publishedAt/lang정보/items를 제공한다. 항목entryId/position1부터/name/area/introduction/recommendationReason/imageUrl/imageAttribution(nullable, KB-823)/externalUrl/nearby 문자열배열. 내부증빙·foodId·위험도·credit 없음.
 
