@@ -13,7 +13,7 @@ object CurationFixtures {
             val url = "https://example.invalid/$key/$i"
             CurationEntry(UUID.nameUUIDFromBytes("$key/$i".toByteArray()).toString(), text("name$i"), text("area$i"), text("intro$i"), text("reason$i"), photo, url,
                 if (key == "stations") (1..2).map { CurationNearby("n$it", text("nearby$it")) } else emptyList(),
-                CurationEvidence(CurationPlaceIdentity("place$i", "location$i"), listOf("synthetic research"), today, CurationLinkReview(url, url, today)))
+                CurationEvidence(CurationPlaceIdentity("place$i", "location$i"), listOf("https://example.invalid/research/$key/$i"), today, CurationLinkReview(url, url, today)))
         })
         return reviewed(document)
     }
