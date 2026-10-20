@@ -46,6 +46,16 @@ class CurationValidationTest : BehaviorSpec({
                 validator.validate("sights", withImages(first.image!!, photo(2), photo(2))).map { it.reason } shouldContain "GALLERY_INVALID"
             }
         }
+        `when`("JSON 사진 목록에 null 원소가 오면 — Codex P2") {
+            then("500 없이 그 항목 갤러리 경로(items[i].images)의 GALLERY_INVALID 다") {
+                val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                val tree = mapper.valueToTree<com.fasterxml.jackson.databind.node.ObjectNode>(withImages(first.image!!, photo(2)))
+                (tree.path("items")[0].path("images") as com.fasterxml.jackson.databind.node.ArrayNode).addNull()
+                val doc = mapper.treeToValue(tree, CurationDocument::class.java)
+                validator.structure(doc).map { it.path to it.reason } shouldContain ("items[0].images" to "GALLERY_INVALID")
+                validator.validate("sights", doc).map { it.path to it.reason } shouldContain ("items[0].images" to "GALLERY_INVALID")
+            }
+        }
         `when`("사진이 10장을 넘으면") {
             then("그 항목 갤러리 경로(items[i].images)의 DOCUMENT_LIMIT 로 막는다") {
                 validator.validate("sights", withImages(first.image!!, *(2L..11L).map { photo(it) }.toTypedArray())).map { it.path to it.reason } shouldContain ("items[0].images" to "DOCUMENT_LIMIT")
