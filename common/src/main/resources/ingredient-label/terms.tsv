@@ -36,6 +36,12 @@
 렌넷	RENNET	contains
 꿀	HONEY	exact
 벌꿀	HONEY	contains
+아카시아꿀	HONEY	contains
+사양꿀	HONEY	contains
+잡화꿀	HONEY	contains
+야생화꿀	HONEY	contains
+밤꿀	HONEY	contains
+꿀분말	HONEY	contains
 코치닐	CARMINE	contains
 카민	CARMINE	contains
 땅콩	PEANUT	contains
@@ -74,6 +80,7 @@
 듀럼밀	WHEAT	contains
 세몰리나	WHEAT	contains
 메밀	BUCKWHEAT	contains
+메밀가루	BUCKWHEAT	block
 보리	BARLEY	contains
 맥아	BARLEY	contains
 엿기름	BARLEY	contains
@@ -173,7 +180,7 @@
 달래	WILD_CHIVE	contains
 흥거	ASAFOETIDA	contains
 아사페티다	ASAFOETIDA	contains
-주정	ALCOHOL	exact
+주정	ALCOHOL	contains
 에탄올	ALCOHOL	exact
 알코올	ALCOHOL	exact
 청주	ALCOHOL	exact
