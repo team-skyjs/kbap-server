@@ -163,7 +163,7 @@ class CurationService(
     }
     private fun published(row: CurationCollection): CurationDocument {
         val doc = row.publishedDocument ?: unavailable()
-        if (doc.items.size != CurationValidation.ITEM_COUNT || assetIssues(row, doc, false, true).isNotEmpty()) unavailable()
+        if (doc.items.size != CurationValidation.ITEM_COUNT || validation.photos(doc).any { it.photo == null } || assetIssues(row, doc, false, true).isNotEmpty()) unavailable()
         return doc
     }
     private fun resolveLanguage(docs: List<CurationDocument>, requested: String, cardsOnly: Boolean): String {
