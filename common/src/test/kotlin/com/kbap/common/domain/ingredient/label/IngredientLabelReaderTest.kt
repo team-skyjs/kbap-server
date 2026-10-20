@@ -207,6 +207,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
         `when`("무알콜·비알코올 표기이면 — Codex P2") {
             then("알코올로 검출하지 않는다 — 에틸알콜·발효주정은 그대로") {
                 codes(IngredientLabelReader.read(null, "무알콜음료, 무알코올, 비알콜, 비알코올맥주맛, 논알콜")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "무주정, 무에탄올, 비에탄올")) shouldBe emptySet()
                 codes(IngredientLabelReader.read(null, "에틸알콜, 발효주정")) shouldBe setOf(IngredientCode.ALCOHOL)
             }
         }
