@@ -308,6 +308,29 @@ class ScanBatchTest : BehaviorSpec() {
                     io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> { batches.startAttempt(exhausted.id, exhaustedBatch, 0) }.errorCode shouldBe com.kbap.common.core.error.ErrorCode.SCAN_LIMIT_EXCEEDED
                 }
             }
+            `when`("실행 창이 지난 묶음을 취소하면 — Codex P2") {
+                then("EXPIRED 상태와 사진은 그대로 두고 예약만 정리한다") {
+                    val owner = member("batch-expired-cancel")
+                    val batchId = newBatch(owner)
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 1 HOUR WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    val payload = cancel(owner, batchId).path("payload")
+                    payload.path("lifecycle").asText() shouldBe "EXPIRED"
+                    payload.path("photos").map { it.path("state").asText() } shouldBe listOf("PENDING", "PENDING")
+                    sql("SELECT COUNT(*) FROM scan_operation WHERE lifecycle = 'ACTIVE' AND request_key = UUID_TO_BIN('$batchId', 0)") shouldBe 1
+                    reserved(owner, batchId) shouldBe false
+                }
+            }
+            `when`("실행 창이 거의 끝날 때 전부 실패 뒤 재시도하면 — Codex P2") {
+                then("다시 잡는 예약은 남은 실행 창까지만 유지된다") {
+                    val owner = member("batch-retry-ttl")
+                    val batchId = UUID.fromString(newBatch(owner, count = 1))
+                    batches.recordFailure(batches.startAttempt(owner.id, batchId, 0)!!, "RECOGNITION_FAILED")
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 14 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    batches.startAttempt(owner.id, batchId, 0) shouldNotBe null
+                    val expiresInMillis = redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId")!!.toLong() - System.currentTimeMillis()
+                    (expiresInMillis <= Duration.ofSeconds(70).toMillis()) shouldBe true
+                }
+            }
             `when`("결과 전에 취소하면") {
                 then("0회, 사진은 CANCELLED, 늦게 온 결과는 버려진다") {
                     val owner = member("batch-cancel")
