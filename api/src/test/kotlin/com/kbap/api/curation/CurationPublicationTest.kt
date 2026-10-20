@@ -186,17 +186,33 @@ class CurationPublicationTest : BehaviorSpec() {
                 }
             }
         }
-        given("게시 스냅샷 무결성 — Codex P2") {
-            `when`("게시 뒤 번역은 모두 있는 채 한 언어 제목만 바뀌면(편집 해시 불일치)") {
-                then("검토되지 않은 내용을 내지 않고 503(CURATION-006) 이다 — 번역 누락이 설명하는 불일치만 영어 폴백으로 허용") {
+        given("공개 읽기 검사 범위 — 공부 세션 지적") {
+            `when`("게시 뒤 저장본이 지금 규칙과 달라져도(편집 해시 불일치·모델에 없는 필드 추가 — 규칙·모델 변경 시뮬)") {
+                then("화면에 필요한 것(10항목·언어·READY 사진)만 보므로 공개 GET 은 200 이다") {
                     CurationService.keys.forEach(::publish)
                     val doc = documents.getValue("sights")
                     val mapper = jacksonObjectMapper()
-                    jdbc.update("UPDATE curation_collection SET published_document=? WHERE collection_key='sights'", mapper.writeValueAsString(doc.copy(title = doc.title + ("ja" to "ja 바뀐 제목"))))
+                    val changed = mapper.valueToTree<com.fasterxml.jackson.databind.node.ObjectNode>(doc.copy(title = doc.title + ("en" to "en 바뀐 제목")))
+                    changed.put("futureField", "모델 확장 시뮬")
+                    jdbc.update("UPDATE curation_collection SET published_document=? WHERE collection_key='sights'", mapper.writeValueAsString(changed))
 
-                    shouldThrow<BusinessException> { service.getIndex("ja") }.errorCode.code shouldBe "CURATION-006"
-                    shouldThrow<BusinessException> { service.getDetail("sights", "en") }.errorCode.code shouldBe "CURATION-006"
-                    mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }.andExpect { status { isServiceUnavailable() } }
+                    service.getIndex("en").collections.first { it.collectionKey == "sights" }.title shouldBe "en 바뀐 제목"
+                    service.getDetail("sights", "en").items.size shouldBe 10
+                    mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }.andExpect { status { isOk() } }
+                }
+            }
+
+            `when`("편집 해시가 내용과 맞지 않는 초안을 게시하려 하면") {
+                then("게시 시점 검증이 CURATION-002(EDITORIAL_REVIEW_MISSING)로 막는다") {
+                    val d = service.getAdminDetail(adminId, "sights")
+                    val doc = documents.getValue("sights")
+                    val stale = doc.copy(title = doc.title + ("en" to "en 검토 뒤 바뀐 제목"))
+                    val saved = service.updateDraft(adminId, "dev", "sights", d.version, stale)
+
+                    val error = shouldThrow<BusinessException> { service.publish(adminId, "dev", "sights", saved.version) }
+
+                    error.errorCode.code shouldBe "CURATION-002"
+                    error.payload.toString().contains("EDITORIAL_REVIEW_MISSING") shouldBe true
                 }
             }
         }
