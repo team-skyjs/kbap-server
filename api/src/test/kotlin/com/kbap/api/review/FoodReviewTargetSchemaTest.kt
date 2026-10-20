@@ -91,13 +91,14 @@ class FoodReviewTargetSchemaTest : BehaviorSpec() {
                 }
             }
             `when`("타입과 대상 컬럼이 어긋나면") {
-                then("CHECK 제약이 막는다(3819) — 둘 다·둘 다 없음·타입 반대") {
+                then("CHECK 제약이 막는다(3819) — 비정상 6조합 전부: 둘 다·둘 다 없음·타입 반대") {
                     listOf(
                         Triple("FOOD", true, true),
                         Triple("FOOD", false, false),
                         Triple("FOOD", false, true),
                         Triple("PROCESSED_FOOD", true, false),
                         Triple("PROCESSED_FOOD", true, true),
+                        Triple("PROCESSED_FOOD", false, false),
                     ).forEach { (type, withFood, withProduct) ->
                         withRollback { c ->
                             val (foodId, productId) = c.seedTargets()
