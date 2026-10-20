@@ -1,6 +1,9 @@
 package com.kbap.api.bookmark
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.SearchPage
+import com.kbap.api.food.FoodListingRequest
+import com.kbap.api.food.FOOD_LISTING_DESCRIPTION
 import com.kbap.api.core.Page
 import com.kbap.api.core.config.ApiErrors
 import com.kbap.api.food.FoodSummaryResponse
@@ -21,6 +24,13 @@ import org.springframework.http.ResponseEntity
 @Tag(name = "북마크", description = "음식 북마크 등록·취소·목록 조회 API")
 @SecurityRequirement(name = "bearerAuth")
 interface BookmarkApi {
+    @Operation(summary = "저장 음식 정렬 조회 (3.1+)", description = FOOD_LISTING_DESCRIPTION + " 회원 본인의 저장 목록만 조회한다. 기본순은 bookmarkId 내림차순이다.")
+    @ApiErrors(ErrorCode.INVALID_CURSOR, ErrorCode.FOOD_LISTING_STALE)
+    fun listSorted(
+        @ParameterObject request: FoodListingRequest,
+        memberId: Long,
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>>
+
     @Operation(
         summary = "음식 북마크 등록",
         description = """

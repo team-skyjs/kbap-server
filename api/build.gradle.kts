@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    "implementation"(libs.icu4j)
     "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
