@@ -57,6 +57,13 @@ data class ScanBatchClaim(
 
 data class ScanBatchPhotoInput(val photoId: UUID, val imagePath: String)
 
+data class ScanBatchOrderPlan(
+    val operationId: Long,
+    val resultRevision: Long,
+    val photos: List<ScanOperationPhoto>,
+    val itemOccurrenceIds: List<List<Long>>,
+)
+
 @Service
 class ScanBatchService(
     private val operations: ScanOperationJpaRepository,
@@ -142,6 +149,25 @@ class ScanBatchService(
             ?.takeIf { now.isBefore(it.resultExpiresAt) }
             ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
         return viewOf(operation, now)
+    }
+
+    @Transactional(readOnly = true)
+    fun planOrder(memberId: Long, batchId: String, items: List<Pair<String?, Long>>): ScanBatchOrderPlan {
+        requireEnabled()
+        val operation = parse(batchId)?.let { operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(it)) }
+            ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
+        if (!LocalDateTime.now().isBefore(operation.resultExpiresAt)) throw BusinessException(ErrorCode.SCAN_BATCH_RESULT_EXPIRED)
+        if (operation.usageRecordedAt == null) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (items.map { it.first?.lowercase() }.distinct().size != items.size) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val itemsByPublicId = mergedItems.findByOperationId(operation.id).associateBy { uuidOf(it.publicId).toString() }
+        val sourcesByItem = occurrences.findByOperationId(operation.id).groupBy { it.mergedItemId }
+        val itemOccurrenceIds = items.map { (mergedItemId, foodId) ->
+            val item = mergedItemId?.lowercase()?.let(itemsByPublicId::get) ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+            val sources = sourcesByItem[item.id].orEmpty()
+            if (sources.mapNotNull { it.matchedFoodId }.distinct().singleOrNull() != foodId) throw BusinessException(ErrorCode.INVALID_REQUEST)
+            sources.map { it.id }
+        }
+        return ScanBatchOrderPlan(operation.id, operation.resultRevision, photos.findByOperationIdOrderBySelectionIndex(operation.id), itemOccurrenceIds)
     }
 
     @Transactional
@@ -370,8 +396,9 @@ class ScanBatchService(
             .mapNotNull { item -> rowsByItem[item.id]?.sortedWith(compareBy({ photosById.getValue(it.photoRowId).selectionIndex }, { it.rowIndex }))?.let { item to it } }
             .sortedWith(compareBy({ (_, sources) -> photosById.getValue(sources.first().photoRowId).selectionIndex }, { (_, sources) -> sources.first().rowIndex }))
             .map { (item, sources) ->
-                val food = sources.mapNotNull { it.matchedFoodId }.distinct().singleOrNull()?.let(foodsById::get)?.takeIf { it.isReady() }
-                ScanBatchItemResponse.of(item, food, food?.overallRisk(avoided), language, sources.map { photosById.getValue(it.photoRowId) to it.rowIndex })
+                val foodId = sources.mapNotNull { it.matchedFoodId }.distinct().singleOrNull()
+                val ready = foodId?.let(foodsById::get)?.takeIf { it.isReady() }
+                ScanBatchItemResponse.of(item, foodId, ready, ready?.overallRisk(avoided), language, sources.map { photosById.getValue(it.photoRowId) to it.rowIndex })
             }
     }
 

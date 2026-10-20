@@ -46,7 +46,7 @@ class ScanFacade(
                 throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             }
             val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, substituteSimilar = true)
-            memberService.increaseScanCount(memberId)
+            memberService.increaseScanCountWithinLimit(memberId)
             releaseReservationQuietly(memberId, jti)
             return result
         } catch (e: Exception) {
