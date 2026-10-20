@@ -126,6 +126,24 @@ class ScanBatchRunTest : BehaviorSpec() {
                     retry(member(), batchId, 0, expected = 404).path("code").asText() shouldBe "SCAN-010"
                 }
             }
+            `when`("같은 사진이 시도 상한(3회)만큼 실패하면 — 보안 리뷰") {
+                then("더 재시도할 수 없어 409 SCAN-011 이고 retryable=false(무차감 유료 호출 무한 반복 차단)") {
+                    val owner = member()
+                    val (broken) = paths(owner, 1)
+                    vision.failOn(broken)
+                    val batchId = create(owner, listOf(broken))
+                    settled(owner, batchId)
+                    repeat(2) {
+                        retry(owner, batchId, 0)
+                        settled(owner, batchId)
+                    }
+                    val photo = read(owner, batchId).path("photos")[0]
+                    photo.path("attemptNo").asInt() shouldBe 3
+                    photo.path("retryable").asBoolean() shouldBe false
+                    retry(owner, batchId, 0, expected = 409).path("code").asText() shouldBe "SCAN-011"
+                    vision.calls.get() shouldBe 3
+                }
+            }
             `when`("모든 사진이 비전 장애로 실패하면") {
                 then("0회·예약 해제, 재시도는 다시 예약한다") {
                     val owner = member()
