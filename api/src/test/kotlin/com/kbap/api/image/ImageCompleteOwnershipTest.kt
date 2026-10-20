@@ -192,6 +192,35 @@ class ImageCompleteOwnershipTest : BehaviorSpec() {
                 }
             }
 
+            `when`("게스트가 같은 키로 완료 신고를 동시에 두 번 보내면(게스트 쿼터 경유) — #419 Codex 지적") {
+                then("둘 다 200, 행 1, 삭제 0 — 진 쪽 save 의 unique 위반이 바깥 트랜잭션을 rollback-only 로 만들지 않는다") {
+                    val installation = "owner-guest-race-${UUID.randomUUID().toString().take(8)}"
+                    val guestKey = issued(owner = PresignedUploadService.guestOwnerKey(installation), purpose = "feedback", ext = "webp")
+                    storage.stub(guestKey, "image/webp", 1024)
+                    storage.headDelayMillis = 700
+                    val start = java.util.concurrent.CountDownLatch(1)
+                    val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
+                    val responses = try {
+                        val futures = (1..2).map {
+                            pool.submit(java.util.concurrent.Callable {
+                                start.await()
+                                complete(null, guestKey, "image/webp", 1024, installation = installation)
+                            })
+                        }
+                        start.countDown()
+                        futures.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+                    } finally {
+                        pool.shutdownNow()
+                    }
+
+                    responses.map { it.status } shouldBe listOf(200, 200)
+                    responses.map { mapper.readTree(it.contentAsString).path("payload").path("path").asText() }.toSet() shouldBe setOf(guestKey)
+                    storage.headCalls.count { it == guestKey } shouldBe 2
+                    storage.deleted.size shouldBe 0
+                    rows(guestKey) shouldBe 1
+                }
+            }
+
             `when`("발급 형식이지만 접두가 다른 환경의 키로 신고하면") {
                 then("400 UPLOAD-004 — 이 서버가 발급한 접두만 받는다") {
                     val foreign = "other-env/images/scans/2026/10/16_${UUID.randomUUID()}.jpg"

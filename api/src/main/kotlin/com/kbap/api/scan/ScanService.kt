@@ -73,7 +73,11 @@ class ScanService(
 
         val resolved = resolveFoods(extracted)
         val foodsByMatchKey = resolved.foods
-        val similarByName = if (substituteSimilar) similarFoodService.resolveSimilarFoods(resolved.registeredNames) else emptyMap()
+        val similarByMatchKey = if (substituteSimilar) {
+            similarFoodService.resolveSimilarFoods(resolved.registeredNames).mapKeys { (name, _) -> KoreanMenuNameNormalizer.matchKey(name) }
+        } else {
+            emptyMap()
+        }
         val avoidance = member.profile.avoidance()
         val orderedAvoidedCodes = avoidance.chosen.sortedBy { it.ordinal }
         val avoidedCodes = avoidance.codeNames
@@ -82,7 +86,7 @@ class ScanService(
         val usedIdxes = mutableSetOf<Int>()
 
         val items = extracted.map { menu ->
-            val similar = similarByName[menu.koreanName]
+            val similar = similarByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val food = similar ?: foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
