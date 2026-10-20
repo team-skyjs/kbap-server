@@ -73,6 +73,9 @@ data class OrderDetailResponse(
     )
     val scanImageUrl: String?,
 
+    @field:Schema(description = "주문의 원본 메뉴판 사진 전부(선택 순서) — 여러 장 스캔 묶음 주문은 묶음의 모든 사진(인식 실패 사진 포함), 단일 스캔 주문은 scanImageUrl 한 장, 사진 없는 주문은 빈 목록")
+    val scanImageUrls: List<String> = emptyList(),
+
     @field:Schema(description = "주문한 메뉴별 내역 — 주문 시점 스냅샷")
     val items: List<OrderItemResponse>,
 

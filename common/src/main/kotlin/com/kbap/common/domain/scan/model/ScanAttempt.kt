@@ -53,8 +53,12 @@ class ScanAttempt(
 
     @Column(name = "failure_kind", length = 64)
     var failureKind: String? = null,
+
+    @Column(name = "call_slot_held", nullable = false)
+    var callSlotHeld: Boolean = false,
 ) : BaseEntity() {
     fun finish(state: String, failureKind: String?, at: LocalDateTime) {
+        callSlotHeld = false
         this.state = state
         this.failureKind = failureKind
         finishedAt = at

@@ -88,6 +88,9 @@ enum class ErrorCode(
     SCAN_RATE_LIMITED("SCAN-008", 503, "일시적으로 요청이 많습니다. 잠시 후 다시 시도해 주세요"),
     SCAN_BATCH_TOO_MANY_PHOTOS("SCAN-009", 400, "한 번에 최대 10장까지 스캔할 수 있어요"),
     SCAN_BATCH_NOT_FOUND("SCAN-010", 404, "스캔 묶음을 찾을 수 없거나 만료되었습니다"),
+    SCAN_BATCH_PHOTO_NOT_RETRYABLE("SCAN-011", 409, "지금은 다시 시도할 수 없는 사진이에요"),
+    SCAN_BATCH_ATTEMPT_LIMIT("SCAN-012", 429, "오늘은 스캔 시도가 너무 많아요. 잠시 후 다시 시도해 주세요"),
+    SCAN_BATCH_RESULT_EXPIRED("SCAN-013", 410, "보관 기간이 지난 스캔 묶음이에요. 새로 스캔해 주세요"),
 
     MARKETING_CONSENT_REQUIRED("NOTIFICATION-001", 400, "K-Bap 소식 수신 동의 후 설정할 수 있습니다"),
     NOTIFICATION_NOT_FOUND("NOTIFICATION-002", 404, "해당 알림을 찾을 수 없습니다"),

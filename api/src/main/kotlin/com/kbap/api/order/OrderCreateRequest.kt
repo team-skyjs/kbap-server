@@ -49,7 +49,19 @@ data class OrderCreateRequest(
         nullable = true,
     )
     val lang: String? = null,
+
+    @field:Schema(
+        description = "여러 장 스캔 묶음 id(3.3) — 주어지면 묶음의 모든 원본 사진이 주문에 붙고 항목마다 mergedItemId 가 필요하다. imagePath 와 함께 보낼 수 없다. 묶음당 주문 1회",
+        example = "0b6b5c6e-3f0a-4c8e-9a51-1f0f3b7d2a10",
+        nullable = true,
+    )
+    val batchId: String? = null,
 ) {
+    @get:jakarta.validation.constraints.AssertTrue(message = "batchId 와 imagePath 는 함께 보낼 수 없고, mergedItemId 는 batchId 와 함께만 보낸다")
+    @get:Schema(hidden = true)
+    val batchFieldsConsistent: Boolean
+        get() = if (batchId == null) items.all { it.mergedItemId == null } else imagePath == null
+
     @get:jakarta.validation.constraints.AssertTrue(message = "latitude·longitude 는 함께 보내거나 함께 생략해야 합니다")
     @get:Schema(hidden = true)
     val coordinatesComplete: Boolean
@@ -93,6 +105,9 @@ data class OrderItemRequest(
     @field:Max(value = MAX_PRICE, message = "price 는 $MAX_PRICE 이하여야 합니다")
     @field:Schema(description = "단가 스냅샷(원화). 스캔에서 가격 미인식이면 생략", example = "9000", nullable = true)
     val price: Int? = null,
+
+    @field:Schema(description = "여러 장 스캔 묶음의 병합 행 id(batchId 와 함께) — 그 행의 모든 사진·행 출처가 주문 항목에 남는다", nullable = true)
+    val mergedItemId: String? = null,
 ) {
     fun toItem(orderId: Long): OrderItem =
         OrderItem.place(orderId = orderId, foodId = foodId!!, menuName = menuName!!, quantity = quantity!!, price = price)
