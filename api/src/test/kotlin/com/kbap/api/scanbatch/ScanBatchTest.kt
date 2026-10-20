@@ -438,6 +438,28 @@ class ScanBatchTest : BehaviorSpec() {
                     sql("SELECT COUNT(*) FROM scan_attempt a JOIN scan_operation o ON o.id = a.operation_id WHERE a.id = ${claim.attemptId} AND a.lease_until <= o.expires_at AND a.deadline_at <= o.expires_at") shouldBe 1
                 }
             }
+            `when`("일일 상한 직전(29회)에 두 시도가 동시에 시작하면 — 공부(#439)") {
+                then("(서로 다른 묶음이라 묶음 잠금으로 줄 서지 않아도) 상한 확인이 전역 슬롯 잠금 뒤에 있어 하나만 시작되고 나머지는 SCAN-012") {
+                    val owner = member("batch-cap-race")
+                    val batchId = UUID.fromString(newBatch(owner, count = 1))
+                    val others = listOf(UUID.fromString(newBatch(owner, count = 1)), UUID.fromString(newBatch(owner, count = 1)))
+                    val seed = batches.startAttempt(owner.id, batchId, 0)!!
+                    batches.recordFailure(seed, "RECOGNITION_FAILED")
+                    sql("""INSERT INTO scan_attempt (operation_id, member_id, photo_row_id, unit_key, phase, target_manifest_revision, attempt_no, claim_token, reservation_epoch, state, started_at, deadline_at, lease_until)
+                        SELECT a.operation_id, a.member_id, a.photo_row_id, CONCAT('seed:', n.n), a.phase, 1, 1, a.claim_token, 0, 'FAILED', a.started_at, a.deadline_at, a.lease_until
+                        FROM scan_attempt a JOIN (WITH RECURSIVE s(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM s WHERE n < 28) SELECT n FROM s) n WHERE a.id = ${seed.attemptId}""")
+                    dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        holder.createStatement().use { it.executeQuery("SELECT id FROM scan_runtime_control WHERE singleton_key = 1 FOR UPDATE").close() }
+                        val pool = Executors.newFixedThreadPool(2)
+                        val futures = others.map { other -> pool.submit<String> { runCatching { batches.startAttempt(owner.id, other, 0) }.fold({ if (it != null) "CLAIMED" else "NULL" }, { (it as? com.kbap.common.core.error.BusinessException)?.errorCode?.code ?: it.javaClass.simpleName }) } }
+                        Thread.sleep(500)
+                        holder.rollback()
+                        futures.map { it.get(10, TimeUnit.SECONDS) }.sorted() shouldBe listOf("CLAIMED", "SCAN-012")
+                        pool.shutdown()
+                    }
+                }
+            }
             `when`("결과 전에 취소하면") {
                 then("0회, 사진은 CANCELLED, 늦게 온 결과는 버려진다") {
                     val owner = member("batch-cancel")
