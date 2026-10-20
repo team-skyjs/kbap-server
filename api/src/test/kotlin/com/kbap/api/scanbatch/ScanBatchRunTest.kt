@@ -42,6 +42,7 @@ class ScanBatchRunTest : BehaviorSpec() {
     @Autowired private lateinit var redis: StringRedisTemplate
     @Autowired private lateinit var batches: ScanBatchService
     @Autowired private lateinit var scheduler: org.springframework.scheduling.TaskScheduler
+    @Autowired private lateinit var sweeper: ScanBatchSweeper
 
     private val mapper = jacksonObjectMapper()
 
@@ -219,6 +220,42 @@ class ScanBatchRunTest : BehaviorSpec() {
                     ScanBatchRunner(batches, batchSwitch, vision, flaky, scheduler).dispatch(owner.id, UUID.fromString(batchId), listOf(0))
                     settled(owner, batchId).path("photos")[0].path("state").asText() shouldBe "SUCCEEDED"
                     (rejections.get() >= 2) shouldBe true
+                }
+            }
+            `when`("생성 뒤 실행 작업이 사라졌으면(재시작·배포) — Codex P1(#440)") {
+                then("주기 스윕이 DB 의 PENDING 사진을 다시 띄워 실행한다") {
+                    val owner = member()
+                    val (only) = paths(owner, 1)
+                    vision.program(only, listOf(MenuBoardLine("냉면", "냉면", 8000, null)))
+                    batchSwitch.executionEnabled = false
+                    val batchId = create(owner, listOf(only))
+                    batchSwitch.executionEnabled = true
+                    sql("SELECT COUNT(*) FROM scan_attempt") shouldBe 0
+                    dataSource.connection.use { c -> c.createStatement().use { it.executeUpdate("UPDATE scan_operation SET created_at = created_at - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)") } }
+                    sweeper.sweep()
+                    settled(owner, batchId).path("photos")[0].path("state").asText() shouldBe "SUCCEEDED"
+                }
+            }
+            `when`("일일 무차감 시도 상한에 걸린 회원의 사진을 실행하려 하면 — Codex P2(#440)") {
+                then("사진이 PENDING 에 남지 않고 FAILED(ATTEMPT_LIMIT)·재시도 불가로 끝난다") {
+                    val owner = member()
+                    val (first, second) = paths(owner, 2)
+                    vision.failOn(first)
+                    val seeded = create(owner, listOf(first))
+                    settled(owner, seeded)
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.executeUpdate("""INSERT INTO scan_attempt (operation_id, member_id, photo_row_id, unit_key, phase, target_manifest_revision, attempt_no, claim_token, reservation_epoch, state, started_at, deadline_at, lease_until)
+                                SELECT a.operation_id, a.member_id, a.photo_row_id, CONCAT('seed:', n.n), a.phase, 1, 1, a.claim_token, 0, 'FAILED', a.started_at, a.deadline_at, a.lease_until
+                                FROM scan_attempt a JOIN (WITH RECURSIVE s(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM s WHERE n < 29) SELECT n FROM s) n WHERE a.member_id = ${owner.id}""")
+                        }
+                    }
+                    vision.program(second, listOf(MenuBoardLine("냉면", "냉면", 8000, null)))
+                    val blocked = create(owner, listOf(second))
+                    val photo = settled(owner, blocked).path("photos")[0]
+                    photo.path("state").asText() shouldBe "FAILED"
+                    photo.path("errorReason").asText() shouldBe "ATTEMPT_LIMIT"
+                    photo.path("retryable").asBoolean() shouldBe false
                 }
             }
             `when`("10장을 보내면") {
