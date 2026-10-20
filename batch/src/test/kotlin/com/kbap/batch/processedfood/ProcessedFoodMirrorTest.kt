@@ -144,6 +144,35 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
                 }
             }
 
+            `when`("영양DB 가 전면 장애라 보완 조회가 연달아 실패하면 — Codex P1") {
+                then("연속 실패 상한(5)에서 보완 단계를 멈추고, 남은 행은 확인 표시 없이 다음 회로 넘긴다") {
+                    val many = (1..12).map { product("9000000000%03d".format(it), "봇면$it", "유탕면류", maker = "알수없음") }
+                    val lookup = FakeLookup(emptyMap())
+                    lookup.failing += many.map { it.reportNo }
+
+                    val summary = mirror(FakeSource(mapOf("유탕면" to many)), lookup, listOf("유탕면"), pageSize = 100).mirror()
+
+                    lookup.calls.size shouldBe 5
+                    summary.makerLookupFailures shouldBe 5
+                    summary.makerLookupAborted shouldBe true
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE maker_checked_at IS NOT NULL") shouldBe 0
+                }
+            }
+
+            `when`("보완 조회 실패가 간헐적이면(성공이 사이에 끼면)") {
+                then("연속 횟수가 초기화돼 끝까지 진행한다") {
+                    val many = (1..8).map { product("9100000000%03d".format(it), "봇면$it", "유탕면류", maker = "알수없음") }
+                    val lookup = FakeLookup(many.associate { it.reportNo to "㈜테스트" })
+                    lookup.failing += many.filterIndexed { i, _ -> i % 2 == 0 }.map { it.reportNo }
+
+                    val summary = mirror(FakeSource(mapOf("유탕면" to many)), lookup, listOf("유탕면"), pageSize = 100).mirror()
+
+                    lookup.calls.size shouldBe 8
+                    summary.makerLookupAborted shouldBe false
+                    summary.makerFilled shouldBe 4
+                }
+            }
+
             `when`("한 유형의 호출이 재시도 끝에 실패하면") {
                 then("그 유형만 실패로 남기고 다른 유형은 계속 수집한다") {
                     val source = FakeSource(mapOf("유탕면" to ramen, "과자" to snacks))
