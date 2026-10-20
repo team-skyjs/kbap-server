@@ -1,5 +1,6 @@
 package com.kbap.api.reviewbot
 
+import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.review.ReviewService
@@ -47,8 +48,15 @@ class ReviewBotTest : BehaviorSpec() {
     @Autowired private lateinit var ingredientRepository: IngredientJpaRepository
     @Autowired private lateinit var reviewService: ReviewService
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
+    @Autowired private lateinit var photos: ReviewBotPhotoService
+    @Autowired private lateinit var photoCatalog: ReviewBotPhotoCatalog
+    @Autowired private lateinit var botPhotoRepository: com.kbap.common.domain.image.BotPhotoJpaRepository
+    @Autowired private lateinit var photoStorage: FakeStorageObjectStore
     @Autowired private lateinit var writerBean: ReviewBotWriter
     @Autowired private lateinit var lockProvider: LockProvider
+    @Autowired private lateinit var priorityList: ReviewBotPriorityList
+    @Autowired private lateinit var photoPool: ReviewBotPhotoPool
+    @Autowired private lateinit var uploadProperties: com.kbap.api.image.ImageUploadProperties
 
     private val seoul = ZoneId.of("Asia/Seoul")
 
@@ -75,8 +83,33 @@ class ReviewBotTest : BehaviorSpec() {
         }
 
         fun writer(min: Int = 8, max: Int = 12, budget: Duration = Duration.ofMinutes(15)) = ReviewBotWriter(
-            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, min, max, budget,
+            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, photos, priorityList, photoPool, min, max, budget,
         )
+
+        fun seedPoolsForAllFoods() {
+            val owner = query("SELECT MIN(id) FROM member WHERE is_bot = 1").single().single() as? Number ?: return
+            val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix)
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO uploaded_image (member_id, object_path, content_type, size_bytes, status, created_at, updated_at) " +
+                        "SELECT ?, ?, 'image/webp', 100000, 'ACTIVE', NOW(6), NOW(6) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM uploaded_image u WHERE u.object_path = ?)",
+                ).use { ps ->
+                    query("SELECT korean_name FROM food").map { it.single() as String }.forEach { name ->
+                        (1..3).forEach { n ->
+                            val path = prefix + ReviewBotPhotoPool.keyOf(name) + "/$n.webp"
+                            photoStorage.stub(path, "image/webp", 100000)
+                            ps.setLong(1, owner.toLong()); ps.setString(2, path); ps.setString(3, path); ps.addBatch()
+                        }
+                    }
+                    ps.executeBatch()
+                }
+            }
+        }
+
+        fun run(w: ReviewBotWriter, now: ZonedDateTime) {
+            seedPoolsForAllFoods()
+            w.writeDue(now)
+        }
 
         fun todayAt(hour: Int): ZonedDateTime = ZonedDateTime.now(seoul).withHour(hour).withMinute(0).withSecond(0).withNano(0)
 
@@ -85,6 +118,8 @@ class ReviewBotTest : BehaviorSpec() {
         beforeEach {
             TestTables.clearAll(dataSource)
             fakeGenerator.reset()
+            photoStorage.heads.clear()
+            photoStorage.lastModified.clear()
         }
         afterSpec { TestTables.clearAll(dataSource) }
 
@@ -160,6 +195,101 @@ class ReviewBotTest : BehaviorSpec() {
             }
         }
 
+        given("등록된 사진의 메타데이터 재검증 — Codex P2") {
+            `when`("등록된 사진이 비-webp 나 0바이트로 덮어써지면") {
+                then("재고에서 available 이 아니라 held(MISSING_OR_INVALID_METADATA) 로 분류되고 새 리뷰에 쓰이지 않는다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    seedPoolsForAllFoods()
+                    val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf(food.koreanName)
+                    photoStorage.stub("$prefix/2.webp", "image/png", 100000)
+                    photoStorage.stub("$prefix/3.webp", "image/webp", 0)
+
+                    val inventory = photos.getInventory()
+
+                    inventory.available shouldBe listOf("$prefix/1.webp")
+                    inventory.held.filter { it.reason == "MISSING_OR_INVALID_METADATA" }.map { it.path }.sorted() shouldBe listOf("$prefix/2.webp", "$prefix/3.webp")
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    query("SELECT image_refs FROM food_review").map { it.single().toString() } shouldBe listOf("[\"$prefix/1.webp\"]")
+                }
+            }
+        }
+
+        given("사진 sync 의 키별 개수·일반 참조 판정 — Codex P2 2차") {
+            fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+            fun humanMember(uid: String): Long {
+                execute("INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) VALUES ('GOOGLE', '$uid', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))")
+                return count("SELECT id FROM member WHERE provider_uid = '$uid'")
+            }
+
+            `when`("저장소에 있는 사진 하나가 일반 리뷰 참조로 보류되면") {
+                then("imagesPerKey 는 그 키의 저장소 객체 3개를 모두 센다 — 보류된 객체도 빠지지 않는다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    val key = ReviewBotPhotoPool.keyOf(food.koreanName)
+                    val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + key
+                    (1..3).forEach { photoStorage.stub("$prefix/$it.webp", "image/webp", 100000) }
+                    val human = humanMember("human-ref")
+                    execute("INSERT INTO food_review (member_id, food_id, rating, image_refs, status) VALUES ($human, ${food.id}, 5, JSON_ARRAY('$prefix/3.webp'), 'ACTIVE')")
+
+                    val result = photos.sync()
+
+                    result.registeredCount shouldBe 2
+                    result.held.map { it.reason } shouldBe listOf("ORDINARY_REFERENCE")
+                    result.imagesPerKey shouldBe mapOf(key to 3)
+                }
+            }
+
+            `when`("일반 리뷰가 후보 경로의 '_' 자리에 다른 글자를 가진 경로를 참조하면") {
+                then("와일드카드로 오인하지 않는다 — 후보는 일반 참조가 아니다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    val candidate = "local/images/review-bot/aa_bbbbbbbbb/1.webp"
+                    val human = humanMember("human-wild")
+                    execute("INSERT INTO food_review (member_id, food_id, rating, image_refs, status) VALUES ($human, ${food.id}, 5, JSON_ARRAY('local/images/review-bot/aaXbbbbbbbbb/1.webp'), 'ACTIVE')")
+
+                    photoCatalog.getOrdinaryReferencedPaths(listOf(candidate)) shouldBe emptySet()
+                    botPhotoRepository.hasOrdinaryReference(candidate) shouldBe 0L
+                    photoCatalog.getOrdinaryReferencedPaths(listOf("local/images/review-bot/aaXbbbbbbbbb/1.webp")) shouldBe setOf("local/images/review-bot/aaXbbbbbbbbb/1.webp")
+                }
+            }
+        }
+
+        given("틱당 사진 재고 1회 — Codex P2") {
+            `when`("한 틱에 여러 음식을 쓰면") {
+                then("봇 사진 접두 전체 목록은 틱마다 한 번만 훑는다(후보마다 다시 훑지 않는다)") {
+                    accountService.ensureBots(12)
+                    seedFoods(20)
+                    seedPoolsForAllFoods()
+                    photoStorage.fullListingStarts.clear()
+
+                    writer().writeDue(todayAt(22))
+
+                    (botReviewCount() > 1) shouldBe true
+                    photoStorage.fullListingStarts.size shouldBe 1
+                }
+            }
+        }
+
+        given("사진이 없는 새 리뷰 작성 방지") {
+            `when`("사진이 없거나 생성 도중 소실되면") {
+                then("LLM 호출 전 또는 저장 전에 제외한다") {
+                    accountService.ensureBots(1)
+                    seedFoods(1)
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    fakeGenerator.requests.size shouldBe 0
+                    botReviewCount() shouldBe 0
+                    fakeGenerator.reply = {
+                        photoStorage.heads.clear()
+                        "The noodles were warm and savory with a pleasant texture and a balanced flavor."
+                    }
+                    run(writer(min = 1, max = 1), todayAt(22))
+                    fakeGenerator.requests.size shouldBe 1
+                    botReviewCount() shouldBe 0
+                }
+            }
+        }
+
         given("리뷰 봇 작성") {
             `when`("하루 끝(22시)까지 돌면") {
                 then("그날 목표만큼 쓰고, 한 음식엔 하루 1개·같은 봇·같은 음식 중복 0, 기존 ReviewService 경로라 봇의 review_count 가 오른다") {
@@ -168,13 +298,13 @@ class ReviewBotTest : BehaviorSpec() {
                     val now = todayAt(22)
                     val plan = ReviewBotDailyPlan.of(now.toLocalDate(), 8, 12, 9, 22)
 
-                    writer().writeDue(now)
+                    run(writer(), now)
 
                     botReviewCount() shouldBe plan.target.toLong()
                     count("SELECT COUNT(*) FROM (SELECT food_id FROM food_review GROUP BY food_id HAVING COUNT(*) > 1) t") shouldBe 0
                     count("SELECT COUNT(*) FROM (SELECT member_id, food_id FROM food_review GROUP BY member_id, food_id HAVING COUNT(*) > 1) t") shouldBe 0
                     count("SELECT COALESCE(SUM(review_count), 0) FROM member WHERE is_bot = 1") shouldBe plan.target.toLong()
-                    count("SELECT COUNT(*) FROM food_review WHERE rating NOT BETWEEN 3 AND 5 OR serving_speed_rating <> 0 OR staff_kindness_rating <> 0 OR image_refs IS NOT NULL OR place_name IS NOT NULL") shouldBe 0
+                    count("SELECT COUNT(*) FROM food_review WHERE rating NOT BETWEEN 3 AND 5 OR serving_speed_rating <> 0 OR staff_kindness_rating <> 0 OR image_refs IS NULL OR JSON_LENGTH(image_refs) NOT BETWEEN 1 AND 3 OR place_name IS NOT NULL") shouldBe 0
                 }
             }
 
@@ -183,10 +313,10 @@ class ReviewBotTest : BehaviorSpec() {
                     accountService.ensureBots(12)
                     seedFoods(20)
                     val now = todayAt(22)
-                    writer().writeDue(now)
+                    run(writer(), now)
                     val first = botReviewCount()
 
-                    writer().writeDue(now)
+                    run(writer(), now)
 
                     botReviewCount() shouldBe first
                 }
@@ -198,8 +328,8 @@ class ReviewBotTest : BehaviorSpec() {
                     seedFoods(3)
                     val now = todayAt(22)
 
-                    writer(min = 12, max = 12).writeDue(now)
-                    writer(min = 12, max = 12).writeDue(now)
+                    run(writer(min = 12, max = 12), now)
+                    run(writer(min = 12, max = 12), now)
 
                     botReviewCount() shouldBe 3
                     count("SELECT COUNT(*) FROM (SELECT food_id FROM food_review GROUP BY food_id HAVING COUNT(*) > 1) t") shouldBe 0
@@ -220,7 +350,7 @@ class ReviewBotTest : BehaviorSpec() {
                         }
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     botReviewCount() shouldBe 1
                 }
@@ -238,7 +368,7 @@ class ReviewBotTest : BehaviorSpec() {
                         ).use { ps -> ps.setLong(1, bots[0].id); ps.setLong(2, moderated.id); ps.setObject(3, earlier); ps.setObject(4, earlier); ps.executeUpdate() }
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     count("SELECT COUNT(*) FROM food_review WHERE food_id = ${moderated.id} AND status = 'ACTIVE'") shouldBe 0
                     count("SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE'") shouldBe 1
@@ -256,7 +386,7 @@ class ReviewBotTest : BehaviorSpec() {
                         ).use { ps -> ps.setLong(1, bot.id); ps.setLong(2, food.id); ps.setObject(3, yesterday); ps.setObject(4, yesterday); ps.executeUpdate() }
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     count("SELECT COUNT(*) FROM food_review WHERE member_id = ${bot.id} AND status = 'ACTIVE'") shouldBe 0
                 }
@@ -269,7 +399,7 @@ class ReviewBotTest : BehaviorSpec() {
                     val now = todayAt(9)
                     val plan = ReviewBotDailyPlan.of(now.toLocalDate(), 8, 12, 9, 22)
 
-                    writer().writeDue(now)
+                    run(writer(), now)
 
                     botReviewCount() shouldBe plan.dueUntil(9).toLong()
                 }
@@ -285,7 +415,7 @@ class ReviewBotTest : BehaviorSpec() {
                     }
                     reviewService.createReview(human.id, crowded.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(empty.id)
@@ -312,7 +442,7 @@ class ReviewBotTest : BehaviorSpec() {
 
                     val seededUpTo = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.id > $seededUpTo")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(untouched.id)
@@ -332,7 +462,7 @@ class ReviewBotTest : BehaviorSpec() {
 
                     val seededUpTo = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.member_id FROM food_review r WHERE r.food_id = ${food.id} AND r.id > $seededUpTo")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(bots[1].id)
@@ -345,7 +475,7 @@ class ReviewBotTest : BehaviorSpec() {
                     seedFoods(5)
                     fakeGenerator.reply = { "Loved this place, the restaurant staff were great and the photo does not do it justice." }
 
-                    writer().writeDue(todayAt(22))
+                    run(writer(), todayAt(22))
 
                     botReviewCount() shouldBe 0
                     (fakeGenerator.requests.size > 0).shouldBeTrue()
@@ -357,7 +487,7 @@ class ReviewBotTest : BehaviorSpec() {
                     accountService.ensureBots(5)
                     seedFoods(5)
 
-                    writer(budget = Duration.ZERO).writeDue(todayAt(22))
+                    run(writer(budget = Duration.ZERO), todayAt(22))
 
                     botReviewCount() shouldBe 0
                     fakeGenerator.requests.size shouldBe 0
@@ -377,7 +507,7 @@ class ReviewBotTest : BehaviorSpec() {
                         else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     query("SELECT r.food_id FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1")
                         .map { (it.single() as Number).toLong() } shouldBe listOf(behind.id)
@@ -398,7 +528,7 @@ class ReviewBotTest : BehaviorSpec() {
                         else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
                     }
 
-                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    run(writer(min = 1, max = 1), todayAt(22))
 
                     botReviewCount() shouldBe 0
                     fakeGenerator.requests.size shouldBe blocked.size * 2
@@ -413,11 +543,11 @@ class ReviewBotTest : BehaviorSpec() {
                         LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, Duration.ofMinutes(5), Duration.ZERO),
                     ).orElseThrow()
 
-                    writerBean.writeDue(todayAt(22))
+                    run(writerBean, todayAt(22))
                     botReviewCount() shouldBe 0
 
                     lock.unlock()
-                    writerBean.writeDue(todayAt(22))
+                    run(writerBean, todayAt(22))
                     (botReviewCount() > 0).shouldBeTrue()
                 }
             }

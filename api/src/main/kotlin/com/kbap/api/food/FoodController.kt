@@ -31,7 +31,25 @@ class FoodController(
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,
     private val memberService: MemberService,
+    private val listingService: FoodListingService,
 ) : FoodApi {
+    @GetMapping(version = "3.1+")
+    override fun browseSorted(
+        @Valid @ModelAttribute request: FoodListingRequest,
+        @AuthMemberIdOrNull memberId: Long?,
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>> {
+        val result = listingService.getFoodListingPage(
+            lang = LanguageCode.from(request.lang),
+            sort = FoodListingSort.parse(request.sort),
+            cursor = FoodListingCursor.parse(request.cursor),
+            memberId = memberId,
+            risks = RiskFilterParser.parse(request.risk),
+            saved = false,
+        )
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor)))
+    }
+
     @GetMapping
     override fun browse(
         @Valid @ModelAttribute request: FoodBrowseRequest,

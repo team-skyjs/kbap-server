@@ -1,5 +1,6 @@
 package com.kbap.api.order
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.ImageUploadService
 import com.kbap.api.image.UploadedImageService
@@ -15,6 +16,7 @@ import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.order.model.Order
 import com.kbap.common.domain.order.model.OrderItem
 import com.kbap.common.domain.order.model.OrderPlaceSnapshot
+import com.kbap.common.util.BotImagePaths
 import com.kbap.common.util.CursorParser
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
@@ -55,7 +57,7 @@ class OrderService(
     }
 
     private fun verifyScanImage(memberId: Long, imagePath: String) {
-        if (UploadedImageJpaRepository.isCleanupTarget(imagePath)) {
+        if (BotImagePaths.isProtected(imagePath) || UploadedImageJpaRepository.isCleanupTarget(imagePath)) {
             throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
         }
         imageUploadService.verifyImageAccess(memberId, imagePath)
@@ -100,26 +102,26 @@ class OrderService(
     }
 
     @Transactional
-    fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest): OrderDetailResponse {
+    fun updatePlace(memberId: Long, orderId: Long, request: OrderPlaceUpdateRequest, lang: LanguageCode? = null): OrderDetailResponse {
         memberService.getMemberForShare(memberId)
         getOwnOrder(memberId, orderId).replacePlace(request.toSnapshot())
-        return getOrderDetail(memberId, orderId)
+        return getOrderDetail(memberId, orderId, lang)
     }
 
     @Transactional
-    fun replaceItemImage(memberId: Long, orderId: Long, itemId: Long, imagePath: String): OrderDetailResponse {
+    fun replaceItemImage(memberId: Long, orderId: Long, itemId: Long, imagePath: String, lang: LanguageCode? = null): OrderDetailResponse {
         val item = getOwnItem(memberId, orderId, itemId)
         if (!uploadedImageService.ownsAllImages(memberId, listOf(imagePath), UploadPurpose.ORDER_ITEM)) {
             throw BusinessException(ErrorCode.ORDER_ITEM_IMAGE_NOT_VERIFIED)
         }
         item.replaceImage(imagePath)
-        return getOrderDetail(memberId, orderId)
+        return getOrderDetail(memberId, orderId, lang)
     }
 
     @Transactional
-    fun restoreItemImage(memberId: Long, orderId: Long, itemId: Long): OrderDetailResponse {
+    fun restoreItemImage(memberId: Long, orderId: Long, itemId: Long, lang: LanguageCode? = null): OrderDetailResponse {
         getOwnItem(memberId, orderId, itemId).restoreCatalogImage()
-        return getOrderDetail(memberId, orderId)
+        return getOrderDetail(memberId, orderId, lang)
     }
 
     private fun getOwnOrder(memberId: Long, orderId: Long): Order =
@@ -135,7 +137,7 @@ class OrderService(
     }
 
     @Transactional(readOnly = true)
-    fun getOrderDetail(memberId: Long, orderId: Long): OrderDetailResponse {
+    fun getOrderDetail(memberId: Long, orderId: Long, lang: LanguageCode? = null): OrderDetailResponse {
         val order = getOwnOrder(memberId, orderId)
         val items = orderItemRepository.findByOrderIdOrderByIdAsc(order.id)
         val foodsById = loadFoodsById(items)
@@ -153,6 +155,7 @@ class OrderService(
                 OrderItemResponse(
                     id = it.id,
                     menuName = it.menuName,
+                    name = lang?.let { l -> food?.takeIf { f -> f.isReady() }?.displayName(l) },
                     quantity = it.quantity,
                     price = it.price,
                     foodId = it.foodId,

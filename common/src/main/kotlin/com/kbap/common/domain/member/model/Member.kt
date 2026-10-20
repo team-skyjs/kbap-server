@@ -178,6 +178,11 @@ class Member(
 
     fun scanLimit(): Int = if (scanUnlocked) Int.MAX_VALUE else FREE_SCAN_LIMIT
 
+    fun resetScanUnlock() {
+        scanUnlocked = false
+        scanCount = maxOf(scanCount, FREE_SCAN_LIMIT)
+    }
+
 
     companion object {
         const val FREE_SCAN_LIMIT: Int = 3

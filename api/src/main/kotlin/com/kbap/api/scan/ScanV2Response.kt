@@ -83,6 +83,19 @@ data class ScanV2Response(
             nullable = true,
         )
         val avoidances: List<AvoidanceOverlapResponse>?,
+
+        @field:Schema(
+            description = "유사 완성 음식으로 대체된 항목인지. X-API-Version 3.0 이상에서만 true/false, 2.0 은 항상 null.",
+            nullable = true,
+        )
+        val substituted: Boolean?,
+
+        @field:Schema(
+            description = "대체 전 비전이 정제한 표준 한국어 메뉴명. 3.0 이상이고 substituted=true 일 때만 값, 그 외 null.",
+            example = "김치찌게",
+            nullable = true,
+        )
+        val originalScannedName: String?,
     )
 
     @Schema(description = "기피성분 1건의 겹침 판정 — 표시명·경고 수준은 음식 상세의 성분 규칙과 동일")
@@ -117,7 +130,12 @@ data class ScanV2Response(
     )
 
     companion object {
-        fun from(result: ScanResult, currency: CurrencyCode, krwPerUnit: BigDecimal?): ScanV2Response =
+        fun from(
+            result: ScanResult,
+            currency: CurrencyCode,
+            krwPerUnit: BigDecimal?,
+            exposeSubstitution: Boolean,
+        ): ScanV2Response =
             ScanV2Response(
                 degraded = result.degraded,
                 currency = krwPerUnit?.let { CurrencyResponse(code = currency.name, krwPerUnit = it) },
@@ -138,6 +156,8 @@ data class ScanV2Response(
                                 riskLevel = avoidance.riskLevel,
                             )
                         },
+                        substituted = it.substituted.takeIf { exposeSubstitution },
+                        originalScannedName = it.originalScannedName.takeIf { exposeSubstitution },
                     )
                 },
             )

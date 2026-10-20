@@ -21,6 +21,14 @@ interface FoodRatingAggregate {
     val reviewCount: Long
 }
 
+interface TopRatedFoodAggregate {
+    val foodId: Long
+    val reviewCount: Long
+    val taste: Double
+    val servingSpeed: Double?
+    val staffKindness: Double?
+}
+
 interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Review r where r.id = :id")
@@ -69,6 +77,26 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     )
     fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
 
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT t.foodId, t.reviewCount, t.taste, t.servingSpeed, t.staffKindness FROM (
+              SELECT r.food_id AS foodId, COUNT(*) AS reviewCount, AVG(r.rating) AS taste,
+                     AVG(NULLIF(r.serving_speed_rating, 0)) AS servingSpeed,
+                     AVG(NULLIF(r.staff_kindness_rating, 0)) AS staffKindness
+              FROM food_review r JOIN food f ON f.id = r.food_id
+              WHERE r.status = 'ACTIVE' AND f.status = 'ACTIVE' AND f.content_status = 'READY'
+              GROUP BY r.food_id
+            ) t
+            ORDER BY t.reviewCount DESC,
+              (t.taste + COALESCE(t.servingSpeed, 0) + COALESCE(t.staffKindness, 0))
+                / (1 + (t.servingSpeed IS NOT NULL) + (t.staffKindness IS NOT NULL)) DESC,
+              t.foodId DESC
+            LIMIT :size
+        """,
+    )
+    fun findTopRatedFoods(@Param("size") size: Int): List<TopRatedFoodAggregate>
+
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
 
     fun findByMemberId(memberId: Long, pageable: Pageable): Page<Review>
@@ -110,6 +138,34 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """,
     )
     fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT r.food_id AS foodId, COUNT(*) AS botReviewCount, COALESCE(SUM(r.created_at >= :since), 0) AS todayCount
+            FROM food_review r
+            WHERE r.member_id IN (:botIds) AND r.food_id IN (:foodIds)
+            GROUP BY r.food_id
+        """,
+    )
+    fun countBotReviewsByFoodIds(
+        @Param("foodIds") foodIds: Collection<Long>,
+        @Param("botIds") botIds: Collection<Long>,
+        @Param("since") since: LocalDateTime,
+    ): List<FoodBotReviewCount>
+
+    fun findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId: Long, memberIds: Collection<Long>): Review?
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT r.id AS id, CAST(r.image_refs AS CHAR) AS imageRefs FROM food_review r
+            WHERE r.status = 'ACTIVE' AND r.member_id IN (:memberIds) AND r.image_refs IS NOT NULL
+              AND JSON_OVERLAPS(r.image_refs, CAST(:pathsJson AS JSON))
+            ORDER BY r.id
+        """,
+    )
+    fun findActiveRefsReferencingAny(@Param("memberIds") memberIds: Collection<Long>, @Param("pathsJson") pathsJson: String): List<ReviewImageRefsRow>
 
     @Query(
         nativeQuery = true,

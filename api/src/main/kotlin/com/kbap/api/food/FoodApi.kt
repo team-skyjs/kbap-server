@@ -18,6 +18,13 @@ import jakarta.servlet.http.HttpServletRequest
 @Tag(name = "음식", description = "음식 목록·검색·상세 조회 API")
 @SecurityRequirement(name = "bearerAuth")
 interface FoodApi {
+    @Operation(summary = "음식 목록 정렬 조회 (3.1+)", description = FOOD_LISTING_DESCRIPTION)
+    @ApiErrors(ErrorCode.INVALID_CURSOR, ErrorCode.FOOD_LISTING_STALE)
+    fun browseSorted(
+        @ParameterObject request: FoodListingRequest,
+        memberId: Long?,
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>>
+
     @Operation(
         summary = "선정 음식 요약 일괄 조회",
         description = "입력 ID 순서로 ACTIVE·READY 음식 요약을 반환한다. 미존재·삭제·미공개 ID는 unavailableFoodIds에 입력 순서로 반환한다. " +

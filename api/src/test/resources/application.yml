@@ -22,6 +22,8 @@ spring:
         speech: none
 
 kbap:
+  review-bot:
+    photo-sync-enabled: true
   # 기존 리뷰 언어 채우기는 통합 컨텍스트 기동 때 돌지 않게 끈다 — 채우기 테스트가 직접 만들어 돌린다.
   review:
     language-backfill:

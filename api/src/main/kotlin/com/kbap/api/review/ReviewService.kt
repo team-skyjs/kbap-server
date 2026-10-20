@@ -6,7 +6,10 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.UploadedImageService
+import com.kbap.common.domain.image.BotPhotoJpaRepository
+import com.kbap.common.util.LikeWildcards
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.domain.image.model.UploadedImage
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.MemberRankingEventJpaRepository
 import com.kbap.api.block.MemberBlockService
@@ -30,6 +33,8 @@ import java.time.LocalDateTime
 @Service
 class ReviewService(
     private val reviewRepository: ReviewJpaRepository,
+    private val botPhotos: BotPhotoJpaRepository,
+    @Value("\${kbap.storage.key-prefix:local}") private val storageKeyPrefix: String,
     private val reviewLikeRepository: ReviewLikeJpaRepository,
     private val foodService: FoodService,
     private val foodRepository: FoodJpaRepository,
@@ -55,8 +60,45 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         verifyImageOwnership(memberId, imagePaths)
+        return persistReview(memberId, foodId, rating, servingSpeed, staffKindness, content, imagePaths, place)
+    }
+
+    @Transactional
+    fun createBotReview(
+        botId: Long,
+        foodId: Long,
+        rating: Int,
+        content: String,
+        imagePaths: List<String>,
+        poolOwnerIds: Set<Long>,
+    ): ReviewResponse {
+        foodService.getReadyFood(foodId)
+        if (!memberService.getMember(botId).isBot) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        val prefix = storageKeyPrefix.trim('/').let { if (it.isEmpty()) "images/review-bot/" else "$it/images/review-bot/" }
+        val pattern = Regex(Regex.escape(prefix) + "[0-9a-f]{12}/[0-9]+\\.webp")
+        if (imagePaths.isEmpty() || imagePaths.size > Review.MAX_IMAGE_COUNT || imagePaths.distinct().size != imagePaths.size || imagePaths.any { path ->
+                !pattern.matches(path) || botPhotos.getRecords(LikeWildcards.escape(path)).singleOrNull()?.let {
+                    it.path == path && it.status == "ACTIVE" && it.ownerKind == "ACTIVE_BOT" && botPhotos.hasOrdinaryReference(path) == 0L
+                } != true
+            }) throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
+        if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, UploadedImage.REVIEW_BOT_SEGMENT, poolOwnerIds)) {
+            throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
+        }
+        return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
+    }
+
+    private fun persistReview(
+        memberId: Long,
+        foodId: Long,
+        rating: Int,
+        servingSpeed: Int?,
+        staffKindness: Int?,
+        content: String?,
+        imagePaths: List<String>?,
+        place: ReviewPlace?,
+    ): ReviewResponse {
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
-        memberService.increaseReviewCount(memberId)
+        if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         foodRepository.increaseReviewCount(foodId)
 
         val review = reviewRepository.save(
@@ -76,7 +118,7 @@ class ReviewService(
 
         val firstReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 1L
         if (firstReviewOfFood) {
-            memberService.increaseUniqueReviewedFoodCount(memberId)
+            if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         }
         rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood))
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount = 0, likedByMe = false)
@@ -132,12 +174,10 @@ class ReviewService(
     private fun softDelete(review: Review) {
         val memberId = review.memberId
         review.delete()
-        memberService.decreaseReviewCount(memberId)
+        memberRepository.decreaseReviewCount(memberId)
         foodRepository.decreaseReviewCount(review.foodId)
         val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
-        if (lastReviewOfFood) {
-            memberService.decreaseUniqueReviewedFoodCount(memberId)
-        }
+        if (lastReviewOfFood) memberRepository.decreaseUniqueReviewedFoodCount(memberId)
         rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
     }
 
@@ -235,6 +275,20 @@ class ReviewService(
             sameCountryReviewCount = sameCountry?.reviewCount ?: 0,
         )
     }
+
+    @Transactional(readOnly = true)
+    fun getTopRatedFoods(size: Int): List<TopRatedFoodRating> =
+        reviewRepository.findTopRatedFoods(size).map {
+            val present = listOfNotNull(it.taste, it.servingSpeed, it.staffKindness)
+            TopRatedFoodRating(
+                foodId = it.foodId,
+                reviewCount = it.reviewCount,
+                taste = it.taste.roundToFirstDecimal(),
+                servingSpeed = it.servingSpeed?.roundToFirstDecimal(),
+                staffKindness = it.staffKindness?.roundToFirstDecimal(),
+                overallRating = present.average().roundToFirstDecimal(),
+            )
+        }
 
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
 
@@ -339,4 +393,13 @@ class ReviewService(
 data class FoodRating(
     val averageRating: Double,
     val reviewCount: Long,
+)
+
+data class TopRatedFoodRating(
+    val foodId: Long,
+    val reviewCount: Long,
+    val taste: Double,
+    val servingSpeed: Double?,
+    val staffKindness: Double?,
+    val overallRating: Double,
 )

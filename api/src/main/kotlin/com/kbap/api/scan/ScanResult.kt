@@ -14,6 +14,8 @@ data class ScanResult(
         val price: Int?,
         val imageRef: String,
         val avoidances: List<AvoidanceOverlap>? = emptyList(),
+        val substituted: Boolean,
+        val originalScannedName: String?,
     )
 
     data class AvoidanceOverlap(

@@ -55,6 +55,7 @@ enum class ErrorCode(
     FOOD_ADDITIONAL_IMAGE_IN_PROGRESS("FOOD-019", 409, "이 음식의 추가 이미지 생성이 이미 진행 중입니다"),
     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
     FOOD_CONTENT_DRAFT_NOT_FOUND("FOOD-021", 404, "검수 대기 중인 콘텐츠 초안이 없습니다"),
+    FOOD_LISTING_STALE("FOOD-022", 409, "음식 목록이 변경되었습니다. 첫 페이지부터 다시 조회해 주세요"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
@@ -113,6 +114,7 @@ enum class ErrorCode(
     UNSUPPORTED_IMAGE_CONTENT_TYPE("UPLOAD-001", 400, "지원하지 않는 이미지 형식입니다"),
     UNSUPPORTED_UPLOAD_PURPOSE("UPLOAD-002", 400, "지원하지 않는 업로드 용도입니다"),
     IMAGE_TOO_LARGE("UPLOAD-003", 400, "허용된 이미지 크기를 초과했습니다"),
+    UPLOAD_PATH_NOT_ISSUED("UPLOAD-004", 400, "이 계정에 발급된 업로드 경로가 아닙니다"),
 
     TRANSLATION_FAILED("TRANSLATION-001", 503, "번역을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요"),
 }

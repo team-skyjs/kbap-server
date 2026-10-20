@@ -2,14 +2,12 @@ package com.kbap.api.home
 
 import com.kbap.api.bookmark.BookmarkService
 import com.kbap.api.food.FoodService
-import com.kbap.api.food.PopularFoodIdCache
 import com.kbap.api.ingredient.IngredientService
 import com.kbap.api.member.MemberService
 import com.kbap.api.review.ReviewService
 import com.kbap.common.domain.LanguageCode
 import org.springframework.stereotype.Service
-import org.springframework.transaction.PlatformTransactionManager
-import org.springframework.transaction.support.TransactionTemplate
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class HomeService(
@@ -18,25 +16,27 @@ class HomeService(
     private val foodService: FoodService,
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,
-    private val popularFoodIdCache: PopularFoodIdCache,
-    transactionManager: PlatformTransactionManager,
 ) {
-    private val readOnlyTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
-
-    fun getHome(memberId: Long?, lang: LanguageCode): HomeResult {
-        val popularFoodIds = popularFoodIdCache.getPopularFoodIds(POPULAR_SIZE)
-        return readOnlyTransaction.execute { assembleHome(memberId, lang, popularFoodIds) }!!
-    }
-
-    private fun assembleHome(memberId: Long?, lang: LanguageCode, popularFoodIds: List<Long>): HomeResult {
+    @Transactional(readOnly = true)
+    fun getHome(
+        memberId: Long?,
+        lang: LanguageCode,
+        marketingPopular: Boolean = false,
+        topRated: Boolean = false,
+    ): HomeResult {
         val member = memberId?.let { memberService.getMember(it) }
         val avoidedSubstances = ingredientService.getAvoidedIngredients(member?.id, lang)
-        val popularFoods = foodService.getPopularFoods(member?.id, lang, popularFoodIds)
+        val popularFoods =
+            if (marketingPopular) foodService.getRandomMarketingPopularFoods(member?.id, lang, POPULAR_SIZE)
+            else foodService.getPopularFoods(member?.id, lang, POPULAR_SIZE)
         val mostReviewedFoods = foodService.getMostReviewedFoods(member?.id, lang, MOST_REVIEWED_SIZE)
         val recentScans = member
             ?.let { foodService.getRecentScannedFoods(it.id, lang, RECENT_SCAN_SIZE) }
             .orEmpty()
-        val foodIds = (popularFoods + mostReviewedFoods + recentScans.map { it.summary }).map { it.foodId }
+        val topRatedFoods = if (topRated) topRatedFoods(member?.id, lang) else null
+        val foodIds = (
+            popularFoods + mostReviewedFoods + recentScans.map { it.summary } + topRatedFoods.orEmpty().map { it.summary }
+        ).map { it.foodId }
         val bookmarkedFoodIds = bookmarkService.getBookmarkedFoodIds(member?.id, foodIds)
         val ratings = reviewService.getFoodRatings(foodIds)
 
@@ -47,12 +47,20 @@ class HomeService(
             recentScans = recentScans,
             bookmarkedFoodIds = bookmarkedFoodIds,
             ratings = ratings,
+            topRatedFoods = topRatedFoods,
         )
+    }
+
+    private fun topRatedFoods(memberId: Long?, lang: LanguageCode): List<TopRatedFoodView> {
+        val ratings = reviewService.getTopRatedFoods(TOP_RATED_SIZE).associateBy { it.foodId }
+        return foodService.getFoodSummariesInOrder(memberId, lang, ratings.keys.toList())
+            .map { TopRatedFoodView(it, ratings.getValue(it.foodId)) }
     }
 
     companion object {
         const val POPULAR_SIZE = 10
         const val RECENT_SCAN_SIZE = 10
         const val MOST_REVIEWED_SIZE = 10
+        const val TOP_RATED_SIZE = 20
     }
 }

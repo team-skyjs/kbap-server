@@ -160,7 +160,7 @@ class SelectedFoodsControllerTest : BehaviorSpec() {
                     }.andExpect { status { isUnauthorized() } }
                 }
             }
-            listOf("missing", "1.2", "1.3", "3.0", "99.0").forEach { version ->
+            listOf("missing", "99.0").forEach { version ->
                 `when`("버전이 $version 이면") {
                     then("기존 버전 필수 규칙을 적용한다") {
                         mvc.get("/api/foods/selected") {
@@ -235,20 +235,30 @@ class SelectedFoodsControllerTest : BehaviorSpec() {
             }
         }
 
-        given("기존 출시 버전과 Swagger 계약") {
-            listOf("1.0", "1.1", "2.0").forEach { version ->
+        given("통합 브랜치 지원 버전과 Swagger 계약") {
+            listOf("1.0", "1.1", "1.2", "1.3", "2.0", "3.0").forEach { version ->
                 `when`("지원 버전 $version 으로 요청하면") {
                     then("새 버전 없이 선정 목록 계약을 제공한다") {
-                        mvc.get("/api/foods/selected") {
-                            param("ids", "2,1")
+                        val baseline = mvc.get("/api/foods/selected") {
+                            param("ids", "2,999,1")
+                            param("lang", "en")
+                            header("X-API-Version", "1.1")
+                        }.andExpect { status { isOk() } }.andReturn()
+                        val response = mvc.get("/api/foods/selected") {
+                            param("ids", "2,999,1")
                             param("lang", "en")
                             header("X-API-Version", version)
                         }.andExpect {
                             status { isOk() }
+                            header { string("Cache-Control", "private, no-store") }
+                            jsonPath("$.success") { value(true) }
+                            jsonPath("$.payload.unavailableFoodIds[0]") { value(999) }
+                            jsonPath("$.payload.unavailableFoodIds.length()") { value(1) }
                             jsonPath("$.payload.items[0].foodId") { value(2) }
                             jsonPath("$.payload.items[1].foodId") { value(1) }
                             jsonPath("$.payload.items.length()") { value(2) }
-                        }
+                        }.andReturn()
+                        mapper.readTree(response.response.contentAsString) shouldBe mapper.readTree(baseline.response.contentAsString)
                     }
                 }
             }
