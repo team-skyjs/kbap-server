@@ -74,7 +74,7 @@ class ScanBatchService(
             images[input.imagePath]?.takeIf { it.isOwnedBy(memberId) && it.path.contains(SCAN_SEGMENT) }
                 ?: throw BusinessException(ErrorCode.SCAN_IMAGE_NOT_VERIFIED)
         }
-        reserve(memberId, batchId, memberService.getMember(memberId))
+        reserve(memberId, batchId, memberService.getMember(memberId), EXECUTION_WINDOW)
         val now = LocalDateTime.now()
         val operation = operations.save(
             ScanOperation(
@@ -125,12 +125,15 @@ class ScanBatchService(
         requireEnabled()
         val operation = parse(batchId)?.let { operations.findForUpdate(memberId, NAMESPACE, bytesOf(it)) }
             ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
+        val now = LocalDateTime.now()
         if (operation.lifecycle == ACTIVE) {
-            operation.lifecycle = CANCELLED
-            photos.findAllForUpdate(operation.id).forEach(ScanOperationPhoto::cancel)
+            if (now.isBefore(operation.expiresAt)) {
+                operation.lifecycle = CANCELLED
+                photos.findAllForUpdate(operation.id).forEach(ScanOperationPhoto::cancel)
+            }
             if (operation.reservationState == RESERVATION_HELD) releaseAfterCommit(operation)
         }
-        return viewOf(operation, LocalDateTime.now())
+        return viewOf(operation, now)
     }
 
     @Transactional
@@ -142,7 +145,7 @@ class ScanBatchService(
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return null
         if (!photo.isRunnableAt(now)) return null
         if (operation.usageRecordedAt == null && operation.reservationState != RESERVATION_HELD) {
-            reserve(memberId, batchId, memberService.getMember(memberId))
+            reserve(memberId, batchId, memberService.getMember(memberId), Duration.between(now, operation.expiresAt))
             operation.reservationState = RESERVATION_HELD
         }
         val token = bytesOf(UUID.randomUUID())
@@ -223,9 +226,9 @@ class ScanBatchService(
         if (!batchSwitch.enabled) throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
     }
 
-    private fun reserve(memberId: Long, batchId: UUID, member: Member) {
+    private fun reserve(memberId: Long, batchId: UUID, member: Member, ttl: Duration) {
         val reservationId = reservationIdOf(batchId)
-        when (reservationStore.reserve(memberId, reservationId, member.scanCount, member.scanLimit(), EXECUTION_WINDOW)) {
+        when (reservationStore.reserve(memberId, reservationId, member.scanCount, member.scanLimit(), ttl)) {
             ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             ScanReservationResult.RESERVED -> TransactionSynchronizationManager.registerSynchronization(
