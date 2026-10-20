@@ -178,6 +178,14 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     get("/api/reviews/me?lang=en", "3.1", author).path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(foodReviewId)
                 }
             }
+            `when`("3.2 피드를 리뷰 많은 순(food_review_count)으로 보면 — Codex P2") {
+                then("음식은 그 음식, 가공식품은 그 제품의 리뷰 수로 정렬된다") {
+                    val foodReviewId = foodReview(member("pfr-sort-food"))
+                    val productId = product("정렬과자")
+                    val productReviewIds = (1..2).map { write(productId, member("pfr-sort-$it")).path("payload").path("reviewId").asLong() }
+                    get("/api/reviews?lang=en&sort=food_review_count", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe productReviewIds.reversed() + foodReviewId
+                }
+            }
             `when`("리뷰 단건을 보면") {
                 then("가공식품 리뷰도 제품 요약과 함께 보인다(번역·좋아요가 같은 가시성을 쓴다)") {
                     val productId = product("단건과자")
@@ -197,6 +205,24 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     item.path("reviewCount").asLong() shouldBe 2
                     item.path("avgRating").asDouble() shouldBe 3.5
                     get("/api/processed-foods/${product("무리뷰과자")}", "3.2").path("payload").path("reviewSummary").path("count").asLong() shouldBe 0
+                    get("/api/processed-foods?query=무리뷰과자", "3.2").path("payload").path("items")[0].path("reviewCount").asLong() shouldBe 0
+                }
+            }
+            `when`("이름 스캔 후보 카드를 보면") {
+                then("리뷰를 집계하지 않으므로 reviewCount·avgRating 이 null 이다(0 으로 보이지 않게)") {
+                    val productId = product("후보과자")
+                    write(productId, member("pfr-cand-review"))
+                    val candidate = json(
+                        mvc.post("/api/processed-foods/scan/name") {
+                            header("X-API-Version", "3.2")
+                            header("Authorization", "Bearer ${token(member("pfr-cand"))}")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(mapOf("ocrText" to "농심\n후보과자", "lang" to "ko"))
+                        }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("candidates")[0]
+                    candidate.path("id").asLong() shouldBe productId
+                    candidate.path("reviewCount").isNull shouldBe true
+                    candidate.path("avgRating").isNull shouldBe true
                 }
             }
         }
