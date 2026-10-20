@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 import java.time.ZoneId
 
-@Schema(description = "리뷰 대상 음식 요약 — 목록 조회에서만 채워지며, 음식이 삭제됐으면 null")
+@Schema(description = "리뷰 대상 음식 요약 — 목록·단건 조회에서 채워지며, 음식이 삭제됐으면 null")
 data class ReviewFoodResponse(
     @field:Schema(description = "음식 id", example = "1")
     val foodId: Long,
@@ -19,16 +19,22 @@ data class ReviewFoodResponse(
     @field:Schema(description = "요청 언어(lang)로 해석한 음식 표시 이름", example = "Kimbap")
     val name: String,
 
+    @field:Schema(description = "한국어 표시명 — 요청 언어명과 같으면(lang=ko) null", example = "설렁탕", nullable = true)
+    val koreanName: String?,
+
     @field:Schema(description = "음식 대표 이미지 URL(없으면 null)")
     val imageUrl: String?,
 ) {
     companion object {
-        fun from(food: Food, lang: LanguageCode, imagePublicBaseUrl: String): ReviewFoodResponse =
-            ReviewFoodResponse(
+        fun from(food: Food, lang: LanguageCode, imagePublicBaseUrl: String): ReviewFoodResponse {
+            val name = food.displayName(lang)
+            return ReviewFoodResponse(
                 foodId = food.id,
-                name = food.displayName(lang),
+                name = name,
+                koreanName = food.displayName(LanguageCode.KO).takeIf { it != name },
                 imageUrl = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef),
             )
+        }
     }
 }
 
@@ -77,7 +83,7 @@ data class ReviewResponse(
     val likedByMe: Boolean,
 
     @field:JsonInclude(JsonInclude.Include.NON_NULL)
-    @field:Schema(description = "리뷰 대상 음식 요약. 목록 조회에서만 채워지며, 채워지지 않는 맥락(작성·수정 응답·음식 상세 동봉·삭제된 음식)에서는 필드 자체가 생략된다.", nullable = true)
+    @field:Schema(description = "리뷰 대상 음식 요약. 목록·단건 조회에서 채워지며, 채워지지 않는 맥락(작성·수정 응답·음식 상세 동봉·삭제된 음식)에서는 필드 자체가 생략된다.", nullable = true)
     val food: ReviewFoodResponse? = null,
 
     @field:Schema(description = "작성 시 고른 식당 정보. 고르지 않았으면 null.", nullable = true)
