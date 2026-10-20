@@ -38,6 +38,7 @@ class ProcessedFoodMirrorBatchConfig(
         @Value("\${kbap.processed-food.food-types}") foodTypes: List<String>,
         @Value("\${kbap.processed-food.page-size:100}") pageSize: Int,
         @Value("\${kbap.processed-food.maker-lookup-limit:2000}") makerLookupLimit: Int,
+        @Value("\${kbap.processed-food.maker-lookup-max-consecutive-failures:5}") makerLookupMaxConsecutiveFailures: Int,
         @Value("\${kbap.processed-food.retry.max-retries:3}") maxRetries: Long,
         @Value("\${kbap.processed-food.retry.initial-delay:2s}") initialDelay: Duration,
     ): ProcessedFoodMirror {
@@ -51,6 +52,7 @@ class ProcessedFoodMirrorBatchConfig(
             foodTypes.map { it.trim() }.filter { it.isNotEmpty() },
             pageSize,
             makerLookupLimit,
+            makerLookupMaxConsecutiveFailures,
         )
     }
 

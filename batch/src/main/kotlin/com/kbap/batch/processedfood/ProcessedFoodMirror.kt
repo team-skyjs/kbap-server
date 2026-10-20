@@ -21,6 +21,7 @@ class ProcessedFoodMirror(
     private val foodTypes: List<String>,
     private val pageSize: Int,
     private val makerLookupLimit: Int,
+    private val makerLookupMaxConsecutiveFailures: Int = DEFAULT_MAX_CONSECUTIVE_FAILURES,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -74,6 +75,7 @@ class ProcessedFoodMirror(
             makerLookups = maker.calls,
             makerFilled = maker.filled,
             makerLookupFailures = maker.failures,
+            makerLookupAborted = maker.aborted,
             apiCalls = calls,
             elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
         )
@@ -104,19 +106,26 @@ class ProcessedFoodMirror(
         var calls = 0
         var filled = 0
         var failures = 0
-        targets.forEach { (id, reportNo) ->
+        var consecutiveFailures = 0
+        for ((id, reportNo) in targets) {
+            if (consecutiveFailures >= makerLookupMaxConsecutiveFailures) {
+                log.warn("가공식품 미러링 — 제조사 보완 조회가 {}회 연달아 실패해 이번 회 보완을 멈춥니다(남은 {}행은 다음 회)", consecutiveFailures, targets.size - calls)
+                return MakerOutcome(calls, filled, failures, aborted = true)
+            }
             val maker = try {
                 calls++
                 makerLookup.getMakerOrNull(reportNo)
             } catch (e: Exception) {
                 failures++
+                consecutiveFailures++
                 log.warn("가공식품 미러링 — 제조사 보완 조회 실패 reportNo={} 이유={}", reportNo, e.message)
-                return@forEach
+                continue
             }
+            consecutiveFailures = 0
             transaction.executeWithoutResult { repository.findById(id).ifPresent { it.supplementMaker(maker, now) } }
             if (maker != null) filled++
         }
-        return MakerOutcome(calls, filled, failures)
+        return MakerOutcome(calls, filled, failures, aborted = false)
     }
 
     private fun HaccpProduct.toSnapshot() = ProcessedFoodSnapshot(
@@ -138,10 +147,11 @@ class ProcessedFoodMirror(
 
     private data class UpsertOutcome(val inserted: Int, val changed: Int, val unchanged: Int)
 
-    private data class MakerOutcome(val calls: Int, val filled: Int, val failures: Int)
+    private data class MakerOutcome(val calls: Int, val filled: Int, val failures: Int, val aborted: Boolean)
 
     private companion object {
         const val MAX_PAGES = 500
+        const val DEFAULT_MAX_CONSECUTIVE_FAILURES = 5
     }
 }
 
@@ -156,6 +166,7 @@ data class ProcessedFoodMirrorSummary(
     val makerLookups: Int,
     val makerFilled: Int,
     val makerLookupFailures: Int,
+    val makerLookupAborted: Boolean,
     val apiCalls: Int,
     val elapsedMillis: Long,
 )

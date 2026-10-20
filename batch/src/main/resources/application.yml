@@ -72,6 +72,8 @@ kbap:
     food-types: 과자,캔디,빵,유탕면,음료,초콜릿,아이스크림,떡,즉석조리
     page-size: 100
     maker-lookup-limit: ${PROCESSED_FOOD_MAKER_LOOKUP_LIMIT:2000}
+    # 영양DB 전면 장애 때 보완 단계를 무한정 끌지 않도록 연속 실패가 이 횟수에 닿으면 이번 회 보완을 멈춘다(남은 행은 다음 회).
+    maker-lookup-max-consecutive-failures: 5
     retry:
       max-retries: 3
       initial-delay: 2s
