@@ -121,6 +121,18 @@ class DataGoKrClientTest : BehaviorSpec({
             }
         }
 
+        `when`("성공 상태인데 본문이 비어 오면(게이트웨이) — Codex P2") {
+            then("일시 오류로 재시도해 결과를 받는다") {
+                val (client, server) = fixture()
+                server.expect(ExpectedCount.times(2), requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess("", MediaType.APPLICATION_JSON))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess(haccpPage, MediaType.APPLICATION_JSON))
+
+                DataGoKrHaccpProductSource(client).getPage("유탕면", 1, 100).items.size shouldBe 1
+                client.httpAttempts() shouldBe 3L
+                server.verify()
+            }
+        }
+
         `when`("영구 오류(22 일일 한도 초과)면") {
             then("재시도 없이 한 번에 실패한다") {
                 val (client, server) = fixture()
