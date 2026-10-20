@@ -137,8 +137,8 @@ resource "aws_iam_role_policy" "api_task" {
   policy = data.aws_iam_policy_document.api_task.json
 }
 
-# 서울 큐레이션 사진(KB-794) — 어드민 presign PUT 은 staging, 완료는 staging HEAD → final 복사.
-# 키가 curation/<env>/ 아래라 s3-storage 의 <env>/* 에 걸리지 않는다. 2026-10-20 CloudShell 로 같은 이름·내용을 먼저 넣었다
+# 서울 큐레이션 사진(KB-794) — 어드민 presign PUT 은 staging, 완료는 staging HEAD → final 복사(삭제 없음 — 정리 작업이 생길 때 따로 준다).
+# 키는 kbap.curation.environment(= 프로필 dev/prod = var.env)로 만든 curation/<env>/ 라 s3-storage 의 <storage_key_prefix>/* 에 걸리지 않는다. 2026-10-20 CloudShell 로 같은 이름·내용을 먼저 넣었다
 # (bridge/ops/2026-10-20-curation-s3-cors.md) — apply 는 같은 문서로 덮어쓴다.
 resource "aws_iam_role_policy" "api_task_curation" {
   name   = "curation-s3"
@@ -148,14 +148,14 @@ resource "aws_iam_role_policy" "api_task_curation" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-        Resource = "arn:aws:s3:::${var.storage_bucket}/curation/${var.storage_key_prefix}/*"
+        Action   = ["s3:GetObject", "s3:PutObject"]
+        Resource = "arn:aws:s3:::${var.storage_bucket}/curation/${var.env}/*"
       },
       {
         Effect    = "Allow"
         Action    = "s3:ListBucket"
         Resource  = "arn:aws:s3:::${var.storage_bucket}"
-        Condition = { StringLike = { "s3:prefix" = "curation/${var.storage_key_prefix}/*" } }
+        Condition = { StringLike = { "s3:prefix" = "curation/${var.env}/*" } }
       },
     ]
   })

@@ -95,12 +95,17 @@ run "api_task_role_can_reach_only_its_own_curation_prefix" {
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[0].Resource == "arn:aws:s3:::test-storage-bucket/curation/test/*"
-    error_message = "object access must be limited to curation/<storage_key_prefix>/*"
+    condition     = jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[0].Resource == "arn:aws:s3:::test-storage-bucket/curation/dev/*"
+    error_message = "object access must follow the curation environment (env), not storage_key_prefix"
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[1].Condition.StringLike["s3:prefix"] == "curation/test/*"
-    error_message = "list access must be limited to curation/<storage_key_prefix>/*"
+    condition     = jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[1].Condition.StringLike["s3:prefix"] == "curation/dev/*"
+    error_message = "list access must follow the curation environment (env)"
+  }
+
+  assert {
+    condition     = !contains(jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[0].Action, "s3:DeleteObject")
+    error_message = "the API task must not delete curation objects until a reference-safe cleanup flow exists"
   }
 }
