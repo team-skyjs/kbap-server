@@ -59,7 +59,7 @@ class AvoidanceTest : BehaviorSpec({
                     ANCHOVY to setOf(FISH_SAUCE, DASHI),
                     SHRIMP to setOf(SALTED_SHRIMP),
                     OYSTER to setOf(OYSTER_SAUCE),
-                    CLAM to setOf(SHORT_NECK_CLAM),
+                    CLAM to setOf(SHORT_NECK_CLAM, OYSTER, OYSTER_SAUCE, ABALONE, MUSSEL, SCALLOP),
                     SEAFOOD to seafoodLeaves,
                     BROTH to setOf(DASHI, FISH_SAUCE),
                     POULTRY to setOf(CHICKEN),
@@ -98,6 +98,14 @@ class AvoidanceTest : BehaviorSpec({
             then("상위 카테고리를 함의하지 않는다 — 새우 회피가 해산물 전체로 번지지 않고, 자기 자신도 함의하지 않는다") {
                 IngredientCode.entries.filter { SEAFOOD in it.impliedCodes || DAIRY in it.impliedCodes || it in it.impliedCodes } shouldBe emptyList()
                 SHRIMP.impliedCodes shouldBe setOf(SALTED_SHRIMP)
+            }
+        }
+    }
+
+    given("조개(조개류)를 회피하는 회원 — 법정 '조개류(굴·전복·홍합 포함)'") {
+        `when`("판정용 회피 집합을 만들면") {
+            then("바지락·굴·굴소스·전복·홍합·가리비가 함께 걸린다") {
+                Avoidance(setOf(CLAM)).codes shouldBe setOf(CLAM, SHORT_NECK_CLAM, OYSTER, OYSTER_SAUCE, ABALONE, MUSSEL, SCALLOP)
             }
         }
     }
