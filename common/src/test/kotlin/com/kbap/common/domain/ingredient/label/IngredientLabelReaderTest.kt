@@ -192,6 +192,21 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "돈사골농축액")) shouldBe setOf(IngredientCode.PORK)
             }
         }
+        `when`("무알코올 맥주·식물성 밀크 복합어이면 — Codex P2(같은 계열 3회째 → suppress 방식)") {
+            then("토큰 안의 다른 용어가 남아도 그 코드는 지운다 — 견과는 그대로 검출") {
+                codes(IngredientLabelReader.read(null, "무알코올맥주, 비알콜와인, 논알코올맥주")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "캐슈밀크")) shouldBe setOf(IngredientCode.CASHEW)
+                codes(IngredientLabelReader.read(null, "헤이즐넛밀크, 피스타치오밀크, 마카다미아밀크")) shouldBe
+                    setOf(IngredientCode.HAZELNUT, IngredientCode.PISTACHIO, IngredientCode.MACADAMIA)
+                codes(IngredientLabelReader.read(null, "초코밀크")) shouldBe setOf(MILK)
+                codes(IngredientLabelReader.read(null, "맥주효모, 생맥주")) shouldBe setOf(IngredientCode.ALCOHOL)
+            }
+        }
+        `when`("알레르기 표시란에 공백 하나 띄운 부정 표현이 있으면 — Codex P2") {
+            then("원재료와 같이 그 품목을 제외한다") {
+                codes(IngredientLabelReader.read("우유 무첨가, 대두", null)) shouldBe setOf(SOY)
+            }
+        }
         `when`("이름만 닮은 재료이면 — 선제 보강의 오탐 경계") {
             then("검출하지 않는다 — 밀크씨슬·가공유지·강낭콩·리마콩·다시다·밀크향") {
                 codes(IngredientLabelReader.read(null, "밀크씨슬추출물, 가공유지, 강낭콩, 리마콩, 다시다, 밀크향")) shouldBe emptySet()
