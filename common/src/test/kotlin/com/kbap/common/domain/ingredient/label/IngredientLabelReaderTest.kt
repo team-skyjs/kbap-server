@@ -200,6 +200,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "우유무첨가, 대두불포함, 계란 미사용")) shouldBe emptySet()
                 codes(IngredientLabelReader.read(null, "설탕 무첨가 땅콩버터")) shouldBe setOf(PEANUT)
                 codes(IngredientLabelReader.read(null, "MSG free 우유")) shouldBe setOf(MILK)
+                codes(IngredientLabelReader.read(null, "우유 freeze, 계란 미사용라인, 대두 무첨가함")) shouldBe setOf(MILK, EGG, SOY)
             }
         }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
