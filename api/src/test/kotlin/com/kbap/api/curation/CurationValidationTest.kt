@@ -70,6 +70,9 @@ class CurationValidationTest : BehaviorSpec({
             then("서버 조회 없이 문법으로 거절한다") {
                 listOf("http://example.com", "javascript:alert(1)", "https://user@example.com", "https://127.0.0.1", "https://10.0.0.1", "https://192.168.1.1", "https://[::1]", "https://localhost", "https://2130706433").forEach { validator.urlValid(it) shouldBe false }
                 validator.urlValid("https://example.invalid/path?language=en") shouldBe true
+                listOf("https://localhost.", "https://localhost..", "https://foo.localhost.", "https://printer.local.", "https://127.0.0.1.", "https://10.0.0.1.", "https://intranet.")
+                    .forEach { validator.urlValid(it) shouldBe false }
+                validator.urlValid("https://example.com./path") shouldBe true
             }
         }
         `when`("역 주변 항목 수가 한개나 네개이면") {
