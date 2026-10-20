@@ -130,7 +130,7 @@ class ScanBatchOrderTest : BehaviorSpec() {
                     val owner = member()
                     val batch = batchWithResults(owner)
                     order(owner, mapOf("batchId" to batch.id.toString(), "items" to listOf(itemOf(batch.items[0]), itemOf(batch.items[0], quantity = 2))), expected = 400)
-                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 8 DAY, result_expires_at = result_expires_at - INTERVAL 8 DAY WHERE request_key = UUID_TO_BIN('${batch.id}', 0)")
+                    dataSource.connection.use { c -> c.createStatement().use { it.executeUpdate("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 8 DAY, result_expires_at = result_expires_at - INTERVAL 8 DAY WHERE request_key = UUID_TO_BIN('${batch.id}', 0)") } }
                     order(owner, mapOf("batchId" to batch.id.toString(), "items" to listOf(itemOf(batch.items[0]))), expected = 410).path("code").asText() shouldBe "SCAN-013"
                     sql("SELECT COUNT(*) FROM orders") shouldBe 0
                 }
