@@ -73,6 +73,7 @@ class ScanBatchRunTest : BehaviorSpec() {
         beforeEach {
             TestTables.clearAll(dataSource)
             batchSwitch.enabled = true
+            batchSwitch.executionEnabled = true
             vision.reset()
         }
         afterSpec {
@@ -137,7 +138,6 @@ class ScanBatchRunTest : BehaviorSpec() {
                     redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId") shouldBe null
                     vision.program(a, listOf(MenuBoardLine("냉면", "냉면", 8000, null)))
                     retry(owner, batchId, 0)
-                    redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId") shouldBe null
                     settled(owner, batchId).path("usageRecorded").asBoolean() shouldBe true
                     scanCount(owner) shouldBe 1
                 }

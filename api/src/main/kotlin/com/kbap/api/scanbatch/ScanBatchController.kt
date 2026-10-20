@@ -8,6 +8,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.CurrencyCode
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.domain.scan.model.ScanPhotoState
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -22,6 +23,7 @@ import java.util.UUID
 @RequestMapping(ApiPaths.API + "/scans/batches")
 class ScanBatchController(
     private val scanBatchService: ScanBatchService,
+    private val runner: ScanBatchRunner,
 ) : ScanBatchApi {
     @PostMapping(version = ApiVersions.SCAN_BATCH + "+")
     override fun create(
@@ -30,11 +32,20 @@ class ScanBatchController(
     ): ResponseEntity<BaseResponse<ScanBatchResponse>> {
         val currency = CurrencyCode.from(request.currency!!) ?: throw BusinessException(ErrorCode.INVALID_CURRENCY_CODE)
         val photos = request.photos!!.map { ScanBatchPhotoInput(uuidOrInvalid(it.photoId!!), it.imagePath!!) }
-        return ResponseEntity.ok(
-            BaseResponse.ok(
-                scanBatchService.createBatch(memberId, uuidOrInvalid(request.clientRequestId!!), LanguageCode.from(request.lang!!).code, currency.name, photos),
-            ),
-        )
+        val batchId = uuidOrInvalid(request.clientRequestId!!)
+        val batch = scanBatchService.createBatch(memberId, batchId, LanguageCode.from(request.lang!!).code, currency.name, photos)
+        runner.dispatch(memberId, batchId, batch.photos.filter { it.state == ScanPhotoState.PENDING }.map { it.index })
+        return ResponseEntity.ok(BaseResponse.ok(batch))
+    }
+
+    @PostMapping("/{batchId}/photos/{index}/retry", version = ApiVersions.SCAN_BATCH + "+")
+    override fun retry(
+        @AuthMemberId memberId: Long,
+        @PathVariable batchId: String,
+        @PathVariable index: Int,
+    ): ResponseEntity<BaseResponse<ScanBatchResponse>> {
+        runner.runAsync(scanBatchService.retryPhoto(memberId, batchId, index))
+        return ResponseEntity.ok(BaseResponse.ok(scanBatchService.getBatch(memberId, batchId)))
     }
 
     @GetMapping("/{batchId}", version = ApiVersions.SCAN_BATCH + "+")

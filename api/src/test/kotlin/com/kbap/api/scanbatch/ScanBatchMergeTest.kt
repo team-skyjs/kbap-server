@@ -70,9 +70,11 @@ class ScanBatchMergeTest : BehaviorSpec() {
         beforeEach {
             TestTables.clearAll(dataSource)
             batchSwitch.enabled = true
+            batchSwitch.executionEnabled = false
         }
         afterSpec {
             batchSwitch.enabled = false
+            batchSwitch.executionEnabled = true
             TestTables.clearAll(dataSource)
         }
 

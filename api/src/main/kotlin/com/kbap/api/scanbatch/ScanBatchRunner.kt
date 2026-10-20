@@ -1,0 +1,70 @@
+package com.kbap.api.scanbatch
+
+import com.kbap.common.port.llm.MenuBoardLineExtractor
+import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
+import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
+import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.core.task.TaskExecutor
+import org.springframework.stereotype.Component
+import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
+
+@Component
+class ScanBatchRunner(
+    private val batches: ScanBatchService,
+    private val batchSwitch: ScanBatchSwitch,
+    private val extractor: MenuBoardLineExtractor,
+    @Qualifier("applicationTaskExecutor") private val executor: TaskExecutor,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    fun dispatch(memberId: Long, batchId: UUID, selectionIndexes: List<Int>) {
+        if (!batchSwitch.executionEnabled) return
+        val queue = ConcurrentLinkedQueue(selectionIndexes)
+        repeat(minOf(PER_BATCH_CONCURRENCY, selectionIndexes.size)) {
+            executor.execute {
+                while (true) {
+                    val index = queue.poll() ?: break
+                    val claim = runCatching { batches.startAttempt(memberId, batchId, index) }
+                        .onFailure { log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, index, it) }
+                        .getOrNull() ?: continue
+                    extractAndRecord(claim)
+                }
+            }
+        }
+    }
+
+    fun runAsync(claim: ScanBatchClaim) {
+        if (batchSwitch.executionEnabled) executor.execute { extractAndRecord(claim) }
+    }
+
+    private fun extractAndRecord(claim: ScanBatchClaim) {
+        val lines = try {
+            extractor.extractLines(claim.objectKey)
+        } catch (e: Exception) {
+            val reason = when (e) {
+                is MenuBoardVisionRateLimitedException -> RATE_LIMITED
+                is MenuBoardVisionQuotaExhaustedException, is MenuBoardVisionUnavailableException -> VISION_UNAVAILABLE
+                else -> RECOGNITION_FAILED
+            }
+            log.warn("스캔 묶음 사진 인식 실패 operationId={} photoRowId={} reason={}", claim.operationId, claim.photoRowId, reason, e)
+            record { batches.recordFailure(claim, reason) }
+            return
+        }
+        record { if (lines.isEmpty()) batches.recordFailure(claim, NOT_DETECTED) else batches.recordSuccess(claim, lines) }
+    }
+
+    private fun record(block: () -> Boolean) {
+        runCatching(block).onFailure { log.error("스캔 묶음 결과 확정 실패 — lease 만료로 재시도 가능 상태가 된다", it) }
+    }
+
+    companion object {
+        const val PER_BATCH_CONCURRENCY = 3
+        const val RATE_LIMITED = "RATE_LIMITED"
+        const val VISION_UNAVAILABLE = "VISION_UNAVAILABLE"
+        const val RECOGNITION_FAILED = "RECOGNITION_FAILED"
+        const val NOT_DETECTED = "NOT_DETECTED"
+    }
+}

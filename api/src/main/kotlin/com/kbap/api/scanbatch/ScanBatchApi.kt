@@ -15,7 +15,7 @@ interface ScanBatchApi {
     @Operation(
         summary = "스캔 묶음 생성",
         description = """
-            사진 1~10장의 고정 목록으로 묶음을 만들고 공통 잔량 1회를 실행 창(15분) 동안 예약한다. 사진은 PENDING 으로 시작한다.
+            사진 1~10장의 고정 목록으로 묶음을 만들고 공통 잔량 1회를 실행 창(15분) 동안 예약한다. 사진은 PENDING 으로 시작하고 서버가 묶음당 최대 3장씩 비동기로 인식한다 — 진행·결과는 조회로 확인한다.
             clientRequestId 가 멱등 키다 — 같은 내용 재전송은 같은 묶음, 다른 내용은 409 SCAN-005.
             사진 경로는 본인이 MENU_SCAN 목적으로 업로드 완료한 것만(SCAN-001). 11장 이상 SCAN-009, 잔량 소진 SCAN-004.
             기능 플래그가 꺼져 있으면 404 SCAN-010.
@@ -42,6 +42,17 @@ interface ScanBatchApi {
     fun get(
         memberId: Long,
         @Parameter(description = "묶음 id", example = "0b6b5c6e-3f0a-4c8e-9a51-1f0f3b7d2a10") batchId: String,
+    ): ResponseEntity<BaseResponse<ScanBatchResponse>>
+
+    @Operation(
+        summary = "스캔 묶음 사진 재시도",
+        description = "실패한 사진(또는 시도 기한이 지난 사진)을 같은 묶음에서 다시 인식한다 — 추가 차감 없음. 전부 실패로 예약이 풀렸던 묶음이면 공통 잔량을 다시 예약한다(소진이면 SCAN-004). 성공·취소된 사진, 없는 사진, 끝난 묶음은 409 SCAN-011. 처리는 비동기 — 결과는 조회로 확인한다.",
+    )
+    @ApiErrors(ErrorCode.SCAN_BATCH_NOT_FOUND, ErrorCode.SCAN_BATCH_PHOTO_NOT_RETRYABLE, ErrorCode.SCAN_LIMIT_EXCEEDED)
+    fun retry(
+        memberId: Long,
+        @Parameter(description = "묶음 id", example = "0b6b5c6e-3f0a-4c8e-9a51-1f0f3b7d2a10") batchId: String,
+        @Parameter(description = "사진 선택 순서(0부터)", example = "1") index: Int,
     ): ResponseEntity<BaseResponse<ScanBatchResponse>>
 
     @Operation(

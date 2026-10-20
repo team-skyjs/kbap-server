@@ -51,6 +51,7 @@ data class ScanBatchClaim(
     val attemptId: Long,
     val attemptNo: Int,
     val claimToken: ByteArray,
+    val objectKey: String,
 )
 
 data class ScanBatchPhotoInput(val photoId: UUID, val imagePath: String)
@@ -154,7 +155,17 @@ class ScanBatchService(
     }
 
     @Transactional
-    fun startAttempt(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? {
+    fun retryPhoto(memberId: Long, batchId: String, selectionIndex: Int): ScanBatchClaim {
+        requireEnabled()
+        val key = parse(batchId) ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
+        operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(key)) ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
+        return claimNext(memberId, key, selectionIndex) ?: throw BusinessException(ErrorCode.SCAN_BATCH_PHOTO_NOT_RETRYABLE)
+    }
+
+    @Transactional
+    fun startAttempt(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? = claimNext(memberId, batchId, selectionIndex)
+
+    private fun claimNext(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? {
         if (!batchSwitch.enabled) return null
         val now = LocalDateTime.now()
         val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return null
@@ -182,7 +193,7 @@ class ScanBatchService(
                 leaseUntil = now.plus(ATTEMPT_LEASE),
             ),
         )
-        return ScanBatchClaim(memberId, operation.id, photo.id, attempt.id, photo.attemptNo, token)
+        return ScanBatchClaim(memberId, operation.id, photo.id, attempt.id, photo.attemptNo, token, photo.objectKey)
     }
 
     @Transactional
