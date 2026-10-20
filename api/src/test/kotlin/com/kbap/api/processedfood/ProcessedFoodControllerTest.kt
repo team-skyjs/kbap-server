@@ -119,7 +119,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
             `when`("검색어가 길거나 토큰이 많으면 — 토큰마다 쿼리가 돌아 증폭되지 않게") {
             then("100자 초과는 400, 토큰은 앞 5개만 쓴다") {
                     get("/api/processed-foods?query=" + "가".repeat(101), expected = 400)
-                    names(get("/api/processed-foods?query=새우깡 가 나 다 라 포카칩")) shouldBe listOf("새우깡", "새우깡블랙", "매운새우깡", "100%_새우깡")
+                    names(get("/api/processed-foods?query=새우깡 zq1 zq2 zq3 zq4 포카칩")) shouldBe listOf("새우깡", "새우깡블랙", "매운새우깡", "100%_새우깡")
                 }
             }
             `when`("구버전 헤더로 부르면") {

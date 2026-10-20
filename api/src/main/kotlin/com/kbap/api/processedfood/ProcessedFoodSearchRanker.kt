@@ -8,9 +8,10 @@ object ProcessedFoodSearchRanker {
     private const val PREFIX = 1
     private const val CONTAINS = 2
     private const val MAKER_ONLY = 3
+    private const val MAX_TOKENS = 5
 
     fun tokensOf(query: String): List<String> =
-        query.trim().split(Regex("""\s+""")).map(ProcessedFoodSnapshot::normalizeName).filter { it.isNotBlank() }.distinct()
+        query.trim().split(Regex("""\s+""")).map(ProcessedFoodSnapshot::normalizeName).filter { it.isNotBlank() }.distinct().take(MAX_TOKENS)
 
     fun rank(products: Collection<ProcessedFoodProduct>, tokens: List<String>): List<ProcessedFoodProduct> {
         val scored = products.mapNotNull { product -> scoreOf(product, tokens)?.let { product to it } }

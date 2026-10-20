@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Size
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
@@ -37,7 +38,8 @@ class ProcessedFoodController(
 
 @Schema(description = "가공식품 검색 요청")
 data class ProcessedFoodSearchRequest(
-    @field:Schema(description = "검색어(필수) — 제품명·제조사, 공백으로 여러 토큰", example = "농심 신라면")
+    @field:Size(max = 100, message = "query 는 100자 이하여야 합니다")
+    @field:Schema(description = "검색어(필수, 100자 이하) — 제품명·제조사, 공백으로 여러 토큰(앞 5개만 쓴다)", example = "농심 신라면")
     val query: String? = null,
     @field:Schema(description = "직전 페이지 nextCursor 그대로(불투명). 미지정 시 첫 페이지", example = "20")
     val cursor: String? = null,
