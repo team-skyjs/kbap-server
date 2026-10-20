@@ -91,6 +91,15 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     scanCountOf(88402L) shouldBe 1
                 }
             }
+            `when`("같은 키로 같은 줄을 면 나눔만 달리해 보내면 — Codex P2") {
+                then("다른 요청으로 보고 409 SCAN-005") {
+                    val token = member(88405L)
+                    val key = UUID.randomUUID().toString()
+                    label(token, null, *shrimpLabel, clientRequestId = key)
+                    label(token, null, shrimpLabel.joinToString("\n"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
+                    scanCountOf(88405L) shouldBe 1
+                }
+            }
             `when`("새 분석에 키가 없거나 UUID 가 아니면") {
                 then("400 COMMON-002, 차감 없음") {
                     val token = member(88403L)
