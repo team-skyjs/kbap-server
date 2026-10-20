@@ -109,6 +109,7 @@ class ModuleBoundaryTest : BehaviorSpec({
 
         val allowedDomainDeps = mapOf(
             "admin" to emptySet(),
+            "curation" to emptySet(),
             "appversion" to emptySet(),
             "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
