@@ -53,10 +53,10 @@
               "publishedRevision": 1
             },
             {
-              "collectionKey": "restaurants",
+              "collectionKey": "busan",
               "title": "en title",
               "description": "en description",
-              "coverImageUrl": "https://example.invalid/curation/dev/final/restaurants",
+              "coverImageUrl": "https://example.invalid/curation/dev/final/busan",
               "itemCount": 10,
               "publishedRevision": 1
             }
