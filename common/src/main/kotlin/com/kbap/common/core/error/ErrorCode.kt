@@ -55,6 +55,7 @@ enum class ErrorCode(
     FOOD_ADDITIONAL_IMAGE_IN_PROGRESS("FOOD-019", 409, "이 음식의 추가 이미지 생성이 이미 진행 중입니다"),
     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
     FOOD_CONTENT_DRAFT_NOT_FOUND("FOOD-021", 404, "검수 대기 중인 콘텐츠 초안이 없습니다"),
+    FOOD_LISTING_STALE("FOOD-022", 409, "음식 목록이 변경되었습니다. 첫 페이지부터 다시 조회해 주세요"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
@@ -69,6 +70,13 @@ enum class ErrorCode(
     FOOD_IMAGE_NOT_FOUND("IMAGE-005", 404, "해당 음식의 이미지를 찾을 수 없습니다"),
     IMAGE_UPLOAD_RATE_LIMITED("IMAGE-006", 429, "하루에 올릴 수 있는 사진 수를 넘었습니다. 내일 다시 시도해 주세요"),
     ORDER_ITEM_IMAGE_NOT_VERIFIED("IMAGE-007", 400, "본인이 주문 항목 용도(ORDER_ITEM)로 올린 사진만 쓸 수 있습니다"),
+
+    CURATION_NOT_FOUND("CURATION-001", 404, "공개된 모음을 찾을 수 없습니다"),
+    CURATION_PUBLICATION_INVALID("CURATION-002", 400, "게시할 내용을 확인해 주세요"),
+    CURATION_VERSION_CONFLICT("CURATION-003", 409, "모음이 변경되었습니다. 다시 조회해 주세요"),
+    CURATION_ENVIRONMENT_MISMATCH("CURATION-004", 409, "요청 환경이 서버 환경과 다릅니다"),
+    CURATION_ASSET_INVALID("CURATION-005", 400, "사용할 수 없는 큐레이션 사진입니다"),
+    CURATION_UNAVAILABLE("CURATION-006", 503, "큐레이션을 불러올 수 없습니다"),
 
     SCAN_IMAGE_NOT_VERIFIED("SCAN-001", 400, "검증되지 않았거나 접근할 수 없는 이미지입니다"),
     MENU_BOARD_RECOGNITION_FAILED("SCAN-002", 503, "메뉴판 인식에 실패했습니다. 잠시 후 다시 시도해 주세요"),
@@ -86,6 +94,7 @@ enum class ErrorCode(
     REVIEW_FORBIDDEN("REVIEW-002", 403, "본인이 작성한 리뷰만 수정·삭제할 수 있습니다"),
     REVIEW_IMAGE_NOT_VERIFIED("REVIEW-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
     REVIEW_NOT_ELIGIBLE("REVIEW-004", 403, "스캔 이력이 있는 음식에만 리뷰를 작성할 수 있습니다"),
+    REVIEW_BODY_TOO_SHORT("REVIEW-005", 400, "리뷰 본문은 10자 이상이어야 해요"),
 
     PLACE_SEARCH_FAILED("PLACE-001", 502, "식당 검색에 실패했습니다. 잠시 후 다시 시도해 주세요"),
 
@@ -116,4 +125,9 @@ enum class ErrorCode(
     UPLOAD_PATH_NOT_ISSUED("UPLOAD-004", 400, "이 계정에 발급된 업로드 경로가 아닙니다"),
 
     TRANSLATION_FAILED("TRANSLATION-001", 503, "번역을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요"),
+
+    PROCESSED_FOOD_NOT_FOUND("PFOOD-001", 404, "가공식품을 찾을 수 없습니다"),
+    PROCESSED_FOOD_DISCONTINUED("PFOOD-002", 410, "생산이 종료된 제품입니다"),
+    PROCESSED_FOOD_SCAN_NOT_FOUND("PFOOD-003", 404, "스캔 분석을 찾을 수 없거나 만료되었습니다"),
+    PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED("PFOOD-004", 409, "이미 확정했거나 확정할 수 없는 스캔 분석입니다"),
 }

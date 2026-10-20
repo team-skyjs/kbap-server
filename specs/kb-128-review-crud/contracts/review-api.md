@@ -1,5 +1,7 @@
 # API Contract: 리뷰 CRUD (KB-128)
 
+> **2026-10-20 KB-827 갱신**: 작성·수정의 `content` 는 필수, trim 후 코드 포인트 10자 이상 — 미달은 400 `REVIEW-005`(payload `minLength: 10`). 아래 "content 옵션"·"비우기 허용"은 이 규칙으로 대체된다. 상세: [`../../kb-827-review-min-length/contract.md`](../../kb-827-review-min-length/contract.md).
+
 모든 응답은 `ResponseEntity<BaseResponse<T>>` 봉투. 인증은 deny-by-default — 아래 전 경로 Bearer 필수(음식 상세만 `@AuthMemberIdOrNull`). 경로 베이스는 `ApiPaths.V1`.
 
 ## 1. POST /api/v1/reviews — 작성 (PR2)
@@ -75,6 +77,7 @@ Response 200:
 | 리뷰 없음/삭제됨 | 400 | REVIEW-001 |
 | 음식 없음 | 400 | FOOD-001 |
 | 이미지 미소유/미완료 | 400 | REVIEW-003 |
+| 본문 없음·trim 후 10자 미만 (KB-827) | 400 | REVIEW-005 |
 | rating·content·imagePaths 검증 위반 | 400 | Bean Validation 공통 핸들러 |
 | cursor 비정상 | 400 | FOOD-002 |
 

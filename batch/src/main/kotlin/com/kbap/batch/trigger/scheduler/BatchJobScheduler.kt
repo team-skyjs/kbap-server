@@ -4,6 +4,7 @@ import com.kbap.batch.notification.receipt.PushReceiptSyncBatchConfig
 import com.kbap.batch.notification.reminder.ReviewReminderPushBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionPushBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionSendWindow
+import com.kbap.batch.processedfood.ProcessedFoodMirrorBatchConfig
 import com.kbap.batch.stats.DailyUserStatsBatchConfig
 import com.kbap.batch.trigger.rest.BatchJobLaunchResult
 import com.kbap.batch.trigger.rest.BatchJobLauncher
@@ -47,6 +48,9 @@ class BatchJobScheduler(
 
     @Scheduled(cron = DailyUserStatsBatchConfig.DAILY_AT_09_00, zone = TIME_ZONE)
     fun reportDailyUserStats() = launch(DailyUserStatsBatchConfig.JOB)
+
+    @Scheduled(cron = ProcessedFoodMirrorBatchConfig.DAILY_AT_04_00, zone = TIME_ZONE)
+    fun mirrorProcessedFoods() = launch(ProcessedFoodMirrorBatchConfig.JOB)
 
     private fun launch(jobName: String) {
         when (val result = launcher.launch(jobName)) {

@@ -1,5 +1,6 @@
 package com.kbap.api.reviewbot
 
+import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.review.ReviewService
@@ -47,6 +48,10 @@ class ReviewBotTest : BehaviorSpec() {
     @Autowired private lateinit var ingredientRepository: IngredientJpaRepository
     @Autowired private lateinit var reviewService: ReviewService
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
+    @Autowired private lateinit var photos: ReviewBotPhotoService
+    @Autowired private lateinit var photoCatalog: ReviewBotPhotoCatalog
+    @Autowired private lateinit var botPhotoRepository: com.kbap.common.domain.image.BotPhotoJpaRepository
+    @Autowired private lateinit var photoStorage: FakeStorageObjectStore
     @Autowired private lateinit var writerBean: ReviewBotWriter
     @Autowired private lateinit var lockProvider: LockProvider
     @Autowired private lateinit var priorityList: ReviewBotPriorityList
@@ -78,7 +83,7 @@ class ReviewBotTest : BehaviorSpec() {
         }
 
         fun writer(min: Int = 8, max: Int = 12, budget: Duration = Duration.ofMinutes(15)) = ReviewBotWriter(
-            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, priorityList, photoPool, min, max, budget,
+            accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, photos, priorityList, photoPool, min, max, budget,
         )
 
         fun seedPoolsForAllFoods() {
@@ -92,6 +97,7 @@ class ReviewBotTest : BehaviorSpec() {
                     query("SELECT korean_name FROM food").map { it.single() as String }.forEach { name ->
                         (1..3).forEach { n ->
                             val path = prefix + ReviewBotPhotoPool.keyOf(name) + "/$n.webp"
+                            photoStorage.stub(path, "image/webp", 100000)
                             ps.setLong(1, owner.toLong()); ps.setString(2, path); ps.setString(3, path); ps.addBatch()
                         }
                     }
@@ -112,6 +118,8 @@ class ReviewBotTest : BehaviorSpec() {
         beforeEach {
             TestTables.clearAll(dataSource)
             fakeGenerator.reset()
+            photoStorage.heads.clear()
+            photoStorage.lastModified.clear()
         }
         afterSpec { TestTables.clearAll(dataSource) }
 
@@ -183,6 +191,101 @@ class ReviewBotTest : BehaviorSpec() {
                 then("400 이다") {
                     ensure(0).andExpect { status { isBadRequest() } }
                     ensure(51).andExpect { status { isBadRequest() } }
+                }
+            }
+        }
+
+        given("등록된 사진의 메타데이터 재검증 — Codex P2") {
+            `when`("등록된 사진이 비-webp 나 0바이트로 덮어써지면") {
+                then("재고에서 available 이 아니라 held(MISSING_OR_INVALID_METADATA) 로 분류되고 새 리뷰에 쓰이지 않는다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    seedPoolsForAllFoods()
+                    val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf(food.koreanName)
+                    photoStorage.stub("$prefix/2.webp", "image/png", 100000)
+                    photoStorage.stub("$prefix/3.webp", "image/webp", 0)
+
+                    val inventory = photos.getInventory()
+
+                    inventory.available shouldBe listOf("$prefix/1.webp")
+                    inventory.held.filter { it.reason == "MISSING_OR_INVALID_METADATA" }.map { it.path }.sorted() shouldBe listOf("$prefix/2.webp", "$prefix/3.webp")
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    query("SELECT image_refs FROM food_review").map { it.single().toString() } shouldBe listOf("[\"$prefix/1.webp\"]")
+                }
+            }
+        }
+
+        given("사진 sync 의 키별 개수·일반 참조 판정 — Codex P2 2차") {
+            fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+            fun humanMember(uid: String): Long {
+                execute("INSERT INTO member (provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) VALUES ('GOOGLE', '$uid', 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6))")
+                return count("SELECT id FROM member WHERE provider_uid = '$uid'")
+            }
+
+            `when`("저장소에 있는 사진 하나가 일반 리뷰 참조로 보류되면") {
+                then("imagesPerKey 는 그 키의 저장소 객체 3개를 모두 센다 — 보류된 객체도 빠지지 않는다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    val key = ReviewBotPhotoPool.keyOf(food.koreanName)
+                    val prefix = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + key
+                    (1..3).forEach { photoStorage.stub("$prefix/$it.webp", "image/webp", 100000) }
+                    val human = humanMember("human-ref")
+                    execute("INSERT INTO food_review (member_id, food_id, rating, image_refs, status) VALUES ($human, ${food.id}, 5, JSON_ARRAY('$prefix/3.webp'), 'ACTIVE')")
+
+                    val result = photos.sync()
+
+                    result.registeredCount shouldBe 2
+                    result.held.map { it.reason } shouldBe listOf("ORDINARY_REFERENCE")
+                    result.imagesPerKey shouldBe mapOf(key to 3)
+                }
+            }
+
+            `when`("일반 리뷰가 후보 경로의 '_' 자리에 다른 글자를 가진 경로를 참조하면") {
+                then("와일드카드로 오인하지 않는다 — 후보는 일반 참조가 아니다") {
+                    accountService.ensureBots(1)
+                    val food = seedFoods(1).single()
+                    val candidate = "local/images/review-bot/aa_bbbbbbbbb/1.webp"
+                    val human = humanMember("human-wild")
+                    execute("INSERT INTO food_review (member_id, food_id, rating, image_refs, status) VALUES ($human, ${food.id}, 5, JSON_ARRAY('local/images/review-bot/aaXbbbbbbbbb/1.webp'), 'ACTIVE')")
+
+                    photoCatalog.getOrdinaryReferencedPaths(listOf(candidate)) shouldBe emptySet()
+                    botPhotoRepository.hasOrdinaryReference(candidate) shouldBe 0L
+                    photoCatalog.getOrdinaryReferencedPaths(listOf("local/images/review-bot/aaXbbbbbbbbb/1.webp")) shouldBe setOf("local/images/review-bot/aaXbbbbbbbbb/1.webp")
+                }
+            }
+        }
+
+        given("틱당 사진 재고 1회 — Codex P2") {
+            `when`("한 틱에 여러 음식을 쓰면") {
+                then("봇 사진 접두 전체 목록은 틱마다 한 번만 훑는다(후보마다 다시 훑지 않는다)") {
+                    accountService.ensureBots(12)
+                    seedFoods(20)
+                    seedPoolsForAllFoods()
+                    photoStorage.fullListingStarts.clear()
+
+                    writer().writeDue(todayAt(22))
+
+                    (botReviewCount() > 1) shouldBe true
+                    photoStorage.fullListingStarts.size shouldBe 1
+                }
+            }
+        }
+
+        given("사진이 없는 새 리뷰 작성 방지") {
+            `when`("사진이 없거나 생성 도중 소실되면") {
+                then("LLM 호출 전 또는 저장 전에 제외한다") {
+                    accountService.ensureBots(1)
+                    seedFoods(1)
+                    writer(min = 1, max = 1).writeDue(todayAt(22))
+                    fakeGenerator.requests.size shouldBe 0
+                    botReviewCount() shouldBe 0
+                    fakeGenerator.reply = {
+                        photoStorage.heads.clear()
+                        "The noodles were warm and savory with a pleasant texture and a balanced flavor."
+                    }
+                    run(writer(min = 1, max = 1), todayAt(22))
+                    fakeGenerator.requests.size shouldBe 1
+                    botReviewCount() shouldBe 0
                 }
             }
         }
@@ -376,6 +479,34 @@ class ReviewBotTest : BehaviorSpec() {
 
                     botReviewCount() shouldBe 0
                     (fakeGenerator.requests.size > 0).shouldBeTrue()
+                }
+            }
+
+            `when`("생성물이 20자는 넘지만 앞뒤 공백을 빼면 10자에 못 미치면") {
+                then("재생성까지 못 미치면 저장하지 않고 건너뛴다 — 봇 리뷰 수·카운터 불변") {
+                    accountService.ensureBots(5)
+                    seedFoods(5)
+                    fakeGenerator.reply = { "      Tasty!!       " }
+
+                    run(writer(), todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                    count("SELECT COALESCE(SUM(review_count), 0) FROM member WHERE is_bot = 1") shouldBe 0
+                    (fakeGenerator.requests.size > 0).shouldBeTrue()
+                }
+            }
+
+            `when`("첫 생성물만 앞뒤 공백을 빼면 10자에 못 미치면") {
+                then("필터가 버리고 재생성한 본문으로 저장한다") {
+                    accountService.ensureBots(1)
+                    seedFoods(1)
+                    val good = "The broth was deep and savory, I would order it again."
+                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "      Tasty!!       " else good }
+
+                    run(writer(), todayAt(22))
+
+                    fakeGenerator.requests.size shouldBe 2
+                    query("SELECT content FROM food_review").single().single() shouldBe good
                 }
             }
 

@@ -1,5 +1,6 @@
 package com.kbap.api.reviewbot
 
+import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewBotForbiddenCategory
 
 object ReviewBotContentGuard {
@@ -15,7 +16,9 @@ object ReviewBotContentGuard {
     private const val MAX_LENGTH = 1000
 
     fun isAcceptable(text: String): Boolean =
-        text.length in MIN_LENGTH..MAX_LENGTH && FORBIDDEN.none { it.containsMatchIn(text) }
+        text.length in MIN_LENGTH..MAX_LENGTH &&
+            text.trim().let { it.codePointCount(0, it.length) >= Review.MIN_CONTENT_LENGTH } &&
+            FORBIDDEN.none { it.containsMatchIn(text) }
 
     fun coverage(language: String): Map<ReviewBotForbiddenCategory, List<String>> =
         CATEGORIES.associateWith { it.terms(language) }

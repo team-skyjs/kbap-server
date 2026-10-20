@@ -88,6 +88,7 @@ class Review(
     companion object {
         val RATING_RANGE = 1..5
         val EXTRA_RATING_RANGE = 0..5
+        const val MIN_CONTENT_LENGTH = 10
         const val MAX_CONTENT_LENGTH = 1000
         const val MAX_IMAGE_COUNT = 3
     }

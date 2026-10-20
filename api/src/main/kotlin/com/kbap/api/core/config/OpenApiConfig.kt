@@ -126,6 +126,18 @@ class OpenApiConfig {
         operationCustomizers: List<OperationCustomizer>,
     ): GroupedOpenApi = versionDoc("2.0", handlerMappings, operationCustomizers)
 
+    @Bean
+    fun apiVersion31Doc(
+        handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("3.1", handlerMappings, operationCustomizers)
+
+    @Bean
+    fun apiVersion32Doc(
+        handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,
+        operationCustomizers: List<OperationCustomizer>,
+    ): GroupedOpenApi = versionDoc("3.2", handlerMappings, operationCustomizers)
+
     private fun versionDoc(
         version: String,
         handlerMappings: ObjectProvider<RequestMappingHandlerMapping>,

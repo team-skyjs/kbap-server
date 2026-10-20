@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-10-16T14:32:14.758978+09:00",
+  "baseCommit": "173426ec3b86c1d5003ddb958b7c9c8315bae8a9",
+  "testCounts": {
+    "api": {
+      "tests": 2120,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "batch": {
+      "tests": 93,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "common": {
+      "tests": 646,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "localHttpCount": 62,
+  "localHttpHost": "http://127.0.0.1:62294",
+  "sourceDigestSha256": "9c19fdafb8d6a5d7931c983a9f522fa01e4c37dafb203f3d2a8345fb89a6c897",
+  "sourceDigestMethod": "SHA256(JSON sorted path→SHA256 over api/src,batch/src,common/src files; Python json.dumps(sort_keys=True))",
+  "localArtifactSha256": {
+    "/private/tmp/curation-final-build3.log": "d8f01f0a3d022ff9347e7718daffdb37050755ce0c1176a7e4530b7baa7a9036",
+    "/private/tmp/curation-final-build2.log": "e6922fa1bea6f9dd29922b510f4407456e7af09b18d470bed4a8977736c42bef",
+    "/private/tmp/curation-published-at-red.log": "2906ba935db71de8b878eab97f72de7067305678b59a41f7922e6d7b12e58059",
+    "/private/tmp/curation-http-results.json": "61f61c65fa3b3bad520000bcd8cc04f3e16be5ab1116858cfffd6e9ff8e614bc",
+    "/private/tmp/curation-openapi.json": "ba0278889cdf27f5413b1611cbff921d946ef4d03e447e6362e57a5aadab124e"
+  },
+  "migrationSha256": "39aec57bd4689cce72c6bbd1fde3de149f8efbd68dd72e1e1a54dcdeab8572fb",
+  "realS3UploadExecuted": false,
+  "devFeatureDeploymentVerified": false,
+  "productionWriteExecuted": false
+}

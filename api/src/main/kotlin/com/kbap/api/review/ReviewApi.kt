@@ -22,7 +22,8 @@ interface ReviewApi {
     @Operation(
         summary = "리뷰 작성",
         description = """
-            음식에 리뷰를 작성한다. 별점(1~5)은 필수, 본문(최대 1000자)·사진(최대 3장)·식당(place)은 옵션이다.
+            음식에 리뷰를 작성한다. 별점(1~5)과 본문은 필수, 사진(최대 3장)·식당(place)은 옵션이다.
+            본문은 앞뒤 공백을 뺀 코드 포인트 10자 이상·최대 1000자다 — 없음·빈 문자열·공백만·10자 미만은 400 REVIEW-005(payload.minLength=10).
             사진은 REVIEW 용도 presigned 업로드를 완료한 본인 소유 경로만 허용한다.
             place 는 식당 검색(GET /api/v1/places)에서 고른 항목을 그대로 넣는다 — 고르지 않았으면 생략한다.
             같은 회원이 같은 음식에 여러 건 작성할 수 있다.
@@ -31,7 +32,7 @@ interface ReviewApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "작성 성공"),
-            ApiResponse(responseCode = "400", description = "검증 실패(별점 범위·본문 길이·사진 수), 미존재 음식(FOOD-001), 미소유 이미지(REVIEW-003)"),
+            ApiResponse(responseCode = "400", description = "검증 실패(별점 범위·본문 1000자 초과·사진 수), 본문 10자 미만(REVIEW-005), 미존재 음식(FOOD-001), 미소유 이미지(REVIEW-003)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
         ],
     )
@@ -39,17 +40,18 @@ interface ReviewApi {
         ErrorCode.FOOD_NOT_FOUND,
         ErrorCode.FOOD_NOT_PUBLIC,
         ErrorCode.REVIEW_IMAGE_NOT_VERIFIED,
+        ErrorCode.REVIEW_BODY_TOO_SHORT,
     )
     fun create(memberId: Long, request: ReviewCreateRequest): ResponseEntity<BaseResponse<ReviewResponse>>
 
     @Operation(
         summary = "리뷰 수정",
-        description = "본인 리뷰의 별점·본문·사진·식당을 수정한다. content·imagePaths·place 는 보낸 값으로 전량 교체된다(생략 시 제거). 작성 시점 국적 스냅샷은 바뀌지 않는다.",
+        description = "본인 리뷰의 별점·본문·사진·식당을 수정한다. content·imagePaths·place 는 보낸 값으로 전량 교체된다(imagePaths·place 는 생략 시 제거). 본문은 작성과 같은 규칙(앞뒤 공백 제외 10자 이상)이라 생략·10자 미만이면 400 REVIEW-005 이고 기존 리뷰는 그대로다. 작성 시점 국적 스냅샷은 바뀌지 않는다.",
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "수정 성공"),
-            ApiResponse(responseCode = "400", description = "미존재/삭제된 리뷰(REVIEW-001), 검증 실패, 미소유 이미지(REVIEW-003)"),
+            ApiResponse(responseCode = "400", description = "미존재/삭제된 리뷰(REVIEW-001), 검증 실패, 본문 10자 미만(REVIEW-005), 미소유 이미지(REVIEW-003)"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 없음/만료"),
             ApiResponse(responseCode = "403", description = "타인 리뷰(REVIEW-002)"),
         ],
@@ -58,6 +60,7 @@ interface ReviewApi {
         ErrorCode.REVIEW_NOT_FOUND,
         ErrorCode.REVIEW_FORBIDDEN,
         ErrorCode.REVIEW_IMAGE_NOT_VERIFIED,
+        ErrorCode.REVIEW_BODY_TOO_SHORT,
     )
     fun update(
         memberId: Long,
