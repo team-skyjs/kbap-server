@@ -304,6 +304,64 @@ class ReviewControllerTest : BehaviorSpec() {
             }
         }
 
+        given("리뷰 본문 최소 길이 — 앞뒤 공백을 뺀 코드 포인트 10개") {
+            seedFood(7950L, "본문길이음식")
+
+            fun storedContentOf(reviewId: Long): String? =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT content FROM food_review WHERE id = ?").use { ps ->
+                        ps.setLong(1, reviewId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getString(1)
+                        }
+                    }
+                }
+
+            `when`("작성 본문이 없거나 짧으면") {
+                then("400 REVIEW-005 와 minLength 10 을 돌려주고 저장하지 않는다 — 없음·빈 문자열·공백만·9자·공백 덧댄 9자·이모지 9개") {
+                    val token = accessToken(7950L)
+                    listOf(null, "", " ".repeat(12), "가".repeat(9), "  ${"가".repeat(9)}  ", "😋".repeat(9)).forEach { content ->
+                        withClue(content ?: "본문 없음") {
+                            create(token, createBody(foodId = 7950L, content = content)).andExpect {
+                                status { isBadRequest() }
+                                jsonPath("$.code") { value("REVIEW-005") }
+                                jsonPath("$.payload.minLength") { value(10) }
+                            }
+                        }
+                    }
+                    rankingCounts(7950L) shouldBe (0 to 0)
+                }
+            }
+            `when`("작성 본문이 공백을 빼고 10자이면") {
+                then("200 이다 — 한글 10자·이모지 10개(서로게이트 20 단위)·앞뒤 공백 덧댄 10자") {
+                    listOf("가".repeat(10), "😋".repeat(10), "  ${"가".repeat(10)}  ").forEachIndexed { index, content ->
+                        withClue(content) {
+                            val token = accessToken(7951L + index)
+                            create(token, createBody(foodId = 7950L, content = content)).andExpect { status { isOk() } }
+                        }
+                    }
+                }
+            }
+            `when`("수정 본문이 없거나 짧으면") {
+                then("400 REVIEW-005 이고 기존 본문은 그대로다") {
+                    val token = accessToken(7955L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7950L, content = "처음 쓴 리뷰 본문이에요")).andExpect { status { isOk() } })
+                    listOf(null, "   ", "가".repeat(9), "😋".repeat(9)).forEach { content ->
+                        withClue(content ?: "본문 없음") {
+                            update(token, reviewId, createBody(foodId = null, rating = 4, content = content)).andExpect {
+                                status { isBadRequest() }
+                                jsonPath("$.code") { value("REVIEW-005") }
+                            }
+                        }
+                    }
+                    storedContentOf(reviewId) shouldBe "처음 쓴 리뷰 본문이에요"
+                    update(token, reviewId, createBody(foodId = null, rating = 4, content = "😋".repeat(10))).andExpect { status { isOk() } }
+                    storedContentOf(reviewId) shouldBe "😋".repeat(10)
+                }
+            }
+        }
+
         given("리뷰 작성 API — POST /api/reviews") {
             seedFood(700L, "리뷰김치찌개")
 

@@ -482,6 +482,20 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("생성물이 봇 필터(20자)는 넘지만 앞뒤 공백을 빼면 10자에 못 미치면") {
+                then("리뷰 본문 최소 길이 규칙에 걸려 저장하지 않고 건너뛴다 — 봇 리뷰 수·카운터 불변") {
+                    accountService.ensureBots(5)
+                    seedFoods(5)
+                    fakeGenerator.reply = { "      Tasty!!       " }
+
+                    run(writer(), todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                    count("SELECT COALESCE(SUM(review_count), 0) FROM member WHERE is_bot = 1") shouldBe 0
+                    (fakeGenerator.requests.size > 0).shouldBeTrue()
+                }
+            }
+
             `when`("시간 예산이 다 됐으면") {
                 then("남은 후보를 버리고 멈춘다 — 다음 페이지도 열지 않는다(락이 풀린 뒤 실행이 이어지지 않게)") {
                     accountService.ensureBots(5)
