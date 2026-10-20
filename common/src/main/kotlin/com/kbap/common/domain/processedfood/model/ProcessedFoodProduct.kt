@@ -108,8 +108,8 @@ class ProcessedFoodProduct(
         rawMaterials = snapshot.rawMaterials
         allergens = snapshot.allergens
         nutrients = snapshot.nutrients
-        imageUrl = secureImageUrl(snapshot.imageUrl)
-        metaImageUrl = secureImageUrl(snapshot.metaImageUrl)
+        imageUrl = snapshot.imageUrl
+        metaImageUrl = snapshot.metaImageUrl
     }
 
     fun displayMaker(): String? =
