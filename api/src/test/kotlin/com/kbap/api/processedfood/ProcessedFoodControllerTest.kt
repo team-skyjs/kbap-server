@@ -173,6 +173,12 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     names(get("/api/processed-foods?query=대량제조&size=1")) shouldBe listOf("짧은")
                 }
             }
+            `when`("검색어가 비면") {
+                then("400 FOOD-003 을 유지한다") {
+                    get("/api/processed-foods?query=", expected = 400).path("code").asText() shouldBe "FOOD-003"
+                    get("/api/processed-foods?query=   ", expected = 400).path("code").asText() shouldBe "FOOD-003"
+                }
+            }
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
                     get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
@@ -186,6 +192,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                 allergens = "새우, 우유 함유", raw = "소맥분(밀:미국산), 가공버터{유지방(우유)}, 버터향", imageUrl = "http://img/1.jpg",
             )
             val ingredientsOnly = seedProduct("PF-D-2", "땅콩강정", "알수없음", allergens = "알수없음", raw = "땅콩, 물엿")
+            val haccpImage = seedProduct("PF-D-7", "에이치칩", "농심", imageUrl = "http://www.haccp.or.kr/fresh/prdimg/7/7-1.jpg")
             val none = seedProduct("PF-D-3", "물", "알수없음", allergens = "알수없음", raw = null)
             val stale = seedProduct("PF-D-4", "단종칩", "농심", seenDaysAgo = 10)
             val deleted = seedProduct("PF-D-5", "삭제칩", "농심", status = "DELETED")
@@ -208,6 +215,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     p.path("image").path("url").asText() shouldBe "http://img/1.jpg"
                     p.path("image").path("attributionKey").asText() shouldBe "processedFood.image.haccp"
                     p.path("avoidance").isNull shouldBe true
+                    p.path("unmapped").map { it.asText() }.toSet() shouldBe setOf("미국산", "버터향")
                 }
             }
             `when`("우유·땅콩을 피하는 회원이 보면") {
@@ -229,6 +237,14 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                         it.path("labelSource").asText() shouldBe "NONE"
                         it.path("image").isNull shouldBe true
                     }
+                }
+            }
+            `when`("DB 에 http 로 저장된 HACCP 이미지이면 — 앱 P-503(iOS ATS·Android cleartext)") {
+                then("상세·검색 응답에서 https 로 바꿔 준다(DB 값은 그대로)") {
+                    get("/api/processed-foods/$haccpImage").path("payload").path("image").path("url").asText() shouldBe
+                        "https://www.haccp.or.kr/fresh/prdimg/7/7-1.jpg"
+                    get("/api/processed-foods?query=에이치칩").path("payload").path("items").single().path("imageUrl").asText() shouldBe
+                        "https://www.haccp.or.kr/fresh/prdimg/7/7-1.jpg"
                 }
             }
             `when`("없는 id 나 생산종료 제품이면") {

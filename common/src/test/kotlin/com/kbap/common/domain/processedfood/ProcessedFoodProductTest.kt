@@ -1,9 +1,11 @@
 package com.kbap.common.domain.processedfood
 
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import java.time.LocalDateTime
 
 class ProcessedFoodProductTest : BehaviorSpec({
     given("표시용 제조사 이름") {
@@ -42,6 +44,25 @@ class ProcessedFoodProductTest : BehaviorSpec({
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "오뚜기").displayMaker() shouldBe "오뚜기"
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "㈜농심").displayMaker() shouldBe "농심"
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "삼양식품(주)원주공장").displayMaker() shouldBe "삼양식품"
+            }
+        }
+    }
+    given("제품 이미지 URL 저장") {
+        `when`("HACCP 이미지가 http 로 오면") {
+            then("https 로 저장하고(같은 경로 https 200 실측), 변경 감지 해시는 원본 값 그대로라 기존 행을 일괄 갱신하지 않는다") {
+                val snapshot = ProcessedFoodSnapshot(
+                    "1", "새우깡", null, "과자", null, "농심", null, null, null, null, null, null,
+                    "http://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg", "http://www.haccp.or.kr/fresh/prdimg/1/1-2.jpg",
+                )
+                val product = ProcessedFoodProduct.collect(snapshot, LocalDateTime.of(2026, 10, 21, 0, 0))
+                product.imageUrl shouldBe "https://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg"
+                product.metaImageUrl shouldBe "https://www.haccp.or.kr/fresh/prdimg/1/1-2.jpg"
+                product.contentHash shouldBe snapshot.contentHash()
+            }
+        }
+        `when`("다른 호스트의 http 이미지이면") {
+            then("https 를 보장할 수 없어 그대로 둔다") {
+                ProcessedFoodProduct.collect(ProcessedFoodSnapshot("2", "칩", null, null, null, null, null, null, null, null, null, null, "http://img.example.com/a.jpg", null), LocalDateTime.of(2026, 10, 21, 0, 0)).imageUrl shouldBe "http://img.example.com/a.jpg"
             }
         }
     }
