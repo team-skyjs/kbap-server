@@ -53,7 +53,7 @@ class ScanOperationPhoto(
 ) : BaseEntity() {
     fun isRunnableAt(now: LocalDateTime): Boolean = attemptNo < MAX_ATTEMPTS && when (executionState) {
         ScanPhotoState.PENDING -> true
-        ScanPhotoState.FAILED -> errorReason != QUOTA_EXHAUSTED
+        ScanPhotoState.FAILED -> errorReason !in NOT_RETRYABLE
         ScanPhotoState.RUNNING -> leaseUntil?.isBefore(now) ?: true
         ScanPhotoState.SUCCEEDED, ScanPhotoState.CANCELLED -> false
     }
@@ -88,6 +88,8 @@ class ScanOperationPhoto(
     companion object {
         const val QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
         const val LEASE_EXPIRED = "LEASE_EXPIRED"
+        const val NOT_DETECTED = "NOT_DETECTED"
         const val MAX_ATTEMPTS = 3
+        val NOT_RETRYABLE = setOf(QUOTA_EXHAUSTED, NOT_DETECTED)
     }
 }

@@ -52,6 +52,7 @@ data class ScanBatchClaim(
     val attemptNo: Int,
     val claimToken: ByteArray,
     val objectKey: String,
+    val batchId: UUID,
 )
 
 data class ScanBatchPhotoInput(val photoId: UUID, val imagePath: String)
@@ -88,7 +89,9 @@ class ScanBatchService(
         val manifestHash = sha256("$lang|$currency|" + inputs.joinToString("|") { "${it.photoId}=${it.imagePath}" })
         operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(batchId))?.let { existing ->
             if (!existing.manifestHash.contentEquals(manifestHash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
-            return viewOf(existing, LocalDateTime.now())
+            val now = LocalDateTime.now()
+            if (!now.isBefore(existing.resultExpiresAt)) throw BusinessException(ErrorCode.SCAN_BATCH_RESULT_EXPIRED)
+            return viewOf(existing, now)
         }
         val images = uploads.findByPathIn(inputs.map { it.imagePath }).associateBy { it.path }
         val verified = inputs.map { input ->
@@ -175,6 +178,9 @@ class ScanBatchService(
         if (operation.lifecycle != ACTIVE || !now.isBefore(operation.expiresAt)) return null
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return null
         if (!photo.isRunnableAt(now)) return null
+        if (attempts.countUnchargedSince(memberId, now.minus(ATTEMPT_LIMIT_WINDOW)) >= DAILY_UNCHARGED_ATTEMPT_LIMIT) {
+            throw BusinessException(ErrorCode.SCAN_BATCH_ATTEMPT_LIMIT)
+        }
         if (operation.usageRecordedAt == null && operation.reservationState != RESERVATION_HELD) {
             reserve(memberId, batchId, memberService.getMember(memberId), Duration.between(now, operation.expiresAt))
             operation.reservationState = RESERVATION_HELD
@@ -196,7 +202,7 @@ class ScanBatchService(
                 leaseUntil = now.plus(ATTEMPT_LEASE),
             ),
         )
-        return ScanBatchClaim(memberId, operation.id, photo.id, attempt.id, photo.attemptNo, token, photo.objectKey)
+        return ScanBatchClaim(memberId, operation.id, photo.id, attempt.id, photo.attemptNo, token, photo.objectKey, batchId)
     }
 
     @Transactional
@@ -246,8 +252,8 @@ class ScanBatchService(
         lines.forEachIndexed { rowIndex, line ->
             val food = foodsByKey[keys[rowIndex]]
             val mergeKey = line.priceKrw?.let { price -> sha256("${normalized(line.rawName)}|$price|${normalized(line.option).orEmpty()}") }
-            val merged = mergeKey?.let { mergedItems.findByOperationIdAndMergeKey(operation.id, it) }
-                ?: mergedItems.save(ScanMergedItem(operation.id, bytesOf(UUID.randomUUID()), mergeKey, documentOf(line)))
+            val existing = mergeKey?.let { mergedItems.findByOperationIdAndMergeKey(operation.id, it) }
+            val merged = existing ?: mergedItems.save(ScanMergedItem(operation.id, bytesOf(UUID.randomUUID()), mergeKey, documentOf(line)))
             val occurrence = occurrences.save(
                 ScanOccurrence(
                     operationId = operation.id,
@@ -260,8 +266,10 @@ class ScanBatchService(
                     mergedItemId = merged.id,
                 ),
             )
-            val history = histories.save(ScanHistory.record(operation.memberId, line.priceKrw, food?.id))
-            historySources.save(ScanHistorySource(history.id, occurrence.id))
+            if (existing == null) {
+                val history = histories.save(ScanHistory.record(operation.memberId, line.priceKrw, food?.id))
+                historySources.save(ScanHistorySource(history.id, occurrence.id))
+            }
         }
     }
 
@@ -368,6 +376,8 @@ class ScanBatchService(
         private const val ENTITLEMENT_FREE = "FREE"
         private const val ENTITLEMENT_UNLIMITED = "UNLIMITED"
         val EXECUTION_WINDOW: Duration = Duration.ofMinutes(15)
+        const val DAILY_UNCHARGED_ATTEMPT_LIMIT = 30
+        private val ATTEMPT_LIMIT_WINDOW: Duration = Duration.ofHours(24)
         private val ATTEMPT_LEASE: Duration = Duration.ofMinutes(2)
         private val RESULT_TTL: Duration = Duration.ofDays(7)
         private val KEY_TTL: Duration = Duration.ofDays(30)

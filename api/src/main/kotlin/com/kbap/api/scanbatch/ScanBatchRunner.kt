@@ -1,5 +1,7 @@
 package com.kbap.api.scanbatch
 
+import com.kbap.api.core.config.ScanBatchExecutorConfig
+import com.kbap.common.domain.scan.model.ScanOperationPhoto
 import com.kbap.common.port.llm.MenuBoardLineExtractor
 import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
 import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
@@ -7,37 +9,72 @@ import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.task.TaskExecutor
+import org.springframework.core.task.TaskRejectedException
 import org.springframework.stereotype.Component
 import java.util.UUID
-import java.util.concurrent.ConcurrentLinkedQueue
 
 @Component
 class ScanBatchRunner(
     private val batches: ScanBatchService,
     private val batchSwitch: ScanBatchSwitch,
     private val extractor: MenuBoardLineExtractor,
-    @Qualifier("applicationTaskExecutor") private val executor: TaskExecutor,
+    @Qualifier(ScanBatchExecutorConfig.SCAN_BATCH_EXECUTOR) private val executor: TaskExecutor,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val works = HashMap<UUID, BatchWork>()
 
     fun dispatch(memberId: Long, batchId: UUID, selectionIndexes: List<Int>) {
-        if (!batchSwitch.executionEnabled) return
-        val queue = ConcurrentLinkedQueue(selectionIndexes)
-        repeat(minOf(PER_BATCH_CONCURRENCY, selectionIndexes.size)) {
-            executor.execute {
-                while (true) {
-                    val index = queue.poll() ?: break
-                    val claim = runCatching { batches.startAttempt(memberId, batchId, index) }
-                        .onFailure { log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, index, it) }
-                        .getOrNull() ?: continue
-                    extractAndRecord(claim)
-                }
+        if (batchSwitch.executionEnabled) enqueue(memberId, batchId, selectionIndexes.map { Job.Pending(it) })
+    }
+
+    fun runClaimed(claim: ScanBatchClaim) {
+        if (batchSwitch.executionEnabled) enqueue(claim.memberId, claim.batchId, listOf(Job.Claimed(claim)))
+    }
+
+    private fun enqueue(memberId: Long, batchId: UUID, jobs: List<Job>) {
+        val work = synchronized(works) {
+            works.getOrPut(batchId) { BatchWork() }.also { work -> jobs.filterNot { it in work.queue }.forEach(work.queue::addLast) }
+        }
+        spawn(memberId, batchId, work)
+    }
+
+    private fun spawn(memberId: Long, batchId: UUID, work: BatchWork) {
+        while (true) {
+            synchronized(works) {
+                if (work.active >= PER_BATCH_CONCURRENCY || work.queue.isEmpty()) return
+                work.active += 1
+            }
+            try {
+                executor.execute { drain(memberId, batchId, work) }
+            } catch (e: TaskRejectedException) {
+                synchronized(works) { work.active -= 1 }
+                log.warn("스캔 묶음 실행기 포화 — 남은 사진은 PENDING 으로 남아 재시도 대상, batchId={}", batchId, e)
+                return
             }
         }
     }
 
-    fun runAsync(claim: ScanBatchClaim) {
-        if (batchSwitch.executionEnabled) executor.execute { extractAndRecord(claim) }
+    private fun drain(memberId: Long, batchId: UUID, work: BatchWork) {
+        while (true) {
+            val job = synchronized(works) {
+                work.queue.removeFirstOrNull() ?: run {
+                    work.active -= 1
+                    if (work.active == 0) works.remove(batchId, work)
+                    null
+                }
+            } ?: return
+            run(memberId, batchId, job)
+        }
+    }
+
+    private fun run(memberId: Long, batchId: UUID, job: Job) {
+        val claim = when (job) {
+            is Job.Claimed -> job.claim
+            is Job.Pending -> runCatching { batches.startAttempt(memberId, batchId, job.selectionIndex) }
+                .onFailure { log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, job.selectionIndex, it) }
+                .getOrNull()
+        } ?: return
+        extractAndRecord(claim)
     }
 
     private fun extractAndRecord(claim: ScanBatchClaim) {
@@ -53,11 +90,21 @@ class ScanBatchRunner(
             record { batches.recordFailure(claim, reason) }
             return
         }
-        record { if (lines.isEmpty()) batches.recordFailure(claim, NOT_DETECTED) else batches.recordSuccess(claim, lines) }
+        record { if (lines.isEmpty()) batches.recordFailure(claim, ScanOperationPhoto.NOT_DETECTED) else batches.recordSuccess(claim, lines) }
     }
 
     private fun record(block: () -> Boolean) {
         runCatching(block).onFailure { log.error("스캔 묶음 결과 확정 실패 — lease 만료로 재시도 가능 상태가 된다", it) }
+    }
+
+    private class BatchWork {
+        val queue = ArrayDeque<Job>()
+        var active = 0
+    }
+
+    private sealed interface Job {
+        data class Pending(val selectionIndex: Int) : Job
+        data class Claimed(val claim: ScanBatchClaim) : Job
     }
 
     companion object {
@@ -65,6 +112,5 @@ class ScanBatchRunner(
         const val RATE_LIMITED = "RATE_LIMITED"
         const val VISION_UNAVAILABLE = "VISION_UNAVAILABLE"
         const val RECOGNITION_FAILED = "RECOGNITION_FAILED"
-        const val NOT_DETECTED = "NOT_DETECTED"
     }
 }
