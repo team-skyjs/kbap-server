@@ -196,6 +196,14 @@ class IngredientLabelReaderTest : BehaviorSpec({
     }
 
     given("동의어 사전 리소스") {
+        `when`("81종 각 코드를 표기명(label)으로 원재료에 넣으면") {
+            then("모든 코드가 검출된다 — 사전에 빠진 코드가 없다. 가금류만 예외: 표시 고시의 알 한정어라 가금육·오리고기로만 잡는다") {
+                IngredientCode.entries.filter { it != IngredientCode.POULTRY }
+                    .filter { IngredientLabelMatch.UNCONFIRMED == IngredientLabelReader.read(null, it.label).matchOf(it) }
+                    .map { "${it.name}(${it.label})" } shouldBe emptyList()
+                IngredientLabelReader.read(null, "가금육").matchOf(IngredientCode.POULTRY) shouldBe IngredientLabelMatch.DETECTED
+            }
+        }
         `when`("읽으면") {
             then("모든 줄이 81종 코드로 해석되고, 의무 표시 22종이 전부 들어 있다") {
                 IngredientLabelReader.mandatoryAllergenCodes() shouldBe setOf(
