@@ -107,7 +107,7 @@ data class AdminMemberReviewPageResponse(
 
 data class AdminMemberReviewItemResponse(
     val id: Long,
-    val foodId: Long,
+    val foodId: Long?,
     val foodName: String?,
     val rating: Int,
     val servingSpeedRating: Int,
@@ -120,8 +120,8 @@ data class AdminMemberReviewItemResponse(
         fun from(review: Review, foodNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
             AdminMemberReviewItemResponse(
                 id = review.id,
-                foodId = review.foodId!!,
-                foodName = foodNames[review.foodId],
+                foodId = review.foodId,
+                foodName = review.foodId?.let(foodNames::get),
                 rating = review.rating,
                 servingSpeedRating = review.servingSpeedRating,
                 staffKindnessRating = review.staffKindnessRating,

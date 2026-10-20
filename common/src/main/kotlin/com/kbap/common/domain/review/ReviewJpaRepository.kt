@@ -44,6 +44,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """
         select r from Review r
         where r.memberId = :memberId
+          and r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD
           and (:cursor is null or r.id < :cursor)
         order by r.id desc
         """,

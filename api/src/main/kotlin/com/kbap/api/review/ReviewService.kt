@@ -167,7 +167,7 @@ class ReviewService(
         if (!review.isActive()) return
         if (!memberRepository.existsById(review.memberId)) {
             review.delete()
-            foodRepository.decreaseReviewCount(review.foodId!!)
+            review.foodId?.let(foodRepository::decreaseReviewCount)
             return
         }
         softDelete(review)
@@ -175,10 +175,11 @@ class ReviewService(
 
     private fun softDelete(review: Review) {
         val memberId = review.memberId
+        val foodId = review.foodId
         review.delete()
         memberRepository.decreaseReviewCount(memberId)
-        foodRepository.decreaseReviewCount(review.foodId!!)
-        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId!!) == 0L
+        foodId?.let(foodRepository::decreaseReviewCount)
+        val lastReviewOfFood = foodId != null && reviewRepository.countByMemberIdAndFoodId(memberId, foodId) == 0L
         if (lastReviewOfFood) memberRepository.decreaseUniqueReviewedFoodCount(memberId)
         rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
     }
@@ -191,8 +192,9 @@ class ReviewService(
         val now = LocalDateTime.now()
         reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId, now = now)
         val isNewLike = existingLike?.countsAsNewLikeAt(now) ?: true
-        if (isNewLike && !review.isOwnedBy(memberId)) {
-            eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId!!))
+        val foodId = review.foodId
+        if (isNewLike && !review.isOwnedBy(memberId) && foodId != null) {
+            eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, foodId))
         }
     }
 
@@ -338,7 +340,7 @@ class ReviewService(
         val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
             .associate { it.id to ReviewAuthorResponse.from(it, imagePublicBaseUrl) }
         val foodsByFoodId = if (includeFood) {
-            foodRepository.findAllById(page.map { it.foodId!! }.toSet())
+            foodRepository.findAllById(page.mapNotNull { it.foodId }.toSet())
                 .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
         } else {
             emptyMap()
