@@ -301,7 +301,7 @@ class ScanBatchTest : BehaviorSpec() {
                     val photo = read(owner, batchId.toString()).path("payload").path("photos")[0]
                     photo.path("state").asText() shouldBe "FAILED"
                     photo.path("errorReason").asText() shouldBe "QUOTA_EXHAUSTED"
-                    sql("SELECT COUNT(*) FROM scan_operation_result") shouldBe 0
+                    sql("SELECT COUNT(*) FROM scan_operation_result r JOIN scan_operation o ON o.id = r.operation_id WHERE o.request_key = UUID_TO_BIN('$batchId', 0)") shouldBe 0
                 }
             }
             `when`("무제한 해제 회원이면") {

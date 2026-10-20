@@ -15,4 +15,10 @@ interface ScanOperationJpaRepository : JpaRepository<ScanOperation, Long> {
         @Param("keyNamespace") keyNamespace: String,
         @Param("requestKey") requestKey: ByteArray,
     ): ScanOperation?
+
+    fun findByMemberIdAndKeyNamespaceAndRequestKey(memberId: Long, keyNamespace: String, requestKey: ByteArray): ScanOperation?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from ScanOperation o where o.id = :id")
+    fun findByIdForUpdate(@Param("id") id: Long): ScanOperation?
 }

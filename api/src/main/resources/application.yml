@@ -98,6 +98,8 @@ kbap:
     reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}
     # 스캔 티켓(발급형 자격 증명)의 유효 시간 — 발급~스캔 호출 사이(사진 촬영·업로드)를 감당할 만큼.
     ticket-ttl-seconds: ${SCAN_TICKET_TTL_SECONDS:300}
+    # 여러 장 스캔 묶음(KB-744, 3.3). 앱 KB-745 배포 전까지 꺼 둔다 — 꺼져 있으면 묶음 생성은 404 SCAN-010.
+    batch-enabled: ${SCAN_BATCH_ENABLED:false}
   auth:
     firebase:
       # 서비스 계정 키를 주는 방법은 두 가지이며 json 이 우선한다.

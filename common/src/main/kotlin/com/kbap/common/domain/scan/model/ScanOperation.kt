@@ -53,4 +53,10 @@ class ScanOperation(
 
     @Column(name = "key_retire_after", nullable = false)
     val keyRetireAfter: LocalDateTime = LocalDateTime.MIN,
+
+    @Column(name = "reservation_state", nullable = false, length = 24)
+    var reservationState: String = "NONE",
+
+    @Column(name = "result_revision", nullable = false)
+    var resultRevision: Long = 0,
 ) : BaseEntity()
