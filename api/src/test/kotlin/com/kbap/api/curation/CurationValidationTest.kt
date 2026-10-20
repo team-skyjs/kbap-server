@@ -28,6 +28,13 @@ class CurationValidationTest : BehaviorSpec({
         `when`("10항목과 10언어 및 NONE 증빙이 있으면") {
             then("검증을 통과한다") { validator.validate("sights", valid) shouldBe emptyList() }
         }
+        `when`("두 항목의 외부 링크가 호스트 끝점(.)만 다르면 — Codex P2") {
+            then("같은 목적지로 보아 DUPLICATE_EXTERNAL_URL 로 막는다") {
+                val first = valid.items[0]
+                val twin = valid.items[1].copy(externalUrl = first.externalUrl.replace("example.invalid/", "example.invalid./"))
+                validator.validate("sights", valid.copy(items = listOf(first, twin) + valid.items.drop(2))).map { it.reason } shouldContain "DUPLICATE_EXTERNAL_URL"
+            }
+        }
         `when`("조사 출처가 URL 이 아니거나 https 가 아니면 — Codex P2") {
             then("그 항목을 RESEARCH_EVIDENCE_MISSING 으로 막는다(외부 링크와 같은 URL 안전 규칙)") {
                 listOf("not a URL", "http://example.invalid/research", "https://user@example.invalid/x").forEach { source ->
