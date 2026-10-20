@@ -21,7 +21,7 @@ class ScanBatchRunner(
     @Qualifier(ScanBatchExecutorConfig.SCAN_BATCH_EXECUTOR) private val executor: TaskExecutor,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val works = HashMap<UUID, BatchWork>()
+    private val works = HashMap<WorkKey, BatchWork>()
 
     fun dispatch(memberId: Long, batchId: UUID, selectionIndexes: List<Int>) {
         if (batchSwitch.executionEnabled) enqueue(memberId, batchId, selectionIndexes.map { Job.Pending(it) })
@@ -32,38 +32,45 @@ class ScanBatchRunner(
     }
 
     private fun enqueue(memberId: Long, batchId: UUID, jobs: List<Job>) {
+        val key = WorkKey(memberId, batchId)
         val work = synchronized(works) {
-            works.getOrPut(batchId) { BatchWork() }.also { work -> jobs.filterNot { it in work.queue }.forEach(work.queue::addLast) }
+            works.getOrPut(key) { BatchWork() }.also { work -> jobs.filterNot { it in work.queue }.forEach(work.queue::addLast) }
         }
-        spawn(memberId, batchId, work)
+        spawn(key, work)
     }
 
-    private fun spawn(memberId: Long, batchId: UUID, work: BatchWork) {
+    private fun spawn(key: WorkKey, work: BatchWork) {
         while (true) {
             synchronized(works) {
                 if (work.active >= PER_BATCH_CONCURRENCY || work.queue.isEmpty()) return
                 work.active += 1
             }
             try {
-                executor.execute { drain(memberId, batchId, work) }
+                executor.execute { drain(key, work) }
             } catch (e: TaskRejectedException) {
-                synchronized(works) { work.active -= 1 }
-                log.warn("스캔 묶음 실행기 포화 — 남은 사진은 PENDING 으로 남아 재시도 대상, batchId={}", batchId, e)
+                synchronized(works) {
+                    work.active -= 1
+                    if (work.active == 0) {
+                        work.queue.clear()
+                        works.remove(key, work)
+                    }
+                }
+                log.warn("스캔 묶음 실행기 포화 — 남은 사진은 PENDING 으로 남아 재시도 대상, batchId={}", key.batchId, e)
                 return
             }
         }
     }
 
-    private fun drain(memberId: Long, batchId: UUID, work: BatchWork) {
+    private fun drain(key: WorkKey, work: BatchWork) {
         while (true) {
             val job = synchronized(works) {
                 work.queue.removeFirstOrNull() ?: run {
                     work.active -= 1
-                    if (work.active == 0) works.remove(batchId, work)
+                    if (work.active == 0) works.remove(key, work)
                     null
                 }
             } ?: return
-            run(memberId, batchId, job)
+            run(key.memberId, key.batchId, job)
         }
     }
 
@@ -96,6 +103,8 @@ class ScanBatchRunner(
     private fun record(block: () -> Boolean) {
         runCatching(block).onFailure { log.error("스캔 묶음 결과 확정 실패 — lease 만료로 재시도 가능 상태가 된다", it) }
     }
+
+    private data class WorkKey(val memberId: Long, val batchId: UUID)
 
     private class BatchWork {
         val queue = ArrayDeque<Job>()
