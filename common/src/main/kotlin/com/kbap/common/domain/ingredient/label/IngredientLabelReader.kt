@@ -6,7 +6,7 @@ import java.text.Normalizer
 object IngredientLabelReader {
     private val NOT_PROVIDED = setOf("알수없음", "정보없음", "미표시", "모름")
     private val NOISE = Regex("""\d+(\.\d+)?\s*%|함유\s*가능|함유|포함""")
-    private val SEPARATORS = Regex("""[^\p{L}\p{N}\p{Zs}%.]+|[ㆍᆞ]+""")
+    private val SEPARATORS = Regex("""[^\p{L}\p{N}\p{Zs}%.]+|[\u1100-\u11FF\u3131-\u318Eー]+|(?<!\d)\.|\.(?!\d)""")
     private val SPACES = Regex("""\s+""")
     private val TRAILING_ETC = Regex("""\s+등$""")
     private val FLAVOR_MARKERS = listOf("맛", "향", "풍미")
