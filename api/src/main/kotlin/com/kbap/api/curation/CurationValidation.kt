@@ -37,7 +37,7 @@ class CurationValidation {
         }
         document.items.forEachIndexed { i, item ->
             if (runCatching { UUID.fromString(item.entryId).toString() == item.entryId.lowercase() }.getOrDefault(false).not()) add(CurationIssue("items[$i].entryId", "INVALID_ENTRY_ID", item.entryId))
-            if (item.externalUrl.length > 2048 || item.nearby.size > 50) add(CurationIssue("items[$i]", "DOCUMENT_LIMIT", item.entryId))
+            if (item.externalUrl.length > 2048 || item.nearby.size > 50 || item.images.size > GALLERY_LIMIT) add(CurationIssue("items[$i]", "DOCUMENT_LIMIT", item.entryId))
             if (item.nearby.map { it.nearbyId }.distinct().size != item.nearby.size || item.nearby.any { it.nearbyId.isBlank() }) add(CurationIssue("items[$i].nearby", "INVALID_NEARBY_ID", item.entryId))
         }
         if (document.items.map { it.entryId.lowercase() }.distinct().size != document.items.size) add(CurationIssue("items", "DUPLICATE_ENTRY"))
@@ -64,6 +64,7 @@ class CurationValidation {
         document.items.forEachIndexed { i, item ->
             val path = "items[$i]"
             if ((key == "stations" && item.nearby.size !in 2..3) || (key != "stations" && item.nearby.isNotEmpty())) add(CurationIssue("$path.nearby", "NEARBY_COUNT", item.entryId))
+            if (item.images.isNotEmpty() && (item.images.first() != item.image || item.images.distinctBy { it.assetId }.size != item.images.size)) add(CurationIssue("$path.images", "GALLERY_INVALID", item.entryId))
             if (!urlValid(item.externalUrl)) add(CurationIssue("$path.externalUrl", "INVALID_EXTERNAL_URL", item.entryId))
             val evidence = item.evidence
             if (evidence.placeIdentity.canonicalName.isBlank() || evidence.placeIdentity.locationDiscriminator.isBlank()) add(CurationIssue("$path.evidence", "PLACE_IDENTITY_MISSING", item.entryId))
@@ -82,7 +83,7 @@ class CurationValidation {
         texts(document).filter { !cardsOnly || it.path == "title" || it.path == "description" }.all { !it.values[language].isNullOrBlank() }
 
     fun photos(document: CurationDocument): List<PhotoField> = listOf(PhotoField("cover", document.cover, null)) +
-        document.items.mapIndexed { i, it -> PhotoField("items[$i].image", it.image, it.entryId) }
+        document.items.flatMapIndexed { i, it -> listOf(PhotoField("items[$i].image", it.image, it.entryId)) + it.images.mapIndexed { n, photo -> PhotoField("items[$i].images[$n]", photo, it.entryId) } }
 
     private fun texts(document: CurationDocument): List<TextField> = buildList {
         add(TextField("title", document.title, 120, null))
@@ -129,6 +130,7 @@ class CurationValidation {
     companion object {
         const val ITEM_COUNT = 10
         const val ATTRIBUTION_TEXT_LIMIT = 80
+        const val GALLERY_LIMIT = 10
         private val invisibleTypes = setOf(Character.CONTROL, Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR)
         val languages = LanguageCode.entries.map { it.code }.toSet()
     }
