@@ -60,7 +60,7 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
             OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(manufacturer, ' ', ''), '(', ''), ')', ''), '[', ''), ']', ''), '·', ''), '・', ''), ',', ''), '.', ''), '_', ''), '-', '') LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
             OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(seller, ' ', ''), '(', ''), ')', ''), '[', ''), ']', ''), '·', ''), '・', ''), ',', ''), '.', ''), '_', ''), '-', '') LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
             OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(maker_supplement, ' ', ''), '(', ''), ')', ''), '[', ''), ']', ''), '·', ''), '・', ''), ',', ''), '.', ''), '_', ''), '-', '') LIKE CONCAT('%', :escaped, '%') ESCAPE '\\')
-        ORDER BY id
+        ORDER BY CHAR_LENGTH(normalized_name), id
         LIMIT :limit
         """,
     )

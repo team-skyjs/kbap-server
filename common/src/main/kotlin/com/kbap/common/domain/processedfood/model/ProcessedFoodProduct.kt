@@ -123,12 +123,15 @@ class ProcessedFoodProduct(
         private val COMPANY_FORMS = Regex("""농업회사법인|주식회사|유한회사|㈜|\(주\)|\(유\)""")
         private val MAKER_CUT = Regex("""[_/:,(]""")
         private val TRAILING_NOISE = Regex("""본사$|(?<=[가-힣])[A-Z0-9]+$""")
+        private val FIRST_WORD_STOP = Regex("""\d|공장$|^본사$""")
         private val ADDRESS_WORD = Regex("""\d|공장$|^본사$|(특별시|광역시|특별자치시|특별자치도|[시도군구])$|^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)$""")
 
         fun companyNameOf(raw: String?): String? {
             if (raw == null || ProcessedFoodSnapshot.isUnknownMaker(raw)) return null
             val words = raw.replace(COMPANY_FORMS, " ").split(MAKER_CUT).first().trim().split(Regex("""\s+"""))
-            val name = words.takeWhile { it.isNotEmpty() && !ADDRESS_WORD.containsMatchIn(it) }.joinToString(" ")
+            val name = words.withIndex()
+                .takeWhile { (index, word) -> word.isNotEmpty() && !(if (index == 0) FIRST_WORD_STOP else ADDRESS_WORD).containsMatchIn(word) }
+                .joinToString(" ") { it.value }
             return name.replace(TRAILING_NOISE, "").takeIf { it.isNotEmpty() }
         }
         const val SOURCE_HACCP = "HACCP"
