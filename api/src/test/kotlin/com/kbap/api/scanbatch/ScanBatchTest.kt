@@ -335,10 +335,10 @@ class ScanBatchTest : BehaviorSpec() {
                     val owner = member("batch-retry-ttl")
                     val batchId = UUID.fromString(newBatch(owner, count = 1))
                     batches.recordFailure(batches.startAttempt(owner.id, batchId, 0)!!, "RECOGNITION_FAILED")
-                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 14 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 12 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
                     batches.startAttempt(owner.id, batchId, 0) shouldNotBe null
                     val expiresInMillis = redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId")!!.toLong() - System.currentTimeMillis()
-                    (expiresInMillis <= Duration.ofSeconds(70).toMillis()) shouldBe true
+                    (expiresInMillis <= Duration.ofSeconds(190).toMillis()) shouldBe true
                 }
             }
             `when`("차감 없는 묶음 시도가 최근 24시간 30회에 이르면 — 공부(비용 상한)") {

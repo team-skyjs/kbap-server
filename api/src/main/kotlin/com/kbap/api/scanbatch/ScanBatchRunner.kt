@@ -2,6 +2,8 @@ package com.kbap.api.scanbatch
 
 import com.kbap.api.core.config.ScanBatchExecutorConfig
 import com.kbap.common.domain.scan.model.ScanOperationPhoto
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.port.llm.MenuBoardLineExtractor
 import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
 import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
@@ -85,9 +87,18 @@ class ScanBatchRunner(
             batches.startAttempt(memberId, batchId, selectionIndex)
         } catch (e: ScanBatchSlotsBusyException) {
             return false
-        } catch (e: Exception) {
-            log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, selectionIndex, e)
+        } catch (e: BusinessException) {
+            val reason = TERMINAL_REASONS[e.errorCode]
+            if (reason == null) {
+                log.warn("스캔 묶음 사진 시도 시작 실패 — 잠시 뒤 다시 시도 batchId={} index={}", batchId, selectionIndex, e)
+                return false
+            }
+            runCatching { batches.failBeforeAttempt(memberId, batchId, selectionIndex, reason) }
+                .onFailure { log.warn("스캔 묶음 사진 종결 기록 실패 batchId={} index={}", batchId, selectionIndex, it) }
             return true
+        } catch (e: Exception) {
+            log.warn("스캔 묶음 사진 시도 시작 실패 — 잠시 뒤 다시 시도 batchId={} index={}", batchId, selectionIndex, e)
+            return false
         } ?: return true
         extractAndRecord(claim)
         return true
@@ -124,6 +135,10 @@ class ScanBatchRunner(
     companion object {
         const val PER_BATCH_CONCURRENCY = 3
         private val SLOT_WAIT: Duration = Duration.ofMillis(500)
+        private val TERMINAL_REASONS = mapOf(
+            ErrorCode.SCAN_BATCH_ATTEMPT_LIMIT to ScanOperationPhoto.ATTEMPT_LIMIT,
+            ErrorCode.SCAN_LIMIT_EXCEEDED to ScanOperationPhoto.QUOTA_EXHAUSTED,
+        )
         const val RATE_LIMITED = "RATE_LIMITED"
         const val VISION_UNAVAILABLE = "VISION_UNAVAILABLE"
         const val RECOGNITION_FAILED = "RECOGNITION_FAILED"
