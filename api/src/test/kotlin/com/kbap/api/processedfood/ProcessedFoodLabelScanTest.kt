@@ -97,6 +97,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     val key = UUID.randomUUID().toString()
                     label(token, null, *shrimpLabel, clientRequestId = key)
                     label(token, null, shrimpLabel.joinToString("\n"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
+                    label(token, null, shrimpLabel.joinToString("\u0000"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
                     scanCountOf(88405L) shouldBe 1
                 }
             }
