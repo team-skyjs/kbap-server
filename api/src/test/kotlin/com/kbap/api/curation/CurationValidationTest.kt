@@ -55,7 +55,7 @@ class CurationValidationTest : BehaviorSpec({
         }
         `when`("표시 의무가 TEXT 인데 출처 문구가 없거나 80자를 넘거나 제어문자를 품으면") {
             then("표지·항목 모두 ATTRIBUTION_TEXT_INVALID 로 막는다") {
-                listOf(null, "", "   ", "a".repeat(81), "Photo:\nname", "Photo:\u2028name", "Photo:\u2029name", "Photo:\u0085name", "Photo:\u202Eeman", "Photo:\u2066name", "Photo:\u200Bname", "Photo:\uFEFFname").forEach { text ->
+                listOf(null, "", "   ", "a".repeat(81), "Photo:\nname", "Photo:\u2028name", "Photo:\u2029name", "Photo:\u0085name", "Photo:\u202Eeman", "Photo:\u2066name", "Photo:\u200Bname", "Photo:\uFEFFname", "Photo:" + String(Character.toChars(0xE0001)) + "name").forEach { text ->
                     val cover = valid.cover!!.copy(rights = valid.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = text))
                     validator.validate("sights", valid.copy(cover = cover)).map { it.path to it.reason } shouldContain ("cover.rights.attributionText" to "ATTRIBUTION_TEXT_INVALID")
                     val item = valid.items.first().copy(image = cover)
