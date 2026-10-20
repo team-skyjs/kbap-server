@@ -89,7 +89,8 @@ class ScanOperationPhoto(
         const val QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
         const val LEASE_EXPIRED = "LEASE_EXPIRED"
         const val NOT_DETECTED = "NOT_DETECTED"
+        const val ATTEMPT_LIMIT = "ATTEMPT_LIMIT"
         const val MAX_ATTEMPTS = 3
-        val NOT_RETRYABLE = setOf(QUOTA_EXHAUSTED, NOT_DETECTED)
+        val NOT_RETRYABLE = setOf(QUOTA_EXHAUSTED, NOT_DETECTED, ATTEMPT_LIMIT)
     }
 }

@@ -205,6 +205,7 @@ class ScanBatchService(
         if (operation.lifecycle != ACTIVE || !now.isBefore(operation.expiresAt)) return null
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return null
         if (!photo.isRunnableAt(now)) return null
+        if (Duration.between(now, operation.expiresAt) < ATTEMPT_LEASE) return null
         if (attempts.countUnchargedSince(memberId, now.minus(ATTEMPT_LIMIT_WINDOW)) >= DAILY_UNCHARGED_ATTEMPT_LIMIT) {
             throw BusinessException(ErrorCode.SCAN_BATCH_ATTEMPT_LIMIT)
         }
@@ -277,9 +278,23 @@ class ScanBatchService(
         return true
     }
 
+    @Transactional
+    fun failBeforeAttempt(memberId: Long, batchId: UUID, selectionIndex: Int, reason: String) {
+        val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return
+        if (operation.lifecycle != ACTIVE) return
+        val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return
+        if (photo.executionState != ScanPhotoState.PENDING && photo.executionState != ScanPhotoState.FAILED) return
+        photo.fail(reason)
+        releaseIfAllFailed(operation)
+    }
+
     private fun fail(operation: ScanOperation, photo: ScanOperationPhoto, attempt: ScanAttempt, reason: String, now: LocalDateTime) {
         photo.fail(reason)
         attempt.finish(ATTEMPT_FAILED, reason, now)
+        releaseIfAllFailed(operation)
+    }
+
+    private fun releaseIfAllFailed(operation: ScanOperation) {
         val allFailed = photos.findByOperationIdOrderBySelectionIndex(operation.id).all { it.executionState == ScanPhotoState.FAILED }
         if (allFailed && operation.usageRecordedAt == null && operation.reservationState == RESERVATION_HELD) releaseAfterCommit(operation)
     }
