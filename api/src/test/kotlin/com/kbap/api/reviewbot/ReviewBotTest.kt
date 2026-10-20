@@ -482,6 +482,34 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
+            `when`("생성물이 20자는 넘지만 앞뒤 공백을 빼면 10자에 못 미치면") {
+                then("재생성까지 못 미치면 저장하지 않고 건너뛴다 — 봇 리뷰 수·카운터 불변") {
+                    accountService.ensureBots(5)
+                    seedFoods(5)
+                    fakeGenerator.reply = { "      Tasty!!       " }
+
+                    run(writer(), todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                    count("SELECT COALESCE(SUM(review_count), 0) FROM member WHERE is_bot = 1") shouldBe 0
+                    (fakeGenerator.requests.size > 0).shouldBeTrue()
+                }
+            }
+
+            `when`("첫 생성물만 앞뒤 공백을 빼면 10자에 못 미치면") {
+                then("필터가 버리고 재생성한 본문으로 저장한다") {
+                    accountService.ensureBots(1)
+                    seedFoods(1)
+                    val good = "The broth was deep and savory, I would order it again."
+                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "      Tasty!!       " else good }
+
+                    run(writer(), todayAt(22))
+
+                    fakeGenerator.requests.size shouldBe 2
+                    query("SELECT content FROM food_review").single().single() shouldBe good
+                }
+            }
+
             `when`("시간 예산이 다 됐으면") {
                 then("남은 후보를 버리고 멈춘다 — 다음 페이지도 열지 않는다(락이 풀린 뒤 실행이 이어지지 않게)") {
                     accountService.ensureBots(5)
