@@ -96,6 +96,26 @@ class Review(
     }
 
     companion object {
+        fun forProcessedFood(
+            memberId: Long,
+            processedFoodId: Long,
+            rating: Int,
+            content: String?,
+            language: String?,
+            imageRefs: List<String>?,
+            authorCountryCode: String?,
+        ): Review = Review(
+            memberId = memberId,
+            foodId = null,
+            rating = rating,
+            content = content,
+            language = language,
+            imageRefs = imageRefs,
+            authorCountryCode = authorCountryCode,
+            targetType = ReviewTargetType.PROCESSED_FOOD,
+            processedFoodId = processedFoodId,
+        )
+
         val RATING_RANGE = 1..5
         val EXTRA_RATING_RANGE = 0..5
         const val MIN_CONTENT_LENGTH = 10

@@ -68,14 +68,14 @@ class ReviewTargetReadGuardTest : BehaviorSpec() {
         afterSpec { TestTables.clearAll(dataSource) }
 
         given("가공식품 리뷰 행이 이미 있는 DB(①-b 뒤 ①-a 로 롤백한 상태)") {
-            `when`("공개 피드·내 리뷰·리뷰 단건을 읽으면") {
-                then("음식 리뷰만 보이고 가공식품 리뷰는 404 로 숨는다") {
+            `when`("3.1 이하 계약의 공개 피드·내 리뷰와 리뷰 단건을 읽으면") {
+                then("피드·내 리뷰는 음식 리뷰만, 단건은 가공식품 리뷰도 보인다(①-b — 번역·좋아요가 같은 가시성)") {
                     val s = seed()
                     val viewer = member("target-viewer")
                     reviewService.getReviewPage(viewer.id, null, null, LanguageCode.EN, ReviewSort.LATEST, true, null, null, null).items.map { it.reviewId } shouldBe listOf(s.foodReviewId)
                     reviewService.getMyReviewPage(s.author.id, LanguageCode.EN, null).items.map { it.reviewId } shouldBe listOf(s.foodReviewId)
-                    shouldThrow<BusinessException> { reviewService.getVisibleReview(viewer.id, s.productReviewId) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
-                    shouldThrow<BusinessException> { reviewService.getVisibleReview(s.author.id, s.productReviewId) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
+                    reviewService.getVisibleReview(viewer.id, s.productReviewId).targetType shouldBe ReviewTargetType.PROCESSED_FOOD
+                    reviewService.getVisibleReview(s.author.id, s.productReviewId).targetType shouldBe ReviewTargetType.PROCESSED_FOOD
                 }
             }
             `when`("어드민이 그 회원의 리뷰 목록을 보면") {
@@ -87,13 +87,17 @@ class ReviewTargetReadGuardTest : BehaviorSpec() {
                     items.getValue(s.productReviewId).foodName shouldBe null
                 }
             }
-            `when`("작성자가 구 계약(PATCH·DELETE /reviews/{id})으로 가공식품 리뷰를 고치거나 지우면") {
-                then("REVIEW_NOT_FOUND 이고 리뷰·카운터는 그대로다(가공식품 수정·삭제는 ①-b 가 대상별로 연다)") {
+            `when`("작성자가 /reviews/{id} 로 가공식품 리뷰를 고치거나 지우면(①-b 대상별 재개방)") {
+                then("식당 전용 값은 버려지고, 삭제는 회원 리뷰 수만 줄인다") {
                     val s = seed()
-                    shouldThrow<BusinessException> { reviewService.updateReview(s.author.id, s.productReviewId, 5, 5, 5, "구 계약으로 고친 본문입니다", null, null) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
-                    shouldThrow<BusinessException> { reviewService.deleteReview(s.author.id, s.productReviewId) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
-                    sql("SELECT COUNT(*) FROM food_review WHERE id = ${s.productReviewId} AND status = 'ACTIVE' AND rating = 4 AND serving_speed_rating = 0") shouldBe 1
-                    sql("SELECT review_count FROM member WHERE id = ${s.author.id}") shouldBe 2
+                    val uniqueBefore = sql("SELECT unique_reviewed_food_count FROM member WHERE id = ${s.author.id}")
+                    reviewService.updateReview(s.author.id, s.productReviewId, 5, 5, 5, "다시 먹어 보니 더 맛있어요", null, null)
+                    sql("SELECT COUNT(*) FROM food_review WHERE id = ${s.productReviewId} AND rating = 5 AND serving_speed_rating = 0 AND staff_kindness_rating = 0") shouldBe 1
+                    reviewService.deleteReview(s.author.id, s.productReviewId)
+                    sql("SELECT COUNT(*) FROM food_review WHERE id = ${s.productReviewId} AND status = 'DELETED'") shouldBe 1
+                    sql("SELECT review_count FROM food WHERE id = ${s.food.id}") shouldBe 1
+                    sql("SELECT unique_reviewed_food_count FROM member WHERE id = ${s.author.id}") shouldBe uniqueBefore
+                    sql("SELECT review_count FROM member WHERE id = ${s.author.id}") shouldBe 1
                 }
             }
             `when`("신고 처리로 지우거나 다른 회원이 좋아요를 누르면") {

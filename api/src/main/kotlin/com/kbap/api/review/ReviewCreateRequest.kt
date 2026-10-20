@@ -135,3 +135,20 @@ data class ReviewPlaceRequest(
         else -> null
     }
 }
+
+@Schema(description = "가공식품 리뷰 작성 요청 — 식당 전용 값(서빙·친절 평점·위치)은 없다")
+data class ProcessedFoodReviewCreateRequest(
+    @field:NotNull(message = "rating 은 필수입니다")
+    @field:Min(1, message = "rating 은 1 이상이어야 합니다")
+    @field:Max(5, message = "rating 은 5 이하여야 합니다")
+    @field:Schema(description = "별점(1~5 정수)", example = "4", requiredMode = Schema.RequiredMode.REQUIRED)
+    val rating: Int?,
+
+    @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
+    @field:Schema(description = "리뷰 본문(필수, 앞뒤 공백 제외 10~1000자 — 없음·10자 미만은 REVIEW-005)", example = "바삭하고 짭짤해서 맛있어요", requiredMode = Schema.RequiredMode.REQUIRED)
+    val content: String? = null,
+
+    @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")
+    @field:Schema(description = "업로드 완료된 리뷰 사진 경로(옵션, 최대 3장)")
+    val imagePaths: List<String>? = null,
+)
