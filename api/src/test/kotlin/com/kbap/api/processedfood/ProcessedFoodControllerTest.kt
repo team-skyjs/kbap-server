@@ -230,6 +230,24 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     raw.toString() shouldNotContain "SAFE"
                 }
             }
+            `when`("해산물(카테고리)을 피하는 회원이 새우가 검출된 제품을 보면 — R-100") {
+                then("DETECTED 이고 matchedCodes 에 새우가 담긴다(어느 하위 재료로 걸렸는지)") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88102L, "SEAFOOD")
+                    val token = tokenIssuer.issueAccessToken(88102L, MemberRole.USER)
+                    val match = get("/api/processed-foods/$declared", token = token).path("payload").path("avoidance").single()
+                    match.path("code").asText() shouldBe "SEAFOOD"
+                    match.path("match").asText() shouldBe "DETECTED"
+                    match.path("matchedCodes").map { it.asText() } shouldBe listOf("SHRIMP")
+                }
+            }
+            `when`("새우(하위)만 피하는 회원이 '해산물'만 적힌 제품을 보면 — 반대 방향") {
+                then("DETECTED 가 아니라 UNCONFIRMED 이다") {
+                    val seafoodOnly = seedProduct("PF-D-8", "해산물스낵", "농심", allergens = "알수없음", raw = "해산물분말, 설탕")
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88103L, "SHRIMP")
+                    val token = tokenIssuer.issueAccessToken(88103L, MemberRole.USER)
+                    get("/api/processed-foods/$seafoodOnly", token = token).path("payload").path("avoidance").single().path("match").asText() shouldBe "UNCONFIRMED"
+                }
+            }
             `when`("알레르기 표시가 '알수없음'이면") {
                 then("원재료가 있으면 INGREDIENTS_ONLY, 둘 다 없으면 NONE 이다") {
                     get("/api/processed-foods/$ingredientsOnly").path("payload").path("labelSource").asText() shouldBe "INGREDIENTS_ONLY"
