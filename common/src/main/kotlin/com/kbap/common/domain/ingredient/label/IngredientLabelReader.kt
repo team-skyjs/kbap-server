@@ -9,7 +9,7 @@ object IngredientLabelReader {
     private val SEPARATORS = Regex("""[,()\[\]{}<>:/·;|\r\n\t]+""")
     private val SPACES = Regex("""\s+""")
     private val TRAILING_ETC = Regex("""\s+등$""")
-    private val FLAVOR = Regex("""(향|향료|맛)(분말|베이스|오일)?$""")
+    private val FLAVOR_MARKERS = listOf("맛", "향", "풍미")
 
     private val mandatory: List<IngredientLabelTerm> =
         load("mandatory-allergens.tsv").map { IngredientLabelTerm(it[0], codesOf(it[1]), IngredientLabelTermMode.EXACT) }
@@ -53,15 +53,17 @@ object IngredientLabelReader {
     private fun codesIn(token: String): Set<IngredientCode> {
         exact[token]?.let { return it }
         val codes = token.split(SPACES).filter { it.length < token.length }.flatMap { exact[it].orEmpty() }.toMutableSet()
-        if (FLAVOR.containsMatchIn(token)) return codes
         var rest = token
         blocks.filter { it.term in rest }.forEach {
             codes += it.codes
             rest = rest.replace(it.term, " ")
         }
-        containing.filter { it.term in rest }.forEach { codes += it.codes }
+        containing.filter { isIngredientMention(rest, it.term) }.forEach { codes += it.codes }
         return codes
     }
+
+    private fun isIngredientMention(text: String, term: String): Boolean =
+        Regex(Regex.escape(term)).findAll(text).any { match -> FLAVOR_MARKERS.none { text.startsWith(it, match.range.last + 1) } }
 
     private fun load(name: String): List<List<String>> =
         requireNotNull(IngredientLabelReader::class.java.getResourceAsStream("/ingredient-label/$name")) { name }
