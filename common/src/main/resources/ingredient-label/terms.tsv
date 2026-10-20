@@ -135,10 +135,12 @@
 돈육	PORK	contains
 라드	LARD	contains
 돈지	LARD	exact
+돈지방	LARD	contains
+돼지지방	LARD	contains
 우지	TALLOW	exact
 닭	CHICKEN	contains
 계육	CHICKEN	contains
-가금	POULTRY	contains
+가금육	POULTRY	contains
 오리고기	POULTRY	contains
 복숭아	PEACH	contains
 토마토	TOMATO	contains
@@ -182,3 +184,5 @@
 맥주효모	-	block
 피넛버터	PEANUT	block
 버터리	-	block
+땅콩기름	PEANUT	block
+땅콩유	PEANUT	block

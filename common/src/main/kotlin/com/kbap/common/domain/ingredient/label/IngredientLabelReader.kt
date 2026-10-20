@@ -6,7 +6,7 @@ import java.text.Normalizer
 object IngredientLabelReader {
     private val NOT_PROVIDED = setOf("알수없음", "정보없음", "미표시", "모름")
     private val NOISE = Regex("""\d+(\.\d+)?\s*%|함유\s*가능|함유|포함""")
-    private val SEPARATORS = Regex("""[,()\[\]{}<>:/·;|\r\n\t]+""")
+    private val SEPARATORS = Regex("""[^\p{L}\p{N}\p{Zs}%.]+|[ㆍᆞ]+""")
     private val SPACES = Regex("""\s+""")
     private val TRAILING_ETC = Regex("""\s+등$""")
     private val FLAVOR_MARKERS = listOf("맛", "향", "풍미")
@@ -63,7 +63,7 @@ object IngredientLabelReader {
     }
 
     private fun isIngredientMention(text: String, term: String): Boolean =
-        Regex(Regex.escape(term)).findAll(text).any { match -> FLAVOR_MARKERS.none { text.startsWith(it, match.range.last + 1) } }
+        Regex(Regex.escape(term)).findAll(text).any { match -> text.trimEnd().substring(match.range.last + 1) !in FLAVOR_MARKERS }
 
     private fun load(name: String): List<List<String>> =
         requireNotNull(IngredientLabelReader::class.java.getResourceAsStream("/ingredient-label/$name")) { name }
