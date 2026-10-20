@@ -1,9 +1,11 @@
 package com.kbap.common.domain.processedfood
 
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import java.time.LocalDateTime
 
 class ProcessedFoodProductTest : BehaviorSpec({
     given("표시용 제조사 이름") {
@@ -42,6 +44,27 @@ class ProcessedFoodProductTest : BehaviorSpec({
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "오뚜기").displayMaker() shouldBe "오뚜기"
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "㈜농심").displayMaker() shouldBe "농심"
                 ProcessedFoodProduct(manufacturer = "알수없음", makerSupplement = "삼양식품(주)원주공장").displayMaker() shouldBe "삼양식품"
+            }
+        }
+    }
+    given("제품 이미지 URL") {
+        `when`("HACCP 이미지가 http 로 오면") {
+            then("저장은 원본 그대로(500자 절단·해시와 어긋나지 않게), 응답용 값만 https 로 바꾼다") {
+                val snapshot = ProcessedFoodSnapshot(
+                    "1", "새우깡", null, "과자", null, "농심", null, null, null, null, null, null,
+                    "http://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg", "http://www.haccp.or.kr/fresh/prdimg/1/1-2.jpg",
+                )
+                val product = ProcessedFoodProduct.collect(snapshot, LocalDateTime.of(2026, 10, 21, 0, 0))
+                product.imageUrl shouldBe "http://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg"
+                product.contentHash shouldBe snapshot.contentHash()
+                ProcessedFoodProduct.secureImageUrl(product.imageUrl) shouldBe "https://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg"
+                ProcessedFoodProduct.secureImageUrl("http://haccp.or.kr/a.jpg") shouldBe "https://haccp.or.kr/a.jpg"
+            }
+        }
+        `when`("다른 호스트의 http 이미지이면") {
+            then("https 를 보장할 수 없어 응답에서도 그대로 둔다") {
+                ProcessedFoodProduct.secureImageUrl("http://img.example.com/a.jpg") shouldBe "http://img.example.com/a.jpg"
+                ProcessedFoodProduct.secureImageUrl(null) shouldBe null
             }
         }
     }

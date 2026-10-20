@@ -145,6 +145,10 @@ class ProcessedFoodProduct(
         const val ALLERGENS_LENGTH = 1000
         const val URL_LENGTH = 500
         private const val MAKER_SUPPLEMENT_LENGTH = 200
+        private val HACCP_HTTP = Regex("""^http://(?=(www\.)?haccp\.or\.kr/)""")
+
+        fun secureImageUrl(url: String?): String? =
+            url?.let { HACCP_HTTP.replaceFirst(it, "https://") }
 
         fun collect(snapshot: ProcessedFoodSnapshot, collectedAt: LocalDateTime): ProcessedFoodProduct =
             ProcessedFoodProduct(
