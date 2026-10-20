@@ -81,7 +81,7 @@ class ReviewDetailControllerTest : BehaviorSpec() {
             val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to 4, "content" to "국물이 진해요"))
+                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to 4, "content" to "국물이 진하고 고기가 부드러워요"))
             }.andReturn().response.getContentAsString(Charsets.UTF_8)
             return mapper.readTree(response).path("payload").path("reviewId").asLong()
         }
@@ -120,7 +120,7 @@ class ReviewDetailControllerTest : BehaviorSpec() {
                     val payload = res.json().path("payload")
                     payload.path("reviewId").asLong() shouldBe reviewId
                     payload.path("likedByMe").asBoolean().shouldBeFalse()
-                    payload.path("content").asText() shouldBe "국물이 진해요"
+                    payload.path("content").asText() shouldBe "국물이 진하고 고기가 부드러워요"
                     payload.path("food").path("foodId").asLong() shouldBe 98020L
                     payload.path("food").path("name").asText() shouldBe "Seolleongtang"
                     payload.path("food").path("koreanName").asText() shouldBe "상세설렁탕"
