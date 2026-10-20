@@ -157,6 +157,11 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     names(get("/api/processed-foods?query=해태제과")) shouldBe listOf("무명과자")
                 }
             }
+            `when`("커서가 후보 상한을 넘는 큰 수이면 — Codex P2(오버플로)") {
+                then("400 FOOD-002 로 거부한다") {
+                    get("/api/processed-foods?query=새우깡&cursor=2147483647", expected = 400).path("code").asText() shouldBe "FOOD-002"
+                }
+            }
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
                     get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
