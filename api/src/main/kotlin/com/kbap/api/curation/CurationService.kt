@@ -41,8 +41,8 @@ class CurationService(
         val doc = published(row)
         val language = resolveLanguage(listOf(doc), LanguageCode.from(requestedLang).code, false)
         val card = card(row, doc, language)
-        return CurationDetail(key, card.title, card.description, card.coverImageUrl, 10, row.publishedRevision, row.publishedAt ?: unavailable(), requestedLang, language, language != requestedLang,
-            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), image(row, item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }) })
+        return CurationDetail(key, card.title, card.description, card.coverImageUrl, card.coverImageAttribution, 10, row.publishedRevision, row.publishedAt ?: unavailable(), requestedLang, language, language != requestedLang,
+            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), image(row, item.image!!), attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }) })
     }
 
     @Transactional(readOnly = true)
@@ -172,7 +172,8 @@ class CurationService(
         log.warn("Curation translation fallback requestedLang={}", requested)
         return "en"
     }
-    private fun card(row: CurationCollection, doc: CurationDocument, language: String) = CurationCard(row.collectionKey, doc.title.getValue(language), doc.description.getValue(language), image(row, doc.cover!!), 10, row.publishedRevision)
+    private fun card(row: CurationCollection, doc: CurationDocument, language: String) = CurationCard(row.collectionKey, doc.title.getValue(language), doc.description.getValue(language), image(row, doc.cover!!), attribution(doc.cover!!), 10, row.publishedRevision)
+    private fun attribution(photo: CurationPhoto) = photo.rights.attributionText.takeIf { photo.rights.attributionRequirement == AttributionRequirement.TEXT }
     private fun image(row: CurationCollection, photo: CurationPhoto): String {
         val asset = assets.findById(photo.assetId).orElse(null) ?: unavailable()
         if (asset.collectionId != row.id || asset.assetState != "READY") unavailable()

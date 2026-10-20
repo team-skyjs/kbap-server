@@ -23,6 +23,8 @@ class CurationValidation {
         .digest(mapper.writeValueAsBytes(document.copy(editorialReview = null)))
         .joinToString("") { "%02x".format(it) }
 
+    private fun attributionTextValid(text: String?) = !text.isNullOrBlank() && text.length <= ATTRIBUTION_TEXT_LIMIT && text.codePoints().noneMatch { Character.getType(it).toByte() in invisibleTypes }
+
     fun structure(document: CurationDocument): List<CurationIssue> = buildList {
         if (document.items.size > 50 || mapper.writeValueAsBytes(document).size > 1024 * 1024) add(CurationIssue("document", "DOCUMENT_LIMIT"))
         texts(document).forEach { (path, values, limit, id) ->
@@ -51,7 +53,11 @@ class CurationValidation {
             if (photo == null) add(CurationIssue(path, "ASSET_NOT_READY", id))
             else {
                 val r = photo.rights
-                if (r.attributionRequirement != AttributionRequirement.NONE) add(CurationIssue("$path.rights.attributionRequirement", "ATTRIBUTION_UNSUPPORTED", id))
+                when (r.attributionRequirement) {
+                    AttributionRequirement.NONE -> Unit
+                    AttributionRequirement.TEXT -> if (!attributionTextValid(r.attributionText)) add(CurationIssue("$path.rights.attributionText", "ATTRIBUTION_TEXT_INVALID", id))
+                    else -> add(CurationIssue("$path.rights.attributionRequirement", "ATTRIBUTION_UNSUPPORTED", id))
+                }
                 if (listOf(r.basis, r.sourceOrEvidenceRef, r.rightsHolder, r.permittedUse).any { it.isBlank() } || !dateValid(r.checkedOn) || r.checkedAssetId != photo.assetId) add(CurationIssue("$path.rights", "PHOTO_RIGHTS_MISSING", id))
             }
         }
@@ -122,6 +128,8 @@ class CurationValidation {
     private data class TextField(val path: String, val values: Map<String, String>, val limit: Int, val entryId: String?)
     companion object {
         const val ITEM_COUNT = 10
+        const val ATTRIBUTION_TEXT_LIMIT = 80
+        private val invisibleTypes = setOf(Character.CONTROL, Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR)
         val languages = LanguageCode.entries.map { it.code }.toSet()
     }
 }

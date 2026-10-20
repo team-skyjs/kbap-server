@@ -4,9 +4,9 @@ import com.kbap.common.domain.curation.model.CurationDocument
 import java.time.LocalDateTime
 
 data class CurationIndex(val state: String, val sectionVersion: Long, val requestedLang: String, val resolvedLang: String, val fallbackUsed: Boolean, val collections: List<CurationCard>)
-data class CurationCard(val collectionKey: String, val title: String, val description: String, val coverImageUrl: String, val itemCount: Int, val publishedRevision: Long)
-data class CurationDetail(val collectionKey: String, val title: String, val description: String, val coverImageUrl: String, val itemCount: Int, val publishedRevision: Long, val publishedAt: LocalDateTime, val requestedLang: String, val resolvedLang: String, val fallbackUsed: Boolean, val items: List<CurationPublicEntry>)
-data class CurationPublicEntry(val entryId: String, val position: Int, val name: String, val area: String, val introduction: String, val recommendationReason: String, val imageUrl: String, val externalUrl: String, val nearby: List<String>)
+data class CurationCard(val collectionKey: String, val title: String, val description: String, val coverImageUrl: String, val coverImageAttribution: String?, val itemCount: Int, val publishedRevision: Long)
+data class CurationDetail(val collectionKey: String, val title: String, val description: String, val coverImageUrl: String, val coverImageAttribution: String?, val itemCount: Int, val publishedRevision: Long, val publishedAt: LocalDateTime, val requestedLang: String, val resolvedLang: String, val fallbackUsed: Boolean, val items: List<CurationPublicEntry>)
+data class CurationPublicEntry(val entryId: String, val position: Int, val name: String, val area: String, val introduction: String, val recommendationReason: String, val imageUrl: String, val imageAttribution: String?, val externalUrl: String, val nearby: List<String>)
 data class CurationValidationResult(val valid: Boolean, val errors: List<CurationIssue>, val version: Long, val requiredContentHash: String)
 data class CurationAdminDetail(
     val environment: String,
