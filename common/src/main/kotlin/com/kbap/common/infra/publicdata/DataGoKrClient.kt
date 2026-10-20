@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientResponseException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.time.Duration
 
@@ -32,7 +33,7 @@ class DataGoKrClient internal constructor(
         val json = try {
             mapper.readTree(body)
         } catch (e: Exception) {
-            throw PublicDataCallException("$operation 응답이 JSON 이 아닙니다(${body.take(BODY_SNIPPET).replace(serviceKey, MASK)})")
+            throw PublicDataCallException("$operation 응답이 JSON 이 아닙니다(${redact(body).take(BODY_SNIPPET)})")
         }
         json.path("OpenAPI_ServiceResponse").path("cmmMsgHeader").path("errMsg").takeIf { !it.isMissingNode }?.let {
             throw PublicDataCallException("$operation 거절: ${it.asString()}")
@@ -50,6 +51,12 @@ class DataGoKrClient internal constructor(
         return restClient.get().uri(template, variables).retrieve().body(String::class.java).orEmpty()
     }
 
+    private fun redact(text: String): String {
+        val encoded = URLEncoder.encode(serviceKey, Charsets.UTF_8)
+        return listOf(serviceKey, encoded, encoded.lowercase())
+            .fold(KEY_QUERY_VALUE.replace(text) { "${it.groupValues[1]}$MASK" }) { acc, form -> acc.replace(form, MASK, ignoreCase = true) }
+    }
+
     private fun describe(e: Throwable): String = when (e) {
         is HttpClientErrorException -> "HTTP ${e.statusCode.value()} ${errMsgOf(e)}".trim()
         is RestClientResponseException -> "HTTP ${e.statusCode.value()}"
@@ -65,6 +72,7 @@ class DataGoKrClient internal constructor(
         private const val KEY_VARIABLE = "serviceKey"
         private const val MASK = "***"
         private const val BODY_SNIPPET = 120
+        private val KEY_QUERY_VALUE = Regex("(?i)(service_?key=)[^&\\s\"'<>]*")
 
         fun defaultRetryPolicy(maxRetries: Long, initialDelay: Duration): RetryPolicy =
             RetryPolicy.builder()
