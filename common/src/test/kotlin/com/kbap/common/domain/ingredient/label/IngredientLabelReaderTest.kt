@@ -44,6 +44,12 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read("현미유과 : 대두 흑미유과 : 대두 교동약과 : 밀, 우유 함유", null)) shouldBe setOf(SOY, WHEAT, MILK)
             }
         }
+        `when`("고시 표기 그대로 '알류(가금류에 한함)'이면 — Codex P1") {
+            then("알만 검출하고 가금류(고기)는 검출하지 않는다 — 한정어일 뿐이다") {
+                codes(IngredientLabelReader.read("알류(가금류에 한함), 우유", null)) shouldBe setOf(EGG, MILK)
+                codes(IngredientLabelReader.read(null, "전란액(가금류에 한한다)")) shouldBe setOf(EGG)
+            }
+        }
         `when`("'알수없음'·빈 값이면") {
             then("표시 없음(NOT_PROVIDED)이고 원재료에서만 찾는다") {
                 listOf("알수없음", "", "  ", null).forEach { allergens ->
@@ -90,6 +96,11 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 )
                 codes(reading) shouldBe setOf(IngredientCode.FISH, IngredientCode.BEEF)
                 reading.detections.single { it.code == IngredientCode.BEEF }.evidence shouldBe "남쇠고기국물맛내기"
+            }
+        }
+        `when`("돈지방이 원재료에 있으면 — Codex P2") {
+            then("라드(돼지 지방)로 검출한다") {
+                codes(IngredientLabelReader.read(null, "돼지창자, 돈지방, 당면")) shouldContain IngredientCode.LARD
             }
         }
         `when`("땅콩버터·피넛버터이면") {
