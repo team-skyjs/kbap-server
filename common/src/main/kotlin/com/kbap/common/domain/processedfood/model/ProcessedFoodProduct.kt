@@ -113,7 +113,7 @@ class ProcessedFoodProduct(
     }
 
     fun displayMaker(): String? =
-        listOf(manufacturer, seller).firstNotNullOfOrNull(::companyNameOf) ?: makerSupplement?.trim()?.takeIf { it.isNotEmpty() }
+        listOf(manufacturer, seller, makerSupplement).firstNotNullOfOrNull(::companyNameOf)
 
     fun isDiscontinued(latestSeenAt: LocalDateTime): Boolean = lastSeenAt.isBefore(latestSeenAt.minus(DISCONTINUED_AFTER))
 
