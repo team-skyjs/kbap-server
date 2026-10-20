@@ -11,6 +11,7 @@ import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.LikeWildcards
@@ -30,6 +31,7 @@ class AdminMemberQueryService(
     private val orderItemRepository: OrderItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
     private val adRewardRepository: MemberAdRewardJpaRepository,
+    private val processedFoods: ProcessedFoodProductJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
@@ -67,8 +69,9 @@ class AdminMemberQueryService(
         requireMemberExists(memberId)
         val result = reviewRepository.findByMemberId(memberId, activityPageable(page))
         val foodNames = foodNamesOf(result.content.mapNotNull { it.foodId })
+        val productNames = processedFoods.findAllById(result.content.mapNotNull { it.processedFoodId }.distinct()).associateBy({ it.id }, { it.productName })
         return AdminMemberReviewPageResponse(
-            items = result.content.map { AdminMemberReviewItemResponse.from(it, foodNames, imagePublicBaseUrl) },
+            items = result.content.map { AdminMemberReviewItemResponse.from(it, foodNames, productNames, imagePublicBaseUrl) },
             page = page,
             totalPages = result.totalPages,
             totalCount = result.totalElements,

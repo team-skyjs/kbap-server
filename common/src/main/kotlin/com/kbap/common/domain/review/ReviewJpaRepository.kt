@@ -21,6 +21,12 @@ interface FoodRatingAggregate {
     val reviewCount: Long
 }
 
+interface ProcessedFoodRatingAggregate {
+    val processedFoodId: Long
+    val average: Double?
+    val reviewCount: Long
+}
+
 interface TopRatedFoodAggregate {
     val foodId: Long
     val reviewCount: Long
@@ -44,16 +50,43 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """
         select r from Review r
         where r.memberId = :memberId
-          and r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD
+          and (:includeProcessed = true or r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD)
           and (:cursor is null or r.id < :cursor)
         order by r.id desc
         """,
     )
     fun findMemberReviewPage(
         @Param("memberId") memberId: Long,
+        @Param("includeProcessed") includeProcessed: Boolean,
         @Param("cursor") cursor: Long?,
         pageable: Pageable,
     ): List<Review>
+
+    @Query(
+        """
+        select r from Review r
+        where r.processedFoodId = :processedFoodId
+          and r.memberId not in :excludedMemberIds
+          and (:cursor is null or r.id < :cursor)
+        order by r.id desc
+        """,
+    )
+    fun findProcessedFoodReviewPage(
+        @Param("processedFoodId") processedFoodId: Long,
+        @Param("excludedMemberIds") excludedMemberIds: List<Long>,
+        @Param("cursor") cursor: Long?,
+        pageable: Pageable,
+    ): List<Review>
+
+    @Query(
+        """
+        select r.processedFoodId as processedFoodId, avg(r.rating) as average, count(r) as reviewCount
+        from Review r
+        where r.processedFoodId in :processedFoodIds
+        group by r.processedFoodId
+        """,
+    )
+    fun aggregateRatingsByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: List<Long>): List<ProcessedFoodRatingAggregate>
 
     @Query(
         """

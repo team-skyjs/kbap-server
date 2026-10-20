@@ -115,9 +115,12 @@ data class AdminMemberReviewItemResponse(
     val content: String?,
     val imageUrls: List<String>,
     val createdAt: LocalDateTime,
+    val targetType: String,
+    val processedFoodId: Long?,
+    val targetName: String?,
 ) {
     companion object {
-        fun from(review: Review, foodNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
+        fun from(review: Review, foodNames: Map<Long, String>, productNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
             AdminMemberReviewItemResponse(
                 id = review.id,
                 foodId = review.foodId,
@@ -128,6 +131,9 @@ data class AdminMemberReviewItemResponse(
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt,
+                targetType = review.targetType.name,
+                processedFoodId = review.processedFoodId,
+                targetName = review.foodId?.let(foodNames::get) ?: review.processedFoodId?.let(productNames::get),
             )
     }
 }

@@ -163,7 +163,8 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                             .shouldBeTrue()
                     }
 
-                    versionHeaderOf("/api/reviews", "get")!!.path("schema").path("default").asText() shouldBe "1.0"
+                    versionHeaderOf("/api/reviews/{reviewId}", "get")!!.path("schema").path("default").asText() shouldBe "1.0"
+                    versionHeaderOf("/api/processed-foods/{processedFoodId}/reviews", "post")!!.path("schema").path("default").asText() shouldBe "3.2"
                 }
             }
 

@@ -3,6 +3,7 @@ package com.kbap.api.notification
 import com.kbap.api.review.ReviewLiked
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.notification.PushRequest
 import com.kbap.common.domain.notification.model.NotificationType
 import com.kbap.common.port.push.PushHandler
@@ -17,6 +18,7 @@ import org.springframework.transaction.event.TransactionalEventListener
 class HelpfulPushListener(
     private val pushHandler: PushHandler,
     private val foodRepository: FoodJpaRepository,
+    private val processedFoods: ProcessedFoodProductJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -24,8 +26,10 @@ class HelpfulPushListener(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun handle(event: ReviewLiked) {
         try {
-            val food = foodRepository.findByIdOrNull(event.foodId) ?: return
-            val argsByLang = LanguageCode.entries.associateWith { mapOf("food" to food.displayName(it)) }
+            val food = event.foodId?.let { foodRepository.findByIdOrNull(it) }
+            val productName = event.processedFoodId?.let { processedFoods.findByIdOrNull(it) }?.productName
+            if (food == null && productName == null) return
+            val argsByLang = LanguageCode.entries.associateWith { mapOf("food" to (food?.displayName(it) ?: productName!!)) }
             val result = pushHandler.send(
                 PushRequest(
                     NotificationType.HELPFUL,

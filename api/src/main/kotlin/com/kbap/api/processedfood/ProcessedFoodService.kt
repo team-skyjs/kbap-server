@@ -7,6 +7,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.util.LikeWildcards
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -16,6 +17,7 @@ import java.time.LocalDateTime
 class ProcessedFoodService(
     private val products: ProcessedFoodProductJpaRepository,
     private val memberService: MemberService,
+    private val reviews: ReviewJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int): SearchPage<ProcessedFoodSummaryResponse> {
@@ -25,8 +27,10 @@ class ProcessedFoodService(
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct())
         val ranked = ProcessedFoodSearchRanker.rank(candidates, tokens)
         val hasNext = ranked.size > offset + size
+        val page = ranked.drop(offset).take(size)
+        val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
         return SearchPage(
-            items = ranked.drop(offset).take(size).map(ProcessedFoodSummaryResponse::from),
+            items = page.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id]) },
             hasNext = hasNext,
             nextCursor = if (hasNext) (offset + size).toString() else null,
         )
@@ -35,6 +39,9 @@ class ProcessedFoodService(
     @Transactional(readOnly = true)
     fun getProcessedFoodDetail(id: Long, memberId: Long?): ProcessedFoodDetailResponse =
         detailOf(available(products.findById(id).orElse(null)), memberId)
+
+    @Transactional(readOnly = true)
+    fun getAvailableProduct(id: Long): ProcessedFoodProduct = available(products.findById(id).orElse(null))
 
     @Transactional(readOnly = true)
     fun getProcessedFoodDetailByReportNo(reportNo: String, memberId: Long?): ProcessedFoodDetailResponse =
@@ -70,7 +77,8 @@ class ProcessedFoodService(
 
     private fun detailOf(product: ProcessedFoodProduct, memberId: Long?): ProcessedFoodDetailResponse {
         val reading = IngredientLabelReader.read(product.allergens, product.rawMaterials)
-        return ProcessedFoodDetailResponse.of(product, reading, memberId?.let { memberService.getAvoidance(it) })
+        val rating = reviews.aggregateRatingsByProcessedFoodIds(listOf(product.id)).singleOrNull()
+        return ProcessedFoodDetailResponse.of(product, reading, memberId?.let { memberService.getAvoidance(it) }, rating)
     }
 
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>): List<ProcessedFoodProduct> {

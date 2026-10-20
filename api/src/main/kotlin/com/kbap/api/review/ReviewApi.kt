@@ -184,4 +184,63 @@ interface ReviewApi {
         memberId: Long,
         @ParameterObject request: ReviewPageRequest,
     ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
+
+    @Operation(
+        summary = "리뷰 목록 조회(3.2 이상 — 가공식품 리뷰 포함)",
+        description = """
+            3.2 이상 헤더의 공개 피드. 3.1 이하와 같은 파라미터·정렬이며 가공식품 리뷰가 섞인다 —
+            가공식품 리뷰는 targetType=PROCESSED_FOOD, processedFood 요약이 있고 food 는 생략된다.
+            foodId 를 주면 그 음식 리뷰만(가공식품 제외). 3.1 이하 응답에는 가공식품 리뷰가 나오지 않는다.
+        """,
+    )
+    @ApiErrors(ErrorCode.FOOD_NOT_PUBLIC, ErrorCode.INVALID_CURSOR)
+    fun listReviewsWithProcessedFood(
+        memberId: Long?,
+        @Parameter(description = "리뷰를 조회할 음식 id — 생략 시 전체 리뷰", example = "1") foodId: Long?,
+        @ParameterObject request: ReviewListRequest,
+    ): ResponseEntity<BaseResponse<ReviewListPage>>
+
+    @Operation(
+        summary = "내 리뷰 목록 조회(3.2 이상 — 가공식품 리뷰 포함)",
+        description = "3.2 이상 헤더의 내 리뷰. 가공식품 리뷰가 섞인다(targetType=PROCESSED_FOOD·processedFood 요약). 3.1 이하 응답에는 나오지 않는다.",
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(ErrorCode.INVALID_CURSOR)
+    fun listMyReviewsWithProcessedFood(
+        memberId: Long,
+        @ParameterObject request: ReviewPageRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
+
+    @Operation(
+        summary = "가공식품 리뷰 작성(3.2 이상)",
+        description = """
+            회원 전용. 본문 10~1000자(REVIEW-005), 사진 최대 3장(업로드 완료 경로). 서빙·친절 평점·위치는 없다.
+            회원 리뷰 수 +1·스캔 무제한 해제·랭킹 리뷰 점수는 음식 리뷰와 같고, 음식 다양성 보너스는 없다.
+            쓰기 플래그가 꺼져 있으면 403 PFOOD-005. 없는 제품 404 PFOOD-001, 생산종료 410 PFOOD-002.
+            수정·삭제·좋아요·신고·번역은 /reviews/{reviewId} 를 그대로 쓴다.
+        """,
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiErrors(
+        ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED,
+        ErrorCode.PROCESSED_FOOD_NOT_FOUND,
+        ErrorCode.PROCESSED_FOOD_DISCONTINUED,
+        ErrorCode.REVIEW_BODY_TOO_SHORT,
+    )
+    fun createProcessedFoodReview(
+        memberId: Long,
+        @Parameter(description = "가공식품 id", example = "1201") processedFoodId: Long,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "가공식품 리뷰 작성 요청") request: ProcessedFoodReviewCreateRequest,
+    ): ResponseEntity<BaseResponse<ReviewResponse>>
+
+    @Operation(
+        summary = "가공식품 리뷰 목록(3.2 이상)",
+        description = "비회원 허용. 최신순 50건 keyset 커서. 회원이면 차단한 작성자의 리뷰는 빠진다. 없는 제품 404 PFOOD-001.",
+    )
+    @ApiErrors(ErrorCode.PROCESSED_FOOD_NOT_FOUND, ErrorCode.INVALID_CURSOR)
+    fun listProcessedFoodReviews(
+        memberId: Long?,
+        @Parameter(description = "가공식품 id", example = "1201") processedFoodId: Long,
+        @ParameterObject request: ReviewPageRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>>
 }
