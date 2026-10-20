@@ -23,6 +23,8 @@ class CurationValidation {
         .digest(mapper.writeValueAsBytes(document.copy(editorialReview = null)))
         .joinToString("") { "%02x".format(it) }
 
+    private fun hasNullImage(item: CurationEntry) = item.images.filterIsInstance<CurationPhoto>().size != item.images.size
+
     private fun attributionTextValid(text: String?) = !text.isNullOrBlank() && text.length <= ATTRIBUTION_TEXT_LIMIT && text.codePoints().noneMatch { Character.getType(it).toByte() in invisibleTypes }
 
     fun structure(document: CurationDocument): List<CurationIssue> = buildList {
@@ -38,6 +40,7 @@ class CurationValidation {
         document.items.forEachIndexed { i, item ->
             if (runCatching { UUID.fromString(item.entryId).toString() == item.entryId.lowercase() }.getOrDefault(false).not()) add(CurationIssue("items[$i].entryId", "INVALID_ENTRY_ID", item.entryId))
             if (item.images.size > GALLERY_LIMIT) add(CurationIssue("items[$i].images", "DOCUMENT_LIMIT", item.entryId))
+            if (hasNullImage(item)) add(CurationIssue("items[$i].images", "GALLERY_INVALID", item.entryId))
             if (item.externalUrl.length > 2048 || item.nearby.size > 50) add(CurationIssue("items[$i]", "DOCUMENT_LIMIT", item.entryId))
             if (item.nearby.map { it.nearbyId }.distinct().size != item.nearby.size || item.nearby.any { it.nearbyId.isBlank() }) add(CurationIssue("items[$i].nearby", "INVALID_NEARBY_ID", item.entryId))
         }
@@ -65,7 +68,7 @@ class CurationValidation {
         document.items.forEachIndexed { i, item ->
             val path = "items[$i]"
             if ((key == "stations" && item.nearby.size !in 2..3) || (key != "stations" && item.nearby.isNotEmpty())) add(CurationIssue("$path.nearby", "NEARBY_COUNT", item.entryId))
-            if (item.images.isNotEmpty() && (item.images.first() != item.image || item.images.distinctBy { it.assetId }.size != item.images.size)) add(CurationIssue("$path.images", "GALLERY_INVALID", item.entryId))
+            if (!hasNullImage(item) && item.images.isNotEmpty() && (item.images.first() != item.image || item.images.distinctBy { it.assetId }.size != item.images.size)) add(CurationIssue("$path.images", "GALLERY_INVALID", item.entryId))
             if (!urlValid(item.externalUrl)) add(CurationIssue("$path.externalUrl", "INVALID_EXTERNAL_URL", item.entryId))
             val evidence = item.evidence
             if (evidence.placeIdentity.canonicalName.isBlank() || evidence.placeIdentity.locationDiscriminator.isBlank()) add(CurationIssue("$path.evidence", "PLACE_IDENTITY_MISSING", item.entryId))
