@@ -1464,6 +1464,43 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("해산물(카테고리)만 회피하는 회원이 새우 음식을 스캔하면 — R-100") {
+                then("하위 재료 함의로 해산물 항목이 겹침이 된다") {
+                    val memberId = 691L
+                    val path = "scan/691/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SEAFOOD")
+                    seedReadyFood("해산물함의찌개")
+                    setFoodIngredients("해산물함의찌개", """[{"code":"SHRIMP","inclusion_percent":80}]""")
+                    vision.program(path, listOf(ExtractedMenu("해산물찌개", "해산물함의찌개", 8000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].avoidances.length()") { value(1) }
+                        jsonPath("$.payload.results[0].avoidances[0].code") { value("SEAFOOD") }
+                        jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
+                    }
+                }
+            }
+
+            `when`("유제품(카테고리)만 회피하는 회원이 치즈 음식을 스캔하면 — R-100") {
+                then("치즈가 걸려 유제품 항목이 겹침이 된다") {
+                    val memberId = 692L
+                    val path = "scan/692/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "DAIRY")
+                    seedReadyFood("유제품함의떡볶이")
+                    setFoodIngredients("유제품함의떡볶이", """[{"code":"CHEESE","inclusion_percent":80}]""")
+                    vision.program(path, listOf(ExtractedMenu("치즈떡볶이", "유제품함의떡볶이", 8000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].avoidances[0].code") { value("DAIRY") }
+                        jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
+                    }
+                }
+            }
+
             `when`("기피성분 등록 회원의 스캔 결과에 미매칭 메뉴가 있으면") {
                 then("해당 항목의 avoidances 는 빈 배열이다 — 겹침 판정 불가") {
                     val memberId = 633L
