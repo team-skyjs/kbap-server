@@ -34,7 +34,7 @@ class ScanBatchRunner(
     private fun enqueue(memberId: Long, batchId: UUID, jobs: List<Int>) {
         val key = WorkKey(memberId, batchId)
         val work = synchronized(works) {
-            works.getOrPut(key) { BatchWork() }.also { work -> jobs.filterNot { it in work.queue }.forEach(work.queue::addLast) }
+            works.getOrPut(key) { BatchWork() }.also { work -> jobs.filterNot { it in work.queue || it in work.inFlight }.forEach(work.queue::addLast) }
         }
         spawn(key, work)
     }
@@ -48,14 +48,9 @@ class ScanBatchRunner(
             try {
                 executor.execute { drain(key, work) }
             } catch (e: TaskRejectedException) {
-                synchronized(works) {
-                    work.active -= 1
-                    if (work.active == 0) {
-                        work.queue.clear()
-                        works.remove(key, work)
-                    }
-                }
-                log.warn("스캔 묶음 실행기 포화 — 남은 사진은 PENDING 으로 남아 재시도 대상, batchId={}", key.batchId, e)
+                synchronized(works) { work.active -= 1 }
+                log.warn("스캔 묶음 실행기 포화 — 잠시 뒤 다시 띄운다, batchId={}", key.batchId, e)
+                scheduler.schedule({ spawn(key, work) }, Instant.now().plus(SLOT_WAIT))
                 return
             }
         }
@@ -64,17 +59,21 @@ class ScanBatchRunner(
     private fun drain(key: WorkKey, work: BatchWork) {
         while (true) {
             val job = synchronized(works) {
-                work.queue.removeFirstOrNull() ?: run {
+                work.queue.removeFirstOrNull()?.also(work.inFlight::add) ?: run {
                     work.active -= 1
                     if (work.active == 0) works.remove(key, work)
                     null
                 }
             } ?: return
-            if (!run(key.memberId, key.batchId, job)) {
-                synchronized(works) {
+            val done = run(key.memberId, key.batchId, job)
+            synchronized(works) {
+                work.inFlight.remove(job)
+                if (!done) {
                     work.queue.addFirst(job)
                     work.active -= 1
                 }
+            }
+            if (!done) {
                 scheduler.schedule({ spawn(key, work) }, Instant.now().plus(SLOT_WAIT))
                 return
             }
@@ -118,6 +117,7 @@ class ScanBatchRunner(
 
     private class BatchWork {
         val queue = ArrayDeque<Int>()
+        val inFlight = mutableSetOf<Int>()
         var active = 0
     }
 
