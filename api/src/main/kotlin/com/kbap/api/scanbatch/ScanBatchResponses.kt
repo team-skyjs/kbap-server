@@ -97,7 +97,7 @@ data class ScanBatchItemResponse(
     val priceKrw: Int?,
     @field:Schema(description = "메뉴판에 적힌 크기·옵션 표기 — 없으면 null", example = "2인분", nullable = true)
     val option: String?,
-    @field:Schema(description = "매칭된 카탈로그 음식 id(정확 매칭만) — 없으면 null", nullable = true)
+    @field:Schema(description = "정확 매칭된 음식 id(준비 중인 새 음식 포함) — 주문 항목의 foodId 로 그대로 보낸다. 출처끼리 음식이 다르면 null", nullable = true)
     val foodId: Long?,
     @field:Schema(description = "카탈로그 READY 음식과 정확히 매칭됐는지")
     val matched: Boolean,
@@ -107,7 +107,7 @@ data class ScanBatchItemResponse(
     val sources: List<ScanBatchItemSourceResponse>,
 ) {
     companion object {
-        fun of(item: ScanMergedItem, food: Food?, risk: RiskLevel?, language: LanguageCode, sources: List<Pair<ScanOperationPhoto, Int>>): ScanBatchItemResponse {
+        fun of(item: ScanMergedItem, foodId: Long?, food: Food?, risk: RiskLevel?, language: LanguageCode, sources: List<Pair<ScanOperationPhoto, Int>>): ScanBatchItemResponse {
             val koreanName = item.document["koreanName"] as String
             return ScanBatchItemResponse(
                 mergedItemId = ScanBatchService.uuidOf(item.publicId).toString(),
@@ -116,7 +116,7 @@ data class ScanBatchItemResponse(
                 name = food?.displayName(language) ?: koreanName,
                 priceKrw = (item.document["priceKrw"] as Number?)?.toInt(),
                 option = item.document["option"] as String?,
-                foodId = food?.id,
+                foodId = foodId,
                 matched = food != null,
                 riskLevel = (risk ?: RiskLevel.UNKNOWN).name,
                 sources = sources.map { (photo, row) -> ScanBatchItemSourceResponse(photo.selectionIndex, ScanBatchService.uuidOf(photo.photoId).toString(), row) },
