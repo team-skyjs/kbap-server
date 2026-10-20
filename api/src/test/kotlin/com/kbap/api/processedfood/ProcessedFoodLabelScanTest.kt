@@ -66,6 +66,29 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
         }
 
+        given("성분표 분석 — 표시란 머리말(KB-841)") {
+            `when`("머리말이 붙은 2면 원문을 보내면") {
+                then("머리말은 미매핑에 나오지 않고 검출은 그대로다") {
+                    val p = label(
+                        member(88411L),
+                        null,
+                        "원재료명 및 함량: 소맥분(밀), 새우 10%, 설탕, 정제수\n식품유형: 과자 내용량: 90g",
+                        "알레르기 유발물질: 밀, 새우 함유\n알레르기유발성분: 대두",
+                    ).path("payload")
+                    p.path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP", "SOY")
+                    val unmapped = p.path("unmapped").map { it.asText() }
+                    unmapped.filter { it.replace(" ", "") in setOf("원재료명및함량", "원재료명", "식품유형", "내용량", "알레르기", "유발물질", "알레르기유발물질", "알레르기유발성분") } shouldBe emptyList()
+                    unmapped.contains("정제수") shouldBe true
+                }
+            }
+            `when`("머리말만 있고 원재료 토큰이 없으면") {
+                then("머리말은 판독 성공 근거(한글 토큰 수)로 세지 않아 400 PFOOD-006") {
+                    label(member(88412L), null, "원재료명: 식품유형\n알레르기 유발물질 함유", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    scanCountOf(88412L) shouldBe 0
+                }
+            }
+        }
+
         given("성분표 분석 — 새 분석의 clientRequestId 멱등 키(KB-840)") {
             `when`("응답을 못 받은 앱이 같은 키·같은 원문으로 다시 보내면") {
                 then("같은 분석이 같은 결과로 돌아오고 차감은 처음 1회뿐이다") {
