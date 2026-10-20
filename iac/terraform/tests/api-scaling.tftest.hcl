@@ -77,3 +77,35 @@ run "api_scales_tasks_at_80_percent_and_instances_via_capacity_provider" {
     error_message = "capacity provider must not keep empty instances (50 doubles the pool instead of half-filling each instance)"
   }
 }
+
+run "api_task_role_can_reach_only_its_own_curation_prefix" {
+  command = plan
+
+  module {
+    source = "./modules/ecs-environment"
+  }
+
+  variables {
+    env = "dev"
+  }
+
+  assert {
+    condition     = aws_iam_role_policy.api_task_curation.name == "curation-s3"
+    error_message = "curation policy must keep the name applied manually from CloudShell so apply overwrites it instead of duplicating"
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[0].Resource == "arn:aws:s3:::test-storage-bucket/curation/dev/*"
+    error_message = "object access must follow the curation environment (env), not storage_key_prefix"
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[1].Condition.StringLike["s3:prefix"] == "curation/dev/*"
+    error_message = "list access must follow the curation environment (env)"
+  }
+
+  assert {
+    condition     = !contains(jsondecode(aws_iam_role_policy.api_task_curation.policy).Statement[0].Action, "s3:DeleteObject")
+    error_message = "the API task must not delete curation objects until a reference-safe cleanup flow exists"
+  }
+}
