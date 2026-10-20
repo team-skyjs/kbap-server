@@ -23,6 +23,42 @@ class CurationValidationTest : BehaviorSpec({
             }
         }
     }
+    given("항목 사진 여러 장(갤러리)") {
+        val validator = CurationValidation()
+        val base = CurationFixtures.document("sights", 1)
+        val first = base.items[0]
+        fun photo(id: Long, rights: CurationRights.() -> CurationRights = { this }) = first.image!!.copy(assetId = id, rights = first.image!!.rights.copy(checkedAssetId = id).rights())
+        fun withImages(vararg images: CurationPhoto) = CurationFixtures.reviewed(base.copy(items = listOf(first.copy(images = images.toList())) + base.items.drop(1)))
+        `when`("첫 장이 image 이고 사진마다 권리 증빙이 있으면") {
+            then("검증을 통과한다") { validator.validate("sights", withImages(first.image!!, photo(2), photo(3))) shouldBe emptyList() }
+        }
+        `when`("둘째 사진의 권리 증빙이 비거나 출처 문구가 80자를 넘으면") {
+            then("그 사진 경로로 PHOTO_RIGHTS_MISSING·ATTRIBUTION_TEXT_INVALID 를 낸다") {
+                val missing = validator.validate("sights", withImages(first.image!!, photo(2) { copy(rightsHolder = "") }))
+                missing.map { it.path to it.reason } shouldContain ("items[0].images[1].rights" to "PHOTO_RIGHTS_MISSING")
+                val long = validator.validate("sights", withImages(first.image!!, photo(2) { copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = "a".repeat(81)) }))
+                long.map { it.path to it.reason } shouldContain ("items[0].images[1].rights.attributionText" to "ATTRIBUTION_TEXT_INVALID")
+            }
+        }
+        `when`("첫 장이 image 와 다르거나 같은 사진이 두 번 들어가면") {
+            then("GALLERY_INVALID 로 막는다") {
+                validator.validate("sights", withImages(photo(2), first.image!!)).map { it.reason } shouldContain "GALLERY_INVALID"
+                validator.validate("sights", withImages(first.image!!, photo(2), photo(2))).map { it.reason } shouldContain "GALLERY_INVALID"
+            }
+        }
+        `when`("사진이 10장을 넘으면") {
+            then("DOCUMENT_LIMIT 로 막는다") {
+                validator.validate("sights", withImages(first.image!!, *(2L..11L).map { photo(it) }.toTypedArray())).map { it.reason } shouldContain "DOCUMENT_LIMIT"
+            }
+        }
+        `when`("검수 뒤 사진 목록이 바뀌면") {
+            then("발행본 해시가 달라져 EDITORIAL_REVIEW_MISSING 이다") {
+                val reviewed = withImages(first.image!!, photo(2))
+                val changed = reviewed.copy(items = listOf(reviewed.items[0].copy(images = listOf(first.image!!, photo(3)))) + reviewed.items.drop(1))
+                validator.validate("sights", changed).map { it.reason } shouldContain "EDITORIAL_REVIEW_MISSING"
+            }
+        }
+    }
     given("승인된 게시 문서") {
         val validator = CurationValidation()
         val valid = CurationFixtures.document("sights", 1)

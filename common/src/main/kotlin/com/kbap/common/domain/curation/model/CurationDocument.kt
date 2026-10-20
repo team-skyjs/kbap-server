@@ -22,6 +22,7 @@ data class CurationEntry(
     val externalUrl: String = "",
     val nearby: List<CurationNearby> = emptyList(),
     val evidence: CurationEvidence = CurationEvidence(),
+    val images: List<CurationPhoto> = emptyList(),
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
