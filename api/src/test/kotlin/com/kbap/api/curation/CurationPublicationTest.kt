@@ -202,6 +202,22 @@ class CurationPublicationTest : BehaviorSpec() {
                 }
             }
 
+            `when`("게시본의 표지나 항목 사진이 비어 있으면(저장본 손상) — Codex P2") {
+                then("500 이 아니라 503(CURATION-006) 으로 막는다") {
+                    CurationService.keys.forEach(::publish)
+                    val doc = documents.getValue("sights")
+                    val mapper = jacksonObjectMapper()
+                    jdbc.update("UPDATE curation_collection SET published_document=? WHERE collection_key='sights'", mapper.writeValueAsString(doc.copy(cover = null)))
+
+                    shouldThrow<BusinessException> { service.getIndex("en") }.errorCode.code shouldBe "CURATION-006"
+                    mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }.andExpect { status { isServiceUnavailable() } }
+
+                    val items = doc.items.mapIndexed { i, item -> if (i == 3) item.copy(image = null) else item }
+                    jdbc.update("UPDATE curation_collection SET published_document=? WHERE collection_key='sights'", mapper.writeValueAsString(doc.copy(items = items)))
+                    shouldThrow<BusinessException> { service.getDetail("sights", "en") }.errorCode.code shouldBe "CURATION-006"
+                }
+            }
+
             `when`("편집 해시가 내용과 맞지 않는 초안을 게시하려 하면") {
                 then("게시 시점 검증이 CURATION-002(EDITORIAL_REVIEW_MISSING)로 막는다") {
                     val d = service.getAdminDetail(adminId, "sights")
