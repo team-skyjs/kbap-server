@@ -8,6 +8,8 @@ import com.kbap.api.food.FoodTestSeed
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
+import com.kbap.common.port.scan.ScanReservationResult
+import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -33,6 +35,9 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
+
+    @Autowired
+    private lateinit var reservationStore: ScanReservationStore
 
     private val mapper = jacksonObjectMapper()
 
@@ -80,6 +85,8 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
             seedProduct("PS-1", "새우깡", "농심_구미")
             seedProduct("PS-2", "새우깡블랙", "농심_구미")
             seedProduct("PS-3", "포카칩오리지널", "오리온_청주")
+            seedProduct("PS-DEL", "삭제새우칩", "농심_구미")
+            execute("UPDATE processed_food_product SET status = 'DELETED' WHERE report_no = 'PS-DEL'")
         }
         afterSpec {
             TestTables.clearAll(dataSource)
@@ -94,6 +101,7 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     p.path("state").asText() shouldBe "CANDIDATES"
                     p.path("analysisId").asText().length shouldBe 36
                     p.path("candidates").map { it.path("productName").asText() } shouldBe listOf("새우깡", "새우깡블랙")
+                    p.path("candidates").map { it.path("reportNo").asText() } shouldBe listOf("PS-1", "PS-2")
                     p.has("expiresAt") shouldBe true
                     scanCountOf(81101L) shouldBe 0
                 }
@@ -213,6 +221,48 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     codes shouldContainExactlyInAnyOrder listOf(200, 403)
                     scanCountOf(81210L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
                     ids.sumOf { usageRowsOf(it) } shouldBe 1
+                }
+            }
+            `when`("남은 1회를 메뉴판 스캔 V2 가 예약 중일 때 이름 확정을 하면 — 공부 ①(같은 예약 저장소)") {
+                then("403 SCAN-004 — 예약이 풀리면 확정된다") {
+                    val token = member(81211L, scanCount = Member.FREE_SCAN_LIMIT - 1)
+                    val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
+                    reservationStore.reserve(81211L, "menu-v2-in-flight", Member.FREE_SCAN_LIMIT - 1, Member.FREE_SCAN_LIMIT) shouldBe ScanReservationResult.RESERVED
+                    try {
+                        confirm(token, id, "PS-1", expected = 403).path("code").asText() shouldBe "SCAN-004"
+                        usageRowsOf(id) shouldBe 0
+                    } finally {
+                        reservationStore.release(81211L, "menu-v2-in-flight")
+                    }
+                    confirm(token, id, "PS-1").path("payload").path("charged").asBoolean() shouldBe true
+                    scanCountOf(81211L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
+                }
+            }
+            `when`("확정 뒤 그 품목이 생산종료 기준을 넘긴 다음 같은 품목으로 재확정하면 — 공부 ②·Codex P2") {
+                then("생산종료 검사 없이 같은 결과를 준다(charged=false)") {
+                    val token = member(81212L)
+                    val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
+                    confirm(token, id, "PS-2")
+                    execute("INSERT INTO BATCH_JOB_INSTANCE (JOB_INSTANCE_ID, VERSION, JOB_NAME, JOB_KEY) VALUES (990101, 0, 'processedFoodMirrorJob', 'ps-990101')")
+                    execute("INSERT INTO BATCH_JOB_EXECUTION (JOB_EXECUTION_ID, VERSION, JOB_INSTANCE_ID, CREATE_TIME, START_TIME, END_TIME, STATUS, EXIT_CODE, LAST_UPDATED) VALUES (990101, 0, 990101, NOW(6), NOW(6), NOW(6), 'COMPLETED', 'COMPLETED', NOW(6))")
+                    execute("UPDATE processed_food_product SET last_seen_at = last_seen_at - INTERVAL 10 DAY WHERE report_no = 'PS-2'")
+                    try {
+                        val again = confirm(token, id, "PS-2").path("payload")
+                        again.path("charged").asBoolean() shouldBe false
+                        again.path("product").path("reportNo").asText() shouldBe "PS-2"
+                    } finally {
+                        execute("UPDATE processed_food_product SET last_seen_at = last_seen_at + INTERVAL 10 DAY WHERE report_no = 'PS-2'")
+                        execute("DELETE FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID = 990101")
+                        execute("DELETE FROM BATCH_JOB_INSTANCE WHERE JOB_INSTANCE_ID = 990101")
+                    }
+                }
+            }
+            `when`("삭제(DELETED)된 품목으로 확정하면 — 공부 ③") {
+                then("404 PFOOD-001, 차감 없음") {
+                    val token = member(81213L)
+                    val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
+                    confirm(token, id, "PS-DEL", expected = 404).path("code").asText() shouldBe "PFOOD-001"
+                    usageRowsOf(id) shouldBe 0
                 }
             }
             `when`("같은 분석 ID 확정이 동시에 두 번 오면") {
