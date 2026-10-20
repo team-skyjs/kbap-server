@@ -183,6 +183,15 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 ).forEach { (raw, expected) -> withClue(raw) { codes(IngredientLabelReader.read(null, raw)) shouldBe expected } }
             }
         }
+        `when`("식물성 밀크·돈사골이면 — Codex P2") {
+            then("우유가 아니라 원재료로, 돈사골은 소가 아니라 돼지로 잡는다") {
+                codes(IngredientLabelReader.read(null, "오트밀크, 귀리밀크")) shouldBe setOf(IngredientCode.OAT)
+                codes(IngredientLabelReader.read(null, "아몬드밀크")) shouldBe setOf(IngredientCode.ALMOND)
+                codes(IngredientLabelReader.read(null, "소이밀크")) shouldBe setOf(SOY)
+                codes(IngredientLabelReader.read(null, "라이스밀크")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "돈사골농축액")) shouldBe setOf(IngredientCode.PORK)
+            }
+        }
         `when`("이름만 닮은 재료이면 — 선제 보강의 오탐 경계") {
             then("검출하지 않는다 — 밀크씨슬·가공유지·강낭콩·리마콩·다시다·밀크향") {
                 codes(IngredientLabelReader.read(null, "밀크씨슬추출물, 가공유지, 강낭콩, 리마콩, 다시다, 밀크향")) shouldBe emptySet()
