@@ -1,5 +1,5 @@
 # 원재료·알레르기 원문 판독 사전. 표기<TAB>코드(쉼표 구분, - 는 알레르기 아님 확정)<TAB>exact|contains|block
-# exact: 토큰 전체가 같을 때만. contains: 토큰 안에 있으면(향·향료·맛으로 끝나는 토큰 제외). block: 토큰에서 먼저 지우고 코드를 더한다(오탐 방지).
+# exact: 토큰 전체가 같을 때만. contains: 토큰 안에 있으면(바로 뒤 말이 맛·향·풍미·향료면 제외). block: 토큰에서 먼저 지우고 코드를 더한다(오탐 방지). suppress: 토큰에 있으면 그 코드를 마지막에 지운다(무알코올맥주·캐슈밀크처럼 다른 용어가 남는 복합어).
 # 원칙: 긍정 오탐 0 우선 — 애매한 재료(레시틴·마가린·글루텐·물엿·마요네즈·고추장 등)는 넣지 않아 미매핑으로 남긴다.
 계란	EGG	contains
 달걀	EGG	contains
@@ -240,16 +240,16 @@
 버터리	-	block
 땅콩기름	PEANUT	block
 땅콩유	PEANUT	block
-무알콜	-	block
-무알코올	-	block
-비알콜	-	block
-비알코올	-	block
-논알콜	-	block
-논알코올	-	block
-무주정	-	block
-무에탄올	-	block
-비에탄올	-	block
-비주정	-	block
+무알콜	ALCOHOL	suppress
+무알코올	ALCOHOL	suppress
+비알콜	ALCOHOL	suppress
+비알코올	ALCOHOL	suppress
+논알콜	ALCOHOL	suppress
+논알코올	ALCOHOL	suppress
+무주정	ALCOHOL	suppress
+무에탄올	ALCOHOL	suppress
+비에탄올	ALCOHOL	suppress
+비주정	ALCOHOL	suppress
 오트밀크	OAT	block
 귀리밀크	OAT	block
 아몬드밀크	ALMOND	block
@@ -258,3 +258,17 @@
 라이스밀크	-	block
 쌀밀크	-	block
 돈사골	PORK	block
+캐슈밀크	MILK	suppress
+헤이즐넛밀크	MILK	suppress
+피스타치오밀크	MILK	suppress
+마카다미아밀크	MILK	suppress
+피칸밀크	MILK	suppress
+호두밀크	MILK	suppress
+땅콩밀크	MILK	suppress
+브라질너트밀크	MILK	suppress
+헴프밀크	MILK	suppress
+햄프밀크	MILK	suppress
+완두밀크	MILK	suppress
+현미밀크	MILK	suppress
+보리밀크	MILK	suppress
+코코넛밀크	MILK	suppress

@@ -21,6 +21,7 @@ object IngredientLabelReader {
         (mandatory + terms.filter { it.mode == IngredientLabelTermMode.EXACT }).groupBy({ it.term }, { it.codes }).mapValues { it.value.flatten().toSet() }
     private val blocks: List<IngredientLabelTerm> = terms.filter { it.mode == IngredientLabelTermMode.BLOCK }.sortedByDescending { it.term.length }
     private val containing: List<IngredientLabelTerm> = terms.filter { it.mode == IngredientLabelTermMode.CONTAINS }
+    private val suppressions: List<IngredientLabelTerm> = terms.filter { it.mode == IngredientLabelTermMode.SUPPRESS }
 
     private val mandatoryTerms: Set<String> = mandatory.map { it.term }.toSet()
 
@@ -49,7 +50,7 @@ object IngredientLabelReader {
     private fun scan(text: String, splitSpaces: Boolean): List<Pair<String, Set<IngredientCode>>> =
         text.replace(NOISE, ",")
             .split(SEPARATORS)
-            .flatMap { if (splitSpaces) it.split(SPACES) else listOf(it) }
+            .flatMap { if (splitSpaces) it.replace(NEGATED, " ").split(SPACES) else listOf(it) }
             .map { it.trim().replace(TRAILING_ETC, "") }
             .filter { token -> token.any { it.isLetter() } }
             .map { it to codesIn(it) }
@@ -65,6 +66,7 @@ object IngredientLabelReader {
             rest = rest.replace(it.term, " ")
         }
         containing.filter { isIngredientMention(rest, it.term) }.forEach { codes += it.codes }
+        suppressions.filter { it.term in token }.forEach { codes -= it.codes }
         return codes
     }
 
@@ -94,4 +96,4 @@ data class IngredientLabelTerm(
     val mode: IngredientLabelTermMode,
 )
 
-enum class IngredientLabelTermMode { EXACT, CONTAINS, BLOCK }
+enum class IngredientLabelTermMode { EXACT, CONTAINS, BLOCK, SUPPRESS }
