@@ -42,14 +42,17 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
             raw: String? = null,
             imageUrl: String? = null,
             seenDaysAgo: Int = 0,
+            seller: String? = null,
+            status: String = "ACTIVE",
+            seenHoursAgo: Int = seenDaysAgo * 24,
         ): Long {
             fun q(v: String?) = v?.let { "'" + it.replace("'", "''") + "'" } ?: "NULL"
             val normalized = name.replace(Regex("[\\s()·]|오리지널"), "")
             execute(
-                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, raw_materials, allergens, " +
+                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, seller, raw_materials, allergens, " +
                     "image_url, source, content_hash, collected_at, last_seen_at, status, created_at, updated_at) VALUES " +
-                    "(${q(reportNo)}, ${q(name)}, ${q(normalized)}, '과자', ${q(manufacturer)}, ${q(raw)}, ${q(allergens)}, ${q(imageUrl)}, 'HACCP', " +
-                    "REPEAT('a', 64), NOW(6) - INTERVAL $seenDaysAgo DAY, NOW(6) - INTERVAL $seenDaysAgo DAY, 'ACTIVE', NOW(6), NOW(6))",
+                    "(${q(reportNo)}, ${q(name)}, ${q(normalized)}, '과자', ${q(manufacturer)}, ${q(seller)}, ${q(raw)}, ${q(allergens)}, ${q(imageUrl)}, 'HACCP', " +
+                    "REPEAT('a', 64), NOW(6) - INTERVAL $seenHoursAgo HOUR, NOW(6) - INTERVAL $seenHoursAgo HOUR, '$status', NOW(6), NOW(6))",
             )
             return dataSource.connection.use { c ->
                 c.prepareStatement("SELECT id FROM processed_food_product WHERE report_no = ?").use { ps ->
@@ -67,9 +70,21 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                 }.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8),
             )
 
+        fun seedMirrorRun(id: Long, exitCode: String, startedHoursAgo: Int) {
+            execute("INSERT INTO BATCH_JOB_INSTANCE (JOB_INSTANCE_ID, VERSION, JOB_NAME, JOB_KEY) VALUES ($id, 0, 'processedFoodMirrorJob', 'pf-$id')")
+            execute(
+                "INSERT INTO BATCH_JOB_EXECUTION (JOB_EXECUTION_ID, VERSION, JOB_INSTANCE_ID, CREATE_TIME, START_TIME, END_TIME, STATUS, EXIT_CODE, LAST_UPDATED) " +
+                    "VALUES ($id, 0, $id, NOW(6) - INTERVAL $startedHoursAgo HOUR, NOW(6) - INTERVAL $startedHoursAgo HOUR, NOW(6), 'COMPLETED', '$exitCode', NOW(6))",
+            )
+        }
+
         beforeSpec {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
+            execute("DELETE FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID IN (990001, 990002)")
+            execute("DELETE FROM BATCH_JOB_INSTANCE WHERE JOB_INSTANCE_ID IN (990001, 990002)")
+            seedMirrorRun(990001, "COMPLETED", startedHoursAgo = 24)
+            seedMirrorRun(990002, "PARTIAL", startedHoursAgo = 0)
         }
         afterSpec { execute("DELETE FROM processed_food_product") }
 
@@ -122,6 +137,25 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     names(get("/api/processed-foods?query=새우깡 zq1 zq2 zq3 zq4 포카칩")) shouldBe listOf("새우깡", "새우깡블랙", "매운새우깡", "100%_새우깡")
                 }
             }
+            `when`("흔한 토큰이라 후보가 상한(300)을 넘고 완전 일치 제품의 id 가 뒤이면 — 공부 세션 [막음]") {
+                then("상한으로 자르기 전에 등급순으로 골라 완전 일치가 1등이다") {
+                    execute(
+                        "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, source, content_hash, collected_at, last_seen_at, status, created_at, updated_at) " +
+                            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 310) " +
+                            "SELECT CONCAT('PF-C-', i), CONCAT('딸기우유과자', i), CONCAT('딸기우유과자', i), '과자', 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), 'ACTIVE', NOW(6), NOW(6) FROM n",
+                    )
+                    seedProduct("PF-C-EXACT", "우유")
+                    names(get("/api/processed-foods?query=우유&size=1")) shouldBe listOf("우유")
+                }
+            }
+            `when`("표시 제조사를 구두점째 치거나 판매원만 있는 제품의 판매원을 치면 — Codex P2") {
+                then("그 제품이 후보에 들어온다") {
+                    seedProduct("PF-M-1", "코크제로", "코카-콜라음료㈜ 경남 양산시 충렬로 269")
+                    seedProduct("PF-M-2", "무명과자", "알수없음", seller = "㈜해태제과/서울특별시")
+                    names(get("/api/processed-foods?query=코카-콜라음료")) shouldBe listOf("코크제로")
+                    names(get("/api/processed-foods?query=해태제과")) shouldBe listOf("무명과자")
+                }
+            }
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
                     get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
@@ -137,6 +171,8 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
             val ingredientsOnly = seedProduct("PF-D-2", "땅콩강정", "알수없음", allergens = "알수없음", raw = "땅콩, 물엿")
             val none = seedProduct("PF-D-3", "물", "알수없음", allergens = "알수없음", raw = null)
             val stale = seedProduct("PF-D-4", "단종칩", "농심", seenDaysAgo = 10)
+            val deleted = seedProduct("PF-D-5", "삭제칩", "농심", status = "DELETED")
+            val partialGap = seedProduct("PF-D-6", "부분실패칩", "농심", seenHoursAgo = 84)
 
             `when`("비회원이 알레르기 표시가 있는 제품을 보면") {
                 then("원문·표시 출처 구분·검출·근거·출처 고지 키·이미지가 오고 회원 대조는 null 이다") {
@@ -151,6 +187,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     p.path("detections").first { it.path("code").asText() == "WHEAT" }.path("evidence").asText() shouldBe "소맥분"
                     p.path("source").path("provider").asText() shouldBe "HACCP"
                     p.path("source").path("attributionKey").asText() shouldBe "processedFood.source.haccp"
+                    p.path("source").has("updatedAt") shouldBe false
                     p.path("image").path("url").asText() shouldBe "http://img/1.jpg"
                     p.path("image").path("attributionKey").asText() shouldBe "processedFood.image.haccp"
                     p.path("avoidance").isNull shouldBe true
@@ -181,6 +218,12 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                 then("404 PFOOD-001 · 410 PFOOD-002") {
                     get("/api/processed-foods/999999999", expected = 404).path("code").asText() shouldBe "PFOOD-001"
                     get("/api/processed-foods/$stale", expected = 410).path("code").asText() shouldBe "PFOOD-002"
+                    get("/api/processed-foods/$deleted", expected = 404).path("code").asText() shouldBe "PFOOD-001"
+                }
+            }
+            `when`("마지막 성공 미러 뒤에 부분 실패 실행만 있으면 — 공부 세션 [지적 1]") {
+                then("기준은 성공 실행 시각이라 성공 실행에서 본 제품은 생산종료가 아니다") {
+                    get("/api/processed-foods/$partialGap").path("payload").path("productName").asText() shouldBe "부분실패칩"
                 }
             }
         }
