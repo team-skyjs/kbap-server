@@ -26,7 +26,12 @@
 발효유	MILK	contains
 요구르트	MILK	contains
 요거트	MILK	contains
-원유	MILK	exact
+원유	MILK	contains
+밀크	MILK	contains
+가공유	MILK	exact
+저지방가공유	MILK	contains
+탈지농축유	MILK	contains
+사워크림	MILK	contains
 산양유	GOAT_MILK	contains
 버터	BUTTER	contains
 기버터	GHEE	contains
@@ -60,6 +65,8 @@
 참깨	SESAME	contains
 참기름	SESAME	contains
 흑임자	SESAME	contains
+검은깨	SESAME	contains
+검정깨	SESAME	contains
 깨	SESAME	exact
 볶음참깨	SESAME	exact
 해바라기씨	SUNFLOWER_SEED	contains
@@ -68,6 +75,8 @@
 머스터드	MUSTARD	contains
 밀	WHEAT	exact
 통밀	WHEAT	exact
+밀쌀	WHEAT	exact
+우리밀	WHEAT	contains
 소맥	WHEAT	contains
 밀가루	WHEAT	contains
 밀글루텐	WHEAT	contains
@@ -89,6 +98,7 @@
 오트	OAT	contains
 옥수수	CORN	contains
 옥분	CORN	exact
+옥배유	CORN	contains
 대두	SOY	contains
 콩	SOY	exact
 두유	SOY	contains
@@ -98,6 +108,10 @@
 백태	SOY	exact
 서리태	SOY	exact
 흑태	SOY	exact
+검은콩	SOY	contains
+흑콩	SOY	contains
+약콩	SOY	contains
+콩나물	SOY	contains
 간장	SOY	contains
 된장	SOY	contains
 춘장	SOY	contains
@@ -113,6 +127,9 @@
 대게	CRAB	contains
 홍게	CRAB	contains
 게장	CRAB	contains
+게엑기스	CRAB	contains
+게추출	CRAB	contains
+게맛살	CRAB	contains
 가재	CRAYFISH	contains
 랍스터	LOBSTER	contains
 바닷가재	LOBSTER	block
@@ -130,6 +147,8 @@
 어육	FISH	contains
 어묵	FISH	contains
 명태	FISH	contains
+연육	FISH	contains
+명란	FISH	contains
 고등어	MACKEREL	contains
 연어	SALMON	contains
 참치	TUNA	contains
@@ -152,8 +171,14 @@
 쇠고기	BEEF	contains
 소고기	BEEF	contains
 우육	BEEF	contains
+사골	BEEF	contains
+한우	BEEF	contains
 돼지	PORK	contains
 돈육	PORK	contains
+돈골	PORK	contains
+돈소창	PORK	contains
+돈피	PORK	contains
+돈혈	PORK	contains
 라드	LARD	contains
 돈지	LARD	exact
 돈지방	LARD	contains
@@ -161,6 +186,7 @@
 우지	TALLOW	exact
 닭	CHICKEN	contains
 계육	CHICKEN	contains
+치킨	CHICKEN	contains
 가금육	POULTRY	contains
 오리고기	POULTRY	contains
 복숭아	PEACH	contains
@@ -168,8 +194,11 @@
 셀러리	CELERY	contains
 샐러리	CELERY	contains
 감자	POTATO	contains
+포테이토	POTATO	contains
 당근	CARROT	contains
 양파	ONION	contains
+어니언	ONION	contains
+오니온	ONION	contains
 마늘	GARLIC	contains
 파	SCALLION	exact
 대파	SCALLION	contains
@@ -181,8 +210,9 @@
 흥거	ASAFOETIDA	contains
 아사페티다	ASAFOETIDA	contains
 주정	ALCOHOL	contains
-에탄올	ALCOHOL	exact
-알코올	ALCOHOL	exact
+에탄올	ALCOHOL	contains
+알콜	ALCOHOL	contains
+알코올	ALCOHOL	contains
 청주	ALCOHOL	exact
 소주	ALCOHOL	exact
 맥주	ALCOHOL	contains
@@ -197,6 +227,7 @@
 시어버터	-	block
 쉐어버터	-	block
 코코넛밀크	-	block
+밀크씨슬	-	block
 돼지감자	-	block
 호밀	RYE	block
 들깨	-	block
