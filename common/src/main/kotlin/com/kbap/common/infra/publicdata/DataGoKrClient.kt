@@ -1,5 +1,6 @@
 package com.kbap.common.infra.publicdata
 
+import com.kbap.common.port.publicdata.PublicDataCallCounter
 import com.kbap.common.port.publicdata.PublicDataCallException
 import org.springframework.core.retry.RetryException
 import org.springframework.core.retry.RetryPolicy
@@ -15,13 +16,17 @@ import tools.jackson.databind.json.JsonMapper
 import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicLong
 
 class DataGoKrClient internal constructor(
     private val restClient: RestClient,
     private val serviceKey: String,
     retryPolicy: RetryPolicy,
-) {
+) : PublicDataCallCounter {
     private val retryTemplate = RetryTemplate(retryPolicy)
+    private val attempts = AtomicLong()
+
+    override fun httpAttempts(): Long = attempts.get()
     private val mapper = JsonMapper.builder().build()
 
     fun getJson(operation: String, path: String, keyParam: String, params: Map<String, Any>): JsonNode {
@@ -48,6 +53,7 @@ class DataGoKrClient internal constructor(
             append(path).append('?').append(keyParam).append("={").append(KEY_VARIABLE).append('}')
             params.keys.forEachIndexed { i, name -> append('&').append(name).append("={p").append(i).append('}') }
         }
+        attempts.incrementAndGet()
         return restClient.get().uri(template, variables).retrieve().body(String::class.java).orEmpty()
     }
 

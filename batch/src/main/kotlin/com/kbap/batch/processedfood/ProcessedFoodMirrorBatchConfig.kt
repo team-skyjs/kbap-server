@@ -53,6 +53,7 @@ class ProcessedFoodMirrorBatchConfig(
             pageSize,
             makerLookupLimit,
             makerLookupMaxConsecutiveFailures,
+            client,
         )
     }
 
@@ -60,7 +61,7 @@ class ProcessedFoodMirrorBatchConfig(
     fun processedFoodMirrorJob(mirror: ProcessedFoodMirror): Job {
         val step = StepBuilder("${JOB}Step", jobRepository)
             .tasklet({ contribution, _ ->
-                if (mirror.mirror().failedTypes.isNotEmpty()) contribution.exitStatus = ExitStatus(PARTIAL)
+                if (mirror.mirror().isPartial()) contribution.exitStatus = ExitStatus(PARTIAL)
                 RepeatStatus.FINISHED
             }, ResourcelessTransactionManager())
             .build()

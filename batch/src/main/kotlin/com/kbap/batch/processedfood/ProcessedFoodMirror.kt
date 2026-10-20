@@ -6,6 +6,7 @@ import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.port.publicdata.FoodMakerLookup
 import com.kbap.common.port.publicdata.HaccpProduct
 import com.kbap.common.port.publicdata.HaccpProductSource
+import com.kbap.common.port.publicdata.PublicDataCallCounter
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.transaction.support.TransactionTemplate
@@ -22,16 +23,17 @@ class ProcessedFoodMirror(
     private val pageSize: Int,
     private val makerLookupLimit: Int,
     private val makerLookupMaxConsecutiveFailures: Int = DEFAULT_MAX_CONSECUTIVE_FAILURES,
+    private val counter: PublicDataCallCounter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun mirror(): ProcessedFoodMirrorSummary {
         val startedAt = System.nanoTime()
+        val attemptsBefore = counter.httpAttempts()
         val now = LocalDateTime.now(clock)
         val seen = mutableSetOf<String>()
         val perType = linkedMapOf<String, Int>()
         val failedTypes = mutableListOf<String>()
-        var calls = 0
         var inserted = 0
         var changed = 0
         var unchanged = 0
@@ -43,7 +45,6 @@ class ProcessedFoodMirror(
             try {
                 while (pageNo <= MAX_PAGES) {
                     val page = source.getPage(type, pageNo, pageSize)
-                    calls++
                     if (page.items.isEmpty()) break
                     fetched += page.items.size
                     val fresh = page.items.filter { seen.add(it.reportNo) }
@@ -63,7 +64,6 @@ class ProcessedFoodMirror(
         }
 
         val maker = supplementMakers(now)
-        calls += maker.calls
         val summary = ProcessedFoodMirrorSummary(
             perType = perType,
             distinctProducts = seen.size,
@@ -76,7 +76,7 @@ class ProcessedFoodMirror(
             makerFilled = maker.filled,
             makerLookupFailures = maker.failures,
             makerLookupAborted = maker.aborted,
-            apiCalls = calls,
+            apiCalls = (counter.httpAttempts() - attemptsBefore).toInt(),
             elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000,
         )
         log.info("가공식품 미러링 완료 {}", summary)
@@ -169,4 +169,6 @@ data class ProcessedFoodMirrorSummary(
     val makerLookupAborted: Boolean,
     val apiCalls: Int,
     val elapsedMillis: Long,
-)
+) {
+    fun isPartial(): Boolean = failedTypes.isNotEmpty() || makerLookupAborted
+}
