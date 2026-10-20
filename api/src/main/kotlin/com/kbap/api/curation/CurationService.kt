@@ -163,7 +163,9 @@ class CurationService(
     }
     private fun published(row: CurationCollection): CurationDocument {
         val doc = row.publishedDocument ?: unavailable()
-        val errors = validation.validate(row.collectionKey, doc).filter { it.reason !in setOf("TRANSLATION_MISSING", "EDITORIAL_REVIEW_MISSING") } + assetIssues(row, doc, false, true)
+        val issues = validation.validate(row.collectionKey, doc)
+        val translationMissing = issues.any { it.reason == "TRANSLATION_MISSING" }
+        val errors = issues.filter { it.reason != "TRANSLATION_MISSING" && !(translationMissing && it.reason == "EDITORIAL_REVIEW_MISSING") } + assetIssues(row, doc, false, true)
         if (errors.isNotEmpty()) unavailable()
         return doc
     }
