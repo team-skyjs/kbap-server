@@ -123,6 +123,17 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "사과(대구산)")) shouldBe emptySet()
             }
         }
+        `when`("레닛·렌넷이 원재료에 있으면 — Codex P2") {
+            then("레닛으로 검출한다") {
+                codes(IngredientLabelReader.read(null, "원유, 정제소금, 레닛, 렌넷")) shouldBe setOf(MILK, IngredientCode.RENNET)
+            }
+        }
+        `when`("바닷가재이면 — Codex P2") {
+            then("랍스터만 검출하고 가재는 검출하지 않는다") {
+                codes(IngredientLabelReader.read(null, "바닷가재농축액")) shouldBe setOf(IngredientCode.LOBSTER)
+                codes(IngredientLabelReader.read(null, "민물가재")) shouldBe setOf(IngredientCode.CRAYFISH)
+            }
+        }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
             then("라드(돼지 지방)로 검출한다") {
                 codes(IngredientLabelReader.read(null, "돼지창자, 돈지방, 당면")) shouldContain IngredientCode.LARD
