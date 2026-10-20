@@ -374,7 +374,7 @@ class ReviewService(
         ownedBy(memberId, reviewRepository.findByIdForUpdate(reviewId))
 
     private fun ownedBy(memberId: Long, review: Review?): Review {
-        if (review == null) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
+        if (review == null || review.targetType != ReviewTargetType.FOOD) throw BusinessException(ErrorCode.REVIEW_NOT_FOUND)
         if (!review.isOwnedBy(memberId)) {
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }
