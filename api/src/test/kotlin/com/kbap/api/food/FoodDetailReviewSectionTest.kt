@@ -95,7 +95,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
             mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
+                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating, "content" to "정말 맛있게 먹었어요"))
             }.andExpect { status { isOk() } }
         }
 
@@ -236,7 +236,7 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                         contentType = MediaType.APPLICATION_JSON
                         content = mapper.writeValueAsString(
-                            mapOf("foodId" to 935L, "rating" to 4, "servingSpeed" to 2, "staffKindness" to 5),
+                            mapOf("foodId" to 935L, "rating" to 4, "servingSpeed" to 2, "staffKindness" to 5, "content" to "정말 맛있게 먹었어요"),
                         )
                     }.andExpect { status { isOk() } }
                     createReview(928L, "KR", 935L, 3)

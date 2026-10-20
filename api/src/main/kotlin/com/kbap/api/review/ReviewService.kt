@@ -97,6 +97,7 @@ class ReviewService(
         imagePaths: List<String>?,
         place: ReviewPlace?,
     ): ReviewResponse {
+        verifyContentLength(content)
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         foodRepository.increaseReviewCount(foodId)
@@ -136,6 +137,7 @@ class ReviewService(
         place: ReviewPlace?,
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
+        verifyContentLength(content)
         verifyImageOwnership(memberId, imagePaths)
         review.update(
             rating = rating,
@@ -374,6 +376,13 @@ class ReviewService(
             throw BusinessException(ErrorCode.REVIEW_FORBIDDEN)
         }
         return review
+    }
+
+    private fun verifyContentLength(content: String?) {
+        val body = content.orEmpty().trim()
+        if (body.codePointCount(0, body.length) < Review.MIN_CONTENT_LENGTH) {
+            throw BusinessException(ErrorCode.REVIEW_BODY_TOO_SHORT, mapOf("minLength" to Review.MIN_CONTENT_LENGTH))
+        }
     }
 
     private fun verifyImageOwnership(memberId: Long, imagePaths: List<String>?) {

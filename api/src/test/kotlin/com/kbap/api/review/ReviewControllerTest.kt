@@ -138,7 +138,7 @@ class ReviewControllerTest : BehaviorSpec() {
         fun createBody(
             foodId: Long?,
             rating: Int? = 4,
-            content: String? = null,
+            content: String? = "정말 맛있게 먹었어요",
             imagePaths: List<String>? = null,
             place: Map<String, Any?>? = null,
             servingSpeed: Int? = null,
@@ -249,16 +249,15 @@ class ReviewControllerTest : BehaviorSpec() {
                 mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
             `when`("본문을 써서 작성하면") {
-                then("판별한 언어를 저장하고 응답에 싣는다 — 애매하거나 본문이 없으면 null 이다") {
+                then("판별한 언어를 저장하고 응답에 싣는다 — 셀 글자가 없거나 애매하면 null 이다") {
                     val token = accessToken(7900L)
                     listOf(
                         "진짜 맛있어요, 또 올게요" to "ko",
                         "The broth was rich and so tasty" to "en",
-                        "湯頭濃郁，非常好吃" to "zh-Hant",
-                        "ㅋㅋㅋ" to null,
-                        null to null,
+                        "湯頭濃郁，非常好吃！" to "zh-Hant",
+                        "ㅋ".repeat(10) to null,
                     ).forEach { (content, expected) ->
-                        withClue(content ?: "본문 없음") {
+                        withClue(content) {
                             val result = create(token, createBody(foodId = 7900L, content = content)).andExpect { status { isOk() } }
                             val payload = payloadOf(result)
 
@@ -270,17 +269,17 @@ class ReviewControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("본문을 다른 언어로 고치거나 지우면") {
+            `when`("본문을 다른 언어로 고치거나 셀 글자가 없는 본문으로 바꾸면") {
                 then("언어도 따라 바뀐다") {
                     val token = accessToken(7901L)
-                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7900L, content = "정말 맛있었어요")).andExpect { status { isOk() } })
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7900L, content = "정말 맛있었어요, 또 올게요")).andExpect { status { isOk() } })
                     storedLanguageOf(reviewId) shouldBe "ko"
 
                     payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4, content = "Really good, will come again")))
                         .path("language").asText() shouldBe "en"
                     storedLanguageOf(reviewId) shouldBe "en"
 
-                    payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4))).path("language").isNull shouldBe true
+                    payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4, content = "ㅋ".repeat(10)))).path("language").isNull shouldBe true
                     storedLanguageOf(reviewId) shouldBe null
                 }
             }
@@ -365,7 +364,7 @@ class ReviewControllerTest : BehaviorSpec() {
         given("리뷰 작성 API — POST /api/reviews") {
             seedFood(700L, "리뷰김치찌개")
 
-            `when`("별점만으로 작성하면") {
+            `when`("별점과 본문으로 작성하면") {
                 then("200 과 리뷰를 반환한다") {
                     val token = accessToken(700L)
                     create(token, createBody(foodId = 700L, rating = 5)).andExpect {
@@ -374,7 +373,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.rating") { value(5) }
                         jsonPath("$.payload.foodId") { doesNotExist() }
                         jsonPath("$.payload.memberId") { doesNotExist() }
-                        jsonPath("$.payload.content") { value(null) }
+                        jsonPath("$.payload.content") { value("정말 맛있게 먹었어요") }
                         jsonPath("$.payload.imageUrls.length()") { value(0) }
                         jsonPath("$.payload.author.nickname") { value("리뷰어700") }
                         jsonPath("$.payload.author.countryCode") { value("KR") }
@@ -406,12 +405,12 @@ class ReviewControllerTest : BehaviorSpec() {
                         createBody(
                             foodId = 700L,
                             rating = 4,
-                            content = "맛있어요",
+                            content = "맛있어요 또 먹을래요",
                             imagePaths = listOf("images/review/2026/07/701_a.jpg", "images/review/2026/07/701_b.jpg"),
                         ),
                     ).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.content") { value("맛있어요") }
+                        jsonPath("$.payload.content") { value("맛있어요 또 먹을래요") }
                         jsonPath("$.payload.imageUrls.length()") { value(2) }
                     }
                 }
@@ -524,10 +523,10 @@ class ReviewControllerTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                         param("liked", "true")
                     }.andExpect { status { isOk() } }
-                    update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요")).andExpect {
+                    update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요, 더 맛있네요")).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.rating") { value(5) }
-                        jsonPath("$.payload.content") { value("수정했어요") }
+                        jsonPath("$.payload.content") { value("수정했어요, 더 맛있네요") }
                         jsonPath("$.payload.likeCount") { value(1) }
                         jsonPath("$.payload.likedByMe") { value(true) }
                     }

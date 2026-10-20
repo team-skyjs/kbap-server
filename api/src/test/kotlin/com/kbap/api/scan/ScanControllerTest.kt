@@ -1103,7 +1103,7 @@ class ScanControllerTest : BehaviorSpec() {
                         mockMvc.post("/api/reviews") {
                             header("Authorization", "Bearer ${accessToken(memberId)}")
                             contentType = MediaType.APPLICATION_JSON
-                            content = mapper.writeValueAsString(mapOf("foodId" to foodIdOf("정책해금찌개"), "rating" to 5))
+                            content = mapper.writeValueAsString(mapOf("foodId" to foodIdOf("정책해금찌개"), "rating" to 5, "content" to "정말 맛있게 먹었어요"))
                         }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
                     ).path("payload").path("reviewId").asLong()
 

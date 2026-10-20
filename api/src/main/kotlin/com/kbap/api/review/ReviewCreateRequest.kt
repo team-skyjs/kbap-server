@@ -37,7 +37,7 @@ data class ReviewCreateRequest(
     val staffKindness: Int? = null,
 
     @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
-    @field:Schema(description = "리뷰 본문(옵션, 최대 1000자)", example = "정말 맛있어요")
+    @field:Schema(description = "리뷰 본문(필수, 앞뒤 공백 제외 10~1000자 — 10자 미만은 REVIEW-005)", example = "국물이 진하고 정말 맛있어요")
     val content: String? = null,
 
     @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")
@@ -68,7 +68,7 @@ data class ReviewUpdateRequest(
     val staffKindness: Int? = null,
 
     @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
-    @field:Schema(description = "리뷰 본문(생략 시 본문 제거)", example = "다시 먹어보니 더 맛있네요")
+    @field:Schema(description = "리뷰 본문(필수, 앞뒤 공백 제외 10~1000자 — 생략·10자 미만은 REVIEW-005)", example = "다시 먹어보니 더 맛있네요")
     val content: String? = null,
 
     @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")

@@ -101,7 +101,7 @@ class ReviewListControllerTest : BehaviorSpec() {
             val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
+                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating, "content" to "정말 맛있게 먹었어요"))
             }.andReturn().response.getContentAsString(Charsets.UTF_8)
             return mapper.readTree(response).path("payload").path("reviewId").asLong()
         }
@@ -679,7 +679,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                     header("Authorization", "Bearer $token")
                     contentType = MediaType.APPLICATION_JSON
                     content = mapper.writeValueAsString(
-                        mapOf("foodId" to foodId, "rating" to 4, "servingSpeed" to servingSpeed, "staffKindness" to staffKindness),
+                        mapOf("foodId" to foodId, "rating" to 4, "servingSpeed" to servingSpeed, "staffKindness" to staffKindness, "content" to "정말 맛있게 먹었어요"),
                     )
                 }.andReturn().response.getContentAsString(Charsets.UTF_8)
                 return mapper.readTree(response).path("payload").path("reviewId").asLong()
@@ -722,6 +722,7 @@ class ReviewListControllerTest : BehaviorSpec() {
                         mapOf(
                             "foodId" to foodId,
                             "rating" to 4,
+                            "content" to "정말 맛있게 먹었어요",
                             "place" to mapOf(
                                 "name" to "한밥집 강남점",
                                 "address" to "서울 강남구 테헤란로 123",
