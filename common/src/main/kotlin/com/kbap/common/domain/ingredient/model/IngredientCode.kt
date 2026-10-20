@@ -96,7 +96,7 @@ enum class IngredientCode(val label: String) {
                 ANCHOVY to setOf(FISH_SAUCE, DASHI),
                 SHRIMP to setOf(SALTED_SHRIMP),
                 OYSTER to setOf(OYSTER_SAUCE),
-                CLAM to setOf(SHORT_NECK_CLAM),
+                CLAM to setOf(SHORT_NECK_CLAM, OYSTER, ABALONE, MUSSEL, SCALLOP),
                 SEAFOOD to setOf(FISH, SHRIMP, CRAB, CRAYFISH, LOBSTER, SQUID, OCTOPUS, OYSTER, ABALONE, MUSSEL, CLAM, SCALLOP),
                 BROTH to setOf(DASHI, FISH_SAUCE),
                 POULTRY to setOf(CHICKEN),

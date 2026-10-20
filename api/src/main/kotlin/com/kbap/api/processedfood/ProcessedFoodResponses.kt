@@ -83,7 +83,8 @@ data class ProcessedFoodDetailResponse(
 
         private fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
             avoidance.chosen.sortedBy { it.ordinal }.map { chosen ->
-                val matched = reading.detections.filter { it.code == chosen || it.code in chosen.impliedCodes }
+                val covered = avoidance.codeNamesCoveredBy(chosen)
+                val matched = reading.detections.filter { it.code.name in covered }
                 ProcessedFoodAvoidanceResponse(
                     code = chosen,
                     match = if (matched.isEmpty()) IngredientLabelMatch.UNCONFIRMED else IngredientLabelMatch.DETECTED,
