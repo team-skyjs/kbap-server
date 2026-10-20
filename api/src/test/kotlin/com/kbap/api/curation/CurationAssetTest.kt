@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 class CurationAssetTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
     @Autowired private lateinit var service: CurationAssetService
+    @Autowired private lateinit var curationService: CurationService
     @Autowired private lateinit var transactions: CurationAssetTransactions
     @Autowired private lateinit var store: FakeImmutableObjectStore
     @Autowired private lateinit var assets: CurationAssetRepository
@@ -40,6 +41,26 @@ class CurationAssetTest : BehaviorSpec() {
             val root = releases.save(CurationRelease())
             CurationService.keys.forEach { collections.save(CurationCollection(root.id, it)) }
         }
+        given("초안에 사진 첨부 — Codex P2") {
+            `when`("아직 확정 전(ISSUED)인 자산을 초안에 넣으면") {
+                then("ASSET_NOT_READY 로 저장을 거절하고, 확정(READY) 뒤에는 저장된다 — 계약: 초안은 READY 자산만 첨부") {
+                    val upload = transactions.reserve(adminId, "dev", "sights", 0, "image/png", 100)
+
+                    val rejected = shouldThrow<BusinessException> {
+                        curationService.updateDraft(adminId, "dev", "sights", 0, CurationFixtures.document("sights", upload.assetId))
+                    }
+                    rejected.errorCode.code shouldBe "CURATION-002"
+                    rejected.payload.toString().contains("ASSET_NOT_READY") shouldBe true
+                    collections.findByCollectionKey("sights")!!.version shouldBe 0
+
+                    store.objects[upload.stagingKey] = ImmutableObjectMetadata("image/png", 100, "etag1")
+                    service.complete(adminId, "dev", "sights", upload.assetId, "image/png", 100)
+
+                    curationService.updateDraft(adminId, "dev", "sights", 0, CurationFixtures.document("sights", upload.assetId)).version shouldBe 1
+                }
+            }
+        }
+
         given("관리자 큐레이션 업로드") {
             `when`("예약과 완료를 반복하면") {
                 then("콘텐츠 버전은 그대로이고 최종 경로는 한번만 확정된다") {
