@@ -60,6 +60,21 @@ server:
 # (Spring 프로퍼티 우선순위: 커맨드라인 인자 > 환경변수 > 이 파일).
 #   ./gradlew :batch:bootRun --args='--kbap.food-content-outbox.page-size=200'
 kbap:
+  # 가공식품 제품 마스터 미러링(KB-808, S1) — HACCP 제품이미지·포장지표기정보(data.go.kr 15033307)를 선별 유형별 전체 순회로
+  # processed_food_product 에 복제하고, 제조사 '알수없음' 행은 식품영양성분DB(15127578) MAKER_NM 으로 보완한다. 매일 04:00 KST.
+  # 기본 꺼짐 — 켜려면 PROCESSED_FOOD_MIRROR_ENABLED=true 와 DATA_GO_KR_SERVICE_KEY(SSM 비밀)가 함께 있어야 한다(키 없으면 기동 실패).
+  # 유형은 API prdkind 부분 일치 키워드(10/20 실측: 과자 1,426·캔디 214·빵 465·유탕면 361·음료 1,168·초콜릿 247·아이스크림 73·떡 187·즉석조리 438).
+  # 한 회 약 50콜(100건/페이지) + 제조사 보완(미확인 행 1회씩, 상한 maker-lookup-limit) — 일일 10,000콜 한도 안.
+  processed-food:
+    enabled: ${PROCESSED_FOOD_MIRROR_ENABLED:false}
+    base-url: ${DATA_GO_KR_BASE_URL:https://apis.data.go.kr}
+    service-key: ${DATA_GO_KR_SERVICE_KEY:}
+    food-types: 과자,캔디,빵,유탕면,음료,초콜릿,아이스크림,떡,즉석조리
+    page-size: 100
+    maker-lookup-limit: ${PROCESSED_FOOD_MAKER_LOOKUP_LIMIT:2000}
+    retry:
+      max-retries: 3
+      initial-delay: 2s
   # 콘텐츠 아웃박스 설정은 kbap.batch 가 아니라 여기에 둔다 — 배치(회수·발행)와 api(어드민 방치 카운트)가
   # 같은 기준으로 움직여야 하기 때문이다. 배치 네임스페이스에 두면 어드민이 배치 설정을 읽거나 키가 두 벌이 되고,
   # 그러면 운영자가 한쪽만 바꿨을 때 잡과 대시보드가 다른 기준으로 돌면서 양쪽 다 "정상"으로 보인다.
