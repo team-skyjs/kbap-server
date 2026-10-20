@@ -92,6 +92,7 @@ class ReviewRepositoryCustomImpl(
         val FEED_VISIBILITY = listOf(
             "r.memberId not in :excludedMemberIds",
             "r.id not in :excludedReviewIds",
+            "r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD",
             "exists (select 1 from Food f where f.id = r.foodId)",
         )
     }
