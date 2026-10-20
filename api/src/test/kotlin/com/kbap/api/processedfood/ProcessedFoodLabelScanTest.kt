@@ -91,6 +91,12 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("머리말 없이 '…함유' 문장에 81종 밖 토큰 하나뿐이면") {
+                then("기존 기준(한글 토큰 2개)대로 400 PFOOD-006") {
+                    label(member(88416L), null, "정제수 함유", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    scanCountOf(88416L) shouldBe 0
+                }
+            }
             `when`("머리말만 있고 원재료 토큰이 없으면") {
                 then("머리말은 판독 성공 근거(한글 토큰 수)로 세지 않아 400 PFOOD-006") {
                     label(member(88412L), null, "원재료명: 식품유형\n알레르기 유발물질 함유", expected = 400).path("code").asText() shouldBe "PFOOD-006"

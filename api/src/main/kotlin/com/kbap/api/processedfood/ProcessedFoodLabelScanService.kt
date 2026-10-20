@@ -49,7 +49,9 @@ class ProcessedFoodLabelScanService(
                 return responseOf(memberId, key, text, reading, charged = false)
             }
         }
-        val readable = text.hasLabelLine && reading.detections.isNotEmpty() || text.hasLabelLine && unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
+        val headingSeen = reading.unmappedTokens.any { it.replace(" ", "") in LABEL_HEADINGS }
+        val hangulTokens = unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 }
+        val readable = text.hasLabelLine && (reading.detections.isNotEmpty() || hangulTokens >= if (headingSeen) 1 else MIN_HANGUL_TOKENS)
         val operation = analysisId?.let { continued(memberId, it, now) }
         if (!readable) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ)
         val key = operation?.let { ProcessedFoodNameScanService.uuidOf(it.requestKey) } ?: clientRequestId!!
