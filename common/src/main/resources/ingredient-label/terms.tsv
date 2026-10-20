@@ -1,5 +1,5 @@
 # 원재료·알레르기 원문 판독 사전. 표기<TAB>코드(쉼표 구분, - 는 알레르기 아님 확정)<TAB>exact|contains|block
-# exact: 토큰 전체가 같을 때만. contains: 토큰 안에 있으면(향·향료·맛으로 끝나는 토큰 제외). block: 토큰에서 먼저 지우고 코드를 더한다(오탐 방지).
+# exact: 토큰 전체가 같을 때만. contains: 토큰 안에 있으면(바로 뒤 말이 맛·향·풍미·향료면 제외). block: 토큰에서 먼저 지우고 코드를 더한다(오탐 방지). suppress: 토큰에 있으면 그 코드를 마지막에 지운다(무알코올맥주·캐슈밀크처럼 다른 용어가 남는 복합어).
 # 원칙: 긍정 오탐 0 우선 — 애매한 재료(레시틴·마가린·글루텐·물엿·마요네즈·고추장 등)는 넣지 않아 미매핑으로 남긴다.
 계란	EGG	contains
 달걀	EGG	contains
@@ -26,7 +26,12 @@
 발효유	MILK	contains
 요구르트	MILK	contains
 요거트	MILK	contains
-원유	MILK	exact
+원유	MILK	contains
+밀크	MILK	contains
+가공유	MILK	exact
+저지방가공유	MILK	contains
+탈지농축유	MILK	contains
+사워크림	MILK	contains
 산양유	GOAT_MILK	contains
 버터	BUTTER	contains
 기버터	GHEE	contains
@@ -36,6 +41,12 @@
 렌넷	RENNET	contains
 꿀	HONEY	exact
 벌꿀	HONEY	contains
+아카시아꿀	HONEY	contains
+사양꿀	HONEY	contains
+잡화꿀	HONEY	contains
+야생화꿀	HONEY	contains
+밤꿀	HONEY	contains
+꿀분말	HONEY	contains
 코치닐	CARMINE	contains
 카민	CARMINE	contains
 땅콩	PEANUT	contains
@@ -54,6 +65,8 @@
 참깨	SESAME	contains
 참기름	SESAME	contains
 흑임자	SESAME	contains
+검은깨	SESAME	contains
+검정깨	SESAME	contains
 깨	SESAME	exact
 볶음참깨	SESAME	exact
 해바라기씨	SUNFLOWER_SEED	contains
@@ -62,6 +75,8 @@
 머스터드	MUSTARD	contains
 밀	WHEAT	exact
 통밀	WHEAT	exact
+밀쌀	WHEAT	exact
+우리밀	WHEAT	contains
 소맥	WHEAT	contains
 밀가루	WHEAT	contains
 밀글루텐	WHEAT	contains
@@ -74,6 +89,7 @@
 듀럼밀	WHEAT	contains
 세몰리나	WHEAT	contains
 메밀	BUCKWHEAT	contains
+메밀가루	BUCKWHEAT	block
 보리	BARLEY	contains
 맥아	BARLEY	contains
 엿기름	BARLEY	contains
@@ -82,6 +98,7 @@
 오트	OAT	contains
 옥수수	CORN	contains
 옥분	CORN	exact
+옥배유	CORN	contains
 대두	SOY	contains
 콩	SOY	exact
 두유	SOY	contains
@@ -91,6 +108,10 @@
 백태	SOY	exact
 서리태	SOY	exact
 흑태	SOY	exact
+검은콩	SOY	contains
+흑콩	SOY	contains
+약콩	SOY	contains
+콩나물	SOY	contains
 간장	SOY	contains
 된장	SOY	contains
 춘장	SOY	contains
@@ -106,6 +127,9 @@
 대게	CRAB	contains
 홍게	CRAB	contains
 게장	CRAB	contains
+게엑기스	CRAB	contains
+게추출	CRAB	contains
+게맛살	CRAB,FISH	contains
 가재	CRAYFISH	contains
 랍스터	LOBSTER	contains
 바닷가재	LOBSTER	block
@@ -123,6 +147,8 @@
 어육	FISH	contains
 어묵	FISH	contains
 명태	FISH	contains
+연육	FISH	contains
+명란	FISH	contains
 고등어	MACKEREL	contains
 연어	SALMON	contains
 참치	TUNA	contains
@@ -145,8 +171,14 @@
 쇠고기	BEEF	contains
 소고기	BEEF	contains
 우육	BEEF	contains
+사골	BEEF	contains
+한우	BEEF	contains
 돼지	PORK	contains
 돈육	PORK	contains
+돈골	PORK	contains
+돈소창	PORK	contains
+돈피	PORK	contains
+돈혈	PORK	contains
 라드	LARD	contains
 돈지	LARD	exact
 돈지방	LARD	contains
@@ -154,6 +186,7 @@
 우지	TALLOW	exact
 닭	CHICKEN	contains
 계육	CHICKEN	contains
+치킨	CHICKEN	contains
 가금육	POULTRY	contains
 오리고기	POULTRY	contains
 복숭아	PEACH	contains
@@ -161,8 +194,11 @@
 셀러리	CELERY	contains
 샐러리	CELERY	contains
 감자	POTATO	contains
+포테이토	POTATO	contains
 당근	CARROT	contains
 양파	ONION	contains
+어니언	ONION	contains
+오니온	ONION	contains
 마늘	GARLIC	contains
 파	SCALLION	exact
 대파	SCALLION	contains
@@ -173,9 +209,10 @@
 달래	WILD_CHIVE	contains
 흥거	ASAFOETIDA	contains
 아사페티다	ASAFOETIDA	contains
-주정	ALCOHOL	exact
-에탄올	ALCOHOL	exact
-알코올	ALCOHOL	exact
+주정	ALCOHOL	contains
+에탄올	ALCOHOL	contains
+알콜	ALCOHOL	contains
+알코올	ALCOHOL	contains
 청주	ALCOHOL	exact
 소주	ALCOHOL	exact
 맥주	ALCOHOL	contains
@@ -190,6 +227,7 @@
 시어버터	-	block
 쉐어버터	-	block
 코코넛밀크	-	block
+밀크씨슬	-	block
 돼지감자	-	block
 호밀	RYE	block
 들깨	-	block
@@ -202,3 +240,39 @@
 버터리	-	block
 땅콩기름	PEANUT	block
 땅콩유	PEANUT	block
+무알콜	ALCOHOL	suppress
+무알코올	ALCOHOL	suppress
+비알콜	ALCOHOL	suppress
+비알코올	ALCOHOL	suppress
+논알콜	ALCOHOL	suppress
+논알코올	ALCOHOL	suppress
+무주정	ALCOHOL	suppress
+무에탄올	ALCOHOL	suppress
+비에탄올	ALCOHOL	suppress
+비주정	ALCOHOL	suppress
+오트밀크	OAT	block
+귀리밀크	OAT	block
+아몬드밀크	ALMOND	block
+소이밀크	SOY	block
+두유밀크	SOY	block
+라이스밀크	-	block
+쌀밀크	-	block
+돈사골	PORK	block
+캐슈밀크	MILK	suppress
+헤이즐넛밀크	MILK	suppress
+피스타치오밀크	MILK	suppress
+마카다미아밀크	MILK	suppress
+피칸밀크	MILK	suppress
+호두밀크	MILK	suppress
+땅콩밀크	MILK	suppress
+브라질너트밀크	MILK	suppress
+헴프밀크	MILK	suppress
+햄프밀크	MILK	suppress
+완두밀크	MILK	suppress
+현미밀크	MILK	suppress
+보리밀크	MILK	suppress
+코코넛밀크	MILK	suppress
+연육제	-	block
+연육효소	-	block
+밀크시슬	-	block
+스위트포테이토	-	block

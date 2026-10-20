@@ -147,6 +147,111 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "쇠고기다시, 다시마")) shouldBe setOf(IngredientCode.BEEF)
             }
         }
+        `when`("메밀가루·꿀 복합어·발효주정이면 — Codex P2") {
+            then("메밀가루는 밀이 아니고, 아카시아꿀·사양꿀은 꿀, 발효주정은 알코올이다 — 양파꿀리는 꿀이 아니다") {
+                codes(IngredientLabelReader.read(null, "메밀가루")) shouldBe setOf(IngredientCode.BUCKWHEAT)
+                codes(IngredientLabelReader.read(null, "아카시아꿀, 사양꿀, 잡화꿀")) shouldBe setOf(IngredientCode.HONEY)
+                codes(IngredientLabelReader.read(null, "양파꿀리")) shouldBe setOf(IngredientCode.ONION)
+                codes(IngredientLabelReader.read(null, "발효주정, 곡물발효주정")) shouldBe setOf(IngredientCode.ALCOHOL)
+            }
+        }
+        `when`("200건 미매핑 토큰 전수 점검에서 나온 실재료 표기이면 — 같은 계열 선제 보강") {
+            then("각 품목으로 검출한다") {
+                listOf(
+                    "1급 A원유" to setOf(MILK),
+                    "밀크초코크림" to setOf(MILK),
+                    "저지방가공유" to setOf(MILK),
+                    "유기농탈지농축유" to setOf(MILK),
+                    "사워크림어니언맛씨즈닝" to setOf(MILK, IngredientCode.ONION),
+                    "검은깨페이스트" to setOf(IngredientCode.SESAME),
+                    "검은콩분말" to setOf(SOY),
+                    "약콩" to setOf(SOY),
+                    "콩나물엑기스분말" to setOf(SOY),
+                    "게엑기스" to setOf(IngredientCode.CRAB),
+                    "게맛살" to setOf(IngredientCode.CRAB, IngredientCode.FISH),
+                    "냉동연육" to setOf(IngredientCode.FISH),
+                    "명란" to setOf(IngredientCode.FISH),
+                    "돈골농축액분말" to setOf(IngredientCode.PORK),
+                    "돈피 에멀젼" to setOf(IngredientCode.PORK),
+                    "사골농축액" to setOf(IngredientCode.BEEF),
+                    "한우농축액" to setOf(IngredientCode.BEEF),
+                    "치킨파우더" to setOf(IngredientCode.CHICKEN),
+                    "에틸알콜" to setOf(IngredientCode.ALCOHOL),
+                    "포테이토어니언수프맛씨즈닝" to setOf(IngredientCode.POTATO, IngredientCode.ONION),
+                    "옥배유" to setOf(IngredientCode.CORN),
+                    "밀쌀" to setOf(WHEAT),
+                    "우리밀짜장분" to setOf(WHEAT),
+                ).forEach { (raw, expected) -> withClue(raw) { codes(IngredientLabelReader.read(null, raw)) shouldBe expected } }
+            }
+        }
+        `when`("식물성 밀크·돈사골이면 — Codex P2") {
+            then("우유가 아니라 원재료로, 돈사골은 소가 아니라 돼지로 잡는다") {
+                codes(IngredientLabelReader.read(null, "오트밀크, 귀리밀크")) shouldBe setOf(IngredientCode.OAT)
+                codes(IngredientLabelReader.read(null, "아몬드밀크")) shouldBe setOf(IngredientCode.ALMOND)
+                codes(IngredientLabelReader.read(null, "소이밀크")) shouldBe setOf(SOY)
+                codes(IngredientLabelReader.read(null, "라이스밀크")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "돈사골농축액")) shouldBe setOf(IngredientCode.PORK)
+            }
+        }
+        `when`("무알코올 맥주·식물성 밀크 복합어이면 — Codex P2(같은 계열 3회째 → suppress 방식)") {
+            then("토큰 안의 다른 용어가 남아도 그 코드는 지운다 — 견과는 그대로 검출") {
+                codes(IngredientLabelReader.read(null, "무알코올맥주, 비알콜와인, 논알코올맥주")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "캐슈밀크")) shouldBe setOf(IngredientCode.CASHEW)
+                codes(IngredientLabelReader.read(null, "헤이즐넛밀크, 피스타치오밀크, 마카다미아밀크")) shouldBe
+                    setOf(IngredientCode.HAZELNUT, IngredientCode.PISTACHIO, IngredientCode.MACADAMIA)
+                codes(IngredientLabelReader.read(null, "초코밀크")) shouldBe setOf(MILK)
+                codes(IngredientLabelReader.read(null, "맥주효모, 생맥주")) shouldBe setOf(IngredientCode.ALCOHOL)
+            }
+        }
+        `when`("suppress 표기와 진짜 재료가 공백으로 한 토큰에 있으면 — Codex P1") {
+            then("suppress 는 자기 낱말에만 적용되고 같은 토큰의 다른 낱말은 그대로 검출한다") {
+                codes(IngredientLabelReader.read(null, "캐슈밀크 우유")) shouldBe setOf(IngredientCode.CASHEW, MILK)
+                codes(IngredientLabelReader.read(null, "무알코올맥주 소주")) shouldBe setOf(IngredientCode.ALCOHOL)
+                codes(IngredientLabelReader.read(null, "무알코올맥주 보리")) shouldBe setOf(IngredientCode.BARLEY)
+            }
+        }
+        `when`("연육제·연육효소이면 — Codex P2") {
+            then("생선(연육)으로 잡지 않는다") {
+                codes(IngredientLabelReader.read(null, "연육제, 연육효소")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "냉동연육")) shouldBe setOf(IngredientCode.FISH)
+            }
+        }
+        `when`("알레르기 표시란에 공백 하나 띄운 부정 표현이 있으면 — Codex P2") {
+            then("원재료와 같이 그 품목을 제외한다") {
+                codes(IngredientLabelReader.read("우유 무첨가, 대두", null)) shouldBe setOf(SOY)
+                IngredientLabelReader.read("우유 무첨가, 대두", null).unmappedTokens shouldContain "우유 무첨가"
+                IngredientLabelReader.read(null, "설탕 무첨가 땅콩버터").unmappedTokens shouldContain "설탕 무첨가"
+            }
+        }
+        `when`("이름만 닮은 재료이면 — 선제 보강의 오탐 경계") {
+            then("검출하지 않는다 — 밀크씨슬·가공유지·강낭콩·리마콩·다시다·밀크향") {
+                codes(IngredientLabelReader.read(null, "밀크씨슬추출물, 가공유지, 강낭콩, 리마콩, 다시다, 밀크향")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "밀크시슬추출물, 스위트포테이토분말")) shouldBe emptySet()
+            }
+        }
+        `when`("문장형 표기로 의무 표시 품목에 조사가 붙으면 — Codex P2") {
+            then("조사를 떼고 찾는다 — 의무 표시 품목에만 적용해 파이(파)·알이 같은 일반어는 잡지 않는다") {
+                codes(IngredientLabelReader.read(null, "밀을 함유, 게가 포함됨, 굴과 잣은 사용")) shouldBe setOf(WHEAT, IngredientCode.CRAB, OYSTER, IngredientCode.PINE_NUT)
+                codes(IngredientLabelReader.read(null, "파이, 알이")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "밀도 1.2, 게도")) shouldBe emptySet()
+            }
+        }
+        `when`("품목 바로 뒤에 무첨가·불포함·미사용·free 가 오면 — Codex P2") {
+            then("그 품목만 제외한다 — 같은 토큰의 다른 품목은 그대로 찾는다") {
+                codes(IngredientLabelReader.read(null, "우유 무첨가")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "우유무첨가, 대두불포함, 계란 미사용")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "설탕 무첨가 땅콩버터")) shouldBe setOf(PEANUT)
+                codes(IngredientLabelReader.read(null, "MSG free 우유")) shouldBe setOf(MILK)
+                codes(IngredientLabelReader.read(null, "우유 freeze, 계란 미사용라인, 대두 무첨가함")) shouldBe setOf(MILK, EGG, SOY)
+            }
+        }
+        `when`("무알콜·비알코올 표기이면 — Codex P2") {
+            then("알코올로 검출하지 않는다 — 에틸알콜·발효주정은 그대로") {
+                codes(IngredientLabelReader.read(null, "무알콜음료, 무알코올, 비알콜, 비알코올맥주맛, 논알콜")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "무주정, 무에탄올, 비에탄올")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "에틸알콜, 발효주정")) shouldBe setOf(IngredientCode.ALCOHOL)
+            }
+        }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
             then("라드(돼지 지방)로 검출한다") {
                 codes(IngredientLabelReader.read(null, "돼지창자, 돈지방, 당면")) shouldContain IngredientCode.LARD
