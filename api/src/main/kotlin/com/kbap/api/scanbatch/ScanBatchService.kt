@@ -193,7 +193,9 @@ class ScanBatchService(
         val now = LocalDateTime.now()
         val (operation, photo) = prepare(memberId, batchId, selectionIndex, now) ?: return null
         val callLimit = attempts.lockGlobalCallLimit() ?: DEFAULT_GLOBAL_CALL_LIMIT
-        if (attempts.countLiveCallSlots(now) >= callLimit) throw ScanBatchSlotsBusyException()
+        if (attempts.countLiveCallSlots(now) >= callLimit || attempts.countLiveCallSlotsOfMember(memberId, now) >= PER_MEMBER_CALL_SLOTS) {
+            throw ScanBatchSlotsBusyException()
+        }
         val token = bytesOf(UUID.randomUUID())
         val leaseUntil = minOf(now.plus(ATTEMPT_LEASE), operation.expiresAt)
         photo.claim(token, leaseUntil)
@@ -389,6 +391,7 @@ class ScanBatchService(
         val EXECUTION_WINDOW: Duration = Duration.ofMinutes(15)
         const val DAILY_UNCHARGED_ATTEMPT_LIMIT = 30
         private const val DEFAULT_GLOBAL_CALL_LIMIT = 4
+        private const val PER_MEMBER_CALL_SLOTS = 3
         private val ATTEMPT_LIMIT_WINDOW: Duration = Duration.ofHours(24)
         private val ATTEMPT_LEASE: Duration = Duration.ofMinutes(2)
         private val RESULT_TTL: Duration = Duration.ofDays(7)

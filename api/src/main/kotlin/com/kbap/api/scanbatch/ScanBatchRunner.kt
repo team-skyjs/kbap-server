@@ -12,6 +12,8 @@ import org.springframework.core.task.TaskExecutor
 import org.springframework.core.task.TaskRejectedException
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.time.Instant
+import org.springframework.scheduling.TaskScheduler
 import java.util.UUID
 
 @Component
@@ -20,6 +22,7 @@ class ScanBatchRunner(
     private val batchSwitch: ScanBatchSwitch,
     private val extractor: MenuBoardLineExtractor,
     @Qualifier(ScanBatchExecutorConfig.SCAN_BATCH_EXECUTOR) private val executor: TaskExecutor,
+    private val scheduler: TaskScheduler,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val works = HashMap<WorkKey, BatchWork>()
@@ -67,29 +70,28 @@ class ScanBatchRunner(
                     null
                 }
             } ?: return
-            run(key.memberId, key.batchId, job)
+            if (!run(key.memberId, key.batchId, job)) {
+                synchronized(works) {
+                    work.queue.addFirst(job)
+                    work.active -= 1
+                }
+                scheduler.schedule({ spawn(key, work) }, Instant.now().plus(SLOT_WAIT))
+                return
+            }
         }
     }
 
-    private fun run(memberId: Long, batchId: UUID, selectionIndex: Int) {
-        val deadline = System.nanoTime() + SLOT_WAIT_LIMIT.toNanos()
-        while (true) {
-            val claim = try {
-                batches.startAttempt(memberId, batchId, selectionIndex)
-            } catch (e: ScanBatchSlotsBusyException) {
-                if (System.nanoTime() > deadline) {
-                    log.warn("스캔 묶음 전역 슬롯 대기 시간 초과 — 사진은 재시도 대상으로 남는다 batchId={} index={}", batchId, selectionIndex)
-                    return
-                }
-                Thread.sleep(SLOT_WAIT.toMillis())
-                continue
-            } catch (e: Exception) {
-                log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, selectionIndex, e)
-                return
-            } ?: return
-            extractAndRecord(claim)
-            return
-        }
+    private fun run(memberId: Long, batchId: UUID, selectionIndex: Int): Boolean {
+        val claim = try {
+            batches.startAttempt(memberId, batchId, selectionIndex)
+        } catch (e: ScanBatchSlotsBusyException) {
+            return false
+        } catch (e: Exception) {
+            log.warn("스캔 묶음 사진 시도 시작 실패 batchId={} index={}", batchId, selectionIndex, e)
+            return true
+        } ?: return true
+        extractAndRecord(claim)
+        return true
     }
 
     private fun extractAndRecord(claim: ScanBatchClaim) {
@@ -122,7 +124,6 @@ class ScanBatchRunner(
     companion object {
         const val PER_BATCH_CONCURRENCY = 3
         private val SLOT_WAIT: Duration = Duration.ofMillis(500)
-        private val SLOT_WAIT_LIMIT: Duration = Duration.ofSeconds(60)
         const val RATE_LIMITED = "RATE_LIMITED"
         const val VISION_UNAVAILABLE = "VISION_UNAVAILABLE"
         const val RECOGNITION_FAILED = "RECOGNITION_FAILED"
