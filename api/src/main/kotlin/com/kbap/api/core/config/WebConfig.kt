@@ -31,7 +31,7 @@ class WebConfig(
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
         configurer.useRequestHeader(ApiHeaders.API_VERSION)
             .useVersionResolver(exemptPathVersionResolver())
-            .addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR, ApiVersions.HOME_TOP_RATED, ApiVersions.SCAN_SUBSTITUTION)
+            .addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR, ApiVersions.HOME_TOP_RATED, ApiVersions.SCAN_SUBSTITUTION, ApiVersions.FOOD_NAME_SORT)
             .setVersionRequired(true)
     }
 
@@ -102,6 +102,7 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/foods/selected$")),
                     JwtAuthenticationFilter.GuestExemption(
                         "POST",
                         Regex("^${ApiPaths.API}/reports$"),
@@ -145,6 +146,7 @@ class WebConfig(
                 "${ApiPaths.API}/notifications",
                 "${ApiPaths.API}/notifications/*",
                 "${ApiPaths.API}/foods/scanned",
+                "${ApiPaths.API}/foods/selected",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",
                 "${ApiPaths.API}/bookmarks",
