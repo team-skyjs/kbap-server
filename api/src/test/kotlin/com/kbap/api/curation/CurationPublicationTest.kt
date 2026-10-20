@@ -7,9 +7,12 @@ import com.kbap.common.domain.admin.AdminAccountJpaRepository
 import com.kbap.common.domain.admin.model.AdminAccount
 import com.kbap.common.domain.curation.*
 import com.kbap.common.domain.curation.model.*
+import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataAccessException
@@ -34,6 +37,7 @@ class CurationPublicationTest : BehaviorSpec() {
     @Autowired private lateinit var admins: AdminAccountJpaRepository
     @Autowired private lateinit var jdbc: JdbcTemplate
     @Autowired private lateinit var mvc: MockMvc
+    @Autowired private lateinit var tokens: TokenIssuer
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
     private var adminId = 0L
     private val documents = mutableMapOf<String, CurationDocument>()
@@ -204,6 +208,61 @@ class CurationPublicationTest : BehaviorSpec() {
                 }
             }
         }
+        given("항목 사진 여러 장(갤러리)") {
+            fun readyAsset(key: String, name: String) = assets.save(CurationAsset(collectionId = collections.findByCollectionKey(key)!!.id, issuedByAdminId = adminId, assetState = "READY", stagingKey = "curation/dev/staging/$name", finalKey = "curation/dev/final/$name", contentType = "image/png", sizeBytes = 10, expiresAt = LocalDateTime.now().plusMinutes(5), completeDeadline = LocalDateTime.now().plusDays(1), completedAt = LocalDateTime.now(), sourceFingerprint = "fixture"))
+            fun photoOf(base: CurationPhoto, id: Long, attribution: String?) = base.copy(assetId = id, rights = base.rights.copy(checkedAssetId = id, attributionRequirement = if (attribution == null) AttributionRequirement.NONE else AttributionRequirement.TEXT, attributionText = attribution))
+            `when`("사진 목록이 비어 있으면(기존 게시본)") {
+                then("images 는 image 1장이고 구 필드 imageUrl·imageAttribution 은 그대로다") {
+                    CurationService.keys.forEach(::publish)
+                    val item = service.getDetail("sights", "en").items.first()
+                    item.images shouldBe listOf(CurationPublicImage(item.imageUrl, item.imageAttribution))
+                    val token = tokens.issueAccessToken(adminId, MemberRole.ADMIN)
+                    mvc.get("/api/admin/curations/seoul/sights") { header("X-API-Version", "1.0"); header("Authorization", "Bearer $token") }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.draftDocument.items[0].image.assetId") { exists() }
+                        jsonPath("$.payload.draftDocument.items[0].images") { doesNotExist() }
+                        jsonPath("$.payload.publishedDocument.items[0].images") { doesNotExist() }
+                    }
+                    mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.items[0].images.length()") { value(1) }
+                        jsonPath("$.payload.items[0].images[0].url") { value(item.imageUrl) }
+                        jsonPath("$.payload.items[0].imageUrl") { value(item.imageUrl) }
+                    }
+                }
+            }
+            `when`("첫 항목에 사진 3장을 사진별 출처와 함께 게시하면") {
+                then("공개 images 가 3장이고 첫 장 = image, 사진마다 출처 문구가 붙는다") {
+                    val doc = documents.getValue("sights")
+                    val first = doc.items[0]
+                    val second = readyAsset("sights", "gallery-2")
+                    val third = readyAsset("sights", "gallery-3")
+                    val gallery = listOf(first.image!!, photoOf(first.image!!, second.id, "Photo: KTO"), photoOf(first.image!!, third.id, null))
+                    documents["sights"] = CurationFixtures.reviewed(doc.copy(items = listOf(first.copy(images = gallery)) + doc.items.drop(1)))
+                    CurationService.keys.forEach(::publish)
+
+                    val item = service.getDetail("sights", "en").items.first()
+                    item.images.size shouldBe 3
+                    item.images[0].url shouldBe item.imageUrl
+                    item.images[1].url.endsWith("/curation/dev/final/gallery-2") shouldBe true
+                    item.images[2].url.endsWith("/curation/dev/final/gallery-3") shouldBe true
+                    item.images.map { it.attribution } shouldBe listOf(null, "Photo: KTO", null)
+                    service.getDetail("sights", "en").items.drop(1).all { it.images.size == 1 } shouldBe true
+                }
+            }
+            `when`("갤러리 사진이 다른 모음의 자산이면") {
+                then("게시를 그 사진 경로의 ASSET_TARGET_MISMATCH 로 막는다") {
+                    val doc = documents.getValue("sights")
+                    val first = doc.items[0]
+                    val foreign = readyAsset("busan", "foreign")
+                    documents["sights"] = CurationFixtures.reviewed(doc.copy(items = listOf(first.copy(images = listOf(first.image!!, photoOf(first.image!!, foreign.id, null)))) + doc.items.drop(1)))
+                    val error = shouldThrow<BusinessException> { publish("sights") }
+                    @Suppress("UNCHECKED_CAST")
+                    ((error.payload as Map<String, Any>)["errors"] as List<CurationIssue>).map { it.path to it.reason } shouldContain ("items[0].images[1]" to "ASSET_TARGET_MISMATCH")
+                }
+            }
+        }
+
         given("공개 읽기 검사 범위 — 공부 세션 지적") {
             `when`("게시 뒤 저장본이 지금 규칙과 달라져도(편집 해시 불일치·모델에 없는 필드 추가 — 규칙·모델 변경 시뮬)") {
                 then("화면에 필요한 것(10항목·언어·READY 사진)만 보므로 공개 GET 은 200 이다") {
