@@ -3,6 +3,8 @@ package com.kbap.common.infra.llm.menu
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardLineExtractor
+import com.kbap.common.port.llm.MenuBoardLine
 import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
 import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
@@ -39,21 +41,24 @@ class OpenAiMenuBoardVisionExtractor(
     private val retryBudget: Duration = Duration.ofSeconds(10),
     private val sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
     private val now: () -> Instant = Instant::now,
-) : MenuBoardVisionExtractor {
+) : MenuBoardVisionExtractor, MenuBoardLineExtractor {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> {
+    override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
+        parser.parse(ask(imagePath, if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT, userPromptWith(ocrItems)))
+
+    override fun extractLines(imagePath: String): List<MenuBoardLine> =
+        parser.parseLines(ask(imagePath, BATCH_LINE_SYSTEM_PROMPT, "이 메뉴판 사진의 메뉴 행을 메뉴판에 적힌 그대로 옮겨 적어라."))
+
+    private fun ask(imagePath: String, systemPrompt: String, userText: String): String {
         val imageUrl = URI.create("${imageBaseUrl.trimEnd('/')}/${imagePath.trimStart('/')}")
         val media = Media.builder().mimeType(mimeTypeOf(imagePath)).data(imageUrl).build()
-        val userMessage = UserMessage.builder().text(userPromptWith(ocrItems)).media(media).build()
-
-        val systemPrompt = if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT
+        val userMessage = UserMessage.builder().text(userText).media(media).build()
         val response = callWithRetryBudget(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
         val cost = costIncurredFrom(response)
         publishCost(cost)
         logTokenUsage(cost, response.metadata.usage.totalTokens)
-        val raw = response.results.firstOrNull()?.output?.text.orEmpty()
-        return parser.parse(raw)
+        return response.results.firstOrNull()?.output?.text.orEmpty()
     }
 
     private fun callWithRetryBudget(prompt: Prompt): ChatResponse {
@@ -199,6 +204,20 @@ class OpenAiMenuBoardVisionExtractor(
             - 각 메뉴를 OCR 목록의 idx 에 매칭한다. 사진 위치가 아니라 텍스트 내용으로 매칭한다(OCR 순서는 사진 배치와 다를 수 있다).
             - 사진에서 하나의 메뉴로 확인되는 항목은 반드시 하나의 result 로 커버한다. 단 한 메뉴가 여러 OCR 조각(예: "삼겹"+"살")으로 쪼개졌으면 조각들을 합쳐 하나의 result 로 만들고 matchedIdx 는 그중 한 조각의 idx 하나만 준다 — 남은 조각 idx 로 별도 result 를 만들지 않는다. 대응 OCR 이 없으면 matchedIdx 는 null.
             - 한 idx 는 최대 하나의 result 에만 쓴다(중복 금지). 한 OCR 항목에 여러 메뉴가 병합돼 있거나 사이즈로 나뉘면, 그중 하나에만 그 idx 를 주고 나머지는 null.
+        """.trimIndent()
+
+        private val BATCH_LINE_SYSTEM_PROMPT = """
+            너는 한국 식당 메뉴판 사진에서 메뉴 행을 적힌 그대로 옮겨 적는 도구다. 반드시 JSON 객체 하나로만 응답한다 — 설명·마크다운·코드펜스 없이.
+            형식: {"results":[{"rawName":"...","koreanName":"...","price":12000,"option":"..."}]}
+
+            [규칙]
+            - 사진에서 확실히 읽히는 메뉴 행만 적는다. 사진에 없는 메뉴를 추측하거나 지어내지 않는다. 메뉴판이 아니거나 메뉴를 하나도 확인할 수 없으면 {"results":[]}.
+            - rawName: 메뉴판에 적힌 그대로의 메뉴 표기(외국어 병기·괄호·크기·수량 표기 포함). 고치거나 번역하거나 줄이지 않는다.
+            - koreanName: 음식 자체의 표준 한국어 이름(크기·수량·옵션·외국어 제외, 영문 알파벳 금지). 서버 음식 조회 키다.
+            - price: 그 행의 가격, 원(KRW) 단위 정수 숫자만(통화기호·콤마·"원" 제거, "1.6만"→16000, 천원 축약 "9.0"→9000). 행에 가격이 적혀 있지 않거나 읽을 수 없으면 null — 추측하지 않는다.
+            - option: 메뉴판에 적힌 크기·양·구성 옵션 표기 그대로(예: "대", "곱빼기", "2인분"). 표기가 없으면 null — 추측해 채우지 않는다.
+            - 한 메뉴에 크기별 가격이 여럿이면 크기마다 행을 나눈다(각 행의 option 에 그 크기, rawName 에 메뉴명과 크기 표기).
+            - 메뉴가 아닌 텍스트(상호·전화번호·원산지·영업안내 등)는 제외한다.
         """.trimIndent()
 
         private val SERVER_OCR_SYSTEM_PROMPT = """
