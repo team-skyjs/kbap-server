@@ -104,6 +104,62 @@ class DataGoKrClientTest : BehaviorSpec({
         }
     }
 
+    given("HTTP 200 안의 응용 계층 오류 — Codex P2") {
+        fun haccpError(code: String) = """{"header":{"resultCode":"$code","resultMessage":"ERR"},"body":{"items":[],"totalCount":"0"}}"""
+
+        `when`("일시 오류(05 서비스 타임아웃·23 초당 한도)가 난 뒤 성공하면") {
+            then("재시도로 결과를 받는다") {
+                val (client, server) = fixture()
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess(haccpError("05"), MediaType.APPLICATION_JSON))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL)))
+                    .andRespond(withSuccess("""{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"LIMITED_NUMBER_OF_SERVICE_REQUESTS_PER_SECOND_EXCEEDS_ERROR","returnReasonCode":"23"}}}""", MediaType.APPLICATION_JSON))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess(haccpPage, MediaType.APPLICATION_JSON))
+
+                DataGoKrHaccpProductSource(client).getPage("유탕면", 1, 100).items.size shouldBe 1
+                client.httpAttempts() shouldBe 3L
+                server.verify()
+            }
+        }
+
+        `when`("영구 오류(22 일일 한도 초과)면") {
+            then("재시도 없이 한 번에 실패한다") {
+                val (client, server) = fixture()
+                server.expect(ExpectedCount.once(), requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess(haccpError("22"), MediaType.APPLICATION_JSON))
+
+                val error = shouldThrow<PublicDataCallException> { DataGoKrHaccpProductSource(client).getPage("유탕면", 1, 100) }
+
+                error.message!! shouldContain "resultCode=22"
+                client.httpAttempts() shouldBe 1L
+                server.verify()
+            }
+        }
+
+        `when`("일시 오류가 재시도 한도를 넘으면") {
+            then("재시도 횟수와 결과 코드를 담아 실패한다") {
+                val (client, server) = fixture()
+                server.expect(ExpectedCount.times(4), requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess(haccpError("01"), MediaType.APPLICATION_JSON))
+
+                val error = shouldThrow<PublicDataCallException> { DataGoKrHaccpProductSource(client).getPage("유탕면", 1, 100) }
+
+                error.message!! shouldContain "resultCode=01"
+                error.message!! shouldContain "재시도 3회"
+            }
+        }
+
+        `when`("영양DB 가 일시 오류(01) 뒤 정상(00)이면") {
+            then("재시도해 제조사를 받는다") {
+                val (client, server) = fixture()
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL)))
+                    .andRespond(withSuccess("""{"header":{"resultCode":"01","resultMsg":"APPLICATION ERROR."}}""", MediaType.APPLICATION_JSON))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL)))
+                    .andRespond(withSuccess("""{"header":{"resultCode":"00"},"body":{"items":[{"MAKER_NM":"㈜농심"}],"totalCount":1}}""", MediaType.APPLICATION_JSON))
+
+                DataGoKrFoodMakerLookup(client).getMakerOrNull("2001054954178") shouldBe "㈜농심"
+                server.verify()
+            }
+        }
+    }
+
     given("HTTP 시도 수 집계 — Codex P2") {
         `when`("5xx 세 번 뒤 성공, 이어서 403 한 번이면") {
             then("재시도와 실패를 포함한 실제 HTTP 시도 수(4+1)를 센다") {
@@ -126,7 +182,7 @@ class DataGoKrClientTest : BehaviorSpec({
                 val (client, server) = fixture()
                 val body = "<html>502 Bad Gateway for /getCertImgListServiceV3?ServiceKey=$ENCODED_KEY&pageNo=1 " +
                     "raw=$KEY lower=${ENCODED_KEY.lowercase()} serviceKey=$KEY&x=1</html>"
-                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL)))
+                server.expect(ExpectedCount.times(4), requestTo(org.hamcrest.Matchers.startsWith(BASE_URL)))
                     .andRespond(withSuccess(body, MediaType.TEXT_HTML))
 
                 val error = shouldThrow<PublicDataCallException> { DataGoKrHaccpProductSource(client).getPage("과자", 1, 100) }
