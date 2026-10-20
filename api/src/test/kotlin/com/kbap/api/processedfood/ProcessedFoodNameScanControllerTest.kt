@@ -190,6 +190,31 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     scanCountOf(81208L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
                 }
             }
+            `when`("무료 1회 남은 회원이 서로 다른 분석 두 개를 동시에 확정하면 — 한도 우회 방지(보안 리뷰)") {
+                then("하나만 차감되고 다른 하나는 403 SCAN-004 — 횟수는 한도를 넘지 않는다") {
+                    val token = member(81210L, scanCount = Member.FREE_SCAN_LIMIT - 1)
+                    val ids = (1..2).map { scanName(token, "새우깡").path("payload").path("analysisId").asText() }
+                    val pool = Executors.newFixedThreadPool(2)
+                    val start = CountDownLatch(1)
+                    val statuses = ids.map { id ->
+                        pool.submit<Int> {
+                            start.await()
+                            mockMvc.post("/api/processed-foods/scan/confirm") {
+                                header("X-API-Version", "3.2")
+                                header("Authorization", "Bearer $token")
+                                contentType = MediaType.APPLICATION_JSON
+                                content = mapper.writeValueAsString(mapOf("analysisId" to id, "reportNo" to "PS-1"))
+                            }.andReturn().response.status
+                        }
+                    }
+                    start.countDown()
+                    val codes = statuses.map { it.get(30, TimeUnit.SECONDS) }
+                    pool.shutdown()
+                    codes shouldContainExactlyInAnyOrder listOf(200, 403)
+                    scanCountOf(81210L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
+                    ids.sumOf { usageRowsOf(it) } shouldBe 1
+                }
+            }
             `when`("같은 분석 ID 확정이 동시에 두 번 오면") {
                 then("한 번만 차감된다 — 원장 1행·횟수 +1, 두 응답 모두 같은 품목") {
                     val token = member(81209L)
