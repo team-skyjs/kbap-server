@@ -227,7 +227,7 @@ URL은 absolute HTTPS, host 필수, userinfo·제어문자·실행 스킴·로�
 
 **사진 표시 의무는 `NONE` 과 `TEXT` 만 게시를 허용한다(2026-10-20 R-96·KB-823 개정 — 종전 "NONE 만").** 이 값도 필수 이용 근거·확인 기록 및 READY 등 나머지 검증을 면제하지 않는다.
 
-- `TEXT`: `attributionText` 가 비어 있지 않고(공백만 불가) **80자 이하**이며 제어문자(개행 포함)가 없어야 한다. 아니면 `ATTRIBUTION_TEXT_INVALID`(path `….rights.attributionText`). 문구는 **단일 문자열**이며 언어별로 번역하지 않는다(공공누리·CC BY 출처 표시는 원문 그대로 쓰는 표기다).
+- `TEXT`: `attributionText` 가 비어 있지 않고(공백만 불가) **80자 이하**이며 보이지 않는 문자 — Unicode 범주 Cc(제어, 개행·U+0085 포함)·Cf(서식: 양방향 재정렬 U+202A~202E·U+2066~2069, 폭 0 U+200B~200D·U+FEFF 등)·Zl·Zp(U+2028·U+2029) — 가 없어야 한다(문구가 사진 위에 그대로 그려지므로). 아니면 `ATTRIBUTION_TEXT_INVALID`(path `….rights.attributionText`). 문구는 **단일 문자열**이며 언어별로 번역하지 않는다(공공누리·CC BY 출처 표시는 원문 그대로 쓰는 표기다).
 - `LINK`/`UNKNOWN` 과 null/누락은 계속 `ATTRIBUTION_UNSUPPORTED` 로 차단한다. 미지원 표시 의무는 초안에 기록할 수 있지만 validate와 publish에서 같은 오류를 반환한다. 규격 밖 enum 값은 초안 저장 단계의 형식 오류다.
 - 공개 응답: 카드·상세의 `coverImageAttribution`, 항목의 `imageAttribution`(nullable 문자열). 표시 의무가 `TEXT` 면 그 문구, `NONE` 이면 `null` — `NONE` 사진에 남은 `attributionText` 는 내보내지 않는다. 앱은 값이 있을 때만 이미지에 작은 출처 캡션을 표시한다.
 - 그 밖의 내부 권리 근거(basis·sourceOrEvidenceRef·rightsHolder·permittedUse·checkedOn·checkedAssetId)는 그대로 저장·스냅샷 보존하며 공개 응답에 내보내지 않는다.

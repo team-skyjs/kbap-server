@@ -23,7 +23,7 @@ class CurationValidation {
         .digest(mapper.writeValueAsBytes(document.copy(editorialReview = null)))
         .joinToString("") { "%02x".format(it) }
 
-    private fun attributionTextValid(text: String?) = !text.isNullOrBlank() && text.length <= ATTRIBUTION_TEXT_LIMIT && text.none { it.isISOControl() }
+    private fun attributionTextValid(text: String?) = !text.isNullOrBlank() && text.length <= ATTRIBUTION_TEXT_LIMIT && text.none { Character.getType(it).toByte() in invisibleTypes }
 
     fun structure(document: CurationDocument): List<CurationIssue> = buildList {
         if (document.items.size > 50 || mapper.writeValueAsBytes(document).size > 1024 * 1024) add(CurationIssue("document", "DOCUMENT_LIMIT"))
@@ -129,6 +129,7 @@ class CurationValidation {
     companion object {
         const val ITEM_COUNT = 10
         const val ATTRIBUTION_TEXT_LIMIT = 80
+        private val invisibleTypes = setOf(Character.CONTROL, Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR)
         val languages = LanguageCode.entries.map { it.code }.toSet()
     }
 }
