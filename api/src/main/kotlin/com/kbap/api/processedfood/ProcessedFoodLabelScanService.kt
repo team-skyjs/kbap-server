@@ -34,22 +34,31 @@ class ProcessedFoodLabelScanService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
-    fun scanLabel(memberId: Long, analysisId: String?, pages: List<String>, language: String): ProcessedFoodLabelScanResponse {
+    fun scanLabel(memberId: Long, analysisId: String?, clientRequestId: UUID?, pages: List<String>, language: String): ProcessedFoodLabelScanResponse {
         if (analysisId == null) members.findByIdForUpdate(memberId)
         val member = memberService.getMember(memberId)
         val text = ProcessedFoodLabelText.of(pages)
         val reading = IngredientLabelReader.read(text.allergens, text.rawMaterials.ifEmpty { null })
-        val readable = text.hasLabelLine && reading.detections.isNotEmpty() || text.hasLabelLine && reading.unmappedTokens.count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
         val now = LocalDateTime.now()
+        val manifestHash = MessageDigest.getInstance("SHA-256").digest(text.rawText.toByteArray(Charsets.UTF_8))
+        if (analysisId == null) {
+            val key = clientRequestId ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+            operations.findForUpdate(memberId, NAMESPACE, ProcessedFoodNameScanService.bytesOf(key))?.let { replayed ->
+                if (!now.isBefore(replayed.resultExpiresAt)) throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
+                if (!replayed.manifestHash.contentEquals(manifestHash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
+                return responseOf(memberId, key, text, reading, charged = false)
+            }
+        }
+        val readable = text.hasLabelLine && reading.detections.isNotEmpty() || text.hasLabelLine && reading.unmappedTokens.count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
         val operation = analysisId?.let { continued(memberId, it, now) }
         if (!readable) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ)
-        val key = operation?.let { ProcessedFoodNameScanService.uuidOf(it.requestKey) } ?: UUID.randomUUID()
+        val key = operation?.let { ProcessedFoodNameScanService.uuidOf(it.requestKey) } ?: clientRequestId!!
         val target = operation ?: operations.save(
             ScanOperation(
                 memberId = memberId,
                 keyNamespace = NAMESPACE,
                 requestKey = ProcessedFoodNameScanService.bytesOf(key),
-                manifestHash = MessageDigest.getInstance("SHA-256").digest(text.rawText.toByteArray(Charsets.UTF_8)),
+                manifestHash = manifestHash,
                 mode = MODE,
                 lifecycle = ProcessedFoodNameScanState.LABEL_RESULT.name,
                 initialLanguage = language,
@@ -70,6 +79,10 @@ class ProcessedFoodLabelScanService(
         target.requestDocument = target.requestDocument + mapOf(
             "label" to mapOf("rawText" to text.rawText, "pageCount" to pages.size, "firstSucceededAt" to firstSucceededAt, "recallCount" to recallCount),
         )
+        return responseOf(memberId, key, text, reading, charged)
+    }
+
+    private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean): ProcessedFoodLabelScanResponse {
         val mayContain = text.mayContain?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
         return ProcessedFoodLabelScanResponse(
             analysisId = key.toString(),
