@@ -105,6 +105,9 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read("굴ㆍ전복‧홍합、게", null)) shouldBe setOf(OYSTER, ABALONE, MUSSEL, IngredientCode.CRAB)
                 codes(IngredientLabelReader.read("【밀】", null)) shouldBe setOf(WHEAT)
                 codes(IngredientLabelReader.read(null, "소맥분∙우유∙정제소금")) shouldBe setOf(WHEAT, MILK)
+                codes(IngredientLabelReader.read("대두,밀.우유", null)) shouldBe setOf(SOY, WHEAT, MILK)
+                codes(IngredientLabelReader.read("밀ㅡ대두ㅣ우유ー계란ｰ새우", null)) shouldBe setOf(WHEAT, SOY, MILK, EGG, SHRIMP)
+                codes(IngredientLabelReader.read(null, "밀가루 2.5g, 우유.")) shouldBe setOf(WHEAT, MILK)
             }
         }
         `when`("땅콩기름·땅콩유이면") {
