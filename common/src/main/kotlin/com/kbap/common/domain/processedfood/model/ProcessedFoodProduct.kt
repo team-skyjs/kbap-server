@@ -113,13 +113,21 @@ class ProcessedFoodProduct(
     }
 
     fun displayMaker(): String? =
-        listOf(manufacturer, seller).firstOrNull { !ProcessedFoodSnapshot.isUnknownMaker(it) }?.substringBefore('_')?.trim()
-            ?: makerSupplement?.trim()?.takeIf { it.isNotEmpty() }
+        listOf(manufacturer, seller).firstNotNullOfOrNull(::companyNameOf) ?: makerSupplement?.trim()?.takeIf { it.isNotEmpty() }
 
     fun isDiscontinued(latestSeenAt: LocalDateTime): Boolean = lastSeenAt.isBefore(latestSeenAt.minus(DISCONTINUED_AFTER))
 
     companion object {
         val DISCONTINUED_AFTER: Duration = Duration.ofDays(3)
+        private val COMPANY_FORMS = Regex("""농업회사법인|주식회사|유한회사|㈜|\(주\)|\(유\)""")
+        private val MAKER_CUT = Regex("""[_/:,(]""")
+        private val TRAILING_NOISE = Regex("""본사$|(?<=[가-힣])[A-Z0-9]+$""")
+
+        fun companyNameOf(raw: String?): String? {
+            if (raw == null || ProcessedFoodSnapshot.isUnknownMaker(raw)) return null
+            val head = raw.replace(COMPANY_FORMS, " ").split(MAKER_CUT).first().trim().split(Regex("""\s+""")).first()
+            return head.replace(TRAILING_NOISE, "").takeIf { it.isNotEmpty() && !it.endsWith("공장") }
+        }
         const val SOURCE_HACCP = "HACCP"
         const val REPORT_NO_LENGTH = 20
         const val NAME_LENGTH = 200
