@@ -125,6 +125,16 @@ class ScanBatchOrderTest : BehaviorSpec() {
                     sql("SELECT COUNT(*) FROM orders") shouldBe 0
                 }
             }
+            `when`("같은 병합 행을 두 항목에 쓰거나 결과 보관(7일)이 지난 묶음으로 주문하면 — 공부·Codex P2") {
+                then("중복 병합 행 400, 보관 지난 묶음 410 SCAN-013 이고 주문을 남기지 않는다") {
+                    val owner = member()
+                    val batch = batchWithResults(owner)
+                    order(owner, mapOf("batchId" to batch.id.toString(), "items" to listOf(itemOf(batch.items[0]), itemOf(batch.items[0], quantity = 2))), expected = 400)
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 8 DAY, result_expires_at = result_expires_at - INTERVAL 8 DAY WHERE request_key = UUID_TO_BIN('${batch.id}', 0)")
+                    order(owner, mapOf("batchId" to batch.id.toString(), "items" to listOf(itemOf(batch.items[0]))), expected = 410).path("code").asText() shouldBe "SCAN-013"
+                    sql("SELECT COUNT(*) FROM orders") shouldBe 0
+                }
+            }
             `when`("남의 묶음이나 결과가 없는 묶음으로 주문하면") {
                 then("남의 묶음 404 SCAN-010, 결과 없는 묶음 400") {
                     val owner = member()
