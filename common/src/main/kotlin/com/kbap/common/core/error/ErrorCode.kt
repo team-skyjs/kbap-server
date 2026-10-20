@@ -125,4 +125,7 @@ enum class ErrorCode(
     UPLOAD_PATH_NOT_ISSUED("UPLOAD-004", 400, "이 계정에 발급된 업로드 경로가 아닙니다"),
 
     TRANSLATION_FAILED("TRANSLATION-001", 503, "번역을 잠시 사용할 수 없습니다. 잠시 후 다시 시도해 주세요"),
+
+    PROCESSED_FOOD_NOT_FOUND("PFOOD-001", 404, "가공식품을 찾을 수 없습니다"),
+    PROCESSED_FOOD_DISCONTINUED("PFOOD-002", 410, "생산이 종료된 제품입니다"),
 }
