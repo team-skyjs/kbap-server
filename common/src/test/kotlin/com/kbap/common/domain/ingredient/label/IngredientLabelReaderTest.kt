@@ -82,9 +82,19 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 reading.unmappedTokens shouldContainAll listOf("코코아버터", "버터향", "복숭아향", "돼지감자", "들깨", "대구산", "밀감")
             }
         }
-        `when`("땅콩버터이면") {
+        `when`("품목 이름 바로 뒤에 맛·향·풍미가 붙은 풍미 원료이면 — 200건 대조에서 나온 오탐") {
+            then("그 품목으로 검출하지 않는다 — 같은 토큰 안의 다른 실재료는 그대로 찾는다") {
+                val reading = IngredientLabelReader.read(
+                    null,
+                    "계란맛어포, 소고기풍미분말, 돈육풍미분말, 달콤한버터맛씨즈닝, 버터리체다씨즈닝, 건조소고기맛어묵, 남쇠고기국물맛내기",
+                )
+                codes(reading) shouldBe setOf(IngredientCode.FISH, IngredientCode.BEEF)
+                reading.detections.single { it.code == IngredientCode.BEEF }.evidence shouldBe "남쇠고기국물맛내기"
+            }
+        }
+        `when`("땅콩버터·피넛버터이면") {
             then("땅콩만 검출하고 버터는 검출하지 않는다") {
-                codes(IngredientLabelReader.read(null, "땅콩버터(땅콩, 설탕)")) shouldBe setOf(PEANUT)
+                codes(IngredientLabelReader.read(null, "땅콩버터(땅콩, 설탕), 피넛버터초콜릿")) shouldBe setOf(PEANUT)
             }
         }
         `when`("알레르기 표시와 원재료가 같은 품목을 가리키면") {
