@@ -186,5 +186,19 @@ class CurationPublicationTest : BehaviorSpec() {
                 }
             }
         }
+        given("게시 스냅샷 무결성 — Codex P2") {
+            `when`("게시 뒤 번역은 모두 있는 채 한 언어 제목만 바뀌면(편집 해시 불일치)") {
+                then("검토되지 않은 내용을 내지 않고 503(CURATION-006) 이다 — 번역 누락이 설명하는 불일치만 영어 폴백으로 허용") {
+                    CurationService.keys.forEach(::publish)
+                    val doc = documents.getValue("sights")
+                    val mapper = jacksonObjectMapper()
+                    jdbc.update("UPDATE curation_collection SET published_document=? WHERE collection_key='sights'", mapper.writeValueAsString(doc.copy(title = doc.title + ("ja" to "ja 바뀐 제목"))))
+
+                    shouldThrow<BusinessException> { service.getIndex("ja") }.errorCode.code shouldBe "CURATION-006"
+                    shouldThrow<BusinessException> { service.getDetail("sights", "en") }.errorCode.code shouldBe "CURATION-006"
+                    mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }.andExpect { status { isServiceUnavailable() } }
+                }
+            }
+        }
     }
 }
