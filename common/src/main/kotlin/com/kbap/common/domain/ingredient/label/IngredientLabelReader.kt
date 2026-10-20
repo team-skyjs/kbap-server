@@ -10,7 +10,7 @@ object IngredientLabelReader {
     private val SPACES = Regex("""\s+""")
     private val TRAILING_ETC = Regex("""\s+등$""")
     private val FLAVOR_MARKERS = listOf("맛", "향", "풍미", "향료")
-    private val NEGATED = Regex("""\S+?\s*(무첨가|불포함|미사용|free)""", RegexOption.IGNORE_CASE)
+    private val NEGATED = Regex("""\S+?\s*(무첨가|불포함|미사용|free)(?=\s|$)""", RegexOption.IGNORE_CASE)
     private val PARTICLES = setOf('을', '를', '이', '가', '은', '는', '도', '와', '과', '의')
 
     private val mandatory: List<IngredientLabelTerm> =
