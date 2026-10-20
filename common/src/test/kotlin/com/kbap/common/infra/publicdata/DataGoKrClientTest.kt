@@ -104,6 +104,22 @@ class DataGoKrClientTest : BehaviorSpec({
         }
     }
 
+    given("HTTP 시도 수 집계 — Codex P2") {
+        `when`("5xx 세 번 뒤 성공, 이어서 403 한 번이면") {
+            then("재시도와 실패를 포함한 실제 HTTP 시도 수(4+1)를 센다") {
+                val (client, server) = fixture()
+                server.expect(ExpectedCount.times(3), requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withServerError())
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withSuccess(haccpPage, MediaType.APPLICATION_JSON))
+                server.expect(requestTo(org.hamcrest.Matchers.startsWith(BASE_URL))).andRespond(withStatus(HttpStatus.FORBIDDEN))
+
+                DataGoKrHaccpProductSource(client).getPage("유탕면", 1, 100)
+                runCatching { DataGoKrHaccpProductSource(client).getPage("유탕면", 2, 100) }
+
+                client.httpAttempts() shouldBe 5L
+            }
+        }
+    }
+
     given("게이트웨이·프록시의 비JSON 응답 — Codex P1") {
         `when`("본문에 요청 URL 이 섞여 인증키가 원문·퍼센트 인코딩·소문자 인코딩으로 들어 있으면") {
             then("예외 메시지에 어떤 형태의 키도 남지 않는다") {

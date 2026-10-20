@@ -6,6 +6,7 @@ import com.kbap.common.port.publicdata.FoodMakerLookup
 import com.kbap.common.port.publicdata.HaccpProduct
 import com.kbap.common.port.publicdata.HaccpProductPage
 import com.kbap.common.port.publicdata.HaccpProductSource
+import com.kbap.common.port.publicdata.PublicDataCallCounter
 import com.kbap.common.port.publicdata.PublicDataCallException
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -26,24 +27,31 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
     @Autowired private lateinit var dataSource: DataSource
 
-    class FakeSource(var catalog: Map<String, List<HaccpProduct>>) : HaccpProductSource {
+    class FakeCounter : PublicDataCallCounter {
+        var attempts = 0L
+        override fun httpAttempts(): Long = attempts
+    }
+
+    class FakeSource(var catalog: Map<String, List<HaccpProduct>>, private val counter: FakeCounter? = null) : HaccpProductSource {
         val calls = mutableListOf<Pair<String, Int>>()
         val failTypes = mutableSetOf<String>()
 
         override fun getPage(foodType: String, pageNo: Int, pageSize: Int): HaccpProductPage {
             calls += foodType to pageNo
+            counter?.let { it.attempts += if (foodType in failTypes) 4 else 1 }
             if (foodType in failTypes) throw PublicDataCallException("HACCP 제품정보 호출 실패(재시도 3회): HTTP 504")
             val all = catalog[foodType].orEmpty()
             return HaccpProductPage(all.drop((pageNo - 1) * pageSize).take(pageSize), all.size)
         }
     }
 
-    class FakeLookup(private val makers: Map<String, String?>) : FoodMakerLookup {
+    class FakeLookup(private val makers: Map<String, String?>, private val counter: FakeCounter? = null) : FoodMakerLookup {
         val calls = mutableListOf<String>()
         val failing = mutableSetOf<String>()
 
         override fun getMakerOrNull(reportNo: String): String? {
             calls += reportNo
+            counter?.let { it.attempts += if (reportNo in failing) 4 else 1 }
             if (reportNo in failing) throw PublicDataCallException("식품영양성분DB 호출 실패(재시도 3회): HTTP 504")
             return makers[reportNo]
         }
@@ -56,8 +64,8 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
             no, name, "식품", type, "유처리제품", maker, maker, null, "120g", raw, "밀", "총 내용량", "http://img/$no.jpg", "http://img/$no-m.jpg",
         )
 
-        fun mirror(source: HaccpProductSource, lookup: FoodMakerLookup, types: List<String>, pageSize: Int = 2, makerLimit: Int = 100) =
-            ProcessedFoodMirror(source, lookup, repository, TransactionTemplate(transactionManager), clock, types, pageSize, makerLimit)
+        fun mirror(source: HaccpProductSource, lookup: FoodMakerLookup, types: List<String>, pageSize: Int = 2, makerLimit: Int = 100, counter: PublicDataCallCounter = FakeCounter()) =
+            ProcessedFoodMirror(source, lookup, repository, TransactionTemplate(transactionManager), clock, types, pageSize, makerLimit, counter = counter)
 
         fun count(sql: String): Long = dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery(sql).use { r -> r.next(); r.getLong(1) } } }
 
@@ -156,6 +164,30 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
                     summary.makerLookupFailures shouldBe 5
                     summary.makerLookupAborted shouldBe true
                     count("SELECT COUNT(*) FROM processed_food_product WHERE maker_checked_at IS NOT NULL") shouldBe 0
+                }
+            }
+
+            `when`("전면 장애로 보완이 멈추거나 유형 하나가 실패하면 — Codex P2") {
+                then("요약은 부분 완료(isPartial)이고, apiCalls 는 재시도·실패를 포함한 HTTP 시도 수다") {
+                    val counter = FakeCounter()
+                    val many = (1..6).map { product("9200000000%03d".format(it), "봇면$it", "유탕면류", maker = "알수없음") }
+                    val lookup = FakeLookup(emptyMap(), counter)
+                    lookup.failing += many.map { it.reportNo }
+                    val source = FakeSource(mapOf("유탕면" to many, "과자" to snacks), counter)
+                    source.failTypes += "과자"
+
+                    val summary = mirror(source, lookup, listOf("유탕면", "과자"), pageSize = 100, counter = counter).mirror()
+
+                    summary.makerLookupAborted shouldBe true
+                    summary.isPartial() shouldBe true
+                    summary.apiCalls shouldBe 1 + 4 + 5 * 4
+                    summary.apiCalls.toLong() shouldBe counter.attempts
+                }
+            }
+
+            `when`("유형 실패도 보완 중단도 없으면") {
+                then("부분 완료가 아니다") {
+                    mirror(FakeSource(mapOf("유탕면" to ramen)), FakeLookup(emptyMap()), listOf("유탕면")).mirror().isPartial() shouldBe false
                 }
             }
 
