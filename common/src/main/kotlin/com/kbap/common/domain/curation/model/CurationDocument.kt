@@ -1,6 +1,7 @@
 package com.kbap.common.domain.curation.model
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonInclude
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationDocument(
@@ -22,6 +23,7 @@ data class CurationEntry(
     val externalUrl: String = "",
     val nearby: List<CurationNearby> = emptyList(),
     val evidence: CurationEvidence = CurationEvidence(),
+    @field:JsonInclude(JsonInclude.Include.NON_EMPTY)
     val images: List<CurationPhoto> = emptyList(),
 )
 

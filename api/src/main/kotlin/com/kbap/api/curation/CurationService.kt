@@ -30,7 +30,7 @@ class CurationService(
         if (root.firstActivatedAt == null || rows.any { !it.isPublished }) return CurationIndex("UNPUBLISHED", root.version, requestedLang, requested, requested != requestedLang, emptyList())
         val docs = rows.map { published(it) }
         val language = resolveLanguage(docs, requested, true)
-        return CurationIndex("PUBLISHED", root.version, requestedLang, language, language != requestedLang, rows.zip(docs).map { (row, doc) -> card(row, doc, language) })
+        return CurationIndex("PUBLISHED", root.version, requestedLang, language, language != requestedLang, rows.zip(docs).map { (row, doc) -> card(row, doc, language, imageUrls(row, listOf(doc.cover!!))) })
     }
 
     @Transactional(readOnly = true)
@@ -40,9 +40,10 @@ class CurationService(
         if (!row.isPublished) throw BusinessException(ErrorCode.CURATION_NOT_FOUND)
         val doc = published(row)
         val language = resolveLanguage(listOf(doc), LanguageCode.from(requestedLang).code, false)
-        val card = card(row, doc, language)
+        val urls = imageUrls(row, validation.photos(doc).mapNotNull { it.photo })
+        val card = card(row, doc, language, urls)
         return CurationDetail(key, card.title, card.description, card.coverImageUrl, card.coverImageAttribution, 10, row.publishedRevision, row.publishedAt ?: unavailable(), requestedLang, language, language != requestedLang,
-            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), image(row, item.image!!), attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }, item.images.ifEmpty { listOf(item.image!!) }.map { CurationPublicImage(image(row, it), attribution(it)) }) })
+            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), urls.getValue(item.image!!.assetId), attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }, item.images.ifEmpty { listOf(item.image!!) }.map { CurationPublicImage(urls.getValue(it.assetId), attribution(it)) }) })
     }
 
     @Transactional(readOnly = true)
@@ -172,12 +173,15 @@ class CurationService(
         log.warn("Curation translation fallback requestedLang={}", requested)
         return "en"
     }
-    private fun card(row: CurationCollection, doc: CurationDocument, language: String) = CurationCard(row.collectionKey, doc.title.getValue(language), doc.description.getValue(language), image(row, doc.cover!!), attribution(doc.cover!!), 10, row.publishedRevision)
+    private fun card(row: CurationCollection, doc: CurationDocument, language: String, urls: Map<Long, String>) = CurationCard(row.collectionKey, doc.title.getValue(language), doc.description.getValue(language), urls.getValue(doc.cover!!.assetId), attribution(doc.cover!!), 10, row.publishedRevision)
     private fun attribution(photo: CurationPhoto) = photo.rights.attributionText.takeIf { photo.rights.attributionRequirement == AttributionRequirement.TEXT }
-    private fun image(row: CurationCollection, photo: CurationPhoto): String {
-        val asset = assets.findById(photo.assetId).orElse(null) ?: unavailable()
-        if (asset.collectionId != row.id || asset.assetState != "READY") unavailable()
-        return access.imageUrl(asset.finalKey ?: unavailable())
+    private fun imageUrls(row: CurationCollection, photos: List<CurationPhoto>): Map<Long, String> {
+        val found = assets.findAllById(photos.map { it.assetId }.distinct()).associateBy { it.id }
+        return photos.associate { photo ->
+            val asset = found[photo.assetId] ?: unavailable()
+            if (asset.collectionId != row.id || asset.assetState != "READY") unavailable()
+            photo.assetId to access.imageUrl(asset.finalKey ?: unavailable())
+        }
     }
     private fun invalid(errors: List<CurationIssue>, version: Long) {
         if (errors.isNotEmpty()) throw BusinessException(ErrorCode.CURATION_PUBLICATION_INVALID, mapOf("errors" to errors, "version" to version))

@@ -37,7 +37,8 @@ class CurationValidation {
         }
         document.items.forEachIndexed { i, item ->
             if (runCatching { UUID.fromString(item.entryId).toString() == item.entryId.lowercase() }.getOrDefault(false).not()) add(CurationIssue("items[$i].entryId", "INVALID_ENTRY_ID", item.entryId))
-            if (item.externalUrl.length > 2048 || item.nearby.size > 50 || item.images.size > GALLERY_LIMIT) add(CurationIssue("items[$i]", "DOCUMENT_LIMIT", item.entryId))
+            if (item.images.size > GALLERY_LIMIT) add(CurationIssue("items[$i].images", "DOCUMENT_LIMIT", item.entryId))
+            if (item.externalUrl.length > 2048 || item.nearby.size > 50) add(CurationIssue("items[$i]", "DOCUMENT_LIMIT", item.entryId))
             if (item.nearby.map { it.nearbyId }.distinct().size != item.nearby.size || item.nearby.any { it.nearbyId.isBlank() }) add(CurationIssue("items[$i].nearby", "INVALID_NEARBY_ID", item.entryId))
         }
         if (document.items.map { it.entryId.lowercase() }.distinct().size != document.items.size) add(CurationIssue("items", "DUPLICATE_ENTRY"))
