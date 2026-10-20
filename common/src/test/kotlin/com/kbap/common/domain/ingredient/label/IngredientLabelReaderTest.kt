@@ -155,6 +155,39 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "발효주정, 곡물발효주정")) shouldBe setOf(IngredientCode.ALCOHOL)
             }
         }
+        `when`("200건 미매핑 토큰 전수 점검에서 나온 실재료 표기이면 — 같은 계열 선제 보강") {
+            then("각 품목으로 검출한다") {
+                listOf(
+                    "1급 A원유" to setOf(MILK),
+                    "밀크초코크림" to setOf(MILK),
+                    "저지방가공유" to setOf(MILK),
+                    "유기농탈지농축유" to setOf(MILK),
+                    "사워크림어니언맛씨즈닝" to setOf(MILK, IngredientCode.ONION),
+                    "검은깨페이스트" to setOf(IngredientCode.SESAME),
+                    "검은콩분말" to setOf(SOY),
+                    "약콩" to setOf(SOY),
+                    "콩나물엑기스분말" to setOf(SOY),
+                    "게엑기스" to setOf(IngredientCode.CRAB),
+                    "냉동연육" to setOf(IngredientCode.FISH),
+                    "명란" to setOf(IngredientCode.FISH),
+                    "돈골농축액분말" to setOf(IngredientCode.PORK),
+                    "돈피 에멀젼" to setOf(IngredientCode.PORK),
+                    "사골농축액" to setOf(IngredientCode.BEEF),
+                    "한우농축액" to setOf(IngredientCode.BEEF),
+                    "치킨파우더" to setOf(IngredientCode.CHICKEN),
+                    "에틸알콜" to setOf(IngredientCode.ALCOHOL),
+                    "포테이토어니언수프맛씨즈닝" to setOf(IngredientCode.POTATO, IngredientCode.ONION),
+                    "옥배유" to setOf(IngredientCode.CORN),
+                    "밀쌀" to setOf(WHEAT),
+                    "우리밀짜장분" to setOf(WHEAT),
+                ).forEach { (raw, expected) -> withClue(raw) { codes(IngredientLabelReader.read(null, raw)) shouldBe expected } }
+            }
+        }
+        `when`("이름만 닮은 재료이면 — 선제 보강의 오탐 경계") {
+            then("검출하지 않는다 — 밀크씨슬·가공유지·강낭콩·리마콩·다시다·밀크향") {
+                codes(IngredientLabelReader.read(null, "밀크씨슬추출물, 가공유지, 강낭콩, 리마콩, 다시다, 밀크향")) shouldBe emptySet()
+            }
+        }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
             then("라드(돼지 지방)로 검출한다") {
                 codes(IngredientLabelReader.read(null, "돼지창자, 돈지방, 당면")) shouldContain IngredientCode.LARD
