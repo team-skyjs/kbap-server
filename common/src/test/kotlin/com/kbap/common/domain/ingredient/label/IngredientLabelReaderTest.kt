@@ -91,6 +91,8 @@ class IngredientLabelReaderTest : BehaviorSpec({
         `when`("토큰이 맛·향·풍미로 끝나는 향료 표기이면") {
             then("그 품목으로 검출하지 않는다 — 버터향·우유맛·복숭아향·딸기풍미") {
                 codes(IngredientLabelReader.read(null, "합성착향료(버터향, 우유맛), 복숭아향, 딸기풍미")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "합성향료(버터향료)")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "버터향 설탕 우유맛 정제소금")) shouldBe emptySet()
             }
         }
         `when`("맛·풍미 뒤에 분말·오일·유·베이스·시즈닝이 붙은 원료이면 — 놓침이 오탐보다 비싸다(종교 회피)") {
@@ -113,6 +115,12 @@ class IngredientLabelReaderTest : BehaviorSpec({
         `when`("땅콩기름·땅콩유이면") {
             then("땅콩만 검출한다 — 콩기름(대두)으로 잡지 않는다") {
                 codes(IngredientLabelReader.read(null, "땅콩기름, 땅콩유")) shouldBe setOf(PEANUT)
+            }
+        }
+        `when`("대구 복합어(농축·포·추출)이면 — Codex P2") {
+            then("대구로 검출하고 원산지 대구산은 검출하지 않는다") {
+                codes(IngredientLabelReader.read(null, "대구농축액, 대구포, 대구추출물, 사과(대구산)")) shouldBe setOf(IngredientCode.COD)
+                codes(IngredientLabelReader.read(null, "사과(대구산)")) shouldBe emptySet()
             }
         }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
