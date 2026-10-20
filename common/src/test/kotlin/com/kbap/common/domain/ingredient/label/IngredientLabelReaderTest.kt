@@ -168,6 +168,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
                     "약콩" to setOf(SOY),
                     "콩나물엑기스분말" to setOf(SOY),
                     "게엑기스" to setOf(IngredientCode.CRAB),
+                    "게맛살" to setOf(IngredientCode.CRAB, IngredientCode.FISH),
                     "냉동연육" to setOf(IngredientCode.FISH),
                     "명란" to setOf(IngredientCode.FISH),
                     "돈골농축액분말" to setOf(IngredientCode.PORK),
