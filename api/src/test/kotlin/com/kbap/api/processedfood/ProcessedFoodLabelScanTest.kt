@@ -101,11 +101,50 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     scanCountOf(88308L) shouldBe 0
                 }
             }
-            `when`("'원재료' 줄이나 쉼표 목록 줄이 있으면") {
+            `when`("'원재료' 줄이 있으면") {
                 then("성분표로 보고 읽는다(줄바꿈으로 넘어간 원재료도 함께)") {
                     val token = member(88309L)
                     label(token, null, "원재료명: 새우").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
-                    label(token, null, "밀가루, 백설탕, 쇼트닝\n새우").path("payload").path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP")
+                    label(token, null, "원재료명: 밀가루, 백설탕, 쇼트닝,\n새우").path("payload").path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP")
+                }
+            }
+            `when`("영양성분표나 머리말 없는 쉼표 목록이면 — 공부 ②") {
+                then("성분표 줄('원재료'·알레르기)이 없어 400 PFOOD-006, 차감 0") {
+                    val token = member(88311L)
+                    label(token, null, "영양정보 총 내용량 90g\n나트륨 200mg, 탄수화물 30g, 당류 10g, 지방 8g, 단백질 3g", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    label(token, null, "밀가루, 백설탕, 쇼트닝, 새우", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    scanCountOf(88311L) shouldBe 0
+                }
+            }
+            `when`("표시란과 같은 제조시설 문구가 한 줄로 오면 — 공부 B") {
+                then("표시란 재료는 모두 검출, 메밀은 함유 가능에만") {
+                    val p = label(member(88312L, "SOY", "BUCKWHEAT"), null, "원재료명: 소맥분, 정제수\n알레르기 유발물질: 밀, 대두, 우유, 쇠고기 함유. 이 제품은 메밀을 사용한 제품과 같은 제조시설에서 제조합니다.").path("payload")
+                    p.path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SOY", "MILK", "BEEF")
+                    p.path("mayContain").map { it.path("code").asText() } shouldBe listOf("BUCKWHEAT")
+                    val avoidance = p.path("avoidance").associate { it.path("code").asText() to it.path("match").asText() }
+                    avoidance shouldBe mapOf("SOY" to "DETECTED", "BUCKWHEAT" to "UNCONFIRMED")
+                }
+            }
+            `when`("면 원소가 null 이면 — Codex P2") {
+                then("400(검증)") {
+                    post("/api/processed-foods/scan/label", mapOf("analysisId" to null, "pages" to listOf(null), "lang" to "ko"), member(88313L), expected = 400)
+                }
+            }
+            `when`("같은 회원의 새 분석 두 건이 동시에 오면(더블탭) — 공부") {
+                then("교착(500) 없이 둘 다 끝나고 차감은 성공한 수만큼이다") {
+                    val token = member(88314L)
+                    repeat(3) {
+                        val start = java.util.concurrent.CountDownLatch(1)
+                        val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
+                        val futures = (1..2).map { pool.submit<Int> { start.await(); mockMvc.post("/api/processed-foods/scan/label") {
+                            header("X-API-Version", "3.2"); header("Authorization", "Bearer $token"); contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(mapOf("pages" to listOf(mapOf("ocrText" to "원재료명: 감자, 식물성유지, 정제소금")), "lang" to "ko"))
+                        }.andReturn().response.status } }
+                        start.countDown()
+                        futures.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }.all { it == 200 || it == 403 } shouldBe true
+                        pool.shutdown()
+                    }
+                    scanCountOf(88314L) shouldBe 3
                 }
             }
             `when`("검출이 하나라도 있으면") {
