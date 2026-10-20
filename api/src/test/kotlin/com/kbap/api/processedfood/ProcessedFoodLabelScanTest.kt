@@ -66,6 +66,53 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
         }
 
+        given("성분표 분석 — 표시란 머리말(KB-841)") {
+            `when`("머리말이 붙은 2면 원문을 보내면") {
+                then("머리말은 미매핑에 나오지 않고 검출은 그대로다") {
+                    val p = label(
+                        member(88411L),
+                        null,
+                        "원재료명 및 함량: 소맥분(밀), 새우 10%, 설탕, 정제수\n식품유형: 과자 내용량: 90g",
+                        "알레르기 유발물질: 밀, 새우 함유\n알레르기유발성분: 대두",
+                    ).path("payload")
+                    p.path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP", "SOY")
+                    val unmapped = p.path("unmapped").map { it.asText() }
+                    unmapped.filter { it.replace(" ", "") in setOf("원재료명및함량", "원재료명", "식품유형", "내용량", "알레르기", "유발물질", "알레르기유발물질", "알레르기유발성분") } shouldBe emptyList()
+                    unmapped.contains("정제수") shouldBe true
+                }
+            }
+            `when`("OCR 이 머리말을 띄어 쓰면(알레르기 유발 물질) — Codex P1") {
+                then("머리말 조각도 미매핑에 남지 않고 검출·성공은 그대로") {
+                    val p = label(member(88417L), null, "원재료 명: 정제수\n알레르기 유발 물질 함유: 우유").path("payload")
+                    p.path("unmapped").map { it.asText() }.filter { it in setOf("유발", "물질", "원재료 명", "명") } shouldBe emptyList()
+                    p.path("detections").map { it.path("code").asText() } shouldBe listOf("MILK")
+                    p.path("charged").asBoolean() shouldBe true
+                }
+            }
+            `when`("머리말 뒤 81종 밖 재료가 하나뿐이면(생수·설탕·녹차) — 공부 막음") {
+                then("머리말이 성분표임을 보여 주므로 비머리말 한글 토큰 1개로 성공·차감") {
+                    listOf(88413L to "원재료명: 정제수", 88414L to "원재료명: 백설탕", 88415L to "원재료명: 녹차잎 100%").forEach { (id, ocr) ->
+                        val p = label(member(id), null, ocr).path("payload")
+                        p.path("charged").asBoolean() shouldBe true
+                        p.path("detections").size() shouldBe 0
+                        scanCountOf(id) shouldBe 1
+                    }
+                }
+            }
+            `when`("머리말 없이 '…함유' 문장에 81종 밖 토큰 하나뿐이면") {
+                then("기존 기준(한글 토큰 2개)대로 400 PFOOD-006") {
+                    label(member(88416L), null, "정제수 함유", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    scanCountOf(88416L) shouldBe 0
+                }
+            }
+            `when`("머리말만 있고 원재료 토큰이 없으면") {
+                then("머리말은 판독 성공 근거(한글 토큰 수)로 세지 않아 400 PFOOD-006") {
+                    label(member(88412L), null, "원재료명: 식품유형\n알레르기 유발물질 함유", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    scanCountOf(88412L) shouldBe 0
+                }
+            }
+        }
+
         given("성분표 분석 — 새 분석의 clientRequestId 멱등 키(KB-840)") {
             `when`("응답을 못 받은 앱이 같은 키·같은 원문으로 다시 보내면") {
                 then("같은 분석이 같은 결과로 돌아오고 차감은 처음 1회뿐이다") {
