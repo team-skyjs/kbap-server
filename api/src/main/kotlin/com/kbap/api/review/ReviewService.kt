@@ -167,7 +167,7 @@ class ReviewService(
         if (!review.isActive()) return
         if (!memberRepository.existsById(review.memberId)) {
             review.delete()
-            foodRepository.decreaseReviewCount(review.foodId)
+            foodRepository.decreaseReviewCount(review.foodId!!)
             return
         }
         softDelete(review)
@@ -177,8 +177,8 @@ class ReviewService(
         val memberId = review.memberId
         review.delete()
         memberRepository.decreaseReviewCount(memberId)
-        foodRepository.decreaseReviewCount(review.foodId)
-        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId) == 0L
+        foodRepository.decreaseReviewCount(review.foodId!!)
+        val lastReviewOfFood = reviewRepository.countByMemberIdAndFoodId(memberId, review.foodId!!) == 0L
         if (lastReviewOfFood) memberRepository.decreaseUniqueReviewedFoodCount(memberId)
         rankingEventRepository.save(MemberRankingEvent.reviewDeleted(memberId, review.id, lastReviewOfFood))
     }
@@ -192,7 +192,7 @@ class ReviewService(
         reviewLikeRepository.upsertActive(reviewId = reviewId, memberId = memberId, now = now)
         val isNewLike = existingLike?.countsAsNewLikeAt(now) ?: true
         if (isNewLike && !review.isOwnedBy(memberId)) {
-            eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId))
+            eventPublisher.publishEvent(ReviewLiked(review.id, review.memberId, review.foodId!!))
         }
     }
 
@@ -338,7 +338,7 @@ class ReviewService(
         val authorsByMemberId = memberRepository.findAllById(page.map { it.memberId }.toSet())
             .associate { it.id to ReviewAuthorResponse.from(it, imagePublicBaseUrl) }
         val foodsByFoodId = if (includeFood) {
-            foodRepository.findAllById(page.map { it.foodId }.toSet())
+            foodRepository.findAllById(page.map { it.foodId!! }.toSet())
                 .associate { it.id to ReviewFoodResponse.from(it, lang, imagePublicBaseUrl) }
         } else {
             emptyMap()

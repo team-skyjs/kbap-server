@@ -120,7 +120,7 @@ data class AdminMemberReviewItemResponse(
         fun from(review: Review, foodNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
             AdminMemberReviewItemResponse(
                 id = review.id,
-                foodId = review.foodId,
+                foodId = review.foodId!!,
                 foodName = foodNames[review.foodId],
                 rating = review.rating,
                 servingSpeedRating = review.servingSpeedRating,

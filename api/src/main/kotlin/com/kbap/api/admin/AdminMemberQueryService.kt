@@ -66,7 +66,7 @@ class AdminMemberQueryService(
     fun getMemberReviewPage(memberId: Long, page: Int): AdminMemberReviewPageResponse {
         requireMemberExists(memberId)
         val result = reviewRepository.findByMemberId(memberId, activityPageable(page))
-        val foodNames = foodNamesOf(result.content.map { it.foodId })
+        val foodNames = foodNamesOf(result.content.map { it.foodId!! })
         return AdminMemberReviewPageResponse(
             items = result.content.map { AdminMemberReviewItemResponse.from(it, foodNames, imagePublicBaseUrl) },
             page = page,
