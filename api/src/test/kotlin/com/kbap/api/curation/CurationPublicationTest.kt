@@ -7,6 +7,8 @@ import com.kbap.common.domain.admin.AdminAccountJpaRepository
 import com.kbap.common.domain.admin.model.AdminAccount
 import com.kbap.common.domain.curation.*
 import com.kbap.common.domain.curation.model.*
+import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -35,6 +37,7 @@ class CurationPublicationTest : BehaviorSpec() {
     @Autowired private lateinit var admins: AdminAccountJpaRepository
     @Autowired private lateinit var jdbc: JdbcTemplate
     @Autowired private lateinit var mvc: MockMvc
+    @Autowired private lateinit var tokens: TokenIssuer
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
     private var adminId = 0L
     private val documents = mutableMapOf<String, CurationDocument>()
@@ -213,6 +216,13 @@ class CurationPublicationTest : BehaviorSpec() {
                     CurationService.keys.forEach(::publish)
                     val item = service.getDetail("sights", "en").items.first()
                     item.images shouldBe listOf(CurationPublicImage(item.imageUrl, item.imageAttribution))
+                    val token = tokens.issueAccessToken(adminId, MemberRole.ADMIN)
+                    mvc.get("/api/admin/curations/seoul/sights") { header("X-API-Version", "1.0"); header("Authorization", "Bearer $token") }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.draftDocument.items[0].image.assetId") { exists() }
+                        jsonPath("$.payload.draftDocument.items[0].images") { doesNotExist() }
+                        jsonPath("$.payload.publishedDocument.items[0].images") { doesNotExist() }
+                    }
                     mvc.get("/api/curations/seoul/sights?lang=en") { header("X-API-Version", "1.0") }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.items[0].images.length()") { value(1) }

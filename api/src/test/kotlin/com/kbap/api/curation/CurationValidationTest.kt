@@ -47,8 +47,16 @@ class CurationValidationTest : BehaviorSpec({
             }
         }
         `when`("사진이 10장을 넘으면") {
-            then("DOCUMENT_LIMIT 로 막는다") {
-                validator.validate("sights", withImages(first.image!!, *(2L..11L).map { photo(it) }.toTypedArray())).map { it.reason } shouldContain "DOCUMENT_LIMIT"
+            then("그 항목 갤러리 경로(items[i].images)의 DOCUMENT_LIMIT 로 막는다") {
+                validator.validate("sights", withImages(first.image!!, *(2L..11L).map { photo(it) }.toTypedArray())).map { it.path to it.reason } shouldContain ("items[0].images" to "DOCUMENT_LIMIT")
+            }
+        }
+        `when`("사진 목록이 없는 문서(배포 전 검수본)이면 — 공부 #432") {
+            then("발행본 해시가 이 PR 이전과 같은 고정 문자열이고 직렬화에 images 키가 없다") {
+                val photo = CurationPhoto(7, CurationRights("DIRECT", "evidence", "holder", "display", "2026-10-01", 7, AttributionRequirement.NONE))
+                val doc = CurationDocument(mapOf("en" to "title"), mapOf("en" to "desc"), photo, listOf(CurationEntry("0b6b5c6e-3f0a-4c8e-9a51-1f0f3b7d2a10", mapOf("en" to "name"), mapOf("en" to "area"), mapOf("en" to "intro"), mapOf("en" to "reason"), photo, "https://example.invalid/1")))
+                validator.contentHash(doc) shouldBe "9adacb574997f9d64f6e03b3caa027116b47f65b50a547eb67f3964f1bb293d4"
+                com.fasterxml.jackson.module.kotlin.jacksonObjectMapper().writeValueAsString(doc.items[0]).contains("\"images\"") shouldBe false
             }
         }
         `when`("검수 뒤 사진 목록이 바뀌면") {
