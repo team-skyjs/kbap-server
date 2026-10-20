@@ -45,7 +45,7 @@ class Review(
     var place: ReviewPlace? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "target_type", nullable = false)
+    @Column(name = "target_type", nullable = false, columnDefinition = "ENUM('FOOD','PROCESSED_FOOD')")
     val targetType: ReviewTargetType = ReviewTargetType.FOOD,
 
     @Column(name = "processed_food_id")
