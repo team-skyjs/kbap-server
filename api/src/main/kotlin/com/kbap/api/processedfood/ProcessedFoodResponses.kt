@@ -25,14 +25,17 @@ data class ProcessedFoodSummaryResponse(
     val foodType: String?,
     @field:Schema(description = "제품 이미지 URL(HACCP http 원본은 https 로 바꿔 내려간다) — 없으면 null(플레이스홀더는 앱)", nullable = true)
     val imageUrl: String?,
-    @field:Schema(description = "리뷰 수 — 검색 결과에서 채운다(이름 스캔 후보는 0)", example = "12")
-    val reviewCount: Long = 0,
-    @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.2", nullable = true)
+    @field:Schema(description = "리뷰 수 — 검색 결과에서만 채운다(없으면 0). 이름 스캔 후보는 집계하지 않아 null", example = "12", nullable = true)
+    val reviewCount: Long? = null,
+    @field:Schema(description = "평균 별점 — 리뷰가 없거나 집계하지 않은 카드(이름 스캔 후보)는 null", example = "4.2", nullable = true)
     val avgRating: Double? = null,
 ) {
     companion object {
-        fun from(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate? = null) =
-            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl), rating?.reviewCount ?: 0, rating?.average)
+        fun from(product: ProcessedFoodProduct) =
+            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl))
+
+        fun withReviews(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate?) =
+            from(product).copy(reviewCount = rating?.reviewCount ?: 0, avgRating = rating?.average)
     }
 }
 

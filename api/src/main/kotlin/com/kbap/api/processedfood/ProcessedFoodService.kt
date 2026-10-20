@@ -30,7 +30,7 @@ class ProcessedFoodService(
         val page = ranked.drop(offset).take(size)
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
         return SearchPage(
-            items = page.map { ProcessedFoodSummaryResponse.from(it, ratings[it.id]) },
+            items = page.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id]) },
             hasNext = hasNext,
             nextCursor = if (hasNext) (offset + size).toString() else null,
         )

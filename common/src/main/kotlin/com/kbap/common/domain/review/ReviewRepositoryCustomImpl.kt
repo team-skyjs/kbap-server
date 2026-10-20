@@ -29,7 +29,7 @@ class ReviewRepositoryCustomImpl(
         val metricExpr = when (sort) {
             ReviewSort.LATEST -> "r.id"
             ReviewSort.RATING -> "r.rating"
-            ReviewSort.FOOD_REVIEW_COUNT -> "(select count(r2) from Review r2 where r2.foodId = r.foodId)"
+            ReviewSort.FOOD_REVIEW_COUNT -> "(select count(r2) from Review r2 where r2.foodId = r.foodId or r2.processedFoodId = r.processedFoodId)"
             ReviewSort.HELPFUL -> "count(l)"
         }
         val metricComparator = if (descending) "<" else ">"
