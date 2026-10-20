@@ -47,13 +47,15 @@ object IngredientLabelReader {
 
     private fun normalize(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFKC)
 
-    private fun scan(text: String, splitSpaces: Boolean): List<Pair<String, Set<IngredientCode>>> =
-        text.replace(NOISE, ",")
-            .split(SEPARATORS)
+    private fun scan(text: String, splitSpaces: Boolean): List<Pair<String, Set<IngredientCode>>> {
+        val chunks = text.replace(NOISE, ",").split(SEPARATORS)
+        val negated = chunks.flatMap { chunk -> NEGATED.findAll(chunk).map { it.value.trim() } }.map { it to emptySet<IngredientCode>() }
+        return chunks
             .flatMap { if (splitSpaces) it.replace(NEGATED, " ").split(SPACES) else listOf(it) }
             .map { it.trim().replace(TRAILING_ETC, "") }
             .filter { token -> token.any { it.isLetter() } }
-            .map { it to codesIn(it) }
+            .map { it to codesIn(it) } + negated
+    }
 
     private fun codesIn(original: String): Set<IngredientCode> {
         val token = original.replace(NEGATED, " ").trim()
