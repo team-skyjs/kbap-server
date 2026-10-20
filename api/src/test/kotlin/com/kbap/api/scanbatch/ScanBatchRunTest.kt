@@ -177,6 +177,24 @@ class ScanBatchRunTest : BehaviorSpec() {
                     vision.calls.get() shouldBe 6
                 }
             }
+            `when`("두 회원이 같은 clientRequestId 로 동시에 묶음을 만들면 — 보안 리뷰") {
+                then("각자 자기 묶음이 자기 권한으로 실행된다(실행 작업이 회원별로 분리)") {
+                    val requestId = UUID.randomUUID()
+                    val owners = listOf(member(), member())
+                    val batches = owners.map { owner ->
+                        val owned = paths(owner, 2)
+                        owned.forEach { vision.program(it, listOf(MenuBoardLine("메뉴$it", "메뉴", 1000, null))) }
+                        owner to owned
+                    }
+                    vision.delayMillis = 200
+                    batches.forEach { (owner, owned) -> create(owner, owned, requestId) shouldBe requestId.toString() }
+                    batches.forEach { (owner, owned) ->
+                        val payload = settled(owner, requestId.toString())
+                        payload.path("photos").all { it.path("state").asText() == "SUCCEEDED" } shouldBe true
+                        payload.path("items").map { it.path("rawName").asText() }.toSet() shouldBe owned.map { "메뉴$it" }.toSet()
+                    }
+                }
+            }
             `when`("10장을 보내면") {
                 then("묶음당 동시 비전 호출은 3 이하이고, 조회는 비전을 다시 부르지 않는다") {
                     val owner = member()
