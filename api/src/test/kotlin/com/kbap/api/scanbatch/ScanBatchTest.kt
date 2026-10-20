@@ -376,6 +376,19 @@ class ScanBatchTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("한 회원이 여러 묶음으로 슬롯을 잡으면 — 보안 리뷰(회원별 상한)") {
+                then("회원당 살아 있는 슬롯은 3 까지라 다른 회원 몫이 남는다") {
+                    val greedy = member("batch-slot-greedy")
+                    val other = member("batch-slot-other")
+                    val first = UUID.fromString(newBatch(greedy, count = 2))
+                    val second = UUID.fromString(newBatch(greedy, count = 2))
+                    batches.startAttempt(greedy.id, first, 0) shouldNotBe null
+                    batches.startAttempt(greedy.id, first, 1) shouldNotBe null
+                    batches.startAttempt(greedy.id, second, 0) shouldNotBe null
+                    io.kotest.assertions.throwables.shouldThrow<ScanBatchSlotsBusyException> { batches.startAttempt(greedy.id, second, 1) }
+                    batches.startAttempt(other.id, UUID.fromString(newBatch(other, count = 1)), 0) shouldNotBe null
+                }
+            }
             `when`("다른 연결이 scan_runtime_control 행을 잠그고 있을 때 결과를 확정하면") {
                 then("확정 경로는 그 행을 잡지 않아 기다리지 않고 끝난다(잠금 순서: 시도 시작만 묶음 → 사진 → runtime_control)") {
                     val owner = member("batch-commit-no-runtime-lock")
