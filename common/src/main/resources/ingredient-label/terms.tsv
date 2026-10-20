@@ -9,6 +9,8 @@
 난각	EGG	contains
 알	EGG	exact
 우유	MILK	contains
+유제품	DAIRY,MILK	contains
+유가공품	DAIRY,MILK	contains
 분유	MILK	contains
 유청	MILK	contains
 유당	MILK	contains
@@ -169,6 +171,8 @@
 실파	SCALLION	exact
 부추	CHIVE	contains
 달래	WILD_CHIVE	contains
+흥거	ASAFOETIDA	contains
+아사페티다	ASAFOETIDA	contains
 주정	ALCOHOL	exact
 에탄올	ALCOHOL	exact
 알코올	ALCOHOL	exact
