@@ -135,8 +135,8 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
             `when`("원재료 줄 다음 줄·다음 면이 함유 가능 문구면 — 공부 2R V1·V4") {
                 then("원재료 줄이 함유 가능에 붙어 사라지지 않아 성공한다") {
                     val token = member(88316L)
-                    label(token, null, "원재료명: 감자, 새우\n메밀 혼입 가능").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
-                    label(member(88317L), null, "원재료명: 감자, 새우", "이 제품은 메밀을 사용한 제품과 같은 제조시설에서 제조합니다").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
+                    label(token, null, "원재료명: 정제수, 새우\n메밀 혼입 가능").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
+                    label(member(88317L), null, "원재료명: 정제수, 새우", "이 제품은 메밀을 사용한 제품과 같은 제조시설에서 제조합니다").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
                 }
             }
             `when`("면 원소가 null 이면 — Codex P2") {

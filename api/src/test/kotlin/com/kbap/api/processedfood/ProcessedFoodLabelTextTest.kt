@@ -40,6 +40,18 @@ class ProcessedFoodLabelTextTest : BehaviorSpec({
                 text.rawMaterials shouldBe "원재료명: 소맥분, 정제수"
             }
         }
+        `when`("함유 가능 문구가 '함유 가능·함유할 수·들어 있을 수·섞일 수'로 쓰이면 — Codex P2") {
+            then("함유 가능으로 가고, '…함유'로 끝나는 표시란은 그대로 표시란이다") {
+                val text = ProcessedFoodLabelText.of(listOf("알레르기 유발물질: 밀, 대두 함유\n땅콩 함유 가능\n호두를 함유할 수 있음\n메밀이 들어 있을 수 있습니다\n잣이 섞일 수 있음"))
+                text.allergens shouldBe "알레르기 유발물질: 밀, 대두 함유"
+                text.mayContain shouldBe "땅콩 함유 가능\n호두를 함유할 수 있음\n메밀이 들어 있을 수 있습니다\n잣이 섞일 수 있음"
+            }
+        }
+        `when`("표시란 없이 '…함유'로 끝나는 줄만 있으면") {
+            then("함유 가능이 아니라 표시란으로 본다") {
+                ProcessedFoodLabelText.of(listOf("우유, 대두 함유")).mayContain shouldBe null
+            }
+        }
         `when`("줄 끝이 쉼표·여는 괄호·가운뎃점이면(목록 계속)") {
             then("다음 줄·다음 면과 이어 한 원재료 문장으로 본다") {
                 val text = ProcessedFoodLabelText.of(listOf("원재료명: 밀가루(미국산,\n호주산), 백설탕·", "쇼트닝, 새우"))
