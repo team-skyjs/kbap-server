@@ -85,21 +85,35 @@ enum class IngredientCode(val label: String) {
     ;
 
     val impliedCodes: Set<IngredientCode>
-        get() = IMPLICATIONS[this].orEmpty()
+        get() = CLOSURE.getValue(this)
 
     private companion object {
         val IMPLICATIONS: Map<IngredientCode, Set<IngredientCode>> =
             mapOf(
                 MILK to setOf(GOAT_MILK, BUTTER, CHEESE, GHEE),
-                DAIRY to setOf(MILK, GOAT_MILK, BUTTER, CHEESE, GHEE),
-                FISH to setOf(MACKEREL, SALMON, TUNA, COD, ANCHOVY, FISH_SAUCE, DASHI),
+                DAIRY to setOf(MILK),
+                FISH to setOf(MACKEREL, SALMON, TUNA, COD, ANCHOVY),
                 ANCHOVY to setOf(FISH_SAUCE, DASHI),
                 SHRIMP to setOf(SALTED_SHRIMP),
                 OYSTER to setOf(OYSTER_SAUCE),
+                CLAM to setOf(SHORT_NECK_CLAM, OYSTER, ABALONE, MUSSEL, SCALLOP),
+                SEAFOOD to setOf(FISH, SHRIMP, CRAB, CRAYFISH, LOBSTER, SQUID, OCTOPUS, OYSTER, ABALONE, MUSSEL, CLAM, SCALLOP),
+                BROTH to setOf(DASHI, FISH_SAUCE),
                 POULTRY to setOf(CHICKEN),
                 PORK to setOf(LARD),
                 BEEF to setOf(TALLOW),
                 ALCOHOL to setOf(MIRIN, COOKING_WINE),
             )
+
+        val CLOSURE: Map<IngredientCode, Set<IngredientCode>> =
+            entries.associateWith { code ->
+                val reached = linkedSetOf<IngredientCode>()
+                val pending = ArrayDeque(IMPLICATIONS[code].orEmpty())
+                while (pending.isNotEmpty()) {
+                    val next = pending.removeFirst()
+                    if (reached.add(next)) pending.addAll(IMPLICATIONS[next].orEmpty())
+                }
+                reached - code
+            }
     }
 }
