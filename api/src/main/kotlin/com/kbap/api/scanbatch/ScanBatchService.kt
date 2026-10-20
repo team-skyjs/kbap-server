@@ -156,7 +156,9 @@ class ScanBatchService(
         requireEnabled()
         val operation = parse(batchId)?.let { operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(it)) }
             ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
+        if (!LocalDateTime.now().isBefore(operation.resultExpiresAt)) throw BusinessException(ErrorCode.SCAN_BATCH_RESULT_EXPIRED)
         if (operation.usageRecordedAt == null) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (items.map { it.first?.lowercase() }.distinct().size != items.size) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val itemsByPublicId = mergedItems.findByOperationId(operation.id).associateBy { uuidOf(it.publicId).toString() }
         val sourcesByItem = occurrences.findByOperationId(operation.id).groupBy { it.mergedItemId }
         val itemOccurrenceIds = items.map { (mergedItemId, foodId) ->
