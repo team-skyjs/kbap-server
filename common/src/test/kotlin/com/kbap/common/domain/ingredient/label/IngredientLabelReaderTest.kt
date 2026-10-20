@@ -226,6 +226,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
         `when`("이름만 닮은 재료이면 — 선제 보강의 오탐 경계") {
             then("검출하지 않는다 — 밀크씨슬·가공유지·강낭콩·리마콩·다시다·밀크향") {
                 codes(IngredientLabelReader.read(null, "밀크씨슬추출물, 가공유지, 강낭콩, 리마콩, 다시다, 밀크향")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "밀크시슬추출물, 스위트포테이토분말")) shouldBe emptySet()
             }
         }
         `when`("문장형 표기로 의무 표시 품목에 조사가 붙으면 — Codex P2") {
