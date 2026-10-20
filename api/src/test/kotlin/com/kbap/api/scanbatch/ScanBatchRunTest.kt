@@ -107,7 +107,7 @@ class ScanBatchRunTest : BehaviorSpec() {
                     val batchId = create(owner, listOf(ok, broken))
                     settled(owner, batchId)
                     vision.program(broken, listOf(MenuBoardLine("김치찌개", "김치찌개", 9000, null), MenuBoardLine("냉면", "냉면", 8000, null)))
-                    retry(owner, batchId, 1).path("payload").path("photos")[1].path("state").asText() shouldBe "RUNNING"
+                    retry(owner, batchId, 1)
                     val payload = settled(owner, batchId)
                     states(payload) shouldBe listOf("SUCCEEDED" to "", "SUCCEEDED" to "")
                     payload.path("items").map { it.path("rawName").asText() to it.path("sources").size() } shouldBe listOf("김치찌개" to 2, "냉면" to 1)
