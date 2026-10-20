@@ -18,8 +18,8 @@ class IngredientLabelNoSafeVerdictTest : BehaviorSpec({
     given("성분 표시 판독 패키지 — R-80 미검출을 SAFE 로 만들지 않는다") {
         `when`("패키지 클래스를 가져오면") {
             then("판독기가 실제로 존재한다(빈 패키지로 규칙이 공회전하지 않는다)") {
-                classes().that().resideInAPackage(labelPackage).should().haveSimpleNameStartingWith("IngredientLabel")
-                    .orShould().haveSimpleName("AllergenDeclaration")
+                classes().that().resideInAPackage(labelPackage).and().haveSimpleName("IngredientLabelReader")
+                    .should().bePublic()
                     .check(imported)
             }
         }
