@@ -3,6 +3,7 @@ package com.kbap.api.curation
 import com.kbap.common.domain.curation.model.*
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 
 class CurationValidationTest : BehaviorSpec({
@@ -44,9 +45,29 @@ class CurationValidationTest : BehaviorSpec({
                 }
             }
         }
+        `when`("표시 의무가 TEXT 이고 출처 문구가 있으면") {
+            then("표지·항목 모두 게시를 허용한다") {
+                val rights = valid.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = "Photo: Korea Tourism Organization (KOGL Type 1)")
+                val cover = valid.cover!!.copy(rights = rights)
+                val item = valid.items.first().copy(image = cover)
+                validator.validate("sights", valid.copy(cover = cover, items = listOf(item) + valid.items.drop(1))).map { it.reason }.filter { it.startsWith("ATTRIBUTION") } shouldBe emptyList()
+            }
+        }
+        `when`("표시 의무가 TEXT 인데 출처 문구가 없거나 80자를 넘거나 제어문자를 품으면") {
+            then("표지·항목 모두 ATTRIBUTION_TEXT_INVALID 로 막는다") {
+                listOf(null, "", "   ", "a".repeat(81), "Photo:\nname").forEach { text ->
+                    val cover = valid.cover!!.copy(rights = valid.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = text))
+                    validator.validate("sights", valid.copy(cover = cover)).map { it.path to it.reason } shouldContain ("cover.rights.attributionText" to "ATTRIBUTION_TEXT_INVALID")
+                    val item = valid.items.first().copy(image = cover)
+                    validator.validate("sights", valid.copy(items = listOf(item) + valid.items.drop(1))).map { it.reason } shouldContain "ATTRIBUTION_TEXT_INVALID"
+                }
+                val cover = valid.cover!!.copy(rights = valid.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = "a".repeat(80)))
+                validator.validate("sights", valid.copy(cover = cover)).map { it.reason } shouldNotContain "ATTRIBUTION_TEXT_INVALID"
+            }
+        }
         `when`("표지와 항목의 표시 의무가 지원되지 않으면") {
-            then("모든 미지원 값과 null을 차단한다") {
-                listOf(AttributionRequirement.TEXT, AttributionRequirement.LINK, AttributionRequirement.UNKNOWN, null).forEach { requirement ->
+            then("LINK·UNKNOWN·null 을 차단한다") {
+                listOf(AttributionRequirement.LINK, AttributionRequirement.UNKNOWN, null).forEach { requirement ->
                     val cover = valid.cover!!.copy(rights = valid.cover!!.rights.copy(attributionRequirement = requirement))
                     validator.validate("sights", valid.copy(cover = cover)).map { it.reason } shouldContain "ATTRIBUTION_UNSUPPORTED"
                     val item = valid.items.first().copy(image = cover)

@@ -202,6 +202,28 @@ class CurationPublicationTest : BehaviorSpec() {
                 }
             }
 
+            `when`("사진 표시 의무가 TEXT 로 게시되면") {
+                then("공개 카드·상세에 출처 문구를 내리고 NONE 사진은 null 이다") {
+                    val doc = documents.getValue("restaurants")
+                    val credited = doc.cover!!.copy(rights = doc.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = "Photo: KTO / KOGL Type 1"))
+                    documents["restaurants"] = CurationFixtures.reviewed(doc.copy(cover = credited, items = listOf(doc.items.first().copy(image = credited)) + doc.items.drop(1)))
+                    CurationService.keys.forEach(::publish)
+
+                    val cards = service.getIndex("en").collections.associateBy { it.collectionKey }
+                    cards.getValue("restaurants").coverImageAttribution shouldBe "Photo: KTO / KOGL Type 1"
+                    cards.getValue("sights").coverImageAttribution shouldBe null
+                    val detail = service.getDetail("restaurants", "en")
+                    detail.coverImageAttribution shouldBe "Photo: KTO / KOGL Type 1"
+                    detail.items.map { it.imageAttribution } shouldBe listOf("Photo: KTO / KOGL Type 1") + List(9) { null }
+                    mvc.get("/api/curations/seoul/restaurants?lang=en") { header("X-API-Version", "1.0") }.andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.coverImageAttribution") { value("Photo: KTO / KOGL Type 1") }
+                        jsonPath("$.payload.items[0].imageAttribution") { value("Photo: KTO / KOGL Type 1") }
+                        jsonPath("$.payload.items[1].imageAttribution") { value(null) }
+                    }
+                }
+            }
+
             `when`("게시본의 표지나 항목 사진이 비어 있으면(저장본 손상) — Codex P2") {
                 then("500 이 아니라 503(CURATION-006) 으로 막는다") {
                     CurationService.keys.forEach(::publish)
