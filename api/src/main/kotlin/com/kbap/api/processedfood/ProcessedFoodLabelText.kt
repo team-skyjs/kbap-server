@@ -13,7 +13,7 @@ data class ProcessedFoodLabelText(
         private val WHITESPACE = Regex("[ \\t\\u00A0]+")
         private val MAY_CONTAIN = Regex("(같은|동일한)\\s*(제조\\s*)?(시설|공정)|혼입|함유\\s*가능|함유(될|할)\\s*수|포함될\\s*수|들어\\s*있을\\s*수|섞일\\s*수")
         private val DECLARATION_END = Regex("함유\\s*[.)。]?\\s*$")
-        private val SENTENCE_BREAK = Regex("(?<=함유)\\s*[.,。]\\s*|(?<=[.。])\\s+|(?<=습니다|합니다|있음)\\s+|\\s+(?=원재료|알레르기|이\\s*제품은)")
+        private val SENTENCE_BREAK = Regex("(?<=함유)\\s*[.,。]\\s*|(?<=[.。])\\s+|(?<=습니다|합니다|있음)\\s+|\\s+(?=원재료|알레르기|이\\s*제품은)|\\s*(?=[※*])")
 
         private val LIST_CONTINUES = charArrayOf(',', '(', '·')
 
@@ -24,11 +24,14 @@ data class ProcessedFoodLabelText(
             }
 
         fun of(pages: List<String>): ProcessedFoodLabelText {
-            val lines = pages.flatMap { Normalizer.normalize(it, Normalizer.Form.NFKC).lines() }
-                .map { it.replace(WHITESPACE, " ").trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
-            val sentences = joinListContinuations(lines).flatMap { it.split(SENTENCE_BREAK) }.map { it.trim() }.filter { it.isNotEmpty() }
+            val seen = mutableSetOf<String>()
+            val pageLines = pages.map { page ->
+                Normalizer.normalize(page, Normalizer.Form.NFKC).lines()
+                    .map { it.replace(WHITESPACE, " ").trim() }
+                    .filter { it.isNotEmpty() && seen.add(it) }
+            }
+            val lines = pageLines.flatten()
+            val sentences = pageLines.flatMap(::joinListContinuations).flatMap { it.split(SENTENCE_BREAK) }.map { it.trim() }.filter { it.isNotEmpty() }
             val (mayContain, rest) = sentences.partition { MAY_CONTAIN.containsMatchIn(it) }
             val (declaration, raw) = rest.partition { "알레르기" in it || DECLARATION_END.containsMatchIn(it) }
             return ProcessedFoodLabelText(
