@@ -63,7 +63,7 @@ class CurationService(
     fun updateDraft(adminId: Long, target: String, key: String, expectedVersion: Long, document: CurationDocument): CurationAdminDetail {
         access.verifyAdmin(adminId, target)
         val row = locked(key, expectedVersion)
-        val errors = validation.structure(document) + assetIssues(row, document, true, false)
+        val errors = validation.structure(document) + assetIssues(row, document, true, true)
         invalid(errors, row.version)
         if (row.draftDocument == document && row.updatedBy == adminId) entityManager.lock(row, LockModeType.PESSIMISTIC_FORCE_INCREMENT)
         row.updateDraft(validation.copy(document), adminId)
