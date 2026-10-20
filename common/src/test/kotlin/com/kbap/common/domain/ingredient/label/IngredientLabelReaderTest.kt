@@ -88,14 +88,28 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 reading.unmappedTokens shouldContainAll listOf("코코아버터", "버터향", "복숭아향", "돼지감자", "들깨", "대구산", "밀감")
             }
         }
-        `when`("품목 이름 바로 뒤에 맛·향·풍미가 붙은 풍미 원료이면 — 200건 대조에서 나온 오탐") {
-            then("그 품목으로 검출하지 않는다 — 같은 토큰 안의 다른 실재료는 그대로 찾는다") {
-                val reading = IngredientLabelReader.read(
-                    null,
-                    "계란맛어포, 소고기풍미분말, 돈육풍미분말, 달콤한버터맛씨즈닝, 버터리체다씨즈닝, 건조소고기맛어묵, 남쇠고기국물맛내기",
-                )
-                codes(reading) shouldBe setOf(IngredientCode.FISH, IngredientCode.BEEF)
-                reading.detections.single { it.code == IngredientCode.BEEF }.evidence shouldBe "남쇠고기국물맛내기"
+        `when`("토큰이 맛·향·풍미로 끝나는 향료 표기이면") {
+            then("그 품목으로 검출하지 않는다 — 버터향·우유맛·복숭아향·딸기풍미") {
+                codes(IngredientLabelReader.read(null, "합성착향료(버터향, 우유맛), 복숭아향, 딸기풍미")) shouldBe emptySet()
+            }
+        }
+        `when`("맛·풍미 뒤에 분말·오일·유·베이스·시즈닝이 붙은 원료이면 — 놓침이 오탐보다 비싸다(종교 회피)") {
+            then("그 품목으로 검출한다") {
+                codes(IngredientLabelReader.read(null, "돈육풍미분말, 소고기풍미분말, 쇠고기맛분말, 새우맛분말, 마늘맛오일, 땅콩향미유, 닭고기맛분말")) shouldBe
+                    setOf(IngredientCode.PORK, IngredientCode.BEEF, SHRIMP, IngredientCode.GARLIC, PEANUT, IngredientCode.CHICKEN)
+            }
+        }
+        `when`("가운뎃점 변형·괄호 변형·일본식 쉼표로 이어 쓰면") {
+            then("구분자로 보고 짧은 품목(밀·굴·게)까지 찾는다 — 흔적 없는 누락 금지") {
+                codes(IngredientLabelReader.read("밀∙대두", null)) shouldBe setOf(WHEAT, SOY)
+                codes(IngredientLabelReader.read("굴ㆍ전복‧홍합、게", null)) shouldBe setOf(OYSTER, ABALONE, MUSSEL, IngredientCode.CRAB)
+                codes(IngredientLabelReader.read("【밀】", null)) shouldBe setOf(WHEAT)
+                codes(IngredientLabelReader.read(null, "소맥분∙우유∙정제소금")) shouldBe setOf(WHEAT, MILK)
+            }
+        }
+        `when`("땅콩기름·땅콩유이면") {
+            then("땅콩만 검출한다 — 콩기름(대두)으로 잡지 않는다") {
+                codes(IngredientLabelReader.read(null, "땅콩기름, 땅콩유")) shouldBe setOf(PEANUT)
             }
         }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
