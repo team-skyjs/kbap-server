@@ -7,13 +7,13 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 import java.util.UUID
 
-enum class ScanBatchLifecycle { ACTIVE, CANCELLED, EXPIRED }
+enum class ScanBatchLifecycle { ACTIVE, CANCELLED, EXPIRED, QUOTA_EXHAUSTED }
 
 @Schema(description = "스캔 묶음 — 저장본 재조회(멱등, 유료 호출 없음)")
 data class ScanBatchResponse(
     @field:Schema(description = "묶음 id(생성 요청의 clientRequestId)", example = "0b6b5c6e-3f0a-4c8e-9a51-1f0f3b7d2a10")
     val batchId: String,
-    @field:Schema(description = "ACTIVE(실행·재시도 가능) / CANCELLED / EXPIRED(실행 창 15분 경과 — 결과는 7일 조회 가능)")
+    @field:Schema(description = "ACTIVE(실행·재시도 가능) / CANCELLED / EXPIRED(실행 창 15분 경과 — 결과는 7일 조회 가능) / QUOTA_EXHAUSTED(첫 결과 확정 시점에 무료 횟수가 없어 결과 없이 종료 — 남은 사진 CANCELLED)")
     val lifecycle: ScanBatchLifecycle,
     @field:Schema(description = "실행·재시도 가능 기한")
     val expiresAt: LocalDateTime,
@@ -28,6 +28,7 @@ data class ScanBatchResponse(
         fun of(operation: ScanOperation, batchId: UUID, photos: List<ScanOperationPhoto>, now: LocalDateTime): ScanBatchResponse {
             val lifecycle = when {
                 operation.lifecycle == ScanBatchService.CANCELLED -> ScanBatchLifecycle.CANCELLED
+                operation.lifecycle == ScanBatchService.QUOTA_EXHAUSTED -> ScanBatchLifecycle.QUOTA_EXHAUSTED
                 !now.isBefore(operation.expiresAt) -> ScanBatchLifecycle.EXPIRED
                 else -> ScanBatchLifecycle.ACTIVE
             }

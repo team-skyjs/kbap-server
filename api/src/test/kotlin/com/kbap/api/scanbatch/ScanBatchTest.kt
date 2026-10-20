@@ -293,6 +293,28 @@ class ScanBatchTest : BehaviorSpec() {
                     batches.startAttempt(owner.id, batchId, 1) shouldBe null
                 }
             }
+            `when`("취소와 첫 성공 확정이 동시에 오면 — 공부 참고") {
+                then("어느 쪽이 먼저든 차감·결과·상태가 서로 맞는다") {
+                    repeat(3) {
+                        val owner = member("batch-cancel-race-$it")
+                        val batchId = UUID.fromString(newBatch(owner, count = 1))
+                        val claim = batches.startAttempt(owner.id, batchId, 0)!!
+                        val start = CountDownLatch(1)
+                        val pool = Executors.newFixedThreadPool(2)
+                        val success = pool.submit<Boolean> { start.await(); batches.recordSuccess(claim, extraction) }
+                        val cancelled = pool.submit<String> { start.await(); batches.cancelBatch(owner.id, batchId.toString()).lifecycle.name }
+                        start.countDown()
+                        val committed = success.get(30, TimeUnit.SECONDS)
+                        cancelled.get(30, TimeUnit.SECONDS) shouldBe "CANCELLED"
+                        pool.shutdown()
+                        val expected = if (committed) 1L else 0L
+                        usages(batchId.toString()) shouldBe expected
+                        scanCount(owner) shouldBe expected
+                        read(owner, batchId.toString()).path("payload").path("photos")[0].path("state").asText() shouldBe (if (committed) "SUCCEEDED" else "CANCELLED")
+                        reserved(owner, batchId.toString()) shouldBe false
+                    }
+                }
+            }
             `when`("성공 결과 뒤에 취소하면") {
                 then("차감 1회는 유지되고 남은 사진은 CANCELLED") {
                     val owner = member("batch-cancel-after")
@@ -322,7 +344,7 @@ class ScanBatchTest : BehaviorSpec() {
                     val owner = member("batch-lease")
                     val batchId = UUID.fromString(newBatch(owner))
                     val claim = batches.startAttempt(owner.id, batchId, 0)!!
-                    sql("UPDATE scan_operation_photo SET lease_until = NOW(6) - INTERVAL 1 SECOND WHERE id = ${claim.photoRowId}")
+                    sql("UPDATE scan_operation_photo SET lease_until = '2000-01-01 00:00:00' WHERE id = ${claim.photoRowId}")
                     batches.recordSuccess(claim, extraction) shouldBe false
                     scanCount(owner) shouldBe 0
                     usages(batchId.toString()) shouldBe 0
@@ -341,10 +363,14 @@ class ScanBatchTest : BehaviorSpec() {
                     batches.recordSuccess(claim, extraction) shouldBe false
                     scanCount(owner) shouldBe Member.FREE_SCAN_LIMIT.toLong()
                     usages(batchId.toString()) shouldBe 0
-                    val photo = read(owner, batchId.toString()).path("payload").path("photos")[0]
-                    photo.path("state").asText() shouldBe "FAILED"
-                    photo.path("errorReason").asText() shouldBe "QUOTA_EXHAUSTED"
+                    val payload = read(owner, batchId.toString()).path("payload")
+                    payload.path("photos")[0].path("state").asText() shouldBe "FAILED"
+                    payload.path("photos")[0].path("errorReason").asText() shouldBe "QUOTA_EXHAUSTED"
                     sql("SELECT COUNT(*) FROM scan_operation_result r JOIN scan_operation o ON o.id = r.operation_id WHERE o.request_key = UUID_TO_BIN('$batchId', 0)") shouldBe 0
+                    payload.path("lifecycle").asText() shouldBe "QUOTA_EXHAUSTED"
+                    payload.path("photos")[1].path("state").asText() shouldBe "CANCELLED"
+                    batches.startAttempt(owner.id, batchId, 1) shouldBe null
+                    reserved(owner, batchId.toString()) shouldBe false
                 }
             }
             `when`("무제한 해제 회원이면") {

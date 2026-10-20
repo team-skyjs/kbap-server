@@ -58,7 +58,9 @@ class ScanOperationPhoto(
         ScanPhotoState.SUCCEEDED, ScanPhotoState.CANCELLED -> false
     }
 
-    fun holdsLease(token: ByteArray): Boolean = executionState == ScanPhotoState.RUNNING && leaseToken?.contentEquals(token) == true
+    fun isClaimedBy(token: ByteArray): Boolean = executionState == ScanPhotoState.RUNNING && leaseToken?.contentEquals(token) == true
+
+    fun isLeaseLiveAt(now: LocalDateTime): Boolean = leaseUntil?.isAfter(now) == true
 
     fun claim(token: ByteArray, until: LocalDateTime) {
         attemptNo += 1

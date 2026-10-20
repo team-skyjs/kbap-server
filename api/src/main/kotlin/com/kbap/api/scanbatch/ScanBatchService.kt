@@ -58,11 +58,12 @@ class ScanBatchService(
 
     @Transactional
     fun createBatch(memberId: Long, batchId: UUID, lang: String, currency: String, inputs: List<ScanBatchPhotoInput>): ScanBatchResponse {
-        if (!batchSwitch.enabled) throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
+        requireEnabled()
         if (inputs.size > MAX_PHOTOS) throw BusinessException(ErrorCode.SCAN_BATCH_TOO_MANY_PHOTOS)
         if (inputs.isEmpty() || inputs.distinctBy { it.photoId }.size != inputs.size || inputs.distinctBy { it.imagePath }.size != inputs.size) {
             throw BusinessException(ErrorCode.INVALID_REQUEST)
         }
+        members.findByIdForUpdate(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         val manifestHash = sha256("$lang|$currency|" + inputs.joinToString("|") { "${it.photoId}=${it.imagePath}" })
         operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId))?.let { existing ->
             if (!existing.manifestHash.contentEquals(manifestHash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
@@ -111,6 +112,7 @@ class ScanBatchService(
 
     @Transactional(readOnly = true)
     fun getBatch(memberId: Long, batchId: String): ScanBatchResponse {
+        requireEnabled()
         val now = LocalDateTime.now()
         val operation = parse(batchId)?.let { operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(it)) }
             ?.takeIf { now.isBefore(it.resultExpiresAt) }
@@ -120,6 +122,7 @@ class ScanBatchService(
 
     @Transactional
     fun cancelBatch(memberId: Long, batchId: String): ScanBatchResponse {
+        requireEnabled()
         val operation = parse(batchId)?.let { operations.findForUpdate(memberId, NAMESPACE, bytesOf(it)) }
             ?: throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
         if (operation.lifecycle == ACTIVE) {
@@ -132,6 +135,7 @@ class ScanBatchService(
 
     @Transactional
     fun startAttempt(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? {
+        if (!batchSwitch.enabled) return null
         val now = LocalDateTime.now()
         val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return null
         if (operation.lifecycle != ACTIVE || !now.isBefore(operation.expiresAt)) return null
@@ -169,6 +173,9 @@ class ScanBatchService(
             val unlocked = memberService.getMember(claim.memberId).scanUnlocked
             if (members.increaseScanCountWithinLimit(claim.memberId, Member.FREE_SCAN_LIMIT) == 0) {
                 fail(operation, photo, attempt, ScanOperationPhoto.QUOTA_EXHAUSTED, now)
+                operation.lifecycle = QUOTA_EXHAUSTED
+                photos.findByOperationIdOrderBySelectionIndex(operation.id).forEach(ScanOperationPhoto::cancel)
+                if (operation.reservationState == RESERVATION_HELD) releaseAfterCommit(operation)
                 return false
             }
             usages.save(ScanUsage(operation.id, now, if (unlocked) ENTITLEMENT_UNLIMITED else ENTITLEMENT_FREE))
@@ -197,14 +204,23 @@ class ScanBatchService(
     }
 
     private fun lockClaim(claim: ScanBatchClaim): Triple<ScanOperation, ScanOperationPhoto, ScanAttempt>? {
+        val now = LocalDateTime.now()
         val operation = operations.findByIdForUpdate(claim.operationId) ?: return null
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.id == claim.photoRowId } ?: return null
         val attempt = attempts.findById(claim.attemptId).orElse(null) ?: return null
-        if (operation.lifecycle != ACTIVE || !photo.holdsLease(claim.claimToken)) {
-            attempt.finish(ATTEMPT_DISCARDED, null, LocalDateTime.now())
+        if (operation.lifecycle != ACTIVE || !photo.isClaimedBy(claim.claimToken)) {
+            attempt.finish(ATTEMPT_DISCARDED, null, now)
+            return null
+        }
+        if (!photo.isLeaseLiveAt(now)) {
+            fail(operation, photo, attempt, ScanOperationPhoto.LEASE_EXPIRED, now)
             return null
         }
         return Triple(operation, photo, attempt)
+    }
+
+    private fun requireEnabled() {
+        if (!batchSwitch.enabled) throw BusinessException(ErrorCode.SCAN_BATCH_NOT_FOUND)
     }
 
     private fun reserve(memberId: Long, batchId: UUID, member: Member) {
@@ -250,6 +266,7 @@ class ScanBatchService(
         const val MODE = "MENU_BATCH"
         const val ACTIVE = "ACTIVE"
         const val CANCELLED = "CANCELLED"
+        const val QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
         const val MAX_PHOTOS = 10
         private const val SCAN_SEGMENT = "images/scans/"
         private const val FX_STATE = "NONE"
