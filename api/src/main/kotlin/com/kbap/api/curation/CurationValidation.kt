@@ -94,7 +94,7 @@ class CurationValidation {
     private fun normalize(raw: String): String = Normalizer.normalize(raw.trim(), Normalizer.Form.NFKC).lowercase().replace(Regex("\\s+"), " ")
     private fun normalizedUrl(raw: String): String = runCatching {
         val u = URI(raw).normalize()
-        URI(u.scheme?.lowercase(), u.userInfo, u.host?.lowercase(), if (u.port == 443) -1 else u.port, u.path.ifEmpty { "/" }, u.query, null).toASCIIString()
+        URI(u.scheme?.lowercase(), u.userInfo, u.host?.lowercase()?.trimEnd('.'), if (u.port == 443) -1 else u.port, u.path.ifEmpty { "/" }, u.query, null).toASCIIString()
     }.getOrDefault(raw)
 
     fun urlValid(raw: String): Boolean = runCatching {
