@@ -13,28 +13,28 @@ import java.time.LocalDateTime
     uniqueConstraints = [UniqueConstraint(name = "uq_processed_food_product_report_no", columnNames = ["report_no"])],
 )
 class ProcessedFoodProduct(
-    @Column(name = "report_no", nullable = false, length = 20)
+    @Column(name = "report_no", nullable = false, length = REPORT_NO_LENGTH)
     val reportNo: String = "",
 
-    @Column(name = "product_name", nullable = false, length = 200)
+    @Column(name = "product_name", nullable = false, length = NAME_LENGTH)
     var productName: String = "",
 
-    @Column(name = "normalized_name", nullable = false, length = 200)
+    @Column(name = "normalized_name", nullable = false, length = NAME_LENGTH)
     var normalizedName: String = "",
 
-    @Column(name = "product_gb", length = 20)
+    @Column(name = "product_gb", length = PRODUCT_GB_LENGTH)
     var productGb: String? = null,
 
-    @Column(name = "food_type", length = 200)
+    @Column(name = "food_type", length = FOOD_TYPE_LENGTH)
     var foodType: String? = null,
 
-    @Column(name = "food_type_state", length = 200)
+    @Column(name = "food_type_state", length = FOOD_TYPE_LENGTH)
     var foodTypeState: String? = null,
 
-    @Column(name = "manufacturer", length = 300)
+    @Column(name = "manufacturer", length = MAKER_LENGTH)
     var manufacturer: String? = null,
 
-    @Column(name = "seller", length = 300)
+    @Column(name = "seller", length = MAKER_LENGTH)
     var seller: String? = null,
 
     @Column(name = "maker_supplement", length = 200)
@@ -43,25 +43,25 @@ class ProcessedFoodProduct(
     @Column(name = "maker_checked_at")
     var makerCheckedAt: LocalDateTime? = null,
 
-    @Column(name = "barcode", length = 50)
+    @Column(name = "barcode", length = BARCODE_LENGTH)
     var barcode: String? = null,
 
-    @Column(name = "capacity", length = 300)
+    @Column(name = "capacity", length = CAPACITY_LENGTH)
     var capacity: String? = null,
 
     @Column(name = "raw_materials", columnDefinition = "text")
     var rawMaterials: String? = null,
 
-    @Column(name = "allergens", length = 1000)
+    @Column(name = "allergens", length = ALLERGENS_LENGTH)
     var allergens: String? = null,
 
     @Column(name = "nutrients", columnDefinition = "text")
     var nutrients: String? = null,
 
-    @Column(name = "image_url", length = 500)
+    @Column(name = "image_url", length = URL_LENGTH)
     var imageUrl: String? = null,
 
-    @Column(name = "meta_image_url", length = 500)
+    @Column(name = "meta_image_url", length = URL_LENGTH)
     var metaImageUrl: String? = null,
 
     @Column(name = "source", nullable = false, length = 30)
@@ -113,6 +113,15 @@ class ProcessedFoodProduct(
 
     companion object {
         const val SOURCE_HACCP = "HACCP"
+        const val REPORT_NO_LENGTH = 20
+        const val NAME_LENGTH = 200
+        const val PRODUCT_GB_LENGTH = 20
+        const val FOOD_TYPE_LENGTH = 200
+        const val MAKER_LENGTH = 300
+        const val BARCODE_LENGTH = 50
+        const val CAPACITY_LENGTH = 300
+        const val ALLERGENS_LENGTH = 1000
+        const val URL_LENGTH = 500
         private const val MAKER_SUPPLEMENT_LENGTH = 200
 
         fun collect(snapshot: ProcessedFoodSnapshot, collectedAt: LocalDateTime): ProcessedFoodProduct =

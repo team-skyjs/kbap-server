@@ -8,7 +8,6 @@ import com.kbap.common.port.publicdata.HaccpProduct
 import com.kbap.common.port.publicdata.HaccpProductSource
 import com.kbap.common.port.publicdata.PublicDataCallCounter
 import org.slf4j.LoggerFactory
-import org.springframework.data.domain.PageRequest
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.LocalDateTime
@@ -38,6 +37,7 @@ class ProcessedFoodMirror(
         var changed = 0
         var unchanged = 0
         var crossTypeDuplicates = 0
+        var skipped = 0
 
         foodTypes.forEach { type ->
             var fetched = 0
@@ -51,6 +51,7 @@ class ProcessedFoodMirror(
                     crossTypeDuplicates += page.items.size - fresh.size
                     val outcome = transaction.execute { upsert(fresh, now) }!!
                     inserted += outcome.inserted
+                    skipped += outcome.skipped
                     changed += outcome.changed
                     unchanged += outcome.unchanged
                     if (fetched >= page.totalCount) break
@@ -71,6 +72,7 @@ class ProcessedFoodMirror(
             changed = changed,
             unchanged = unchanged,
             crossTypeDuplicates = crossTypeDuplicates,
+            skippedRows = skipped,
             failedTypes = failedTypes,
             makerLookups = maker.calls,
             makerFilled = maker.filled,
@@ -84,12 +86,14 @@ class ProcessedFoodMirror(
     }
 
     private fun upsert(products: List<HaccpProduct>, now: LocalDateTime): UpsertOutcome {
-        if (products.isEmpty()) return UpsertOutcome(0, 0, 0)
-        val existing = repository.findAllByReportNoIn(products.map { it.reportNo }).associateBy { it.reportNo }
+        val (storable, oversized) = products.partition { it.reportNo.length <= ProcessedFoodProduct.REPORT_NO_LENGTH }
+        oversized.forEach { log.warn("가공식품 미러링 — 품목보고번호가 {}자를 넘어 건너뜁니다 length={} name={}", ProcessedFoodProduct.REPORT_NO_LENGTH, it.reportNo.length, it.productName.take(30)) }
+        if (storable.isEmpty()) return UpsertOutcome(0, 0, 0, oversized.size)
+        val existing = repository.findAllByReportNoIn(storable.map { it.reportNo }).associateBy { it.reportNo }
         var inserted = 0
         var changed = 0
         var unchanged = 0
-        products.forEach { product ->
+        storable.forEach { product ->
             val snapshot = product.toSnapshot()
             val row = existing[product.reportNo]
             when {
@@ -98,11 +102,11 @@ class ProcessedFoodMirror(
                 else -> unchanged++
             }
         }
-        return UpsertOutcome(inserted, changed, unchanged)
+        return UpsertOutcome(inserted, changed, unchanged, oversized.size)
     }
 
     private fun supplementMakers(now: LocalDateTime): MakerOutcome {
-        val targets = transaction.execute { repository.findMakerLookupTargets(PageRequest.of(0, makerLookupLimit)).filter { it.needsMakerLookup() }.map { it.id to it.reportNo } }!!
+        val targets = transaction.execute { repository.findMakerLookupTargets(makerLookupLimit).map { it.id to it.reportNo } }!!
         var calls = 0
         var filled = 0
         var failures = 0
@@ -130,22 +134,22 @@ class ProcessedFoodMirror(
 
     private fun HaccpProduct.toSnapshot() = ProcessedFoodSnapshot(
         reportNo = reportNo,
-        productName = productName,
-        productGb = productGb,
-        foodType = foodType,
-        foodTypeState = foodTypeState,
-        manufacturer = manufacturer,
-        seller = seller,
-        barcode = barcode,
-        capacity = capacity,
+        productName = productName.take(ProcessedFoodProduct.NAME_LENGTH),
+        productGb = productGb?.take(ProcessedFoodProduct.PRODUCT_GB_LENGTH),
+        foodType = foodType?.take(ProcessedFoodProduct.FOOD_TYPE_LENGTH),
+        foodTypeState = foodTypeState?.take(ProcessedFoodProduct.FOOD_TYPE_LENGTH),
+        manufacturer = manufacturer?.take(ProcessedFoodProduct.MAKER_LENGTH),
+        seller = seller?.take(ProcessedFoodProduct.MAKER_LENGTH),
+        barcode = barcode?.take(ProcessedFoodProduct.BARCODE_LENGTH),
+        capacity = capacity?.take(ProcessedFoodProduct.CAPACITY_LENGTH),
         rawMaterials = rawMaterials,
-        allergens = allergens,
+        allergens = allergens?.take(ProcessedFoodProduct.ALLERGENS_LENGTH),
         nutrients = nutrients,
-        imageUrl = imageUrl,
-        metaImageUrl = metaImageUrl,
+        imageUrl = imageUrl?.take(ProcessedFoodProduct.URL_LENGTH),
+        metaImageUrl = metaImageUrl?.take(ProcessedFoodProduct.URL_LENGTH),
     )
 
-    private data class UpsertOutcome(val inserted: Int, val changed: Int, val unchanged: Int)
+    private data class UpsertOutcome(val inserted: Int, val changed: Int, val unchanged: Int, val skipped: Int)
 
     private data class MakerOutcome(val calls: Int, val filled: Int, val failures: Int, val aborted: Boolean)
 
@@ -162,6 +166,7 @@ data class ProcessedFoodMirrorSummary(
     val changed: Int,
     val unchanged: Int,
     val crossTypeDuplicates: Int,
+    val skippedRows: Int,
     val failedTypes: List<String>,
     val makerLookups: Int,
     val makerFilled: Int,
