@@ -59,14 +59,19 @@ object IngredientLabelReader {
         val token = original.replace(NEGATED, " ").trim()
         if (token.isEmpty()) return emptySet()
         exactOf(token)?.let { return it }
-        val codes = token.split(SPACES).filter { it.length < token.length }.flatMap { exactOf(it).orEmpty() }.toMutableSet()
-        var rest = token
+        return token.split(SPACES).filter { it.isNotEmpty() }.flatMap(::wordCodes).toSet()
+    }
+
+    private fun wordCodes(word: String): Set<IngredientCode> {
+        exactOf(word)?.let { return it }
+        val codes = mutableSetOf<IngredientCode>()
+        var rest = word
         blocks.filter { it.term in rest }.forEach {
             if (isIngredientMention(rest, it.term)) codes += it.codes
             rest = rest.replace(it.term, " ")
         }
         containing.filter { isIngredientMention(rest, it.term) }.forEach { codes += it.codes }
-        suppressions.filter { it.term in token }.forEach { codes -= it.codes }
+        suppressions.filter { it.term in word }.forEach { codes -= it.codes }
         return codes
     }
 
