@@ -49,7 +49,7 @@ class ProcessedFoodLabelScanService(
                 return responseOf(memberId, key, text, reading, charged = false)
             }
         }
-        val readable = text.hasLabelLine && reading.detections.isNotEmpty() || text.hasLabelLine && reading.unmappedTokens.count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
+        val readable = text.hasLabelLine && reading.detections.isNotEmpty() || text.hasLabelLine && unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 } >= MIN_HANGUL_TOKENS
         val operation = analysisId?.let { continued(memberId, it, now) }
         if (!readable) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ)
         val key = operation?.let { ProcessedFoodNameScanService.uuidOf(it.requestKey) } ?: clientRequestId!!
@@ -89,7 +89,7 @@ class ProcessedFoodLabelScanService(
             state = ProcessedFoodNameScanState.LABEL_RESULT,
             labelSource = sourceOf(reading, text),
             detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
-            unmapped = reading.unmappedTokens,
+            unmapped = unmappedOf(reading),
             mayContain = mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
             avoidance = ProcessedFoodDetailResponse.avoidanceOf(memberService.getAvoidance(memberId), reading),
             rawText = text.rawText,
@@ -135,6 +135,9 @@ class ProcessedFoodLabelScanService(
         if (members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
     }
 
+    private fun unmappedOf(reading: IngredientLabelReading): List<String> =
+        reading.unmappedTokens.filterNot { it.replace(" ", "") in LABEL_HEADINGS }
+
     private fun sourceOf(reading: IngredientLabelReading, text: ProcessedFoodLabelText): ProcessedFoodLabelSource = when {
         reading.declaration == AllergenDeclaration.LISTED -> ProcessedFoodLabelSource.DECLARED
         text.rawMaterials.isNotBlank() -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
@@ -148,6 +151,11 @@ class ProcessedFoodLabelScanService(
         private const val FX_STATE = "NONE"
         private const val LIMITS_VERSION = "pfood-label-1"
         private const val MIN_HANGUL_TOKENS = 2
+        private val LABEL_HEADINGS = setOf(
+            "원재료", "원재료명", "원재료및함량", "원재료명및함량", "함량", "및",
+            "알레르기", "유발물질", "알레르기유발물질", "알레르기유발성분", "알레르기성분", "알레르기물질",
+            "함유", "성분", "성분명", "식품유형", "내용량",
+        )
         private const val MAX_FREE_RECALLS = 3
         private val FREE_RECALL_WINDOW: java.time.Duration = java.time.Duration.ofMinutes(30)
         private val CONTINUABLE = setOf(ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.REJECTED, ProcessedFoodNameScanState.LABEL_RESULT)
