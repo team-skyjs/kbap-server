@@ -5,6 +5,10 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.admin.AdminMemberQueryService
+import com.kbap.api.notification.HelpfulPushListener
+import com.kbap.common.domain.notification.PushDispatchResult
+import com.kbap.common.domain.notification.PushRequest
+import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
@@ -39,6 +43,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
     @Autowired private lateinit var writeSwitch: ProcessedFoodReviewSwitch
     @Autowired private lateinit var adminMembers: AdminMemberQueryService
     @Autowired private lateinit var uploadedImages: UploadedImageJpaRepository
+    @Autowired private lateinit var processedFoodRepository: ProcessedFoodProductJpaRepository
 
     private val mapper = jacksonObjectMapper()
 
@@ -58,12 +63,12 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
         fun token(m: Member) = tokens.issueAccessToken(m.id, MemberRole.USER)
         fun json(body: String): JsonNode = mapper.readTree(body)
 
-        fun write(productId: Long, author: Member?, content: String = "바삭하고 짭짤해서 맛있어요", rating: Int = 4, version: String = "3.2", expected: Int = 200): JsonNode = json(
+        fun write(productId: Long, author: Member?, body: String = "바삭하고 짭짤해서 맛있어요", rating: Int = 4, version: String = "3.2", expected: Int = 200): JsonNode = json(
             mvc.post("/api/processed-foods/$productId/reviews") {
                 header("X-API-Version", version)
                 author?.let { header("Authorization", "Bearer ${token(it)}") }
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("rating" to rating, "content" to content))
+                content = mapper.writeValueAsString(mapOf("rating" to rating, "content" to body))
             }.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         )
         fun get(path: String, version: String, viewer: Member? = null, expected: Int = 200): JsonNode = json(
@@ -130,7 +135,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
             `when`("본문이 10자 미만이거나 비회원이거나 없는·생산종료 제품이면") {
                 then("REVIEW-005·401·PFOOD-001·PFOOD-002 로 막는다") {
                     val author = member("pfr-invalid")
-                    write(product("짧은글과자"), author, content = "맛있어요", expected = 400).path("code").asText() shouldBe "REVIEW-005"
+                    write(product("짧은글과자"), author, body = "맛있어요", expected = 400).path("code").asText() shouldBe "REVIEW-005"
                     write(product("비회원과자"), null, expected = 401)
                     write(Long.MAX_VALUE, author, expected = 404).path("code").asText() shouldBe "PFOOD-001"
                     sql("INSERT INTO BATCH_JOB_INSTANCE (JOB_INSTANCE_ID, VERSION, JOB_NAME, JOB_KEY) VALUES (990201, 0, 'processedFoodMirrorJob', 'pfr-990201')")
@@ -145,8 +150,9 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                 }
             }
             `when`("3.1 헤더로 쓰면") {
-                then("엔드포인트가 없다(400 COMMON-002)") {
-                    write(product("구버전과자"), member("pfr-old"), version = "3.1", expected = 400)
+                then("그 버전에는 경로가 없어 404 이고 행이 생기지 않는다") {
+                    write(product("구버전과자"), member("pfr-old"), version = "3.1", expected = 404)
+                    sql("SELECT COUNT(*) FROM food_review") shouldBe 0
                 }
             }
         }
@@ -156,7 +162,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                 then("최신순으로 보이고 다음 커서로 이어진다") {
                     val productId = product("목록과자")
                     val ids = (1..3).map { write(productId, member("pfr-list-$it")).path("payload").path("reviewId").asLong() }
-                    val page = get("/api/processed-foods/$productId/reviews", "3.2").path("payload")
+                    val page = get("/api/processed-foods/$productId/reviews?lang=en", "3.2").path("payload")
                     page.path("items").map { it.path("reviewId").asLong() } shouldBe ids.reversed()
                     page.path("items")[0].path("processedFood").path("processedFoodId").asLong() shouldBe productId
                 }
@@ -222,7 +228,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     val reviewId = write(productId, author).path("payload").path("reviewId").asLong()
                     mvc.delete("/api/reviews/$reviewId") { header("X-API-Version", "3.2"); header("Authorization", "Bearer ${token(author)}") }.andExpect { status { isOk() } }
                     sql("SELECT review_count FROM member WHERE id = ${author.id}") shouldBe 0
-                    get("/api/processed-foods/$productId/reviews", "3.2").path("payload").path("items").size() shouldBe 0
+                    get("/api/processed-foods/$productId/reviews?lang=en", "3.2").path("payload").path("items").size() shouldBe 0
                 }
             }
             `when`("작성자가 탈퇴하면") {
@@ -231,13 +237,24 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     val productId = product("탈퇴과자")
                     write(productId, author)
                     mvc.patch("/api/auth/withdraw") { header("X-API-Version", "3.2"); header("Authorization", "Bearer ${token(author)}") }.andExpect { status { isOk() } }
-                    val item = get("/api/processed-foods/$productId/reviews", "3.2").path("payload").path("items")[0]
+                    val item = get("/api/processed-foods/$productId/reviews?lang=en", "3.2").path("payload").path("items")[0]
                     item.path("authorWithdrawn").asBoolean() shouldBe true
                 }
             }
         }
 
         given("분기 지점") {
+            `when`("다른 회원이 가공식품 리뷰에 좋아요를 누르면") {
+                then("도움돼요 알림이 작성자에게 제품명으로 간다") {
+                    val sent = mutableListOf<PushRequest>()
+                    val listener = HelpfulPushListener({ sent += it; PushDispatchResult(1, 0) }, foods, processedFoodRepository)
+                    val author = member("pfr-like")
+                    val productId = product("좋아요과자")
+                    listener.handle(ReviewLiked(77, author.id, null, productId))
+                    sent.single().memberIds shouldBe listOf(author.id)
+                    sent.single().argsByLang.values.map { it["food"] }.toSet() shouldBe setOf("좋아요과자")
+                }
+            }
             `when`("어드민이 회원 리뷰 목록을 보면") {
                 then("가공식품 리뷰에 대상 타입·제품 id·제품명이 붙는다") {
                     val author = member("pfr-admin")

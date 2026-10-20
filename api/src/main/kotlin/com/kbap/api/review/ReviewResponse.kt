@@ -4,6 +4,8 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.review.model.PlaceSource
 import com.kbap.common.domain.review.model.Review
+import com.kbap.common.domain.review.model.ReviewTargetType
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.util.ImageUrls
 import com.fasterxml.jackson.annotation.JsonInclude
@@ -88,6 +90,13 @@ data class ReviewResponse(
 
     @field:Schema(description = "작성 시 고른 식당 정보. 고르지 않았으면 null.", nullable = true)
     val place: ReviewPlaceResponse? = null,
+
+    @field:Schema(description = "리뷰 대상 — FOOD(음식) / PROCESSED_FOOD(가공식품 — 3.2 이상 응답에만 나온다). 가공식품 리뷰는 servingSpeed·staffKindness 가 0, place 가 null 이다")
+    val targetType: ReviewTargetType = ReviewTargetType.FOOD,
+
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "리뷰 대상 가공식품 요약 — 가공식품 리뷰에만 있고 음식 리뷰에서는 필드 자체가 생략된다", nullable = true)
+    val processedFood: ReviewProcessedFoodResponse? = null,
 ) {
     companion object {
         fun from(
@@ -97,6 +106,7 @@ data class ReviewResponse(
             likeCount: Long,
             likedByMe: Boolean,
             food: ReviewFoodResponse? = null,
+            processedFood: ReviewProcessedFoodResponse? = null,
         ): ReviewResponse =
             ReviewResponse(
                 reviewId = review.id,
@@ -113,6 +123,8 @@ data class ReviewResponse(
                 likedByMe = likedByMe,
                 food = food,
                 place = review.place?.let(ReviewPlaceResponse::from),
+                targetType = review.targetType,
+                processedFood = processedFood,
             )
     }
 }
@@ -147,5 +159,25 @@ data class ReviewPlaceResponse(
                 latitude = place.latitude,
                 longitude = place.longitude,
             )
+    }
+}
+
+@Schema(description = "리뷰 대상 가공식품 요약")
+data class ReviewProcessedFoodResponse(
+    @field:Schema(description = "가공식품 id", example = "1201")
+    val processedFoodId: Long,
+    @field:Schema(description = "품목보고번호", example = "19700001001")
+    val reportNo: String,
+    @field:Schema(description = "제품명(표시 원문)", example = "새우깡")
+    val productName: String,
+    @field:Schema(description = "제조사 — 없으면 null", example = "농심", nullable = true)
+    val maker: String?,
+    @field:Schema(description = "제품 이미지 URL — 없으면 null", nullable = true)
+    val imageUrl: String?,
+) {
+    companion object {
+        fun from(product: ProcessedFoodProduct) = ReviewProcessedFoodResponse(
+            product.id, product.reportNo, product.productName, product.displayMaker(), ProcessedFoodProduct.secureImageUrl(product.imageUrl),
+        )
     }
 }

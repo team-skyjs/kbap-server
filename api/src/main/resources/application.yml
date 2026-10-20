@@ -121,6 +121,8 @@ kbap:
     # language 가 비어 있는 리뷰만 판별해 그 컬럼만 쓴다. 여러 태스크가 동시에 돌아도 같은 값이다. 끄려면 false.
     language-backfill:
       enabled: ${REVIEW_LANGUAGE_BACKFILL_ENABLED:true}
+    # 가공식품 리뷰 쓰기(KB-810 ①-b). 앱 2차 OTA 뒤 켠다 — 꺼져 있으면 작성은 403 PFOOD-005, 읽기는 그대로.
+    processed-food-write-enabled: ${PROCESSED_FOOD_REVIEW_WRITE_ENABLED:false}
   translation:
     max-concurrent-engine-calls: ${TRANSLATION_MAX_CONCURRENT:4}
   llm:

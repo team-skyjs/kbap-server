@@ -7,6 +7,7 @@ import com.kbap.common.domain.ingredient.label.IngredientLabelSource
 import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -24,12 +25,24 @@ data class ProcessedFoodSummaryResponse(
     val foodType: String?,
     @field:Schema(description = "제품 이미지 URL(HACCP http 원본은 https 로 바꿔 내려간다) — 없으면 null(플레이스홀더는 앱)", nullable = true)
     val imageUrl: String?,
+    @field:Schema(description = "리뷰 수 — 검색 결과에서 채운다(이름 스캔 후보는 0)", example = "12")
+    val reviewCount: Long = 0,
+    @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.2", nullable = true)
+    val avgRating: Double? = null,
 ) {
     companion object {
-        fun from(product: ProcessedFoodProduct) =
-            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl))
+        fun from(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate? = null) =
+            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl), rating?.reviewCount ?: 0, rating?.average)
     }
 }
+
+@Schema(description = "가공식품 리뷰 요약")
+data class ProcessedFoodReviewSummaryResponse(
+    @field:Schema(description = "리뷰 수", example = "12")
+    val count: Long,
+    @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.2", nullable = true)
+    val avgRating: Double?,
+)
 
 @Schema(description = "알레르기 판독 근거 — DECLARED: 알레르기 표시란(의무 표시)이 있다 · INGREDIENTS_ONLY: 표시란이 '알수없음'·빈 값이라 원재료 원문으로만 판독 · NONE: 둘 다 없다")
 enum class ProcessedFoodLabelSource { DECLARED, INGREDIENTS_ONLY, NONE }
@@ -60,9 +73,11 @@ data class ProcessedFoodDetailResponse(
     val source: ProcessedFoodSourceResponse,
     @field:Schema(description = "제품 이미지 — 없으면 null", nullable = true)
     val image: ProcessedFoodImageResponse?,
+    @field:Schema(description = "리뷰 요약(수·평균 별점)")
+    val reviewSummary: ProcessedFoodReviewSummaryResponse,
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, reading: IngredientLabelReading, avoidance: Avoidance?): ProcessedFoodDetailResponse =
+        fun of(product: ProcessedFoodProduct, reading: IngredientLabelReading, avoidance: Avoidance?, rating: ProcessedFoodRatingAggregate?): ProcessedFoodDetailResponse =
             ProcessedFoodDetailResponse(
                 id = product.id,
                 reportNo = product.reportNo,
@@ -82,6 +97,7 @@ data class ProcessedFoodDetailResponse(
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.haccp", product.collectedAt),
                 image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
+                reviewSummary = ProcessedFoodReviewSummaryResponse(rating?.reviewCount ?: 0, rating?.average),
             )
 
         private fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
