@@ -21,7 +21,7 @@ class ProcessedFoodService(
     fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
         if (tokens.isEmpty()) throw BusinessException(ErrorCode.BLANK_SEARCH_KEYWORD)
-        val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value >= 0 } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
+        val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val seenSince = products.findLastCompletedMirrorStartedAt()?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
         val makerKeywords = (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct()
         val candidates = (
@@ -49,6 +49,7 @@ class ProcessedFoodService(
 
     companion object {
         private const val CANDIDATE_LIMIT = 300
+        private const val MAX_OFFSET = 10_000
         private val NO_BASELINE: LocalDateTime = LocalDateTime.of(1970, 1, 1, 0, 0)
     }
 }
