@@ -56,7 +56,10 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
         WHERE status = 'ACTIVE' AND last_seen_at >= :seenSince
           AND (manufacturer LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
             OR seller LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
-            OR maker_supplement LIKE CONCAT('%', :escaped, '%') ESCAPE '\\')
+            OR maker_supplement LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
+            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(manufacturer, ' ', ''), '(', ''), ')', ''), '[', ''), ']', ''), '·', ''), '・', ''), ',', ''), '.', ''), '_', ''), '-', '') LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
+            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(seller, ' ', ''), '(', ''), ')', ''), '[', ''), ']', ''), '·', ''), '・', ''), ',', ''), '.', ''), '_', ''), '-', '') LIKE CONCAT('%', :escaped, '%') ESCAPE '\\'
+            OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(maker_supplement, ' ', ''), '(', ''), ')', ''), '[', ''), ']', ''), '·', ''), '・', ''), ',', ''), '.', ''), '_', ''), '-', '') LIKE CONCAT('%', :escaped, '%') ESCAPE '\\')
         ORDER BY id
         LIMIT :limit
         """,
