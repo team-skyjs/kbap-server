@@ -23,7 +23,7 @@ class CurationValidation {
         .digest(mapper.writeValueAsBytes(document.copy(editorialReview = null)))
         .joinToString("") { "%02x".format(it) }
 
-    private fun attributionTextValid(text: String?) = !text.isNullOrBlank() && text.length <= ATTRIBUTION_TEXT_LIMIT && text.none { Character.getType(it).toByte() in invisibleTypes }
+    private fun attributionTextValid(text: String?) = !text.isNullOrBlank() && text.length <= ATTRIBUTION_TEXT_LIMIT && text.codePoints().noneMatch { Character.getType(it).toByte() in invisibleTypes }
 
     fun structure(document: CurationDocument): List<CurationIssue> = buildList {
         if (document.items.size > 50 || mapper.writeValueAsBytes(document).size > 1024 * 1024) add(CurationIssue("document", "DOCUMENT_LIMIT"))
