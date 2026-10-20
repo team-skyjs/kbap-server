@@ -233,6 +233,37 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
                 }
             }
 
+            `when`("페이지에 품목보고번호가 컬럼(20자)보다 긴 행과 판매원이 300자를 넘는 행이 섞여 있으면 — 공부 세션") {
+                then("긴 번호 행만 건너뛰어 세고, 나머지는 저장하며 긴 문자열은 컬럼 길이로 자른다(페이지·유형이 멈추지 않는다)") {
+                    val rows = listOf(
+                        product("1".repeat(25), "번호긴행", "유탕면류"),
+                        product("9500000000001", "판매원긴행", "유탕면류").copy(seller = "판".repeat(400)),
+                        product("9500000000002", "보통행", "유탕면류"),
+                    )
+
+                    val summary = mirror(FakeSource(mapOf("유탕면" to rows)), FakeLookup(emptyMap()), listOf("유탕면"), pageSize = 100).mirror()
+
+                    summary.skippedRows shouldBe 1
+                    summary.inserted shouldBe 2
+                    count("SELECT COUNT(*) FROM processed_food_product") shouldBe 2
+                    count("SELECT CHAR_LENGTH(seller) FROM processed_food_product WHERE report_no = '9500000000001'") shouldBe 300
+                }
+            }
+
+            `when`("제조사 미기재 판정이 SQL·코틀린에서 갈릴 수 있는 값이면 — 공부 세션") {
+                then("'_주소' 처럼 회사명이 빈 판매원은 미기재로 조회하고, '알수없음상사' 처럼 접두만 같은 회사명은 조회하지 않는다") {
+                    val rows = listOf(
+                        product("9600000000001", "판매원빈회사", "유탕면류", maker = "알수없음").copy(seller = "_전라북도 익산시 서동로"),
+                        product("9600000000002", "접두만같음", "유탕면류", maker = "알수없음상사"),
+                    )
+                    val lookup = FakeLookup(mapOf("9600000000001" to "㈜테스트"))
+
+                    mirror(FakeSource(mapOf("유탕면" to rows)), lookup, listOf("유탕면"), pageSize = 100).mirror()
+
+                    lookup.calls shouldBe listOf("9600000000001")
+                }
+            }
+
             `when`("한 유형의 호출이 재시도 끝에 실패하면") {
                 then("그 유형만 실패로 남기고 다른 유형은 계속 수집한다") {
                     val source = FakeSource(mapOf("유탕면" to ramen, "과자" to snacks))
