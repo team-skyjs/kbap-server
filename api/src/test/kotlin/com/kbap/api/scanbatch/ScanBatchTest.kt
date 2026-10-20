@@ -172,6 +172,23 @@ class ScanBatchTest : BehaviorSpec() {
                     redis.opsForZSet().size("scan:reservations:${owner.id}") shouldBe 1
                 }
             }
+            `when`("멱등 재생 중에 다른 트랜잭션이 그 묶음 행을 잠그고 있으면 — Codex P2(잠금 역전)") {
+                then("재생은 묶음 행 잠금을 기다리지 않고 바로 같은 묶음을 돌려준다(회원 → 묶음 역순 잠금 없음)") {
+                    val owner = member("batch-replay-lock")
+                    val requestId = UUID.randomUUID()
+                    val payload = body(requestId, photos(owner, 1))
+                    create(owner, payload)
+                    dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        holder.createStatement().use { it.executeQuery("SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$requestId', 0) FOR UPDATE").close() }
+                        val pool = Executors.newSingleThreadExecutor()
+                        val replay = pool.submit<String> { create(owner, payload).path("payload").path("batchId").asText() }
+                        replay.get(5, TimeUnit.SECONDS) shouldBe requestId.toString()
+                        holder.rollback()
+                        pool.shutdown()
+                    }
+                }
+            }
             `when`("플래그를 끈 뒤 기존 묶음을 조회·취소하면 — Codex P2") {
                 then("생성과 같이 404 SCAN-010 이다") {
                     val owner = member("batch-flag-off")
@@ -222,6 +239,17 @@ class ScanBatchTest : BehaviorSpec() {
                     val payload = read(owner, batchId).path("payload")
                     payload.path("usageRecorded").asBoolean() shouldBe true
                     payload.path("photos").map { it.path("state").asText() } shouldBe listOf("SUCCEEDED", "SUCCEEDED")
+                }
+            }
+            `when`("같은 성공 콜백이 두 번 오면 — Codex P2") {
+                then("두 번째는 폐기되고 이미 SUCCEEDED 인 시도 기록은 그대로다") {
+                    val owner = member("batch-dup-callback")
+                    val batchId = UUID.fromString(newBatch(owner))
+                    val claim = batches.startAttempt(owner.id, batchId, 0)!!
+                    batches.recordSuccess(claim, extraction) shouldBe true
+                    batches.recordSuccess(claim, extraction) shouldBe false
+                    sql("SELECT COUNT(*) FROM scan_attempt WHERE id = ${claim.attemptId} AND state = 'SUCCEEDED'") shouldBe 1
+                    scanCount(owner) shouldBe 1
                 }
             }
             `when`("두 사진의 첫 성공이 동시에 확정되면") {
