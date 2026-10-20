@@ -38,7 +38,8 @@ class ProcessedFoodLabelScanService(
         if (analysisId == null) members.findByIdForUpdate(memberId)
         val member = memberService.getMember(memberId)
         val text = ProcessedFoodLabelText.of(pages)
-        val reading = IngredientLabelReader.read(text.allergens, text.rawMaterials.ifEmpty { null })
+        val headingSeen = listOfNotNull(text.allergens, text.rawMaterials).any { HEADING_PHRASE.containsMatchIn(it) }
+        val reading = IngredientLabelReader.read(text.allergens?.let(::withoutHeadings), withoutHeadings(text.rawMaterials).ifBlank { null })
         val now = LocalDateTime.now()
         val manifestHash = MessageDigest.getInstance("SHA-256").digest(pages.joinToString("") { "${it.length}:$it" }.toByteArray(Charsets.UTF_8))
         if (analysisId == null) {
@@ -49,7 +50,6 @@ class ProcessedFoodLabelScanService(
                 return responseOf(memberId, key, text, reading, charged = false)
             }
         }
-        val headingSeen = reading.unmappedTokens.any { it.replace(" ", "") in LABEL_HEADINGS }
         val hangulTokens = unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 }
         val readable = text.hasLabelLine && (reading.detections.isNotEmpty() || hangulTokens >= if (headingSeen) 1 else MIN_HANGUL_TOKENS)
         val operation = analysisId?.let { continued(memberId, it, now) }
@@ -137,6 +137,8 @@ class ProcessedFoodLabelScanService(
         if (members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
     }
 
+    private fun withoutHeadings(text: String): String = text.replace(HEADING_PHRASE, " ")
+
     private fun unmappedOf(reading: IngredientLabelReading): List<String> =
         reading.unmappedTokens.filterNot { it.replace(" ", "") in LABEL_HEADINGS }
 
@@ -156,7 +158,10 @@ class ProcessedFoodLabelScanService(
         private val LABEL_HEADINGS = setOf(
             "원재료", "원재료명", "원재료및함량", "원재료명및함량", "함량", "및",
             "알레르기", "유발물질", "알레르기유발물질", "알레르기유발성분", "알레르기성분", "알레르기물질",
-            "함유", "성분", "성분명", "식품유형", "내용량",
+            "성분", "성분명", "식품유형", "내용량",
+        )
+        private val HEADING_PHRASE = Regex(
+            LABEL_HEADINGS.sortedByDescending { it.length }.joinToString("|", "(?<![가-힣])(?:", ")(?![가-힣])") { heading -> heading.map { Regex.escape(it.toString()) }.joinToString("\\s*") },
         )
         private const val MAX_FREE_RECALLS = 3
         private val FREE_RECALL_WINDOW: java.time.Duration = java.time.Duration.ofMinutes(30)
