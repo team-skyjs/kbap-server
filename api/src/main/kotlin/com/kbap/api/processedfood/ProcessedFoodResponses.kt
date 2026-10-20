@@ -22,12 +22,12 @@ data class ProcessedFoodSummaryResponse(
     val maker: String?,
     @field:Schema(description = "식품 유형", example = "과자", nullable = true)
     val foodType: String?,
-    @field:Schema(description = "제품 이미지 URL — 없으면 null(플레이스홀더는 앱)", nullable = true)
+    @field:Schema(description = "제품 이미지 URL(HACCP http 원본은 https 로 바꿔 내려간다) — 없으면 null(플레이스홀더는 앱)", nullable = true)
     val imageUrl: String?,
 ) {
     companion object {
         fun from(product: ProcessedFoodProduct) =
-            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, product.imageUrl)
+            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl))
     }
 }
 
@@ -53,6 +53,8 @@ data class ProcessedFoodDetailResponse(
     val labelSource: ProcessedFoodLabelSource,
     @field:Schema(description = "검출된 회피 재료 — 출처(알레르기 표시 우선)와 근거 토큰. 검출되지 않은 재료는 '없음'이 아니라 미확인이다")
     val detections: List<ProcessedFoodDetectionResponse>,
+    @field:Schema(description = "81종 어디에도 대응하지 못한 원문 토큰(원재료·알레르기 표시) — 앱이 '확인 필요'로 보여 준다. 검출 없음이 안전을 뜻하지 않는다", example = "[\"미국산\", \"버터향\"]")
+    val unmapped: List<String>,
     @field:Schema(description = "조회 회원의 회피 재료별 대조 — DETECTED 또는 UNCONFIRMED 뿐(없음·안전 판정 없음). 비회원은 null", nullable = true)
     val avoidance: List<ProcessedFoodAvoidanceResponse>?,
     val source: ProcessedFoodSourceResponse,
@@ -76,9 +78,10 @@ data class ProcessedFoodDetailResponse(
                     else -> ProcessedFoodLabelSource.NONE
                 },
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
+                unmapped = reading.unmappedTokens,
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.haccp", product.collectedAt),
-                image = product.imageUrl?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
+                image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
             )
 
         private fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
