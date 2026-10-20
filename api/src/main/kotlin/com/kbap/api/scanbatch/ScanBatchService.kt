@@ -11,6 +11,20 @@ import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.domain.scan.ScanOperationPhotoJpaRepository
 import com.kbap.common.domain.scan.ScanOperationResultJpaRepository
 import com.kbap.common.domain.scan.ScanUsageJpaRepository
+import com.kbap.common.domain.scan.ScanMergedItemJpaRepository
+import com.kbap.common.domain.scan.ScanOccurrenceJpaRepository
+import com.kbap.common.domain.scan.ScanHistoryJpaRepository
+import com.kbap.common.domain.scan.ScanHistorySourceJpaRepository
+import com.kbap.common.domain.scan.model.ScanMergedItem
+import com.kbap.common.domain.scan.model.ScanOccurrence
+import com.kbap.common.domain.scan.model.ScanHistory
+import com.kbap.common.domain.scan.model.ScanHistorySource
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.LanguageCode
+import com.kbap.common.port.llm.MenuBoardLine
+import com.kbap.common.util.KoreanMenuNameNormalizer
+import com.kbap.api.food.FoodService
+import java.text.Normalizer
 import com.kbap.common.domain.scan.model.ScanAttempt
 import com.kbap.common.domain.scan.model.ScanOperation
 import com.kbap.common.domain.scan.model.ScanOperationPhoto
@@ -53,6 +67,12 @@ class ScanBatchService(
     private val members: MemberJpaRepository,
     private val reservationStore: ScanReservationStore,
     private val batchSwitch: ScanBatchSwitch,
+    private val mergedItems: ScanMergedItemJpaRepository,
+    private val occurrences: ScanOccurrenceJpaRepository,
+    private val histories: ScanHistoryJpaRepository,
+    private val historySources: ScanHistorySourceJpaRepository,
+    private val foodService: FoodService,
+    private val foods: FoodJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -166,7 +186,7 @@ class ScanBatchService(
     }
 
     @Transactional
-    fun recordSuccess(claim: ScanBatchClaim, document: Map<String, Any?>): Boolean {
+    fun recordSuccess(claim: ScanBatchClaim, lines: List<MenuBoardLine>): Boolean {
         val now = LocalDateTime.now()
         val (operation, photo, attempt) = lockClaim(claim) ?: return false
         if (operation.usageRecordedAt == null) {
@@ -182,7 +202,8 @@ class ScanBatchService(
             operation.usageRecordedAt = now
             releaseAfterCommit(operation)
         }
-        results.save(ScanOperationResult(operation.id, photo.id, attempt.id, attempt.attemptNo, 1, document))
+        results.save(ScanOperationResult(operation.id, photo.id, attempt.id, attempt.attemptNo, 1, mapOf("lines" to lines.map(::documentOf))))
+        storeLines(operation, photo, lines)
         photo.succeed()
         attempt.finish(ATTEMPT_SUCCEEDED, null, now)
         operation.resultRevision += 1
@@ -201,6 +222,33 @@ class ScanBatchService(
         attempt.finish(ATTEMPT_FAILED, reason, now)
         val allFailed = photos.findByOperationIdOrderBySelectionIndex(operation.id).all { it.executionState == ScanPhotoState.FAILED }
         if (allFailed && operation.usageRecordedAt == null && operation.reservationState == RESERVATION_HELD) releaseAfterCommit(operation)
+    }
+
+    private fun storeLines(operation: ScanOperation, photo: ScanOperationPhoto, lines: List<MenuBoardLine>) {
+        val keys = lines.map { KoreanMenuNameNormalizer.matchKey(it.koreanName) }
+        val namesByKey = lines.zip(keys).filter { (_, key) -> key.isNotBlank() }.associate { (line, key) -> key to line.koreanName }
+        val known = foodService.getFoodsByKoreanNames(namesByKey.keys)
+        val foodsByKey = known + foodService.createIncomplete(namesByKey - known.keys)
+        lines.forEachIndexed { rowIndex, line ->
+            val food = foodsByKey[keys[rowIndex]]
+            val mergeKey = line.priceKrw?.let { price -> sha256("${normalized(line.rawName)}|$price|${normalized(line.option).orEmpty()}") }
+            val merged = mergeKey?.let { mergedItems.findByOperationIdAndMergeKey(operation.id, it) }
+                ?: mergedItems.save(ScanMergedItem(operation.id, bytesOf(UUID.randomUUID()), mergeKey, documentOf(line)))
+            val occurrence = occurrences.save(
+                ScanOccurrence(
+                    operationId = operation.id,
+                    photoRowId = photo.id,
+                    occurrenceKey = bytesOf(UUID.randomUUID()),
+                    rowIndex = rowIndex,
+                    rawDocument = documentOf(line),
+                    comparisonDocument = mapOf("name" to normalized(line.rawName), "priceKrw" to line.priceKrw, "option" to normalized(line.option)),
+                    matchedFoodId = food?.id,
+                    mergedItemId = merged.id,
+                ),
+            )
+            val history = histories.save(ScanHistory.record(operation.memberId, line.priceKrw, food?.id))
+            historySources.save(ScanHistorySource(history.id, occurrence.id))
+        }
     }
 
     private fun lockClaim(claim: ScanBatchClaim): Triple<ScanOperation, ScanOperationPhoto, ScanAttempt>? {
@@ -254,8 +302,33 @@ class ScanBatchService(
             .onFailure { log.warn("스캔 묶음 예약 해제 실패 — TTL 만료로 회수됨, memberId={}", memberId, it) }
     }
 
-    private fun viewOf(operation: ScanOperation, now: LocalDateTime): ScanBatchResponse =
-        ScanBatchResponse.of(operation, uuidOf(operation.requestKey), photos.findByOperationIdOrderBySelectionIndex(operation.id), now)
+    private fun viewOf(operation: ScanOperation, now: LocalDateTime): ScanBatchResponse {
+        val batchPhotos = photos.findByOperationIdOrderBySelectionIndex(operation.id)
+        return ScanBatchResponse.of(operation, uuidOf(operation.requestKey), batchPhotos, now, itemsOf(operation, batchPhotos))
+    }
+
+    private fun itemsOf(operation: ScanOperation, batchPhotos: List<ScanOperationPhoto>): List<ScanBatchItemResponse> {
+        val rows = occurrences.findByOperationId(operation.id)
+        if (rows.isEmpty()) return emptyList()
+        val photosById = batchPhotos.associateBy { it.id }
+        val foodsById = foods.findAllById(rows.mapNotNull { it.matchedFoodId }.toSet()).associateBy { it.id }
+        val avoided = memberService.getMemberOrNull(operation.memberId)?.profile?.avoidance()?.codeNames.orEmpty()
+        val language = LanguageCode.from(operation.initialLanguage)
+        val rowsByItem = rows.groupBy { it.mergedItemId }
+        return mergedItems.findByOperationId(operation.id)
+            .mapNotNull { item -> rowsByItem[item.id]?.sortedWith(compareBy({ photosById.getValue(it.photoRowId).selectionIndex }, { it.rowIndex }))?.let { item to it } }
+            .sortedWith(compareBy({ (_, sources) -> photosById.getValue(sources.first().photoRowId).selectionIndex }, { (_, sources) -> sources.first().rowIndex }))
+            .map { (item, sources) ->
+                val food = sources.mapNotNull { it.matchedFoodId }.distinct().singleOrNull()?.let(foodsById::get)?.takeIf { it.isReady() }
+                ScanBatchItemResponse.of(item, food, food?.overallRisk(avoided), language, sources.map { photosById.getValue(it.photoRowId) to it.rowIndex })
+            }
+    }
+
+    private fun documentOf(line: MenuBoardLine): Map<String, Any?> =
+        mapOf("rawName" to line.rawName, "koreanName" to line.koreanName, "priceKrw" to line.priceKrw, "option" to line.option)
+
+    private fun normalized(text: String?): String? =
+        text?.let { Normalizer.normalize(it, Normalizer.Form.NFKC).trim().replace(WHITESPACE, " ") }?.ifBlank { null }
 
     private fun parse(raw: String): UUID? = runCatching { UUID.fromString(raw) }.getOrNull()?.takeIf { it.toString() == raw.lowercase() }
 
@@ -284,6 +357,7 @@ class ScanBatchService(
         private val ATTEMPT_LEASE: Duration = Duration.ofMinutes(2)
         private val RESULT_TTL: Duration = Duration.ofDays(7)
         private val KEY_TTL: Duration = Duration.ofDays(30)
+        private val WHITESPACE = Regex("\\s+")
 
         fun reservationIdOf(batchId: UUID) = "scan-batch:$batchId"
 
