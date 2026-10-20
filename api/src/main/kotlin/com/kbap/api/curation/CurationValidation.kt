@@ -61,7 +61,7 @@ class CurationValidation {
             if (!urlValid(item.externalUrl)) add(CurationIssue("$path.externalUrl", "INVALID_EXTERNAL_URL", item.entryId))
             val evidence = item.evidence
             if (evidence.placeIdentity.canonicalName.isBlank() || evidence.placeIdentity.locationDiscriminator.isBlank()) add(CurationIssue("$path.evidence", "PLACE_IDENTITY_MISSING", item.entryId))
-            if (evidence.researchSources.isEmpty() || evidence.researchSources.any { it.isBlank() } || !dateValid(evidence.checkedOn)) add(CurationIssue("$path.evidence", "RESEARCH_EVIDENCE_MISSING", item.entryId))
+            if (evidence.researchSources.isEmpty() || evidence.researchSources.any { !urlValid(it) } || !dateValid(evidence.checkedOn)) add(CurationIssue("$path.evidence", "RESEARCH_EVIDENCE_MISSING", item.entryId))
             val link = evidence.externalLinkReview
             if (link == null || link.url != item.externalUrl || !urlValid(link.finalUrl) || !dateValid(link.checkedOn)) add(CurationIssue("$path.evidence.externalLinkReview", "EXTERNAL_LINK_UNVERIFIED", item.entryId))
         }
