@@ -9,6 +9,8 @@ import java.time.LocalDateTime
 interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct, Long> {
     fun findAllByReportNoIn(reportNos: Collection<String>): List<ProcessedFoodProduct>
 
+    fun findByReportNo(reportNo: String): ProcessedFoodProduct?
+
     @Query(
         nativeQuery = true,
         value = """

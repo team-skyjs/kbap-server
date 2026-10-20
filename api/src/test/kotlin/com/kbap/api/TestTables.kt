@@ -35,6 +35,8 @@ object TestTables {
         "uploaded_image",
         "member_block",
         "member_ad_reward",
+        "scan_usage",
+        "scan_operation",
         "member",
         "llm_call_cost",
     )
