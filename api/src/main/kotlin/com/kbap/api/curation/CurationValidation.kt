@@ -106,11 +106,12 @@ class CurationValidation {
             val address = java.net.InetAddress.getByName(host)
             return !address.isAnyLocalAddress && !address.isLoopbackAddress && !address.isLinkLocalAddress && !address.isSiteLocalAddress && !address.isMulticastAddress && (address.address[0].toInt() and 0xfe) != 0xfc
         }
-        if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || !host.contains('.')) return false
-        if (host.split('.').any { it.startsWith("0x") }) return false
-        if (host.all { it.isDigit() || it == '.' }) {
-            val parts = host.split('.').map { it.toIntOrNull() ?: return false }
-            if (parts.size != 4 || parts.any { it !in 0..255 } || host.split('.').any { it.length > 1 && it.startsWith('0') }) return false
+        val name = host.trimEnd('.')
+        if (name.isEmpty() || name == "localhost" || name.endsWith(".localhost") || name.endsWith(".local") || !name.contains('.')) return false
+        if (name.split('.').any { it.startsWith("0x") }) return false
+        if (name.all { it.isDigit() || it == '.' }) {
+            val parts = name.split('.').map { it.toIntOrNull() ?: return false }
+            if (parts.size != 4 || parts.any { it !in 0..255 } || name.split('.').any { it.length > 1 && it.startsWith('0') }) return false
             val a = parts[0]; val b = parts[1]
             if (a == 0 || a == 10 || a == 127 || a >= 224 || (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127)) return false
         }
