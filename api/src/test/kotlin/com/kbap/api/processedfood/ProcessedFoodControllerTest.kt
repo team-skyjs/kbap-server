@@ -153,6 +153,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     seedProduct("PF-M-1", "코크제로", "코카-콜라음료㈜ 경남 양산시 충렬로 269")
                     seedProduct("PF-M-2", "무명과자", "알수없음", seller = "㈜해태제과/서울특별시")
                     names(get("/api/processed-foods?query=코카-콜라음료")) shouldBe listOf("코크제로")
+                    names(get("/api/processed-foods?query=코카콜라음료")) shouldBe listOf("코크제로")
                     names(get("/api/processed-foods?query=해태제과")) shouldBe listOf("무명과자")
                 }
             }

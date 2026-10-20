@@ -24,6 +24,9 @@ class ProcessedFoodProductTest : BehaviorSpec({
                     "코카-콜라음료㈜ 경남 양산시 충렬로 269(유산동)" to "코카-콜라음료",
                     "삼양식품㈜:서울특별시 성북구 오패산로 3길 104/원주공장" to "삼양식품",
                     "(주)엔피베버리지" to "엔피베버리지",
+                    "CJ 제일제당 주식회사_서울특별시 중구 동호로 330" to "CJ 제일제당",
+                    "㈜제이앤이 아산공장 / 충남 아산시 영인면 장영실로 729" to "제이앤이",
+                    "오뚜기라면주식회사 경기도 평택시 안중읍 덕우로 423" to "오뚜기라면",
                 ).forEach { (raw, expected) ->
                     withClue(raw) { ProcessedFoodProduct(manufacturer = raw).displayMaker() shouldBe expected }
                 }
