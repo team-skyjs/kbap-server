@@ -116,6 +116,12 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     second.path("payload").path("hasNext").asBoolean() shouldBe false
                 }
             }
+            `when`("검색어가 길거나 토큰이 많으면 — 토큰마다 쿼리가 돌아 증폭되지 않게") {
+            then("100자 초과는 400, 토큰은 앞 5개만 쓴다") {
+                    get("/api/processed-foods?query=" + "가".repeat(101), expected = 400)
+                    names(get("/api/processed-foods?query=새우깡 가 나 다 라 포카칩")) shouldBe listOf("새우깡", "새우깡블랙", "매운새우깡", "100%_새우깡")
+                }
+            }
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
                     get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
