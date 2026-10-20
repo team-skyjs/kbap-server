@@ -103,7 +103,7 @@ data class ProcessedFoodDetailResponse(
                 reviewSummary = ProcessedFoodReviewSummaryResponse(rating?.reviewCount ?: 0, rating?.average),
             )
 
-        private fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
+        fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
             avoidance.chosen.sortedBy { it.ordinal }.map { chosen ->
                 val covered = avoidance.codeNamesCoveredBy(chosen)
                 val matched = reading.detections.filter { it.code.name in covered }

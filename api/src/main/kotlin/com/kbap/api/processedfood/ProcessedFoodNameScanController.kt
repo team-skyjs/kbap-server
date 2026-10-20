@@ -16,7 +16,19 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/processed-foods/scan")
 class ProcessedFoodNameScanController(
     private val nameScanService: ProcessedFoodNameScanService,
+    private val labelScanService: ProcessedFoodLabelScanService,
 ) : ProcessedFoodNameScanApi {
+    @PostMapping("/label", version = ApiVersions.PROCESSED_FOOD + "+")
+    override fun scanLabel(
+        @AuthMemberId memberId: Long,
+        @Valid @RequestBody request: ProcessedFoodLabelScanRequest,
+    ): ResponseEntity<BaseResponse<ProcessedFoodLabelScanResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                labelScanService.scanLabel(memberId, request.analysisId, request.pages!!.map { it.ocrText!! }, LanguageCode.from(request.lang ?: "en").code),
+            ),
+        )
+
     @PostMapping("/name", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun scanName(
         @AuthMemberId memberId: Long,

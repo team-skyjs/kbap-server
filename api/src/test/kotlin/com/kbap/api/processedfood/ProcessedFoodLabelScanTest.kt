@@ -88,7 +88,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                 then("400 PFOOD-006 이고 분석도 차감도 남기지 않는다") {
                     val token = member(88302L)
                     label(token, null, "농심\n8801043014816", expected = 400).path("code").asText() shouldBe "PFOOD-006"
-                    label(token, null, "새우깡 90g", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    label(token, null, "오리온 90g", expected = 400).path("code").asText() shouldBe "PFOOD-006"
                     long("SELECT COUNT(*) FROM scan_operation") shouldBe 0
                     scanCountOf(88302L) shouldBe 0
                 }

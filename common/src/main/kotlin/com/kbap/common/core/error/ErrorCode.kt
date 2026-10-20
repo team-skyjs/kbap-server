@@ -133,4 +133,6 @@ enum class ErrorCode(
     PROCESSED_FOOD_SCAN_NOT_FOUND("PFOOD-003", 404, "스캔 분석을 찾을 수 없거나 만료되었습니다"),
     PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED("PFOOD-004", 409, "이미 확정했거나 확정할 수 없는 스캔 분석입니다"),
     PROCESSED_FOOD_REVIEW_CLOSED("PFOOD-005", 403, "가공식품 리뷰는 아직 열리지 않았습니다"),
+    PROCESSED_FOOD_LABEL_NOT_READ("PFOOD-006", 400, "성분표를 읽지 못했어요. 원재료명이 잘 보이게 다시 찍어 주세요"),
+    PROCESSED_FOOD_LABEL_NOT_ALLOWED("PFOOD-007", 409, "이 분석에는 성분표를 이어 붙일 수 없습니다"),
 }
