@@ -134,7 +134,7 @@
 | 메서드/경로(제안) | 성공 payload | 정상 비공개/오류 |
 |---|---|---|
 | `GET /api/curations/seoul?lang=...` | state, sectionVersion, requestedLang, resolvedLang, fallbackUsed, collections(0 또는 정확히 3) | 준비/일부 내림은 200 UNPUBLISHED. 장애는 5xx |
-| `GET /api/curations/seoul/{collectionKey}?lang=...` | collectionKey, publishedRevision, publishedAt, 요청/해결 언어, title, description, coverImageUrl, items(정확히 10) | 미게시/내림/잘못된 모음은 404 CURATION-001 제안 |
+| `GET /api/curations/seoul/{collectionKey}?lang=...` | collectionKey, publishedRevision, publishedAt, 요청/해결 언어, title, description, coverImageUrl, coverImageAttribution, items(정확히 10) | 미게시/내림/잘못된 모음은 404 CURATION-001 제안 |
 
 정상 미게시 예시(신규 제안):
 
@@ -145,13 +145,13 @@
 공개 홈 카드 shape(하나의 카드만 발췌, 실제 성공은 3개):
 
 ```json
-{"collectionKey":"sights","title":"Seoul sights","description":"An edited guide to Seoul","coverImageUrl":"https://cdn.example.invalid/dev/curation-assets/example.webp","itemCount":10,"publishedRevision":1}
+{"collectionKey":"sights","title":"Seoul sights","description":"An edited guide to Seoul","coverImageUrl":"https://cdn.example.invalid/dev/curation-assets/example.webp","coverImageAttribution":null,"itemCount":10,"publishedRevision":1}
 ```
 
 공개 항목 shape(하나만 발췌, 실제 상세는 10개이며 예시는 게시용 콘텐츠 아님):
 
 ```json
-{"entryId":"e74d9863-8c04-4608-90f0-bc6b00f0dcd1","position":1,"name":"Example station","area":"Example area","introduction":"Example introduction","recommendationReason":"Example reason","imageUrl":"https://cdn.example.invalid/dev/curation-assets/example.webp","externalUrl":"https://example.invalid/guide","nearby":["Example walk","Example exhibition"]}
+{"entryId":"e74d9863-8c04-4608-90f0-bc6b00f0dcd1","position":1,"name":"Example station","area":"Example area","introduction":"Example introduction","recommendationReason":"Example reason","imageUrl":"https://cdn.example.invalid/dev/curation-assets/example.webp","imageAttribution":"Photo: Example Organization (KOGL Type 1)","externalUrl":"https://example.invalid/guide","nearby":["Example walk","Example exhibition"]}
 ```
 
 내부 주소/사진 계약 증빙/출처 목록/admin ID/staging key/초안/version은 공개 payload에 넣지 않는다. 장소별 내부 상세 URL, foodId, 위험도·별점·안전 배지, 예약/지도 URL 배열도 넣지 않는다.
@@ -217,7 +217,7 @@
 |---|---|
 | 정확히 10항목, entryId/장소 식별/외부 URL 중복 없음 | ITEM_COUNT, DUPLICATE_ENTRY, DUPLICATE_PLACE, DUPLICATE_EXTERNAL_URL |
 | 모음 title/description, 항목 name/area/introduction/recommendationReason, 역 nearby 10언어 | REQUIRED_TEXT, TRANSLATION_MISSING, NEARBY_COUNT |
-| 모음/항목 사진 READY, 환경·모음 일치, 필수 이용 근거·표시 방식 적합 | ASSET_NOT_READY, ASSET_TARGET_MISMATCH, PHOTO_RIGHTS_MISSING, ATTRIBUTION_UNSUPPORTED |
+| 모음/항목 사진 READY, 환경·모음 일치, 필수 이용 근거·표시 방식 적합 | ASSET_NOT_READY, ASSET_TARGET_MISMATCH, PHOTO_RIGHTS_MISSING, ATTRIBUTION_UNSUPPORTED, ATTRIBUTION_TEXT_INVALID |
 | 외부 URL 한 개와 실제 목적지 확인 기록 | INVALID_EXTERNAL_URL, EXTERNAL_LINK_UNVERIFIED |
 | 내부 장소 식별·출처·확인일·편집 검수 | PLACE_IDENTITY_MISSING, RESEARCH_EVIDENCE_MISSING, EDITORIAL_REVIEW_MISSING |
 
@@ -225,14 +225,20 @@ URL은 absolute HTTPS, host 필수, userinfo·제어문자·실행 스킴·로�
 
 새 문서 저장 시 공개 콘텐츠/URL/사진/장소 식별이 달라지면 그 부분의 이전 확인 기록을 무효화한다. 게시 전 검수자는 같은 expectedVersion의 현재 내용을 다시 확인해야 한다. 게시 서비스는 확인된 버전과 기록을 함께 스냅샷으로 남긴다. 사진/URL은 단순 `verified:true` 한 값으로 영구 통과시키지 않는다. 이 확인은 별도 역할/승인자를 추가하는 결재 단계가 아니다.
 
-**모음 표지와 항목 사진 모두 `attributionRequirement=NONE`인 경우에만 게시를 허용한다.** 이 값도 필수 이용 근거·확인 기록 및 READY 등 나머지 검증을 면제하지 않는다. TEXT/LINK/UNKNOWN과 null/누락은 모두 `ATTRIBUTION_UNSUPPORTED`로 게시를 차단한다. 내부 권리 근거와 확인 기록은 그대로 저장·스냅샷 보존하며 공개 응답에 내보내지 않는다. 미지원 표시 의무는 초안에 기록할 수 있지만 validate와 publish에서 같은 오류를 반환한다. 규격 밖 enum 값은 초안 저장 단계의 형식 오류다.
+**사진 표시 의무는 `NONE` 과 `TEXT` 만 게시를 허용한다(2026-10-20 R-96·KB-823 개정 — 종전 "NONE 만").** 이 값도 필수 이용 근거·확인 기록 및 READY 등 나머지 검증을 면제하지 않는다.
 
-현재 공개 계약에는 `imageCredit` 필드가 없고 credit 표시 UI도 승인되지 않았다. 향후 TEXT/LINK 자료를 사용하려면 공개 필드와 디자인 검토를 먼저 완료하고 게시 검증 계약을 변경해야 한다. 일반 텍스트로 표시할 수 있다는 판단만으로 이번 게시 게이트를 통과시켜서는 안 된다.
+- `TEXT`: `attributionText` 가 비어 있지 않고(공백만 불가) **80자 이하**이며 제어문자(개행 포함)가 없어야 한다. 아니면 `ATTRIBUTION_TEXT_INVALID`(path `….rights.attributionText`). 문구는 **단일 문자열**이며 언어별로 번역하지 않는다(공공누리·CC BY 출처 표시는 원문 그대로 쓰는 표기다).
+- `LINK`/`UNKNOWN` 과 null/누락은 계속 `ATTRIBUTION_UNSUPPORTED` 로 차단한다. 미지원 표시 의무는 초안에 기록할 수 있지만 validate와 publish에서 같은 오류를 반환한다. 규격 밖 enum 값은 초안 저장 단계의 형식 오류다.
+- 공개 응답: 카드·상세의 `coverImageAttribution`, 항목의 `imageAttribution`(nullable 문자열). 표시 의무가 `TEXT` 면 그 문구, `NONE` 이면 `null` — `NONE` 사진에 남은 `attributionText` 는 내보내지 않는다. 앱은 값이 있을 때만 이미지에 작은 출처 캡션을 표시한다.
+- 그 밖의 내부 권리 근거(basis·sourceOrEvidenceRef·rightsHolder·permittedUse·checkedOn·checkedAssetId)는 그대로 저장·스냅샷 보존하며 공개 응답에 내보내지 않는다.
+- 출처 문구도 편집 검수 해시에 포함되므로 문구를 바꾸면 재검수가 필요하다.
 
 | 사진 표시 의무 예시 | 게시 검증 결과(다른 조건 충족 가정) |
 |---|---|
-| NONE | 통과 |
-| TEXT / LINK / UNKNOWN | 차단: ATTRIBUTION_UNSUPPORTED |
+| NONE | 통과(공개 출처 필드 null) |
+| TEXT + 1~80자 문구(제어문자 없음) | 통과(공개 출처 필드 = 문구) |
+| TEXT + 빈 문구·공백·81자 이상·제어문자 | 차단: ATTRIBUTION_TEXT_INVALID |
+| LINK / UNKNOWN | 차단: ATTRIBUTION_UNSUPPORTED |
 | null / 필드 누락 | 차단: ATTRIBUTION_UNSUPPORTED |
 
 표시 의무 오류 예시(신규 가칭 코드; 내부 증빙 내용은 반환하지 않음):
@@ -316,7 +322,7 @@ URL은 absolute HTTPS, host 필수, userinfo·제어문자·실행 스킴·로�
 후속에서 작성/실행할 테스트이며 **이번에 실행한 테스트가 아니다**:
 
 - 불완전 초안 저장 후 공개 응답/사진 URL 불변. 9/11개·중복·blank 번역·역 1/4개·사진 근거 없음·실행 URL은 publish 실패, 기존 snapshot/version 불변.
-- 모음 표지/항목 사진 각각 NONE만 허용하고 TEXT/LINK/UNKNOWN/null/누락은 ATTRIBUTION_UNSUPPORTED. NONE이어도 이용 근거 결손은 PHOTO_RIGHTS_MISSING. validate와 publish 결과 일치, 실패 시 기존 snapshot/version 불변.
+- 모음 표지/항목 사진 각각 NONE·TEXT(1~80자·제어문자 없는 문구, 위반 시 ATTRIBUTION_TEXT_INVALID)만 허용하고 LINK/UNKNOWN/null/누락은 ATTRIBUTION_UNSUPPORTED(KB-823 개정). NONE이어도 이용 근거 결손은 PHOTO_RIGHTS_MISSING. validate와 publish 결과 일치, 실패 시 기존 snapshot/version 불변.
 - 1/2모음 준비 상태의 index/detail 비공개. 최초 A/B 게시 → A 내림 → C 게시 시 스냅샷 3개가 있어도 latch=false/전체 비공개 → A 재게시 때만 latch=true/3모음 공개. 같은 트랜잭션의 각 isPublished와 유효 스냅샷을 모두 검사한다.
 - 최초 활성화 후 한 모음 갱신·내림·재게시. 내림은 latch 유지/홈 전체 숨김/해당 상세404/나머지 게시 상세200. 보존 스냅샷을 현재 게시 상태로 오인하지 않는다.
 - 기대 버전이 같은 동시 저장/게시/내림 중 하나만 성공. 첫 공개와 내림 경합에서도 부분 섹션 없음. 단순 카운트 경합 테스트를 넓히지 않고 이 게시 불변만 검증.
@@ -339,6 +345,6 @@ URL은 absolute HTTPS, host 필수, userinfo·제어문자·실행 스킴·로�
 
 1. **런타임 번역 결손 방어:** 엄격한 10언어 게시 게이트를 유지한다. 예외적 런타임 데이터 결손에 한해 전체 모음/홈 3카드를 완전한 en으로 fallback하고 resolvedLang/fallbackUsed와 관측을 남긴다. en 결손은 503이다. 기존 공통 LocalizedText의 ko fallback은 변경하지 않는다.
 2. **최초 활성화와 일부 내림:** 최초 latch는 같은 트랜잭션에서 세 모음 각각 isPublished=true이고 유효 게시 스냅샷이 있을 때만 설정한다. 내림 후 보존 스냅샷은 세지 않는다. 활성화 이후 일부 내림은 홈 전체 숨김 + 내린 상세404이며 나머지 현재 게시 중인 상세 접근은 허용한다.
-3. **사진 attribution:** 필수 근거를 갖춘 attributionRequirement=NONE만 게시 가능하다. TEXT/LINK/UNKNOWN/null/누락은 ATTRIBUTION_UNSUPPORTED로 차단한다. 내부 근거는 보존한다. 향후 credit 의무 사진을 도입하려면 공개 imageCredit 등 필드와 디자인 검토를 먼저 완료해야 하며 현재 공개 스키마/UI 승인을 뜻하지 않는다.
+3. **사진 attribution(2026-10-20 R-96·KB-823 개정):** 필수 근거를 갖춘 attributionRequirement=NONE 또는 TEXT(1~80자·제어문자 없는 단일 문자열)만 게시 가능하다. TEXT 문구는 공개 `coverImageAttribution`·`imageAttribution` 으로 내려가 앱이 작은 출처 캡션으로 표시한다(NONE 이면 null). LINK/UNKNOWN/null/누락은 ATTRIBUTION_UNSUPPORTED로 차단한다. 내부 근거는 보존하고 공개하지 않는다.
 
 그 외 경로명·오류 채번·JSON/세 테이블 구조·업로드 확정 방식은 이 계약 리뷰의 기술 결정안이다. 사진/최종 번역/콘텐츠 승인은 **게시를 막는 입력**이고, 위 설계 검토를 진행하는 데 필요한 가짜 데이터로 대체하지 않는다. S3 확정 파일 복사 조건/IAM/CORS는 KB-794의 실제 구현·실행 검증 선행 항목이다.

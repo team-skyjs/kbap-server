@@ -207,6 +207,8 @@ class CurationPublicationTest : BehaviorSpec() {
                     val doc = documents.getValue("restaurants")
                     val credited = doc.cover!!.copy(rights = doc.cover!!.rights.copy(attributionRequirement = AttributionRequirement.TEXT, attributionText = "Photo: KTO / KOGL Type 1"))
                     documents["restaurants"] = CurationFixtures.reviewed(doc.copy(cover = credited, items = listOf(doc.items.first().copy(image = credited)) + doc.items.drop(1)))
+                    val sights = documents.getValue("sights")
+                    documents["sights"] = CurationFixtures.reviewed(sights.copy(cover = sights.cover!!.copy(rights = sights.cover!!.rights.copy(attributionText = "leftover"))))
                     CurationService.keys.forEach(::publish)
 
                     val cards = service.getIndex("en").collections.associateBy { it.collectionKey }

@@ -16,9 +16,9 @@ class CurationValidationTest : BehaviorSpec({
                 issues.map { it.reason } shouldContain "ASSET_NOT_READY"
             }
         }
-        `when`("표시 의무가 있는 표지이면") {
+        `when`("링크 표시 의무가 있는 표지이면") {
             then("게시를 차단한다") {
-                val document = CurationDocument(cover = CurationPhoto(1, CurationRights(attributionRequirement = AttributionRequirement.TEXT)))
+                val document = CurationDocument(cover = CurationPhoto(1, CurationRights(attributionRequirement = AttributionRequirement.LINK)))
                 CurationValidation().validate("sights", document).map { it.reason } shouldContain "ATTRIBUTION_UNSUPPORTED"
             }
         }
