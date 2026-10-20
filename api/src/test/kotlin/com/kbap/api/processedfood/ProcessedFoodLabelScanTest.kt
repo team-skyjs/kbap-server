@@ -81,6 +81,16 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     unmapped.contains("정제수") shouldBe true
                 }
             }
+            `when`("머리말 뒤 81종 밖 재료가 하나뿐이면(생수·설탕·녹차) — 공부 막음") {
+                then("머리말이 성분표임을 보여 주므로 비머리말 한글 토큰 1개로 성공·차감") {
+                    listOf(88413L to "원재료명: 정제수", 88414L to "원재료명: 백설탕", 88415L to "원재료명: 녹차잎 100%").forEach { (id, ocr) ->
+                        val p = label(member(id), null, ocr).path("payload")
+                        p.path("charged").asBoolean() shouldBe true
+                        p.path("detections").size() shouldBe 0
+                        scanCountOf(id) shouldBe 1
+                    }
+                }
+            }
             `when`("머리말만 있고 원재료 토큰이 없으면") {
                 then("머리말은 판독 성공 근거(한글 토큰 수)로 세지 않아 400 PFOOD-006") {
                     label(member(88412L), null, "원재료명: 식품유형\n알레르기 유발물질 함유", expected = 400).path("code").asText() shouldBe "PFOOD-006"
