@@ -105,8 +105,8 @@ class ScanBatchMergeTest : BehaviorSpec() {
                     result.drop(1).all { it.path("sources").size() == 1 } shouldBe true
                     result[1].path("option").asText() shouldBe "2인분"
                     sql("SELECT COUNT(*) FROM scan_occurrence") shouldBe 8
-                    sql("SELECT COUNT(*) FROM scan_history WHERE member_id = ${owner.id}") shouldBe 8
-                    sql("SELECT COUNT(*) FROM scan_history_source") shouldBe 8
+                    sql("SELECT COUNT(*) FROM scan_history WHERE member_id = ${owner.id}") shouldBe 7
+                    sql("SELECT COUNT(*) FROM scan_history_source") shouldBe 7
                 }
             }
             `when`("원문 이름·가격은 같고 옵션만 다르면") {

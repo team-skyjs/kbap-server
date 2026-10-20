@@ -204,6 +204,16 @@ class ScanBatchTest : BehaviorSpec() {
                     batches.startAttempt(owner.id, UUID.fromString(batchId), 0) shouldBe null
                 }
             }
+            `when`("결과 보관(7일)이 지난 뒤 같은 clientRequestId 로 다시 보내면 — Codex P2(#439)") {
+                then("만료된 결과를 돌려주지 않고 410 SCAN-013(앱은 새 clientRequestId 로 다시 만든다)") {
+                    val owner = member("batch-result-expired")
+                    val requestId = UUID.randomUUID()
+                    val payload = body(requestId, photos(owner, 1))
+                    create(owner, payload)
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 8 DAY, result_expires_at = result_expires_at - INTERVAL 8 DAY WHERE request_key = UUID_TO_BIN('$requestId', 0)")
+                    create(owner, payload, expected = 410).path("code").asText() shouldBe "SCAN-013"
+                }
+            }
             `when`("무료 횟수가 남지 않았으면") {
                 then("403 SCAN-004 이고 묶음이 생기지 않는다") {
                     val owner = member("batch-exhausted", scanCount = Member.FREE_SCAN_LIMIT)
@@ -329,6 +339,19 @@ class ScanBatchTest : BehaviorSpec() {
                     batches.startAttempt(owner.id, batchId, 0) shouldNotBe null
                     val expiresInMillis = redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId")!!.toLong() - System.currentTimeMillis()
                     (expiresInMillis <= Duration.ofSeconds(70).toMillis()) shouldBe true
+                }
+            }
+            `when`("차감 없는 묶음 시도가 최근 24시간 30회에 이르면 — 공부(비용 상한)") {
+                then("새 시도는 429 SCAN-012 로 막히고, 차감된 묶음의 시도는 세지 않는다") {
+                    val owner = member("batch-attempt-cap")
+                    val batchId = UUID.fromString(newBatch(owner, count = 2))
+                    val seed = batches.startAttempt(owner.id, batchId, 0)!!
+                    sql("""INSERT INTO scan_attempt (operation_id, member_id, photo_row_id, unit_key, phase, target_manifest_revision, attempt_no, claim_token, reservation_epoch, state, started_at, deadline_at, lease_until)
+                        SELECT a.operation_id, a.member_id, a.photo_row_id, CONCAT('seed:', n.n), a.phase, 1, 1, a.claim_token, 0, 'FAILED', a.started_at, a.deadline_at, a.lease_until
+                        FROM scan_attempt a JOIN (WITH RECURSIVE s(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM s WHERE n < 29) SELECT n FROM s) n WHERE a.id = ${seed.attemptId}""")
+                    io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> { batches.startAttempt(owner.id, batchId, 1) }.errorCode shouldBe com.kbap.common.core.error.ErrorCode.SCAN_BATCH_ATTEMPT_LIMIT
+                    batches.recordSuccess(seed, extraction) shouldBe true
+                    batches.startAttempt(owner.id, batchId, 1) shouldNotBe null
                 }
             }
             `when`("결과 전에 취소하면") {

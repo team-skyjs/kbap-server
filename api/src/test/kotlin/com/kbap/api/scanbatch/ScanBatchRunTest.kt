@@ -48,12 +48,12 @@ class ScanBatchRunTest : BehaviorSpec() {
         fun member(): Member = members.save(Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "run-${System.nanoTime()}", null)))
         fun token(owner: Member) = "Bearer ${tokens.issueAccessToken(owner.id, MemberRole.USER)}"
         fun paths(owner: Member, count: Int) = (1..count).map { uploads.save(UploadedImage(memberId = owner.id, path = "local/images/scans/2026/10/${UUID.randomUUID()}.jpg", contentType = "image/jpeg", sizeBytes = 10)).path }
-        fun create(owner: Member, imagePaths: List<String>): String = mapper.readTree(
+        fun create(owner: Member, imagePaths: List<String>, requestId: UUID = UUID.randomUUID(), photoIds: List<String> = imagePaths.map { UUID.randomUUID().toString() }): String = mapper.readTree(
             mvc.post("/api/scans/batches") {
                 header("X-API-Version", "3.3")
                 header("Authorization", token(owner))
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("clientRequestId" to UUID.randomUUID().toString(), "lang" to "ko", "currency" to "KRW", "photos" to imagePaths.map { mapOf("photoId" to UUID.randomUUID().toString(), "imagePath" to it) }))
+                content = mapper.writeValueAsString(mapOf("clientRequestId" to requestId.toString(), "lang" to "ko", "currency" to "KRW", "photos" to imagePaths.zip(photoIds).map { (path, id) -> mapOf("photoId" to id, "imagePath" to path) }))
             }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         ).path("payload").path("batchId").asText()
         fun read(owner: Member, batchId: String): JsonNode = mapper.readTree(
@@ -91,7 +91,8 @@ class ScanBatchRunTest : BehaviorSpec() {
                     val batchId = create(owner, listOf(ok, broken, blank))
                     val payload = settled(owner, batchId)
                     states(payload) shouldBe listOf("SUCCEEDED" to "", "FAILED" to "RECOGNITION_FAILED", "FAILED" to "NOT_DETECTED")
-                    payload.path("photos").map { it.path("retryable").asBoolean() } shouldBe listOf(false, true, true)
+                    payload.path("photos").map { it.path("retryable").asBoolean() } shouldBe listOf(false, true, false)
+                    retry(owner, batchId, 2, expected = 409).path("code").asText() shouldBe "SCAN-011"
                     payload.path("usageRecorded").asBoolean() shouldBe true
                     payload.path("items").map { it.path("rawName").asText() } shouldBe listOf("김치찌개")
                     scanCount(owner) shouldBe 1
@@ -158,6 +159,22 @@ class ScanBatchRunTest : BehaviorSpec() {
                     retry(owner, batchId, 0)
                     settled(owner, batchId).path("usageRecorded").asBoolean() shouldBe true
                     scanCount(owner) shouldBe 1
+                }
+            }
+            `when`("같은 묶음 생성이 다시 와서 재dispatch 되면 — Codex P2(#439)") {
+                then("묶음당 동시 비전 호출은 여전히 3 이하, 사진마다 한 번만 실행된다") {
+                    val owner = member()
+                    val six = paths(owner, 6)
+                    six.forEach { vision.program(it, listOf(MenuBoardLine("메뉴$it", "메뉴", 1000, null))) }
+                    vision.delayMillis = 300
+                    val requestId = UUID.randomUUID()
+                    val photoIds = six.map { UUID.randomUUID().toString() }
+                    val batchId = create(owner, six, requestId, photoIds)
+                    create(owner, six, requestId, photoIds) shouldBe batchId
+                    create(owner, six, requestId, photoIds) shouldBe batchId
+                    settled(owner, batchId).path("photos").all { it.path("state").asText() == "SUCCEEDED" } shouldBe true
+                    vision.maxConcurrent.get() shouldBeLessThanOrEqual 3
+                    vision.calls.get() shouldBe 6
                 }
             }
             `when`("10장을 보내면") {
