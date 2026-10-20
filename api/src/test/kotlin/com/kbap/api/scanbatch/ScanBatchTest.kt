@@ -12,6 +12,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.port.auth.TokenIssuer
+import com.kbap.common.port.llm.MenuBoardLine
 import com.kbap.common.port.scan.ScanReservationResult
 import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
@@ -88,7 +89,7 @@ class ScanBatchTest : BehaviorSpec() {
         fun reserved(owner: Member, batchId: String): Boolean = redis.opsForZSet().score("scan:reservations:${owner.id}", "scan-batch:$batchId") != null
         fun scanCount(owner: Member) = sql("SELECT scan_count FROM member WHERE id = ${owner.id}")
         fun usages(batchId: String) = sql("SELECT COUNT(*) FROM scan_usage u JOIN scan_operation o ON o.id = u.operation_id WHERE o.request_key = UUID_TO_BIN('$batchId', 0)")
-        val extraction = mapOf("menus" to listOf(mapOf("rawName" to "김치찌개", "priceKrw" to 9000)))
+        val extraction = listOf(MenuBoardLine("김치찌개", "김치찌개", 9000, null))
         fun newBatch(owner: Member, count: Int = 2): String = create(owner, body(UUID.randomUUID(), photos(owner, count))).path("payload").path("batchId").asText()
 
         beforeEach {
