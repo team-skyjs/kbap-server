@@ -163,10 +163,7 @@ class CurationService(
     }
     private fun published(row: CurationCollection): CurationDocument {
         val doc = row.publishedDocument ?: unavailable()
-        val issues = validation.validate(row.collectionKey, doc)
-        val translationMissing = issues.any { it.reason == "TRANSLATION_MISSING" }
-        val errors = issues.filter { it.reason != "TRANSLATION_MISSING" && !(translationMissing && it.reason == "EDITORIAL_REVIEW_MISSING") } + assetIssues(row, doc, false, true)
-        if (errors.isNotEmpty()) unavailable()
+        if (doc.items.size != CurationValidation.ITEM_COUNT || assetIssues(row, doc, false, true).isNotEmpty()) unavailable()
         return doc
     }
     private fun resolveLanguage(docs: List<CurationDocument>, requested: String, cardsOnly: Boolean): String {

@@ -43,7 +43,7 @@ class CurationValidation {
 
     fun validate(key: String, document: CurationDocument): List<CurationIssue> = buildList {
         addAll(structure(document))
-        if (document.items.size != 10) add(CurationIssue("items", "ITEM_COUNT"))
+        if (document.items.size != ITEM_COUNT) add(CurationIssue("items", "ITEM_COUNT"))
         texts(document).forEach { (path, values, _, id) ->
             languages.forEach { locale -> if (values[locale].isNullOrBlank()) add(CurationIssue(path, "TRANSLATION_MISSING", id, locale)) }
         }
@@ -120,5 +120,8 @@ class CurationValidation {
 
     data class PhotoField(val path: String, val photo: CurationPhoto?, val entryId: String?)
     private data class TextField(val path: String, val values: Map<String, String>, val limit: Int, val entryId: String?)
-    companion object { val languages = LanguageCode.entries.map { it.code }.toSet() }
+    companion object {
+        const val ITEM_COUNT = 10
+        val languages = LanguageCode.entries.map { it.code }.toSet()
+    }
 }

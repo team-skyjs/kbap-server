@@ -1,5 +1,8 @@
 package com.kbap.common.domain.curation.model
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationDocument(
     val title: Map<String, String> = emptyMap(),
     val description: Map<String, String> = emptyMap(),
@@ -8,6 +11,7 @@ data class CurationDocument(
     val editorialReview: CurationReview? = null,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationEntry(
     val entryId: String = "",
     val name: Map<String, String> = emptyMap(),
@@ -20,8 +24,11 @@ data class CurationEntry(
     val evidence: CurationEvidence = CurationEvidence(),
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationNearby(val nearbyId: String = "", val label: Map<String, String> = emptyMap())
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationPhoto(val assetId: Long, val rights: CurationRights = CurationRights())
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationRights(
     val basis: String = "",
     val sourceOrEvidenceRef: String = "",
@@ -33,6 +40,7 @@ data class CurationRights(
     val attributionText: String? = null,
 )
 enum class AttributionRequirement { NONE, TEXT, LINK, UNKNOWN }
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationEvidence(
     val placeIdentity: CurationPlaceIdentity = CurationPlaceIdentity(),
     val researchSources: List<String> = emptyList(),
@@ -40,7 +48,10 @@ data class CurationEvidence(
     val externalLinkReview: CurationLinkReview? = null,
     val editorialNotes: String = "",
 )
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationLinkReview(val url: String = "", val finalUrl: String = "", val checkedOn: String = "")
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationReview(val contentHash: String = "", val checkedOn: String = "")
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class CurationPlaceIdentity(val canonicalName: String = "", val locationDiscriminator: String = "")
