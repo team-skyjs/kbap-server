@@ -5,7 +5,6 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.time.LocalDateTime
 
@@ -19,7 +18,6 @@ class ScanBatchSweeper(
     @SchedulerLock(name = "scanBatchSweep", lockAtMostFor = "PT25S")
     fun tick() = sweep()
 
-    @Transactional(readOnly = true)
     fun sweep() {
         if (!batchSwitch.enabled || !batchSwitch.executionEnabled) return
         val now = LocalDateTime.now()
