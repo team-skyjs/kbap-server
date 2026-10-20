@@ -65,7 +65,7 @@ class ScanBatchService(
         }
         members.findByIdForUpdate(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         val manifestHash = sha256("$lang|$currency|" + inputs.joinToString("|") { "${it.photoId}=${it.imagePath}" })
-        operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId))?.let { existing ->
+        operations.findByMemberIdAndKeyNamespaceAndRequestKey(memberId, NAMESPACE, bytesOf(batchId))?.let { existing ->
             if (!existing.manifestHash.contentEquals(manifestHash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             return viewOf(existing, LocalDateTime.now())
         }
@@ -209,7 +209,7 @@ class ScanBatchService(
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.id == claim.photoRowId } ?: return null
         val attempt = attempts.findById(claim.attemptId).orElse(null) ?: return null
         if (operation.lifecycle != ACTIVE || !photo.isClaimedBy(claim.claimToken)) {
-            attempt.finish(ATTEMPT_DISCARDED, null, now)
+            if (attempt.state == ATTEMPT_RUNNING) attempt.finish(ATTEMPT_DISCARDED, null, now)
             return null
         }
         if (!photo.isLeaseLiveAt(now)) {
