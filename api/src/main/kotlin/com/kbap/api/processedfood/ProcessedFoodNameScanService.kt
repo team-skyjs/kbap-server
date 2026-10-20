@@ -3,6 +3,8 @@ package com.kbap.api.processedfood
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.processedfood.model.ProcessedFoodOcrText
 import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.domain.scan.ScanUsageJpaRepository
@@ -22,6 +24,7 @@ class ProcessedFoodNameScanService(
     private val operations: ScanOperationJpaRepository,
     private val usages: ScanUsageJpaRepository,
     private val memberService: MemberService,
+    private val members: MemberJpaRepository,
 ) {
     @Transactional
     fun scanName(memberId: Long, ocrText: String, language: String): ProcessedFoodNameScanResponse {
@@ -80,13 +83,14 @@ class ProcessedFoodNameScanService(
         }
         val detail = processedFoodService.getProcessedFoodDetailByReportNo(reportNo, memberId)
         val member = memberService.getMember(memberId)
-        if (!member.isScanAllowed()) throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         val offered = operation.requestDocument["candidates"] as? List<*> ?: emptyList<Any>()
         operation.requestDocument = operation.requestDocument + mapOf("selectedReportNo" to reportNo, "selectedOutsideCandidates" to (reportNo !in offered))
         operation.usageRecordedAt = now
         operation.lifecycle = ProcessedFoodNameScanState.CONFIRMED.name
         usages.save(ScanUsage(operation.id, now, if (member.scanUnlocked) ENTITLEMENT_UNLIMITED else ENTITLEMENT_FREE))
-        memberService.increaseScanCount(memberId)
+        if (members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) {
+            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+        }
         return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, true, detail)
     }
 
