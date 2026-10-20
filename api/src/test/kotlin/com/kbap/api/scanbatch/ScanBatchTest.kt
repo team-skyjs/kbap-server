@@ -415,6 +415,16 @@ class ScanBatchTest : BehaviorSpec() {
                     read(owner, batchId).path("payload").path("photos")[0].path("attemptNo").asInt() shouldBe 1
                 }
             }
+            `when`("실행 창 끝이 2분보다 가까울 때 시도를 시작하면 — Codex P2") {
+                then("시도 lease 는 묶음 실행 창 끝을 넘지 않는다") {
+                    val owner = member("batch-lease-cap")
+                    val batchId = UUID.fromString(newBatch(owner, count = 1))
+                    sql("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 870 SECOND WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    val claim = batches.startAttempt(owner.id, batchId, 0)!!
+                    sql("SELECT COUNT(*) FROM scan_operation_photo p JOIN scan_operation o ON o.id = p.operation_id WHERE p.id = ${claim.photoRowId} AND p.lease_until <= o.expires_at") shouldBe 1
+                    sql("SELECT COUNT(*) FROM scan_attempt a JOIN scan_operation o ON o.id = a.operation_id WHERE a.id = ${claim.attemptId} AND a.lease_until <= o.expires_at AND a.deadline_at <= o.expires_at") shouldBe 1
+                }
+            }
             `when`("결과 전에 취소하면") {
                 then("0회, 사진은 CANCELLED, 늦게 온 결과는 버려진다") {
                     val owner = member("batch-cancel")
