@@ -125,6 +125,9 @@
 다랑어	TUNA	contains
 대구	COD	exact
 대구살	COD	contains
+대구농축	COD	contains
+대구포	COD	contains
+대구추출	COD	contains
 멸치	ANCHOVY	contains
 액젓	FISH_SAUCE	contains
 육수	BROTH	contains
