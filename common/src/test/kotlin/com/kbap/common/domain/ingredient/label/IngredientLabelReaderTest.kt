@@ -188,6 +188,20 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "밀크씨슬추출물, 가공유지, 강낭콩, 리마콩, 다시다, 밀크향")) shouldBe emptySet()
             }
         }
+        `when`("문장형 표기로 의무 표시 품목에 조사가 붙으면 — Codex P2") {
+            then("조사를 떼고 찾는다 — 의무 표시 품목에만 적용해 파이(파)·알이 같은 일반어는 잡지 않는다") {
+                codes(IngredientLabelReader.read(null, "밀을 함유, 게가 포함됨, 굴과 잣은 사용")) shouldBe setOf(WHEAT, IngredientCode.CRAB, OYSTER, IngredientCode.PINE_NUT)
+                codes(IngredientLabelReader.read(null, "파이, 알이")) shouldBe emptySet()
+            }
+        }
+        `when`("품목 바로 뒤에 무첨가·불포함·미사용·free 가 오면 — Codex P2") {
+            then("그 품목만 제외한다 — 같은 토큰의 다른 품목은 그대로 찾는다") {
+                codes(IngredientLabelReader.read(null, "우유 무첨가")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "우유무첨가, 대두불포함, 계란 미사용")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "설탕 무첨가 땅콩버터")) shouldBe setOf(PEANUT)
+                codes(IngredientLabelReader.read(null, "MSG free 우유")) shouldBe setOf(MILK)
+            }
+        }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
             then("라드(돼지 지방)로 검출한다") {
                 codes(IngredientLabelReader.read(null, "돼지창자, 돈지방, 당면")) shouldContain IngredientCode.LARD
