@@ -47,22 +47,24 @@ class ProcessedFoodProductTest : BehaviorSpec({
             }
         }
     }
-    given("제품 이미지 URL 저장") {
+    given("제품 이미지 URL") {
         `when`("HACCP 이미지가 http 로 오면") {
-            then("https 로 저장하고(같은 경로 https 200 실측), 변경 감지 해시는 원본 값 그대로라 기존 행을 일괄 갱신하지 않는다") {
+            then("저장은 원본 그대로(500자 절단·해시와 어긋나지 않게), 응답용 값만 https 로 바꾼다") {
                 val snapshot = ProcessedFoodSnapshot(
                     "1", "새우깡", null, "과자", null, "농심", null, null, null, null, null, null,
                     "http://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg", "http://www.haccp.or.kr/fresh/prdimg/1/1-2.jpg",
                 )
                 val product = ProcessedFoodProduct.collect(snapshot, LocalDateTime.of(2026, 10, 21, 0, 0))
-                product.imageUrl shouldBe "https://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg"
-                product.metaImageUrl shouldBe "https://www.haccp.or.kr/fresh/prdimg/1/1-2.jpg"
+                product.imageUrl shouldBe "http://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg"
                 product.contentHash shouldBe snapshot.contentHash()
+                ProcessedFoodProduct.secureImageUrl(product.imageUrl) shouldBe "https://www.haccp.or.kr/fresh/prdimg/1/1-1.jpg"
+                ProcessedFoodProduct.secureImageUrl("http://haccp.or.kr/a.jpg") shouldBe "https://haccp.or.kr/a.jpg"
             }
         }
         `when`("다른 호스트의 http 이미지이면") {
-            then("https 를 보장할 수 없어 그대로 둔다") {
-                ProcessedFoodProduct.collect(ProcessedFoodSnapshot("2", "칩", null, null, null, null, null, null, null, null, null, null, "http://img.example.com/a.jpg", null), LocalDateTime.of(2026, 10, 21, 0, 0)).imageUrl shouldBe "http://img.example.com/a.jpg"
+            then("https 를 보장할 수 없어 응답에서도 그대로 둔다") {
+                ProcessedFoodProduct.secureImageUrl("http://img.example.com/a.jpg") shouldBe "http://img.example.com/a.jpg"
+                ProcessedFoodProduct.secureImageUrl(null) shouldBe null
             }
         }
     }
