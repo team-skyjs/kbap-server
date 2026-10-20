@@ -40,6 +40,8 @@ class ScanBatchRunTest : BehaviorSpec() {
     @Autowired private lateinit var batchSwitch: ScanBatchSwitch
     @Autowired private lateinit var vision: FakeMenuBoardLineExtractor
     @Autowired private lateinit var redis: StringRedisTemplate
+    @Autowired private lateinit var batches: ScanBatchService
+    @Autowired private lateinit var scheduler: org.springframework.scheduling.TaskScheduler
 
     private val mapper = jacksonObjectMapper()
 
@@ -199,6 +201,24 @@ class ScanBatchRunTest : BehaviorSpec() {
                         payload.path("photos").all { it.path("state").asText() == "SUCCEEDED" } shouldBe true
                         payload.path("items").map { it.path("rawName").asText() }.toSet() shouldBe owned.map { "메뉴$it" }.toSet()
                     }
+                }
+            }
+            `when`("묶음 전용 실행기가 작업을 한 번 거절하면 — Codex P1(#440)") {
+                then("작업을 버리지 않고 잠시 뒤 다시 띄워 사진이 끝내 실행된다") {
+                    val owner = member()
+                    val (only) = paths(owner, 1)
+                    vision.program(only, listOf(MenuBoardLine("냉면", "냉면", 8000, null)))
+                    batchSwitch.executionEnabled = false
+                    val batchId = create(owner, listOf(only))
+                    batchSwitch.executionEnabled = true
+                    val rejections = java.util.concurrent.atomic.AtomicInteger()
+                    val flaky = org.springframework.core.task.TaskExecutor { task ->
+                        if (rejections.getAndIncrement() == 0) throw org.springframework.core.task.TaskRejectedException("포화(테스트)")
+                        Thread(task).start()
+                    }
+                    ScanBatchRunner(batches, batchSwitch, vision, flaky, scheduler).dispatch(owner.id, UUID.fromString(batchId), listOf(0))
+                    settled(owner, batchId).path("photos")[0].path("state").asText() shouldBe "SUCCEEDED"
+                    (rejections.get() >= 2) shouldBe true
                 }
             }
             `when`("10장을 보내면") {

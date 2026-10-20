@@ -214,9 +214,10 @@ class ScanBatchService(
     }
 
     private fun claimNext(memberId: Long, batchId: UUID, selectionIndex: Int): ScanBatchClaim? {
+        if (!batchSwitch.enabled) return null
+        val callLimit = attempts.lockGlobalCallLimit() ?: DEFAULT_GLOBAL_CALL_LIMIT
         val now = LocalDateTime.now()
         val (operation, photo) = prepare(memberId, batchId, selectionIndex, now) ?: return null
-        val callLimit = attempts.lockGlobalCallLimit() ?: DEFAULT_GLOBAL_CALL_LIMIT
         if (attempts.countLiveCallSlots(now) >= callLimit || attempts.countLiveCallSlotsOfMember(memberId, now) >= PER_MEMBER_CALL_SLOTS) {
             throw ScanBatchSlotsBusyException()
         }
