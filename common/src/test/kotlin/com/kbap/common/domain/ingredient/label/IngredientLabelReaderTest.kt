@@ -202,6 +202,19 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "맥주효모, 생맥주")) shouldBe setOf(IngredientCode.ALCOHOL)
             }
         }
+        `when`("suppress 표기와 진짜 재료가 공백으로 한 토큰에 있으면 — Codex P1") {
+            then("suppress 는 자기 낱말에만 적용되고 같은 토큰의 다른 낱말은 그대로 검출한다") {
+                codes(IngredientLabelReader.read(null, "캐슈밀크 우유")) shouldBe setOf(IngredientCode.CASHEW, MILK)
+                codes(IngredientLabelReader.read(null, "무알코올맥주 소주")) shouldBe setOf(IngredientCode.ALCOHOL)
+                codes(IngredientLabelReader.read(null, "무알코올맥주 보리")) shouldBe setOf(IngredientCode.BARLEY)
+            }
+        }
+        `when`("연육제·연육효소이면 — Codex P2") {
+            then("생선(연육)으로 잡지 않는다") {
+                codes(IngredientLabelReader.read(null, "연육제, 연육효소")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "냉동연육")) shouldBe setOf(IngredientCode.FISH)
+            }
+        }
         `when`("알레르기 표시란에 공백 하나 띄운 부정 표현이 있으면 — Codex P2") {
             then("원재료와 같이 그 품목을 제외한다") {
                 codes(IngredientLabelReader.read("우유 무첨가, 대두", null)) shouldBe setOf(SOY)
