@@ -41,6 +41,10 @@ class ProcessedFoodService(
         detailOf(available(products.findByReportNo(reportNo)), memberId)
 
     @Transactional(readOnly = true)
+    fun getConfirmedProcessedFoodDetail(reportNo: String, memberId: Long?): ProcessedFoodDetailResponse =
+        detailOf(products.findByReportNo(reportNo) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND), memberId)
+
+    @Transactional(readOnly = true)
     fun getNameScanCandidates(queries: List<String>, limit: Int): List<ProcessedFoodProduct> {
         val tokensByQuery = queries.map(ProcessedFoodSearchRanker::tokensOf).filter { it.isNotEmpty() }
         if (tokensByQuery.isEmpty()) return emptyList()

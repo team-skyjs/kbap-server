@@ -14,6 +14,8 @@ import java.time.LocalDateTime
 data class ProcessedFoodSummaryResponse(
     @field:Schema(description = "가공식품 id", example = "1201")
     val id: Long,
+    @field:Schema(description = "품목보고번호 — 이름 스캔 확정(scan/confirm)의 reportNo 로 그대로 보낸다", example = "19700001001")
+    val reportNo: String,
     @field:Schema(description = "제품명(표시 원문)", example = "새우깡")
     val productName: String,
     @field:Schema(description = "제조사 — 제조원·판매원의 업체명(공장명 제외), 둘 다 미상이면 식품영양성분DB 보완값, 그래도 없으면 null", example = "농심", nullable = true)
@@ -25,7 +27,7 @@ data class ProcessedFoodSummaryResponse(
 ) {
     companion object {
         fun from(product: ProcessedFoodProduct) =
-            ProcessedFoodSummaryResponse(product.id, product.productName, product.displayMaker(), product.foodType, product.imageUrl)
+            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, product.imageUrl)
     }
 }
 

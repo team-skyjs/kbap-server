@@ -10,6 +10,11 @@ import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.domain.scan.ScanUsageJpaRepository
 import com.kbap.common.domain.scan.model.ScanOperation
 import com.kbap.common.domain.scan.model.ScanUsage
+import com.kbap.common.port.scan.ScanReservationResult
+import com.kbap.common.port.scan.ScanReservationStore
+import org.slf4j.LoggerFactory
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.nio.ByteBuffer
@@ -25,7 +30,10 @@ class ProcessedFoodNameScanService(
     private val usages: ScanUsageJpaRepository,
     private val memberService: MemberService,
     private val members: MemberJpaRepository,
+    private val reservationStore: ScanReservationStore,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional
     fun scanName(memberId: Long, ocrText: String, language: String): ProcessedFoodNameScanResponse {
         memberService.getMember(memberId)
@@ -66,7 +74,7 @@ class ProcessedFoodNameScanService(
             ProcessedFoodNameScanState.CONFIRMED -> {
                 val selected = operation.requestDocument["selectedReportNo"] as String
                 if (reportNo != selected) throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
-                ProcessedFoodNameConfirmResponse(analysisId, state, false, processedFoodService.getProcessedFoodDetailByReportNo(selected, memberId))
+                ProcessedFoodNameConfirmResponse(analysisId, state, false, processedFoodService.getConfirmedProcessedFoodDetail(selected, memberId))
             }
             ProcessedFoodNameScanState.REJECTED ->
                 if (reportNo == null) ProcessedFoodNameConfirmResponse(analysisId, state, false, null)
@@ -83,6 +91,7 @@ class ProcessedFoodNameScanService(
         }
         val detail = processedFoodService.getProcessedFoodDetailByReportNo(reportNo, memberId)
         val member = memberService.getMember(memberId)
+        reserveQuota(memberId, analysisId, member)
         val offered = operation.requestDocument["candidates"] as? List<*> ?: emptyList<Any>()
         operation.requestDocument = operation.requestDocument + mapOf("selectedReportNo" to reportNo, "selectedOutsideCandidates" to (reportNo !in offered))
         operation.usageRecordedAt = now
@@ -94,6 +103,22 @@ class ProcessedFoodNameScanService(
         return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, true, detail)
     }
 
+    private fun reserveQuota(memberId: Long, analysisId: String, member: Member) {
+        val reservationId = RESERVATION_PREFIX + analysisId
+        when (reservationStore.reserve(memberId, reservationId, member.scanCount, member.scanLimit())) {
+            ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+            ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
+            ScanReservationResult.RESERVED -> TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCompletion(status: Int) {
+                        runCatching { reservationStore.release(memberId, reservationId) }
+                            .onFailure { log.warn("이름 스캔 예약 해제 실패 — TTL 만료로 회수됨, memberId={}", memberId, it) }
+                    }
+                },
+            )
+        }
+    }
+
     private fun bytesOf(uuid: UUID): ByteArray =
         ByteBuffer.allocate(16).putLong(uuid.mostSignificantBits).putLong(uuid.leastSignificantBits).array()
 
@@ -102,6 +127,7 @@ class ProcessedFoodNameScanService(
     companion object {
         const val NAMESPACE = "PFOOD_NAME"
         const val MODE = "PROCESSED_FOOD_NAME"
+        private const val RESERVATION_PREFIX = "pfood-name:"
         private const val FX_STATE = "NONE"
         private const val LIMITS_VERSION = "pfood-name-1"
         private const val ENTITLEMENT_FREE = "FREE"

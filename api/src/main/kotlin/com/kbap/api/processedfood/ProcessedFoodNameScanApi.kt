@@ -42,7 +42,8 @@ interface ProcessedFoodNameScanApi {
             | REJECTED | null | REJECTED | 0 |
             | REJECTED·NO_CANDIDATE | reportNo | 409 PFOOD-004 | 0 |
             | 없음·타인·만료(후보 30분·확정 결과 7일) | — | 404 PFOOD-003 | 0 |
-            reportNo 는 후보 밖 제품도 허용한다(ACTIVE·비생산종료). 무료 스캔을 다 쓴 회원의 확정은 403 SCAN-004.
+            reportNo 는 후보 항목의 reportNo 를 그대로 보낸다 — 후보 밖 제품도 허용(ACTIVE·비생산종료). CONFIRMED 재확정은 그 사이 생산종료돼도 같은 결과를 준다.
+            무료 스캔 한도는 메뉴판 스캔과 같은 예약 저장소로 함께 센다 — 남은 횟수가 진행 중인 스캔에 예약돼 있으면 403 SCAN-004.
             같은 분석의 동시·재시도 확정은 분석 행 잠금으로 직렬화되어 한 번만 차감된다.
         """,
     )
@@ -61,6 +62,7 @@ interface ProcessedFoodNameScanApi {
         ErrorCode.PROCESSED_FOOD_NOT_FOUND,
         ErrorCode.PROCESSED_FOOD_DISCONTINUED,
         ErrorCode.SCAN_LIMIT_EXCEEDED,
+        ErrorCode.DUPLICATE_SCAN_REQUEST,
     )
     fun confirm(memberId: Long, request: ProcessedFoodNameConfirmRequest): ResponseEntity<BaseResponse<ProcessedFoodNameConfirmResponse>>
 }
