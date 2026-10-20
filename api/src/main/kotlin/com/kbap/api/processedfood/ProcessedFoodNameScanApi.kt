@@ -70,8 +70,8 @@ interface ProcessedFoodNameScanApi {
         summary = "성분표 분석(3.2 이상) — 앱 OCR 원문 여러 면",
         description = """
             앱 온디바이스 OCR 원문 1~4면을 받아 서버 판독기로 알레르기·원재료를 읽는다(서버 OCR·유료 호출 없음).
-            줄을 나눠 '알레르기…'·'…함유' 줄은 표시란, '같은 제조시설·혼입·포함될 수' 줄은 함유 가능(참고만), 나머지는 원재료로 읽는다. 면 사이 같은 줄은 한 번만.
-            analysisId 가 없으면 새 분석, 이름 스캔 NO_CANDIDATE·REJECTED 또는 이전 성분표 결과의 id 면 그 분석에 이어 붙인다(그 외 상태 409 PFOOD-007, 없음·남의·만료 404 PFOOD-003).
+            문장으로 나눠(줄바꿈·면 경계, 같은 면에서 ','·'('·'·' 로 끝나는 줄만 이음) '알레르기…'·'…함유' 문장은 표시란, '같은 제조시설·혼입·함유 가능…' 문장은 함유 가능(참고만), 나머지는 원재료로 읽는다. 면 사이 같은 줄은 한 번만.
+            analysisId 가 없으면 새 분석 — clientRequestId(UUID) 필수(없거나 형식 오류 400 COMMON-002). 같은 키·같은 원문 재전송은 같은 분석을 charged=false 로 돌려주고(응답 유실 재시도 이중 차감 방지), 같은 키·다른 원문은 409 SCAN-005. 이름 스캔 NO_CANDIDATE·REJECTED 또는 이전 성분표 결과의 id 면 그 분석에 이어 붙인다(그 외 상태 409 PFOOD-007, 없음·남의·만료 404 PFOOD-003).
             판독 성공(검출 1개 이상 또는 두 글자 이상 한글 토큰 2개 이상)이면 분석당 1회 차감 — 같은 id 재호출은 결과만 갱신(차감 0). 판독 실패는 400 PFOOD-006(차감 0, 이어가기면 이전 결과 유지).
             무료 횟수 소진 403 SCAN-004. 검출되지 않은 재료는 UNCONFIRMED — '없음/안전'으로 단정하지 않는다.
         """,
@@ -81,6 +81,8 @@ interface ProcessedFoodNameScanApi {
         ErrorCode.PROCESSED_FOOD_LABEL_NOT_ALLOWED,
         ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND,
         ErrorCode.SCAN_LIMIT_EXCEEDED,
+        ErrorCode.DUPLICATE_SCAN_REQUEST,
+        ErrorCode.INVALID_REQUEST,
     )
     fun scanLabel(
         memberId: Long,

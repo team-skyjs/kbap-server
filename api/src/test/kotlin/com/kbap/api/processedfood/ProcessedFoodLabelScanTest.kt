@@ -44,8 +44,9 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                 content = mapper.writeValueAsString(body)
             }.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         )
-        fun label(token: String, analysisId: String?, vararg pages: String, expected: Int = 200) =
-            post("/api/processed-foods/scan/label", mapOf("analysisId" to analysisId, "pages" to pages.map { mapOf("ocrText" to it) }, "lang" to "ko"), token, expected)
+        fun label(token: String, analysisId: String?, vararg pages: String, expected: Int = 200, clientRequestId: String? = UUID.randomUUID().toString().takeIf { analysisId == null }) =
+            post("/api/processed-foods/scan/label", mapOf("analysisId" to analysisId, "clientRequestId" to clientRequestId, "pages" to pages.map { mapOf("ocrText" to it) }, "lang" to "ko"), token, expected)
+        fun usageCountOf(memberId: Long) = long("SELECT COUNT(*) FROM scan_usage u JOIN scan_operation o ON o.id = u.operation_id WHERE o.member_id = $memberId")
         fun scanCountOf(memberId: Long) = long("SELECT scan_count FROM member WHERE id = $memberId")
         val shrimpLabel = arrayOf(
             "원재료명: 소맥분(밀), 새우 10%, 설탕, 식물성유지\n알레르기 유발물질: 밀, 새우 함유",
@@ -63,6 +64,51 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
         afterSpec {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
+        }
+
+        given("성분표 분석 — 새 분석의 clientRequestId 멱등 키(KB-840)") {
+            `when`("응답을 못 받은 앱이 같은 키·같은 원문으로 다시 보내면") {
+                then("같은 분석이 같은 결과로 돌아오고 차감은 처음 1회뿐이다") {
+                    val token = member(88401L, "SEAFOOD")
+                    val key = UUID.randomUUID().toString()
+                    val first = label(token, null, *shrimpLabel, clientRequestId = key).path("payload")
+                    val again = label(token, null, *shrimpLabel, clientRequestId = key).path("payload")
+                    again.path("analysisId").asText() shouldBe first.path("analysisId").asText()
+                    again.path("detections") shouldBe first.path("detections")
+                    again.path("avoidance") shouldBe first.path("avoidance")
+                    first.path("charged").asBoolean() shouldBe true
+                    again.path("charged").asBoolean() shouldBe false
+                    scanCountOf(88401L) shouldBe 1
+                    usageCountOf(88401L) shouldBe 1
+                }
+            }
+            `when`("같은 키로 다른 원문을 보내면") {
+                then("409 SCAN-005, 추가 차감 없음") {
+                    val token = member(88402L)
+                    val key = UUID.randomUUID().toString()
+                    label(token, null, *shrimpLabel, clientRequestId = key)
+                    label(token, null, "원재료명: 정제수, 새우", clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
+                    scanCountOf(88402L) shouldBe 1
+                }
+            }
+            `when`("같은 키로 같은 줄을 면 나눔만 달리해 보내면 — Codex P2") {
+                then("다른 요청으로 보고 409 SCAN-005") {
+                    val token = member(88405L)
+                    val key = UUID.randomUUID().toString()
+                    label(token, null, *shrimpLabel, clientRequestId = key)
+                    label(token, null, shrimpLabel.joinToString("\n"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
+                    label(token, null, shrimpLabel.joinToString("\u0000"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
+                    scanCountOf(88405L) shouldBe 1
+                }
+            }
+            `when`("새 분석에 키가 없거나 UUID 가 아니면") {
+                then("400 COMMON-002, 차감 없음") {
+                    val token = member(88403L)
+                    label(token, null, *shrimpLabel, clientRequestId = null, expected = 400).path("code").asText() shouldBe "COMMON-002"
+                    label(token, null, *shrimpLabel, clientRequestId = "not-a-uuid", expected = 400).path("code").asText() shouldBe "COMMON-002"
+                    scanCountOf(88403L) shouldBe 0
+                }
+            }
         }
 
         given("성분표 분석 — 새 분석(analysisId 없음)") {
@@ -152,7 +198,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                         val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
                         val futures = (1..2).map { pool.submit<Int> { start.await(); mockMvc.post("/api/processed-foods/scan/label") {
                             header("X-API-Version", "3.2"); header("Authorization", "Bearer $token"); contentType = MediaType.APPLICATION_JSON
-                            content = mapper.writeValueAsString(mapOf("pages" to listOf(mapOf("ocrText" to "원재료명: 감자, 식물성유지, 정제소금")), "lang" to "ko"))
+                            content = mapper.writeValueAsString(mapOf("clientRequestId" to UUID.randomUUID().toString(), "pages" to listOf(mapOf("ocrText" to "원재료명: 감자, 식물성유지, 정제소금")), "lang" to "ko"))
                         }.andReturn().response.status } }
                         start.countDown()
                         futures.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }.all { it == 200 || it == 403 } shouldBe true

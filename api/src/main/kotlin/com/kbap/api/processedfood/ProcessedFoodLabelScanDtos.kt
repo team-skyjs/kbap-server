@@ -13,6 +13,9 @@ data class ProcessedFoodLabelScanRequest(
     @field:Schema(description = "이어 붙일 분석 ID — 이름 스캔 NO_CANDIDATE·REJECTED 또는 이전 성분표 결과. 생략·null 이면 새 분석", nullable = true)
     val analysisId: String? = null,
 
+    @field:Schema(description = "앱이 만든 UUID — 새 분석(analysisId 없음)일 때 필수인 멱등 키. 같은 키·같은 원문 재전송은 같은 분석(charged=false), 같은 키·다른 원문은 409 SCAN-005. 이어 붙이기(analysisId 있음)에서는 무시", nullable = true, example = "0b6b5c6e-3f0a-4c8e-9a51-1f0f3b7d2a10")
+    val clientRequestId: String? = null,
+
     @field:NotNull(message = "pages 는 필수입니다")
     @field:Size(min = 1, max = 4, message = "성분표 면은 1~4개여야 합니다")
     @field:Valid
