@@ -156,6 +156,34 @@ class ScanBatchTest : BehaviorSpec() {
                     sql("SELECT COUNT(*) FROM scan_operation") shouldBe 1
                 }
             }
+            `when`("같은 clientRequestId 생성이 동시에 두 번 오면 — Codex P2") {
+                then("둘 다 같은 묶음을 받고 묶음·예약은 하나다") {
+                    val owner = member("batch-concurrent")
+                    val requestId = UUID.randomUUID()
+                    val payload = body(requestId, photos(owner, 2))
+                    val start = CountDownLatch(1)
+                    val pool = Executors.newFixedThreadPool(2)
+                    val futures = (1..2).map { pool.submit<String> { start.await(); create(owner, payload).path("payload").path("batchId").asText() } }
+                    start.countDown()
+                    futures.map { it.get(30, TimeUnit.SECONDS) } shouldBe listOf(requestId.toString(), requestId.toString())
+                    pool.shutdown()
+                    sql("SELECT COUNT(*) FROM scan_operation") shouldBe 1
+                    redis.opsForZSet().size("scan:reservations:${owner.id}") shouldBe 1
+                }
+            }
+            `when`("플래그를 끈 뒤 기존 묶음을 조회·취소하면 — Codex P2") {
+                then("생성과 같이 404 SCAN-010 이다") {
+                    val owner = member("batch-flag-off")
+                    val batchId = newBatch(owner)
+                    batchSwitch.enabled = false
+                    read(owner, batchId, expected = 404).path("code").asText() shouldBe "SCAN-010"
+                    mvc.post("/api/scans/batches/$batchId/cancel") {
+                        header("X-API-Version", "3.3")
+                        header("Authorization", "Bearer ${tokens.issueAccessToken(owner.id, MemberRole.USER)}")
+                    }.andExpect { status { isNotFound() } }
+                    batches.startAttempt(owner.id, UUID.fromString(batchId), 0) shouldBe null
+                }
+            }
             `when`("무료 횟수가 남지 않았으면") {
                 then("403 SCAN-004 이고 묶음이 생기지 않는다") {
                     val owner = member("batch-exhausted", scanCount = Member.FREE_SCAN_LIMIT)
@@ -287,6 +315,21 @@ class ScanBatchTest : BehaviorSpec() {
                     batches.recordSuccess(stale, extraction) shouldBe false
                     batches.recordSuccess(current, extraction) shouldBe true
                     scanCount(owner) shouldBe 1
+                }
+            }
+            `when`("시도 기한(lease)이 지난 뒤 결과가 도착하면 — Codex P1") {
+                then("대체 시도가 없어도 확정하지 않고 FAILED(LEASE_EXPIRED)·재시도 가능, 차감 0") {
+                    val owner = member("batch-lease")
+                    val batchId = UUID.fromString(newBatch(owner))
+                    val claim = batches.startAttempt(owner.id, batchId, 0)!!
+                    sql("UPDATE scan_operation_photo SET lease_until = NOW(6) - INTERVAL 1 SECOND WHERE id = ${claim.photoRowId}")
+                    batches.recordSuccess(claim, extraction) shouldBe false
+                    scanCount(owner) shouldBe 0
+                    usages(batchId.toString()) shouldBe 0
+                    val photo = read(owner, batchId.toString()).path("payload").path("photos")[0]
+                    photo.path("state").asText() shouldBe "FAILED"
+                    photo.path("errorReason").asText() shouldBe "LEASE_EXPIRED"
+                    photo.path("retryable").asBoolean() shouldBe true
                 }
             }
             `when`("확정 시점에 회원 잔량이 이미 소진돼 있으면(예약 만료 뒤 다른 경로가 소진)") {
