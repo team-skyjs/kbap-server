@@ -93,6 +93,21 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     scanCountOf(88302L) shouldBe 0
                 }
             }
+            `when`("앞면처럼 표시란·원재료 줄이 하나도 없으면(제품명에 재료 낱말이 있어도)") {
+                then("400 PFOOD-006, 차감 0") {
+                    val token = member(88308L)
+                    label(token, null, "NEW\n새우깡\n90g", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    label(token, null, "농심 새우깡 매운맛", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    scanCountOf(88308L) shouldBe 0
+                }
+            }
+            `when`("'원재료' 줄이나 쉼표 목록 줄이 있으면") {
+                then("성분표로 보고 읽는다(줄바꿈으로 넘어간 원재료도 함께)") {
+                    val token = member(88309L)
+                    label(token, null, "원재료명: 새우").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("SHRIMP")
+                    label(token, null, "밀가루, 백설탕, 쇼트닝\n새우").path("payload").path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP")
+                }
+            }
             `when`("검출이 하나라도 있으면") {
                 then("토큰 수와 무관하게 성공이다") {
                     val token = member(88303L)
@@ -123,9 +138,21 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                         it.path("charged").asBoolean() shouldBe false
                     }
                     label(token, id, "농심", expected = 400).path("code").asText() shouldBe "PFOOD-006"
+                    label(token, id, "원재료명: 쌀, 정제소금, 효소").path("payload").path("charged").asBoolean() shouldBe false
+                    label(token, id, "원재료명: 옥수수, 정제소금, 효소").path("payload").path("charged").asBoolean() shouldBe false
+                    label(token, id, "원재료명: 보리, 정제소금, 효소", expected = 409).path("code").asText() shouldBe "PFOOD-007"
                     long("SELECT COUNT(*) FROM scan_operation WHERE lifecycle = 'LABEL_RESULT' AND JSON_EXTRACT(request_document, '$.label.rawText') LIKE '%감자%'") shouldBe 1
                     scanCountOf(88305L) shouldBe 1
                     post("/api/processed-foods/scan/confirm", mapOf("analysisId" to id, "reportNo" to "PL-1"), token, expected = 409).path("code").asText() shouldBe "PFOOD-004"
+                }
+            }
+            `when`("첫 성공 뒤 30분이 지나 같은 id 로 다시 보내면") {
+                then("무료 재호출 창이 끝나 409 PFOOD-007(앱은 새 분석)") {
+                    val token = member(88310L)
+                    val id = label(token, null, *shrimpLabel).path("payload").path("analysisId").asText()
+                    execute("UPDATE scan_operation SET request_document = JSON_SET(request_document, '$.label.firstSucceededAt', '2000-01-01T00:00:00') WHERE request_key = UUID_TO_BIN('$id')")
+                    label(token, id, "원재료명: 감자, 식물성유지, 정제소금", expected = 409).path("code").asText() shouldBe "PFOOD-007"
+                    scanCountOf(88310L) shouldBe 1
                 }
             }
             `when`("후보 확정 대기(CANDIDATES) 분석이나 없는·남의 분석 id 면") {
