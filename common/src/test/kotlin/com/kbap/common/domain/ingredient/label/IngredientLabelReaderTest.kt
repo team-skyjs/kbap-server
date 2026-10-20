@@ -218,6 +218,8 @@ class IngredientLabelReaderTest : BehaviorSpec({
         `when`("알레르기 표시란에 공백 하나 띄운 부정 표현이 있으면 — Codex P2") {
             then("원재료와 같이 그 품목을 제외한다") {
                 codes(IngredientLabelReader.read("우유 무첨가, 대두", null)) shouldBe setOf(SOY)
+                IngredientLabelReader.read("우유 무첨가, 대두", null).unmappedTokens shouldContain "우유 무첨가"
+                IngredientLabelReader.read(null, "설탕 무첨가 땅콩버터").unmappedTokens shouldContain "설탕 무첨가"
             }
         }
         `when`("이름만 닮은 재료이면 — 선제 보강의 오탐 경계") {
