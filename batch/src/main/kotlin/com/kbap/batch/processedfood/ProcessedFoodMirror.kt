@@ -125,7 +125,7 @@ class ProcessedFoodMirror(
             transaction.executeWithoutResult { repository.findById(id).ifPresent { it.supplementMaker(maker, now) } }
             if (maker != null) filled++
         }
-        return MakerOutcome(calls, filled, failures, aborted = false)
+        return MakerOutcome(calls, filled, failures, aborted = consecutiveFailures >= makerLookupMaxConsecutiveFailures)
     }
 
     private fun HaccpProduct.toSnapshot() = ProcessedFoodSnapshot(
