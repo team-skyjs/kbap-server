@@ -162,6 +162,17 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     get("/api/processed-foods?query=새우깡&cursor=2147483647", expected = 400).path("code").asText() shouldBe "FOOD-002"
                 }
             }
+            `when`("제조사만 맞는 제품이 상한(300)을 넘고 짧은 이름 제품의 id 가 뒤이면 — Codex P2") {
+                then("상한으로 자르기 전에 짧은 이름 순으로 골라 그 제품이 1등이다") {
+                    execute(
+                        "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, source, content_hash, collected_at, last_seen_at, status, created_at, updated_at) " +
+                            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 305) " +
+                            "SELECT CONCAT('PF-MK-', i), CONCAT('긴이름상품번호', i), CONCAT('긴이름상품번호', i), '과자', '대량제조㈜', 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), 'ACTIVE', NOW(6), NOW(6) FROM n",
+                    )
+                    seedProduct("PF-MK-SHORT", "짧은", "대량제조㈜")
+                    names(get("/api/processed-foods?query=대량제조&size=1")) shouldBe listOf("짧은")
+                }
+            }
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
                     get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
