@@ -42,11 +42,13 @@ class DataGoKrClient internal constructor(
 
     private fun fetchChecked(operation: String, path: String, keyParam: String, params: Map<String, Any>, successCode: String): JsonNode {
         val body = fetch(path, keyParam, params)
-        val json = try {
+        if (body.isBlank()) throw TransientResponseException("빈 응답")
+        val json: JsonNode? = try {
             mapper.readTree(body)
         } catch (e: Exception) {
             throw TransientResponseException("응답이 JSON 이 아닙니다(${redact(body).take(BODY_SNIPPET)})")
         }
+        if (json == null || json.isMissingNode || json.isNull) throw TransientResponseException("빈 응답")
         val rejection = json.path("OpenAPI_ServiceResponse").path("cmmMsgHeader")
         if (!rejection.isMissingNode) {
             val message = "거절 ${rejection.path("errMsg").asString()}(${rejection.path("returnReasonCode").asString()})"
