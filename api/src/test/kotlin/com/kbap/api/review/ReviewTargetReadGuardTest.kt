@@ -87,15 +87,13 @@ class ReviewTargetReadGuardTest : BehaviorSpec() {
                     items.getValue(s.productReviewId).foodName shouldBe null
                 }
             }
-            `when`("작성자가 가공식품 리뷰를 지우면") {
-                then("500 없이 지워지고 음식 리뷰 수·고유 음식 수는 그대로다") {
+            `when`("작성자가 구 계약(PATCH·DELETE /reviews/{id})으로 가공식품 리뷰를 고치거나 지우면") {
+                then("REVIEW_NOT_FOUND 이고 리뷰·카운터는 그대로다(가공식품 수정·삭제는 ①-b 가 대상별로 연다)") {
                     val s = seed()
-                    val uniqueBefore = sql("SELECT unique_reviewed_food_count FROM member WHERE id = ${s.author.id}")
-                    reviewService.deleteReview(s.author.id, s.productReviewId)
-                    sql("SELECT COUNT(*) FROM food_review WHERE id = ${s.productReviewId} AND status = 'DELETED'") shouldBe 1
-                    sql("SELECT review_count FROM food WHERE id = ${s.food.id}") shouldBe 1
-                    sql("SELECT unique_reviewed_food_count FROM member WHERE id = ${s.author.id}") shouldBe uniqueBefore
-                    sql("SELECT review_count FROM member WHERE id = ${s.author.id}") shouldBe 1
+                    shouldThrow<BusinessException> { reviewService.updateReview(s.author.id, s.productReviewId, 5, 5, 5, "구 계약으로 고친 본문입니다", null, null) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
+                    shouldThrow<BusinessException> { reviewService.deleteReview(s.author.id, s.productReviewId) }.errorCode shouldBe ErrorCode.REVIEW_NOT_FOUND
+                    sql("SELECT COUNT(*) FROM food_review WHERE id = ${s.productReviewId} AND status = 'ACTIVE' AND rating = 4 AND serving_speed_rating = 0") shouldBe 1
+                    sql("SELECT review_count FROM member WHERE id = ${s.author.id}") shouldBe 2
                 }
             }
             `when`("신고 처리로 지우거나 다른 회원이 좋아요를 누르면") {
