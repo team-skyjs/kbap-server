@@ -13,6 +13,9 @@ object ProcessedFoodSearchRanker {
     fun tokensOf(query: String): List<String> =
         query.trim().split(Regex("""\s+""")).map(ProcessedFoodSnapshot::normalizeName).filter { it.isNotBlank() }.distinct().take(MAX_TOKENS)
 
+    fun rawTokensOf(query: String): List<String> =
+        query.trim().split(Regex("""\s+""")).filter { it.isNotBlank() }.distinct().take(MAX_TOKENS)
+
     fun rank(products: Collection<ProcessedFoodProduct>, tokens: List<String>): List<ProcessedFoodProduct> {
         val scored = products.mapNotNull { product -> scoreOf(product, tokens)?.let { product to it } }
         val nameMatched = scored.any { it.second.grade != MAKER_ONLY }

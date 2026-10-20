@@ -115,7 +115,8 @@ class ProcessedFoodProduct(
     fun displayMaker(): String? =
         listOf(manufacturer, seller, makerSupplement).firstNotNullOfOrNull(::companyNameOf)
 
-    fun isDiscontinued(latestSeenAt: LocalDateTime): Boolean = lastSeenAt.isBefore(latestSeenAt.minus(DISCONTINUED_AFTER))
+    fun isDiscontinued(lastCompletedMirrorAt: LocalDateTime?): Boolean =
+        lastCompletedMirrorAt != null && lastSeenAt.isBefore(lastCompletedMirrorAt.minus(DISCONTINUED_AFTER))
 
     companion object {
         val DISCONTINUED_AFTER: Duration = Duration.ofDays(3)

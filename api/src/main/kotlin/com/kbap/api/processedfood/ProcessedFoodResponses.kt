@@ -75,7 +75,7 @@ data class ProcessedFoodDetailResponse(
                 },
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
-                source = ProcessedFoodSourceResponse(product.source, "processedFood.source.haccp", product.collectedAt, product.updatedAt),
+                source = ProcessedFoodSourceResponse(product.source, "processedFood.source.haccp", product.collectedAt),
                 image = product.imageUrl?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
             )
 
@@ -114,9 +114,8 @@ data class ProcessedFoodSourceResponse(
     val provider: String,
     @field:Schema(description = "출처 고지 문구 키 — 앱이 언어별 문구로 바꾼다", example = "processedFood.source.haccp")
     val attributionKey: String,
+    @field:Schema(description = "이 제품을 처음 수집한 시각. 원본 내용 변경 시각은 아직 기록하지 않아 내려가지 않는다(미러 확인 시각을 갱신일로 보이지 않기 위해)")
     val collectedAt: LocalDateTime,
-    @field:Schema(description = "원본 변경을 마지막으로 반영한 시각")
-    val updatedAt: LocalDateTime,
 )
 
 data class ProcessedFoodImageResponse(
