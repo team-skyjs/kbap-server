@@ -192,6 +192,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
             then("조사를 떼고 찾는다 — 의무 표시 품목에만 적용해 파이(파)·알이 같은 일반어는 잡지 않는다") {
                 codes(IngredientLabelReader.read(null, "밀을 함유, 게가 포함됨, 굴과 잣은 사용")) shouldBe setOf(WHEAT, IngredientCode.CRAB, OYSTER, IngredientCode.PINE_NUT)
                 codes(IngredientLabelReader.read(null, "파이, 알이")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "밀도 1.2, 게도")) shouldBe emptySet()
             }
         }
         `when`("품목 바로 뒤에 무첨가·불포함·미사용·free 가 오면 — Codex P2") {
@@ -201,6 +202,12 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "설탕 무첨가 땅콩버터")) shouldBe setOf(PEANUT)
                 codes(IngredientLabelReader.read(null, "MSG free 우유")) shouldBe setOf(MILK)
                 codes(IngredientLabelReader.read(null, "우유 freeze, 계란 미사용라인, 대두 무첨가함")) shouldBe setOf(MILK, EGG, SOY)
+            }
+        }
+        `when`("무알콜·비알코올 표기이면 — Codex P2") {
+            then("알코올로 검출하지 않는다 — 에틸알콜·발효주정은 그대로") {
+                codes(IngredientLabelReader.read(null, "무알콜음료, 무알코올, 비알콜, 비알코올맥주맛, 논알콜")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "에틸알콜, 발효주정")) shouldBe setOf(IngredientCode.ALCOHOL)
             }
         }
         `when`("돈지방이 원재료에 있으면 — Codex P2") {
