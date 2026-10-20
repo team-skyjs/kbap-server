@@ -1,0 +1,92 @@
+package com.kbap.api.processedfood
+
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
+
+class ProcessedFoodLabelTextTest : BehaviorSpec({
+    given("성분표 OCR 원문(여러 면)") {
+        `when`("원재료·알레르기 표시·같은 제조시설 문구가 섞여 오면") {
+            then("줄을 표시란·함유 가능·원재료로 나눈다") {
+                val text = ProcessedFoodLabelText.of(
+                    listOf(
+                        "원재료명: 소맥분(밀), 새우 10%, 설탕\n알레르기 유발물질: 밀, 새우 함유",
+                        "이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다.",
+                    ),
+                )
+                text.allergens shouldBe "알레르기 유발물질: 밀, 새우 함유"
+                text.mayContain shouldBe "이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다."
+                text.rawMaterials shouldBe "원재료명: 소맥분(밀), 새우 10%, 설탕"
+            }
+        }
+        `when`("표시란과 같은 제조시설 문구가 한 줄에 붙어 오면 — 공부 B") {
+            then("문장 단위로 나눠 표시란 재료는 표시란에, 함유 가능 문구만 함유 가능으로 간다") {
+                val text = ProcessedFoodLabelText.of(listOf("알레르기 유발물질: 밀, 대두, 우유, 쇠고기 함유. 이 제품은 메밀을 사용한 제품과 같은 제조시설에서 제조합니다."))
+                text.allergens shouldBe "알레르기 유발물질: 밀, 대두, 우유, 쇠고기 함유"
+                text.mayContain shouldBe "이 제품은 메밀을 사용한 제품과 같은 제조시설에서 제조합니다."
+            }
+        }
+        `when`("같은 제조시설 문구가 OCR 줄바꿈으로 쪼개져 오면 — 공부 C·Codex P2") {
+            then("원재료 줄은 그대로 남고, 쪼개진 조각은 원재료로 남아 과경고 쪽으로 기운다(놓침 없음)") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 감자, 식물성유지\n이 제품은 메밀을 사용한 제품과 같은\n제조시설에서 제조하고 있습니다."))
+                text.rawMaterials.lines().first() shouldBe "원재료명: 감자, 식물성유지"
+                ("메밀" in text.rawMaterials) shouldBe true
+            }
+        }
+        `when`("표시란·함유 가능 줄에 구두점이 없으면 — 공부 2R V6") {
+            then("줄바꿈이 문장 경계라 표시란 재료가 함유 가능으로 빨려 들어가지 않는다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 소맥분, 정제수\n알레르기 유발물질: 밀, 대두, 쇠고기 함유\n땅콩 혼입 가능"))
+                text.allergens shouldBe "알레르기 유발물질: 밀, 대두, 쇠고기 함유"
+                text.mayContain shouldBe "땅콩 혼입 가능"
+                text.rawMaterials shouldBe "원재료명: 소맥분, 정제수"
+            }
+        }
+        `when`("함유 가능 문구가 '함유 가능·함유할 수·들어 있을 수·섞일 수'로 쓰이면 — Codex P2") {
+            then("함유 가능으로 가고, '…함유'로 끝나는 표시란은 그대로 표시란이다") {
+                val text = ProcessedFoodLabelText.of(listOf("알레르기 유발물질: 밀, 대두 함유\n땅콩 함유 가능\n호두를 함유할 수 있음\n메밀이 들어 있을 수 있습니다\n잣이 섞일 수 있음"))
+                text.allergens shouldBe "알레르기 유발물질: 밀, 대두 함유"
+                text.mayContain shouldBe "땅콩 함유 가능\n호두를 함유할 수 있음\n메밀이 들어 있을 수 있습니다\n잣이 섞일 수 있음"
+            }
+        }
+        `when`("표시란 없이 '…함유'로 끝나는 줄만 있으면") {
+            then("함유 가능이 아니라 표시란으로 본다") {
+                ProcessedFoodLabelText.of(listOf("우유, 대두 함유")).mayContain shouldBe null
+            }
+        }
+        `when`("줄 끝이 쉼표·여는 괄호·가운뎃점이면(목록 계속)") {
+            then("같은 면의 다음 줄과만 잇고, 면 경계는 잇지 않는다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 밀가루(미국산,\n호주산), 백설탕·", "쇼트닝, 새우"))
+                text.rawMaterials shouldBe "원재료명: 밀가루(미국산, 호주산), 백설탕·\n쇼트닝, 새우"
+            }
+        }
+        `when`("면 끝이 쉼표이고 다음 면이 함유 가능 문구면 — Codex P2") {
+            then("다음 면은 별도 문장이라 함유 가능으로 간다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 정제수, 새우,", "※땅콩 혼입 가능"))
+                text.rawMaterials shouldBe "원재료명: 정제수, 새우,"
+                text.mayContain shouldBe "※땅콩 혼입 가능"
+            }
+        }
+        `when`("원재료 줄 안에 ※·* 로 시작하는 문구가 이어 붙으면 — 공부 V8") {
+            then("※·* 앞에서 문장을 나눠 함유 가능 문구가 원재료에 섞이지 않는다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 정제수, 정제소금 ※땅콩 혼입 가능"))
+                text.rawMaterials shouldBe "원재료명: 정제수, 정제소금"
+                text.mayContain shouldBe "※땅콩 혼입 가능"
+            }
+        }
+        `when`("여러 면에 같은 줄이 반복되거나 공백·전각만 다르면") {
+            then("한 번만 남기고 원문은 줄 순서대로 이어 붙인다") {
+                val text = ProcessedFoodLabelText.of(listOf("원재료명: 감자,  식물성유지\n\n", "원재료명: 감자, 식물성유지", "ＭＳＧ 무첨가"))
+                text.rawText shouldBe "원재료명: 감자, 식물성유지\nMSG 무첨가"
+                text.allergens shouldBe null
+                text.mayContain shouldBe null
+            }
+        }
+        `when`("'…함유'로 끝나는 줄이나 혼입·포함될 수 문구면") {
+            then("앞은 표시란, 뒤는 함유 가능으로 본다") {
+                val text = ProcessedFoodLabelText.of(listOf("우유, 대두 함유.", "메밀이 혼입될 수 있습니다", "땅콩이 포함될 수 있음", "동일한 제조공정에서 호두를 사용"))
+                text.allergens shouldBe "우유, 대두 함유"
+                text.mayContain shouldBe "메밀이 혼입될 수 있습니다\n땅콩이 포함될 수 있음\n동일한 제조공정에서 호두를 사용"
+                text.rawMaterials shouldBe ""
+            }
+        }
+    }
+})

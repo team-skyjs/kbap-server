@@ -79,7 +79,7 @@ class ProcessedFoodNameScanService(
             ProcessedFoodNameScanState.REJECTED ->
                 if (reportNo == null) ProcessedFoodNameConfirmResponse(analysisId, state, false, null)
                 else throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
-            ProcessedFoodNameScanState.NO_CANDIDATE -> throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
+            ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.LABEL_RESULT -> throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
         }
     }
 
@@ -119,22 +119,22 @@ class ProcessedFoodNameScanService(
         }
     }
 
-    private fun bytesOf(uuid: UUID): ByteArray =
-        ByteBuffer.allocate(16).putLong(uuid.mostSignificantBits).putLong(uuid.leastSignificantBits).array()
-
-    private fun uuidOf(bytes: ByteArray): UUID = ByteBuffer.wrap(bytes).let { UUID(it.long, it.long) }
-
     companion object {
         const val NAMESPACE = "PFOOD_NAME"
+
+        fun bytesOf(uuid: UUID): ByteArray =
+            ByteBuffer.allocate(16).putLong(uuid.mostSignificantBits).putLong(uuid.leastSignificantBits).array()
+
+        fun uuidOf(bytes: ByteArray): UUID = ByteBuffer.wrap(bytes).let { UUID(it.long, it.long) }
         const val MODE = "PROCESSED_FOOD_NAME"
         private const val RESERVATION_PREFIX = "pfood-name:"
         private const val FX_STATE = "NONE"
         private const val LIMITS_VERSION = "pfood-name-1"
-        private const val ENTITLEMENT_FREE = "FREE"
-        private const val ENTITLEMENT_UNLIMITED = "UNLIMITED"
+        const val ENTITLEMENT_FREE = "FREE"
+        const val ENTITLEMENT_UNLIMITED = "UNLIMITED"
         private const val MAX_CANDIDATES = 5
         private val CANDIDATES_TTL: Duration = Duration.ofMinutes(30)
-        private val RESULT_TTL: Duration = Duration.ofDays(7)
-        private val KEY_TTL: Duration = Duration.ofDays(30)
+        val RESULT_TTL: Duration = Duration.ofDays(7)
+        val KEY_TTL: Duration = Duration.ofDays(30)
     }
 }
