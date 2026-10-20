@@ -63,7 +63,7 @@ data class ScanBatchPhotoResponse(
     val attemptNo: Int,
     @field:Schema(description = "실패 사유(QUOTA_EXHAUSTED·LEASE_EXPIRED·인식 실패 코드) — 실패가 아니면 null", nullable = true)
     val errorReason: String?,
-    @field:Schema(description = "같은 묶음에서 다시 시도할 수 있는지(추가 차감 없음)")
+    @field:Schema(description = "같은 묶음에서 다시 시도할 수 있는지(추가 차감 없음, 사진당 시도 최대 3회)")
     val retryable: Boolean,
 ) {
     companion object {
@@ -77,7 +77,7 @@ data class ScanBatchPhotoResponse(
                 state = state,
                 attemptNo = photo.attemptNo,
                 errorReason = reason,
-                retryable = batchActive && state == ScanPhotoState.FAILED && reason != ScanOperationPhoto.QUOTA_EXHAUSTED,
+                retryable = batchActive && state == ScanPhotoState.FAILED && reason != ScanOperationPhoto.QUOTA_EXHAUSTED && photo.attemptNo < ScanOperationPhoto.MAX_ATTEMPTS,
             )
         }
     }

@@ -51,7 +51,7 @@ class ScanOperationPhoto(
     @Column(name = "error_reason", length = 64)
     var errorReason: String? = null,
 ) : BaseEntity() {
-    fun isRunnableAt(now: LocalDateTime): Boolean = when (executionState) {
+    fun isRunnableAt(now: LocalDateTime): Boolean = attemptNo < MAX_ATTEMPTS && when (executionState) {
         ScanPhotoState.PENDING -> true
         ScanPhotoState.FAILED -> errorReason != QUOTA_EXHAUSTED
         ScanPhotoState.RUNNING -> leaseUntil?.isBefore(now) ?: true
@@ -88,5 +88,6 @@ class ScanOperationPhoto(
     companion object {
         const val QUOTA_EXHAUSTED = "QUOTA_EXHAUSTED"
         const val LEASE_EXPIRED = "LEASE_EXPIRED"
+        const val MAX_ATTEMPTS = 3
     }
 }
