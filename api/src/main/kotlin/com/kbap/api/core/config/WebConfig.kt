@@ -149,6 +149,7 @@ class WebConfig(
                 "${ApiPaths.API}/foods/selected",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",
+                "${ApiPaths.API}/processed-foods/scan/*",
                 "${ApiPaths.API}/bookmarks",
                 "${ApiPaths.API}/bookmarks/*",
                 "${ApiPaths.API}/reviews",

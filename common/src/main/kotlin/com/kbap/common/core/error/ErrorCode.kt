@@ -128,4 +128,6 @@ enum class ErrorCode(
 
     PROCESSED_FOOD_NOT_FOUND("PFOOD-001", 404, "가공식품을 찾을 수 없습니다"),
     PROCESSED_FOOD_DISCONTINUED("PFOOD-002", 410, "생산이 종료된 제품입니다"),
+    PROCESSED_FOOD_SCAN_NOT_FOUND("PFOOD-003", 404, "스캔 분석을 찾을 수 없거나 만료되었습니다"),
+    PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED("PFOOD-004", 409, "이미 확정했거나 확정할 수 없는 스캔 분석입니다"),
 }

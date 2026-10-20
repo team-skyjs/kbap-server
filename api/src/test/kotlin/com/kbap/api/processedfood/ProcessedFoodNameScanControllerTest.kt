@@ -177,7 +177,7 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     val id = scanName(owner, "새우깡").path("payload").path("analysisId").asText()
                     confirm(other, id, "PS-1", expected = 404).path("code").asText() shouldBe "PFOOD-003"
                     confirm(owner, "00000000-0000-0000-0000-000000000000", "PS-1", expected = 404).path("code").asText() shouldBe "PFOOD-003"
-                    execute("UPDATE scan_operation SET expires_at = NOW(6) - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$id')")
+                    execute("UPDATE scan_operation SET expires_at = expires_at - INTERVAL 31 MINUTE WHERE request_key = UUID_TO_BIN('$id')")
                     confirm(owner, id, "PS-1", expected = 404).path("code").asText() shouldBe "PFOOD-003"
                 }
             }
