@@ -186,12 +186,10 @@ class FoodDetailReviewSectionTest : BehaviorSpec() {
                 }
             }
             `when`("활성 회원이 아닌 토큰(탈퇴 회원)으로 리뷰가 있는 음식을 조회하면") {
-                then("비회원과 동일하게 전체 실수치·같은 국적 null 이 내려간다") {
+                then("400 MEMBER-003 으로 거절한다 — 토큰을 보냈으면 회원으로 판정하고, 앱은 이 코드로 세션을 만료한다(KB-669)") {
                     detail(920L, tokenIssuer.issueAccessToken(999L, MemberRole.USER)).andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.reviewSummary.overall.averageRating") { value(3.7) }
-                        jsonPath("$.payload.reviewSummary.overall.reviewCount") { value(3) }
-                        jsonPath("$.payload.reviewSummary.sameCountry") { value(nullValue()) }
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-003") }
                     }
                 }
             }

@@ -193,10 +193,10 @@ class RequestLoggingFilterTest : BehaviorSpec() {
 
         given("인증된 회원의 요청") {
             `when`("요청이 처리되면") {
-                then("로그에 회원 식별자가 담긴다") {
+                then("요청 로그에 회원 식별자가 담긴다 — 인증 필터가 거절한 요청(없는 회원)도 누구의 토큰이었는지 남는다") {
                     callWithToken(9_999_999L)
 
-                    eventsOf("GlobalExceptionHandler").single().mdcPropertyMap["memberId"] shouldBe "9999999"
+                    eventsOf("RequestLoggingFilter").last().mdcPropertyMap["memberId"] shouldBe "9999999"
                 }
             }
 
