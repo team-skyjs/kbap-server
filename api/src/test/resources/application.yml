@@ -24,6 +24,10 @@ spring:
 kbap:
   curation:
     environment: dev
+  # 통합 테스트는 가공식품 행을 넣자마자 이름 스캔·검색을 부른다 — 후보 색인 갱신 확인을 매 호출마다.
+  processed-food:
+    candidate-index:
+      refresh-check: 0s
   review-bot:
     photo-sync-enabled: true
   # 기존 리뷰 언어 채우기는 통합 컨텍스트 기동 때 돌지 않게 끈다 — 채우기 테스트가 직접 만들어 돌린다.
