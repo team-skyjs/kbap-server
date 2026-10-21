@@ -45,8 +45,14 @@ class ProcessedFoodCandidateIndex(
         synchronized(this) {
             val latest = snapshot
             if (latest != null && System.nanoTime() - latest.checkedAt < refreshCheck.toNanos()) return latest
-            val fingerprint = products.findCandidateFingerprint()
-            val next = if (latest != null && latest.fingerprint == fingerprint) latest.copy(checkedAt = System.nanoTime()) else load(fingerprint)
+            val next = try {
+                val fingerprint = products.findCandidateFingerprint()
+                if (latest != null && latest.fingerprint == fingerprint) latest.copy(checkedAt = System.nanoTime()) else load(fingerprint)
+            } catch (e: Exception) {
+                if (latest == null) throw e
+                log.warn("가공식품 후보 색인 갱신 실패 — 기존 색인으로 답하고 다음 확인 때 다시 시도 rows={}", latest.entries.size, e)
+                latest.copy(checkedAt = System.nanoTime())
+            }
             snapshot = next
             return next
         }
