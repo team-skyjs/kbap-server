@@ -13,6 +13,10 @@ import java.time.LocalDateTime
 interface RatingAggregate {
     val average: Double?
     val reviewCount: Long
+    val servingSpeedAverage: Double?
+    val servingSpeedCount: Long
+    val staffKindnessAverage: Double?
+    val staffKindnessCount: Long
 }
 
 interface FoodRatingAggregate {
@@ -104,7 +108,9 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
 
     @Query(
         """
-        select avg(r.rating) as average, count(r) as reviewCount
+        select avg(r.rating) as average, count(r) as reviewCount,
+               avg(nullif(r.servingSpeedRating, 0)) as servingSpeedAverage, count(nullif(r.servingSpeedRating, 0)) as servingSpeedCount,
+               avg(nullif(r.staffKindnessRating, 0)) as staffKindnessAverage, count(nullif(r.staffKindnessRating, 0)) as staffKindnessCount
         from Review r
         where r.foodId = :foodId
           and (:countryCode is null or r.authorCountryCode = :countryCode)
