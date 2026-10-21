@@ -26,6 +26,20 @@ interface FoodApi {
     ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>>
 
     @Operation(
+        summary = "화제 영상 K-푸드 목록",
+        description = "화제 영상이 연결된(food_idol_video ACTIVE 행) ACTIVE·READY 음식을 음식당 1건씩 반환한다. " +
+            "항목은 음식 목록과 같은 음식 카드 필드 + video{url, platform(YOUTUBE|TIKTOK)} 이며, video 는 그 음식의 연결 영상 중 position 최소 1개다. " +
+            "정렬은 대표 영상 화제성 내림차순 → 게시월 내림차순 → foodId 오름차순, 페이지네이션 없음. 연결된 음식이 없으면 items 는 빈 배열이다. " +
+            "회원 위험도·북마크를 반영하며 비회원도 조회 가능하다. 영상 제목·썸네일 등 메타데이터는 내려주지 않는다. " +
+            "lang은 필수이며 미지원 언어는 en으로 응답한다. X-API-Version 헤더는 필수이나 값에 따른 분기는 없다.",
+    )
+    @ApiErrors(ErrorCode.INVALID_REQUEST, ErrorCode.INVALID_ACCESS_TOKEN)
+    fun idolPicks(
+        @ParameterObject request: FoodIdolPicksRequest,
+        memberId: Long?,
+    ): ResponseEntity<BaseResponse<IdolPicksResponse>>
+
+    @Operation(
         summary = "선정 음식 요약 일괄 조회",
         description = "입력 ID 순서로 ACTIVE·READY 음식 요약을 반환한다. 미존재·삭제·미공개 ID는 unavailableFoodIds에 입력 순서로 반환한다. " +
             "회원 위험도·북마크를 반영하며 비회원도 조회 가능하다. 조회 이력을 기록하지 않는다. Cache-Control: private, no-store. " +

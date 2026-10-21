@@ -25,6 +25,7 @@ object TestTables {
         "food_content_outbox",
         "food_vector_outbox",
         "food_image",
+        "food_idol_video",
         "food_ingredient",
         "food",
         "community_comment",
