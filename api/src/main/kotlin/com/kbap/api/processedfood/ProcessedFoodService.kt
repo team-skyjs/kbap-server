@@ -8,7 +8,6 @@ import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.review.ReviewJpaRepository
-import com.kbap.common.util.LikeWildcards
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -18,6 +17,7 @@ class ProcessedFoodService(
     private val products: ProcessedFoodProductJpaRepository,
     private val memberService: MemberService,
     private val reviews: ReviewJpaRepository,
+    private val candidateIndex: ProcessedFoodCandidateIndex,
 ) {
     @Transactional(readOnly = true)
     fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int): SearchPage<ProcessedFoodSummaryResponse> {
@@ -84,9 +84,9 @@ class ProcessedFoodService(
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>): List<ProcessedFoodProduct> {
         val seenSince = products.findLastCompletedMirrorStartedAt()?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
         return (
-            tokens.flatMap { products.findNameCandidates(it, LikeWildcards.escape(it), seenSince, CANDIDATE_LIMIT) } +
-                makerKeywords.flatMap { products.findMakerCandidates(LikeWildcards.escape(it), seenSince, CANDIDATE_LIMIT) }
-            ).distinctBy { it.id }
+            tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT) } +
+                makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT) }
+            ).distinct().let(products::findAllById)
     }
 
     companion object {
