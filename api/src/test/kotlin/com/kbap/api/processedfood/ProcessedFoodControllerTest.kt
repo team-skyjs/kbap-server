@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
+import com.kbap.common.domain.ingredient.AvoidanceGroupMatrix
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -182,6 +183,52 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
             `when`("구버전 헤더로 부르면") {
                 then("가공식품 경로는 3.2 미만에서 열리지 않는다") {
                     get("/api/processed-foods?query=새우깡", version = "3.1", expected = 404)
+                }
+            }
+        }
+
+        given("가공식품 상세 회피 대조 — 묶음 4종·젤라틴·고기 육수(KB-842)") {
+            fun avoidanceOf(memberId: Long, productId: Long): Map<String, JsonNode> =
+                get("/api/processed-foods/$productId", token = tokenIssuer.issueAccessToken(memberId, MemberRole.USER))
+                    .path("payload").path("avoidance").associate { it.path("code").asText() to it }
+
+            `when`("묶음만 피하는 회원이 하위 재료가 원재료에 적힌 제품을 보면") {
+                then("하위 재료마다 묶음이 DETECTED 이다") {
+                    val groups = AvoidanceGroupMatrix.rows.map { it.group }.distinct()
+                    groups.forEachIndexed { i, group -> FoodTestSeed.seedMemberAvoiding(dataSource, 88420L + i, group.name) }
+                    AvoidanceGroupMatrix.rows.mapIndexedNotNull { i, row ->
+                        val productId = seedProduct("PF-G-$i", "묶음제품$i", allergens = "알수없음", raw = "${row.labelTerm}, 설탕")
+                        val match = avoidanceOf(88420L + groups.indexOf(row.group), productId)[row.group.name]?.path("match")?.asText()
+                        "${row.group}→${row.member}(${row.labelTerm})=$match".takeIf { match != "DETECTED" }
+                    } shouldBe emptyList()
+                }
+            }
+            `when`("해산물을 피하는 회원이 '갑각류'·'연체류'만 적힌 제품을 보면 — 공부 막음") {
+                then("둘 다 DETECTED(R-100 — 해산물이 새 묶음을 함의)") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88432L, "SEAFOOD")
+                    listOf("갑각류", "연체류").mapIndexed { i, term ->
+                        avoidanceOf(88432L, seedProduct("PF-G-SF-$i", "해산물스낵$i", allergens = "알수없음", raw = "$term, 설탕")).getValue("SEAFOOD").path("match").asText()
+                    } shouldBe listOf("DETECTED", "DETECTED")
+                }
+            }
+            `when`("돼지고기를 피하는 회원이 젤라틴 제품을 보면") {
+                then("유래 표기 없는 젤라틴은 DETECTED, 어류·식물성 젤라틴은 UNCONFIRMED(확인 필요)") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88430L, "PORK")
+                    avoidanceOf(88430L, seedProduct("PF-G-GEL-1", "젤리A", allergens = "알수없음", raw = "설탕, 젤라틴"))
+                        .getValue("PORK").path("match").asText() shouldBe "DETECTED"
+                    avoidanceOf(88430L, seedProduct("PF-G-GEL-2", "젤리B", allergens = "알수없음", raw = "설탕, 어류 젤라틴"))
+                        .getValue("PORK").path("match").asText() shouldBe "UNCONFIRMED"
+                    avoidanceOf(88430L, seedProduct("PF-G-GEL-3", "젤리C", allergens = "알수없음", raw = "설탕, 식물성젤라틴"))
+                        .getValue("PORK").path("match").asText() shouldBe "UNCONFIRMED"
+                }
+            }
+            `when`("육수를 피하는 회원이 사골 육수·사골 제품을 보면") {
+                then("둘 다 DETECTED") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88431L, "BROTH")
+                    avoidanceOf(88431L, seedProduct("PF-G-BR-1", "곰탕A", allergens = "알수없음", raw = "사골 육수, 정제소금"))
+                        .getValue("BROTH").path("match").asText() shouldBe "DETECTED"
+                    avoidanceOf(88431L, seedProduct("PF-G-BR-2", "곰탕B", allergens = "알수없음", raw = "사골농축액, 정제소금"))
+                        .getValue("BROTH").path("match").asText() shouldBe "DETECTED"
                 }
             }
         }
