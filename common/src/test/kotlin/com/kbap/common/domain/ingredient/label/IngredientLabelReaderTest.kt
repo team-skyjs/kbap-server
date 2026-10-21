@@ -345,16 +345,17 @@ class IngredientLabelReaderTest : BehaviorSpec({
             }
         }
         `when`("유래를 괄호 뒤에 단 젤라틴이면 — S-845 ①") {
-            then("어류는 생선, 식물성은 아무것도 아니고 젤라틴으로 세지 않는다") {
+            then("어류는 생선, 식물성·한천은 아무것도 아니고 젤라틴으로 세지 않으며, 돈피는 젤라틴 + 돼지고기") {
                 codes(IngredientLabelReader.read(null, "젤라틴(어류), 설탕")) shouldBe setOf(IngredientCode.FISH)
                 codes(IngredientLabelReader.read(null, "젤라틴 (식물성)")) shouldBe emptySet()
-                codes(IngredientLabelReader.read(null, "젤라틴(돈피)")) shouldBe setOf(IngredientCode.PORK)
+                codes(IngredientLabelReader.read(null, "젤라틴(한천), 한천 젤라틴")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "젤라틴(돈피)")) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.PORK)
             }
         }
         `when`("돼지·소 유래를 명시한 젤라틴이면 — S-845 ②") {
-            then("그 고기 코드만 읽고 젤라틴(소·돼지 양쪽 함의)으로 세지 않는다") {
-                listOf("돈피젤라틴", "돈피 젤라틴", "돼지 젤라틴", "돼지젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.PORK) }
-                listOf("우피젤라틴", "우피 젤라틴", "소 젤라틴", "소가죽젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.BEEF) }
+            then("젤라틴은 그대로 세고(젤라틴 직접 회피자 보호) 그 고기 코드를 더한다") {
+                listOf("돈피젤라틴", "돈피 젤라틴", "돼지 젤라틴", "돼지젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.PORK) }
+                listOf("우피젤라틴", "우피 젤라틴", "소 젤라틴", "소가죽젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.BEEF) }
             }
         }
         `when`("'어류'가 나오면 — S-845 ③") {

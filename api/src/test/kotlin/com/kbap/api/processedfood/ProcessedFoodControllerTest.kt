@@ -222,13 +222,15 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                         .getValue("PORK").path("match").asText() shouldBe "UNCONFIRMED"
                 }
             }
-            `when`("소고기만 피하는 회원이 돼지 유래를 명시한 젤라틴 제품을 보면 — S-845") {
-                then("UNCONFIRMED(돼지 젤라틴은 소고기 회피에 걸리지 않음), 돼지 회피자에겐 DETECTED") {
+            `when`("돼지 유래를 명시한 젤라틴 제품을 보면 — S-845") {
+                then("돼지 회피·젤라틴 직접 회피 모두 DETECTED, 소고기만 피하는 회원도 DETECTED(과경고 감수 — 설계 결정)") {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 88433L, "BEEF")
                     FoodTestSeed.seedMemberAvoiding(dataSource, 88434L, "PORK")
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88435L, "GELATIN")
                     val product = seedProduct("PF-G-GEL-4", "젤리D", allergens = "알수없음", raw = "설탕, 돈피젤라틴")
-                    avoidanceOf(88433L, product).getValue("BEEF").path("match").asText() shouldBe "UNCONFIRMED"
                     avoidanceOf(88434L, product).getValue("PORK").path("match").asText() shouldBe "DETECTED"
+                    avoidanceOf(88435L, product).getValue("GELATIN").path("match").asText() shouldBe "DETECTED"
+                    avoidanceOf(88433L, product).getValue("BEEF").path("match").asText() shouldBe "DETECTED"
                 }
             }
             `when`("육수를 피하는 회원이 사골 육수·사골 제품을 보면") {
