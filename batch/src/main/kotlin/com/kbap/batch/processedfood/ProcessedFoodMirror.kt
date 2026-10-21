@@ -33,6 +33,7 @@ class ProcessedFoodMirror(
         val seen = mutableSetOf<String>()
         val perType = linkedMapOf<String, Int>()
         val failedTypes = mutableListOf<String>()
+        val failedPages = mutableListOf<String>()
         var inserted = 0
         var changed = 0
         var unchanged = 0
@@ -40,28 +41,40 @@ class ProcessedFoodMirror(
         var skipped = 0
 
         foodTypes.ifEmpty { listOf(null) }.forEach { type ->
+            val label = type ?: ALL_TYPES
             var fetched = 0
             var pageNo = 1
-            try {
-                while (pageNo <= MAX_PAGES) {
-                    val page = source.getPage(type, pageNo, pageSize)
-                    if (page.items.isEmpty()) break
-                    fetched += page.items.size
-                    val fresh = page.items.filter { seen.add(it.reportNo) }
-                    crossTypeDuplicates += page.items.size - fresh.size
-                    val outcome = transaction.execute { upsert(fresh, now) }!!
-                    inserted += outcome.inserted
-                    skipped += outcome.skipped
-                    changed += outcome.changed
-                    unchanged += outcome.unchanged
-                    if (fetched >= page.totalCount) break
+            var lastPage: Int? = null
+            var consecutiveFailures = 0
+            while (pageNo <= (lastPage ?: MAX_PAGES)) {
+                val page = try {
+                    source.getPage(type, pageNo, pageSize)
+                } catch (e: Exception) {
+                    consecutiveFailures++
+                    log.warn("가공식품 미러링 — 유형 {} page={} 수집 실패 이유={}", label, pageNo, e.message)
+                    if (lastPage == null || consecutiveFailures >= MAX_CONSECUTIVE_PAGE_FAILURES) {
+                        failedTypes += label
+                        log.warn("가공식품 미러링 — 유형 {} 수집 중단 page={}", label, pageNo)
+                        break
+                    }
+                    failedPages += "$label#$pageNo"
                     pageNo++
+                    continue
                 }
-            } catch (e: Exception) {
-                failedTypes += type ?: ALL_TYPES
-                log.warn("가공식품 미러링 — 유형 {} 수집 중단 page={} 이유={}", type ?: ALL_TYPES, pageNo, e.message)
+                consecutiveFailures = 0
+                if (page.items.isEmpty()) break
+                lastPage = minOf(MAX_PAGES, (page.totalCount + pageSize - 1) / pageSize)
+                fetched += page.items.size
+                val fresh = page.items.filter { seen.add(it.reportNo) }
+                crossTypeDuplicates += page.items.size - fresh.size
+                val outcome = transaction.execute { upsert(fresh, now) }!!
+                inserted += outcome.inserted
+                skipped += outcome.skipped
+                changed += outcome.changed
+                unchanged += outcome.unchanged
+                pageNo++
             }
-            perType[type ?: ALL_TYPES] = fetched
+            perType[label] = fetched
         }
 
         val maker = supplementMakers(now)
@@ -74,7 +87,7 @@ class ProcessedFoodMirror(
             crossTypeDuplicates = crossTypeDuplicates,
             skippedRows = skipped,
             failedTypes = failedTypes,
-            failedPages = emptyList(),
+            failedPages = failedPages,
             makerLookups = maker.calls,
             makerFilled = maker.filled,
             makerLookupFailures = maker.failures,
@@ -157,6 +170,7 @@ class ProcessedFoodMirror(
     private companion object {
         const val MAX_PAGES = 500
         const val ALL_TYPES = "전체"
+        const val MAX_CONSECUTIVE_PAGE_FAILURES = 3
         const val DEFAULT_MAX_CONSECUTIVE_FAILURES = 5
     }
 }
@@ -178,5 +192,5 @@ data class ProcessedFoodMirrorSummary(
     val apiCalls: Int,
     val elapsedMillis: Long,
 ) {
-    fun isPartial(): Boolean = failedTypes.isNotEmpty() || makerLookupAborted
+    fun isPartial(): Boolean = failedTypes.isNotEmpty() || failedPages.isNotEmpty() || makerLookupAborted
 }
