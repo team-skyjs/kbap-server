@@ -61,6 +61,17 @@ class DataGoKrClientTest : BehaviorSpec({
             }
         }
 
+        `when`("유형 없이(전체) 조회하면 — KB-844") {
+            then("prdkind 파라미터를 보내지 않는다") {
+                val (client, server) = fixture()
+                server.expect(requestTo(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("prdkind"))))
+                    .andRespond(withSuccess(haccpPage, MediaType.APPLICATION_JSON))
+
+                DataGoKrHaccpProductSource(client).getPage(null, 1, 100).totalCount shouldBe 361
+                server.verify()
+            }
+        }
+
         `when`("5xx 가 세 번 난 뒤 성공하면") {
             then("재시도로 결과를 받는다 — 빈 목록으로 오인하지 않는다") {
                 val (client, server) = fixture()

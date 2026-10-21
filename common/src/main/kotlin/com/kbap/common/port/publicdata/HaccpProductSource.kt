@@ -1,7 +1,7 @@
 package com.kbap.common.port.publicdata
 
 interface HaccpProductSource {
-    fun getPage(foodType: String, pageNo: Int, pageSize: Int): HaccpProductPage
+    fun getPage(foodType: String?, pageNo: Int, pageSize: Int): HaccpProductPage
 }
 
 data class HaccpProductPage(
