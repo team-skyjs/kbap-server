@@ -30,10 +30,12 @@ class IngredientImageSeedTest : BehaviorSpec() {
                     ingredientRepository.count() shouldBe IngredientCode.entries.size.toLong()
                 }
 
-                then("모든 재료에 코드 규칙대로 이미지 경로가 적재되어 있다") {
-                    ingredientRepository.findAll().forEach { ingredient ->
+                then("이미지 경로가 있으면 코드 규칙대로이고, 자산이 아직 없는 KB-842 6코드만 비어 있다(앱 기본 이미지 폴백)") {
+                    val (withPath, withoutPath) = ingredientRepository.findAll().partition { it.imagePath != null }
+                    withPath.forEach { ingredient ->
                         ingredient.imagePath shouldBe "images/webp/ingredients-cut/${ingredient.code.name.lowercase()}.webp"
                     }
+                    withoutPath.map { it.code.name }.toSet() shouldBe setOf("NUTS", "CRUSTACEAN", "MOLLUSK", "MEAT", "MEAT_BROTH", "LAMB")
                 }
             }
         }

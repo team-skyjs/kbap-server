@@ -400,6 +400,8 @@ class IngredientLabelReaderTest : BehaviorSpec({
             then("양고기로 읽고, 양파·양지는 양고기가 아니다") {
                 codes(IngredientLabelReader.read(null, "양고기, 머튼, 양갈비")) shouldBe setOf(IngredientCode.LAMB)
                 codes(IngredientLabelReader.read(null, "램")) shouldBe setOf(IngredientCode.LAMB)
+                codes(IngredientLabelReader.read(null, "램고기, 램갈비, 램찹")) shouldBe setOf(IngredientCode.LAMB)
+                (IngredientCode.MEAT in codes(IngredientLabelReader.read(null, "육류가공품"))) shouldBe true
                 (IngredientCode.LAMB in codes(IngredientLabelReader.read(null, "양파, 양지, 램프"))) shouldBe false
             }
         }
