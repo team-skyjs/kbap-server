@@ -211,7 +211,7 @@
 어류	FISH	contains
 어류젤라틴	FISH	contains
 우피젤라틴	BEEF	contains
-소젤라틴	BEEF	contains
+소젤라틴	BEEF,GELATIN	exact
 소가죽젤라틴	BEEF	contains
 피쉬젤라틴	FISH	contains
 오리고기	POULTRY	contains
