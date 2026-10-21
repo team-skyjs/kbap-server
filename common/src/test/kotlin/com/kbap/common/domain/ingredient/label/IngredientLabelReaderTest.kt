@@ -363,6 +363,16 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read("양 갈비", null)) shouldBe setOf(IngredientCode.LAMB)
             }
         }
+        `when`("고기 이름이 붙은 육수면(붙여 쓰든 띄어 쓰든, 표시란이든 원재료든) — 보안 리뷰") {
+            then("고기 육수와 함께 원래 고기도 잃지 않는다") {
+                listOf("소고기육수", "소고기 육수", "쇠고기 육수").forEach { term ->
+                    codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                    codes(IngredientLabelReader.read(term, null)) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                }
+                codes(IngredientLabelReader.read(null, "돼지고기 육수")) shouldBe setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                codes(IngredientLabelReader.read("돼지고기 육수", null)) shouldBe setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+            }
+        }
         `when`("양고기 용어가 나오면") {
             then("양고기로 읽고, 양파·양지는 양고기가 아니다") {
                 codes(IngredientLabelReader.read(null, "양고기, 머튼, 양갈비")) shouldBe setOf(IngredientCode.LAMB)
