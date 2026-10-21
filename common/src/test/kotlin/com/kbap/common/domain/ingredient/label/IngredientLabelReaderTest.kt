@@ -373,6 +373,22 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read("돼지고기 육수", null)) shouldBe setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
             }
         }
+        `when`("'고기'로 끝나는 다른 낱말 뒤 육수면 — Codex P2") {
+            then("물고기 육수는 생선·육수이지 고기 육수가 아니고, 불고기는 고기 육수가 아니다") {
+                listOf("물고기 육수", "물고기육수").forEach { term ->
+                    codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.FISH, IngredientCode.BROTH)
+                    codes(IngredientLabelReader.read(term, null)) shouldBe setOf(IngredientCode.FISH, IngredientCode.BROTH)
+                }
+                (IngredientCode.MEAT_BROTH in codes(IngredientLabelReader.read(null, "불고기"))) shouldBe false
+            }
+        }
+        `when`("돼지 육수면(고기 없이) — 공부 참고") {
+            then("돼지고기와 고기 육수·육수") {
+                listOf("돼지 육수", "돼지육수").forEach { term ->
+                    codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                }
+            }
+        }
         `when`("양고기 용어가 나오면") {
             then("양고기로 읽고, 양파·양지는 양고기가 아니다") {
                 codes(IngredientLabelReader.read(null, "양고기, 머튼, 양갈비")) shouldBe setOf(IngredientCode.LAMB)
