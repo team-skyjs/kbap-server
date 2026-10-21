@@ -51,6 +51,29 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
                     ProcessedFoodCandidateIndex(products, Duration.ZERO).nameCandidateIds("새우", since, 300) shouldBe listOf(idOf("IDX-3"))
                 }
             }
+            `when`("재적재·지문 조회가 실패하면 — 공부(가용성)") {
+                then("적재해 둔 색인으로 계속 답하고, 적재한 적이 없을 때만 오류다") {
+                    var failing = false
+                    val flaky = java.lang.reflect.Proxy.newProxyInstance(
+                        ProcessedFoodProductJpaRepository::class.java.classLoader,
+                        arrayOf(ProcessedFoodProductJpaRepository::class.java),
+                    ) { _, method, args ->
+                        if (failing) throw IllegalStateException("DB 일시 장애(테스트)")
+                        try { method.invoke(products, *(args ?: emptyArray())) } catch (e: java.lang.reflect.InvocationTargetException) { throw e.targetException }
+                    } as ProcessedFoodProductJpaRepository
+                    seed("IDX-8", "꼬깔콘", "롯데")
+                    val index = ProcessedFoodCandidateIndex(flaky, Duration.ZERO)
+                    index.nameCandidateIds("꼬깔", since, 300) shouldBe listOf(idOf("IDX-8"))
+
+                    failing = true
+                    seed("IDX-9", "꼬깔콘매콤", "롯데")
+                    index.nameCandidateIds("꼬깔", since, 300) shouldBe listOf(idOf("IDX-8"))
+                    io.kotest.assertions.throwables.shouldThrow<IllegalStateException> { ProcessedFoodCandidateIndex(flaky, Duration.ZERO).nameCandidateIds("꼬깔", since, 300) }
+
+                    failing = false
+                    index.nameCandidateIds("꼬깔", since, 300).toSet() shouldBe setOf(idOf("IDX-8"), idOf("IDX-9"))
+                }
+            }
             `when`("이름이 정확히 같거나 앞이 같거나 짧은 순") {
                 then("SQL 과 같은 순서(정확 일치 → 앞 일치 → 길이 → id)로 자른다") {
                     seed("IDX-4", "감자칩오리지널", "오리온")
