@@ -348,7 +348,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
             then("어류는 생선, 식물성·한천은 아무것도 아니고 젤라틴으로 세지 않으며, 돈피는 젤라틴 + 돼지고기") {
                 codes(IngredientLabelReader.read(null, "젤라틴(어류), 설탕")) shouldBe setOf(IngredientCode.FISH)
                 codes(IngredientLabelReader.read(null, "젤라틴 (식물성)")) shouldBe emptySet()
-                codes(IngredientLabelReader.read(null, "젤라틴(한천), 한천 젤라틴")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "젤라틴(한천), 한천젤라틴")) shouldBe emptySet()
                 codes(IngredientLabelReader.read(null, "젤라틴(돈피)")) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.PORK)
             }
         }
@@ -370,6 +370,12 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 listOf("소젤라틴분말", "젤라틴(소)분말", "소 젤라틴 분말").forEach { term ->
                     codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.BEEF, IngredientCode.GELATIN)
                 }
+            }
+        }
+        `when`("쉼표 없이 한천과 젤라틴이 나란히 나열되면 — 공부") {
+            then("한천 젤라틴으로 붙이지 않아 젤라틴을 놓치지 않는다") {
+                (IngredientCode.GELATIN in codes(IngredientLabelReader.read(null, "펙틴 한천 젤라틴"))) shouldBe true
+                (IngredientCode.GELATIN in codes(IngredientLabelReader.read("펙틴 한천 젤라틴", null))) shouldBe true
             }
         }
         `when`("'어류'가 나오면 — S-845 ③") {
