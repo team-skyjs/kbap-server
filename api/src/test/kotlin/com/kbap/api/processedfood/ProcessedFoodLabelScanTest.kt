@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
+import com.kbap.common.domain.ingredient.AvoidanceGroupMatrix
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -64,6 +65,37 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
         afterSpec {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
+        }
+
+        given("성분표 분석 회피 대조 — 묶음 4종·젤라틴·고기 육수(KB-842)") {
+            `when`("묶음만 피하는 회원이 하위 재료가 적힌 성분표를 분석하면") {
+                then("하위 재료마다 묶음이 DETECTED 이다") {
+                    val groups = AvoidanceGroupMatrix.rows.map { it.group }.distinct()
+                    val tokens = groups.mapIndexed { i, group ->
+                        member(88440L + i, group.name).also { execute("UPDATE member SET scan_unlocked = 1 WHERE id = ${88440L + i}") }
+                    }
+                    AvoidanceGroupMatrix.rows.mapNotNull { row ->
+                        val avoidance = label(tokens[groups.indexOf(row.group)], null, "원재료명: ${row.labelTerm}, 설탕").path("payload").path("avoidance")
+                        val match = avoidance.firstOrNull { it.path("code").asText() == row.group.name }?.path("match")?.asText()
+                        "${row.group}→${row.member}(${row.labelTerm})=$match".takeIf { match != "DETECTED" }
+                    } shouldBe emptyList()
+                }
+            }
+            `when`("돼지고기를 피하는 회원이 젤라틴 성분표를 분석하면") {
+                then("유래 표기 없는 젤라틴은 DETECTED, 어류 젤라틴은 UNCONFIRMED") {
+                    val token = member(88450L, "PORK").also { execute("UPDATE member SET scan_unlocked = 1 WHERE id = 88450") }
+                    fun porkMatch(ocr: String) = label(token, null, ocr).path("payload").path("avoidance").single { it.path("code").asText() == "PORK" }.path("match").asText()
+                    porkMatch("원재료명: 설탕, 젤라틴") shouldBe "DETECTED"
+                    porkMatch("원재료명: 설탕, 어류 젤라틴") shouldBe "UNCONFIRMED"
+                }
+            }
+            `when`("육수를 피하는 회원이 사골 육수 성분표를 분석하면") {
+                then("DETECTED") {
+                    val token = member(88451L, "BROTH")
+                    label(token, null, "원재료명: 사골 육수, 정제소금").path("payload").path("avoidance")
+                        .single { it.path("code").asText() == "BROTH" }.path("match").asText() shouldBe "DETECTED"
+                }
+            }
         }
 
         given("성분표 분석 — 표시란 머리말(KB-841)") {

@@ -171,11 +171,11 @@
 쇠고기	BEEF	contains
 소고기	BEEF	contains
 우육	BEEF	contains
-사골	BEEF	contains
+사골	BEEF,MEAT_BROTH	contains
 한우	BEEF	contains
 돼지	PORK	contains
 돈육	PORK	contains
-돈골	PORK	contains
+돈골	PORK,MEAT_BROTH	contains
 돈소창	PORK	contains
 돈피	PORK	contains
 돈혈	PORK	contains
@@ -188,6 +188,23 @@
 계육	CHICKEN	contains
 치킨	CHICKEN	contains
 가금육	POULTRY	contains
+우골	BEEF,MEAT_BROTH	contains
+소뼈	BEEF,MEAT_BROTH	contains
+비프스톡	BEEF,MEAT_BROTH	block
+치킨스톡	CHICKEN,MEAT_BROTH	block
+닭육수	CHICKEN,MEAT_BROTH,BROTH	block
+고기육수	MEAT_BROTH,BROTH	block
+고기 육수	MEAT_BROTH,BROTH	exact
+양고기	LAMB	contains
+양갈비	LAMB	contains
+머튼	LAMB	contains
+램	LAMB	exact
+견과류	NUTS	contains
+갑각류	CRUSTACEAN	contains
+연체류	MOLLUSK	contains
+육류	MEAT	exact
+어류젤라틴	FISH	contains
+피쉬젤라틴	FISH	contains
 오리고기	POULTRY	contains
 복숭아	PEACH	contains
 토마토	TOMATO	contains
@@ -257,7 +274,7 @@
 두유밀크	SOY	block
 라이스밀크	-	block
 쌀밀크	-	block
-돈사골	PORK	block
+돈사골	PORK,MEAT_BROTH	block
 캐슈밀크	MILK	suppress
 헤이즐넛밀크	MILK	suppress
 피스타치오밀크	MILK	suppress
@@ -276,3 +293,7 @@
 연육효소	-	block
 밀크시슬	-	block
 스위트포테이토	-	block
+어류젤라틴	GELATIN	suppress
+피쉬젤라틴	GELATIN	suppress
+생선젤라틴	GELATIN	suppress
+식물성젤라틴	GELATIN	suppress

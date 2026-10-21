@@ -171,9 +171,9 @@ class IngredientLabelReaderTest : BehaviorSpec({
                     "게맛살" to setOf(IngredientCode.CRAB, IngredientCode.FISH),
                     "냉동연육" to setOf(IngredientCode.FISH),
                     "명란" to setOf(IngredientCode.FISH),
-                    "돈골농축액분말" to setOf(IngredientCode.PORK),
+                    "돈골농축액분말" to setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH),
                     "돈피 에멀젼" to setOf(IngredientCode.PORK),
-                    "사골농축액" to setOf(IngredientCode.BEEF),
+                    "사골농축액" to setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH),
                     "한우농축액" to setOf(IngredientCode.BEEF),
                     "치킨파우더" to setOf(IngredientCode.CHICKEN),
                     "에틸알콜" to setOf(IngredientCode.ALCOHOL),
@@ -190,7 +190,7 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "아몬드밀크")) shouldBe setOf(IngredientCode.ALMOND)
                 codes(IngredientLabelReader.read(null, "소이밀크")) shouldBe setOf(SOY)
                 codes(IngredientLabelReader.read(null, "라이스밀크")) shouldBe emptySet()
-                codes(IngredientLabelReader.read(null, "돈사골농축액")) shouldBe setOf(IngredientCode.PORK)
+                codes(IngredientLabelReader.read(null, "돈사골농축액")) shouldBe setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH)
             }
         }
         `when`("무알코올 맥주·식물성 밀크 복합어이면 — Codex P2(같은 계열 3회째 → suppress 방식)") {
@@ -316,6 +316,49 @@ class IngredientLabelReaderTest : BehaviorSpec({
                     IngredientCode.PORK, IngredientCode.PEACH, IngredientCode.TOMATO, IngredientCode.SULFITES, IngredientCode.WALNUT,
                     IngredientCode.CHICKEN, IngredientCode.BEEF, IngredientCode.SQUID, CLAM, OYSTER, ABALONE, MUSSEL, IngredientCode.PINE_NUT,
                 )
+            }
+        }
+    }
+
+    given("KB-842 묶음 판정 표의 하위 재료 표기") {
+        `when`("각 표기를 원재료로 읽으면") {
+            then("그 하위 재료 코드가 검출된다") {
+                com.kbap.common.domain.ingredient.AvoidanceGroupMatrix.rows
+                    .filterNot { it.member in codes(IngredientLabelReader.read(null, it.labelTerm)) }
+                    .map { "${it.member}(${it.labelTerm})" } shouldBe emptyList()
+            }
+        }
+    }
+
+    given("KB-842 젤라틴·고기 육수·양고기 원문") {
+        `when`("젤라틴이 유래 표기 없이 나오면") {
+            then("젤라틴으로 읽는다") {
+                codes(IngredientLabelReader.read(null, "정제수, 젤라틴, 설탕")) shouldBe setOf(IngredientCode.GELATIN)
+            }
+        }
+        `when`("어류·생선·피쉬·식물성 젤라틴처럼 유래가 붙으면(띄어 써도)") {
+            then("젤라틴으로 세지 않고, 어류 유래는 생선으로 읽는다") {
+                codes(IngredientLabelReader.read(null, "어류젤라틴, 피쉬 젤라틴")) shouldBe setOf(IngredientCode.FISH)
+                codes(IngredientLabelReader.read(null, "생선 젤라틴")) shouldBe setOf(IngredientCode.FISH)
+                codes(IngredientLabelReader.read(null, "식물성젤라틴, 식물성 젤라틴")) shouldBe emptySet()
+                codes(IngredientLabelReader.read("어류 젤라틴", null)) shouldBe setOf(IngredientCode.FISH)
+            }
+        }
+        `when`("뼈 육수·스톡 용어가 나오면") {
+            then("원래 고기와 고기 육수를 함께 읽는다") {
+                codes(IngredientLabelReader.read(null, "사골농축액")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH)
+                codes(IngredientLabelReader.read(null, "우골추출물, 소뼈")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH)
+                codes(IngredientLabelReader.read(null, "돈골엑기스")) shouldBe setOf(IngredientCode.PORK, IngredientCode.MEAT_BROTH)
+                codes(IngredientLabelReader.read(null, "치킨스톡")) shouldBe setOf(IngredientCode.CHICKEN, IngredientCode.MEAT_BROTH)
+                codes(IngredientLabelReader.read(null, "비프스톡")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH)
+                codes(IngredientLabelReader.read(null, "닭육수")) shouldBe setOf(IngredientCode.CHICKEN, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+            }
+        }
+        `when`("양고기 용어가 나오면") {
+            then("양고기로 읽고, 양파·양지는 양고기가 아니다") {
+                codes(IngredientLabelReader.read(null, "양고기, 머튼, 양갈비")) shouldBe setOf(IngredientCode.LAMB)
+                codes(IngredientLabelReader.read(null, "램")) shouldBe setOf(IngredientCode.LAMB)
+                (IngredientCode.LAMB in codes(IngredientLabelReader.read(null, "양파, 양지, 램프"))) shouldBe false
             }
         }
     }

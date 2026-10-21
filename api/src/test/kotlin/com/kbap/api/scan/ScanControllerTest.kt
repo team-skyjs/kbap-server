@@ -3,6 +3,7 @@ package com.kbap.api.scan
 import com.kbap.api.IntegrationTest
 import com.kbap.api.PoolProbe
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.domain.ingredient.AvoidanceGroupMatrix
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.domain.member.model.MemberRole
@@ -1518,6 +1519,30 @@ class ScanControllerTest : BehaviorSpec() {
                         status { isOk() }
                         jsonPath("$.payload.results[0].avoidances[0].code") { value("DAIRY") }
                         jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
+                    }
+                }
+            }
+
+            `when`("묶음(견과류·갑각류·연체류·육류)만 회피하는 회원이 하위 재료 음식을 스캔하면 — KB-842") {
+                then("하위 재료 음식마다 그 묶음 항목이 겹침이 된다") {
+                    AvoidanceGroupMatrix.rows.groupBy { it.group }.entries.forEachIndexed { index, (group, members) ->
+                        val memberId = 6420L + index
+                        val path = "scan/$memberId/menu.jpg"
+                        seedVerifiedImage(memberId, path)
+                        setMemberAvoidances(memberId, group.name)
+                        val names = members.map { "${it.labelTerm}묶음찌개" }
+                        names.zip(members).forEach { (name, row) ->
+                            seedReadyFood(name)
+                            setFoodIngredients(name, """[{"code":"${row.member.name}","inclusion_percent":80}]""")
+                        }
+                        vision.program(path, names.map { ExtractedMenu(it, it, 8000, matchedIdx = null) })
+
+                        val results = mapper.readTree(
+                            v2Scan(memberId, path).andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                        ).path("payload").path("results")
+                        members.indices.filterNot { i ->
+                            results[i].path("avoidances").any { it.path("code").asText() == group.name && it.path("overlapped").asBoolean() }
+                        }.map { "${group.name}→${members[it].member.name}" } shouldBe emptyList()
                     }
                 }
             }

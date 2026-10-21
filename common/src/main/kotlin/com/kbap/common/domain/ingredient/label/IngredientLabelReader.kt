@@ -12,6 +12,7 @@ object IngredientLabelReader {
     private val FLAVOR_MARKERS = listOf("맛", "향", "풍미", "향료")
     private val NEGATED = Regex("""\S+?\s*(무첨가|불포함|미사용|free)(?=\s|$)""", RegexOption.IGNORE_CASE)
     private val PARTICLES = setOf('을', '를', '이', '가', '은', '는', '와', '과', '의')
+    private val SOURCED_GELATIN = Regex("""(어류|생선|피쉬|식물성)\s+젤라틴""")
 
     private val mandatory: List<IngredientLabelTerm> =
         load("mandatory-allergens.tsv").map { IngredientLabelTerm(it[0], codesOf(it[1]), IngredientLabelTermMode.EXACT) }
@@ -45,7 +46,7 @@ object IngredientLabelReader {
         )
     }
 
-    private fun normalize(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFKC)
+    private fun normalize(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFKC).replace(SOURCED_GELATIN, "$1젤라틴")
 
     private fun scan(text: String, splitSpaces: Boolean): List<Pair<String, Set<IngredientCode>>> {
         val chunks = text.replace(NOISE, ",").split(SEPARATORS)
