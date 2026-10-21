@@ -89,12 +89,12 @@ class FoodDetailRatingTest : BehaviorSpec() {
                 }
             }
 
-        fun createReview(memberId: Long, countryCode: String?, foodId: Long, rating: Int): Long {
+        fun createReview(memberId: Long, countryCode: String?, foodId: Long, rating: Int, servingSpeed: Int? = null, staffKindness: Int? = null): Long {
             val token = accessToken(memberId, countryCode)
             val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating, "content" to "정말 맛있게 먹었어요"))
+                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating, "servingSpeed" to servingSpeed, "staffKindness" to staffKindness, "content" to "정말 맛있게 먹었어요"))
             }.andReturn().response.getContentAsString(Charsets.UTF_8)
             return mapper.readTree(response).path("payload").path("reviewId").asLong()
         }
@@ -178,6 +178,55 @@ class FoodDetailRatingTest : BehaviorSpec() {
                     detail(912L, accessToken(908L, "TH")).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.reviewSummary.sameCountry.averageRating") { value(3.0) }
+                    }
+                }
+            }
+        }
+
+        given("음식 상세 요약의 속도·서비스 평균(KB-857)") {
+            `when`("속도·서비스를 답한 리뷰와 안 답한(0) 리뷰가 섞여 있으면") {
+                then("축마다 답한 리뷰만으로 평균(소수 1자리)·응답 수를 전체·같은 국적 각각 준다") {
+                    seedFood(950L, "축평점비빔밥")
+                    createReview(950L, "KR", 950L, 4, servingSpeed = 5, staffKindness = 4)
+                    createReview(951L, "KR", 950L, 5, servingSpeed = 3)
+                    createReview(952L, "VN", 950L, 2, staffKindness = 2)
+
+                    detail(950L, accessToken(959L, "KR")).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.reviewSummary.overall.reviewCount") { value(3) }
+                        jsonPath("$.payload.reviewSummary.overall.servingSpeedAverage") { value(4.0) }
+                        jsonPath("$.payload.reviewSummary.overall.servingSpeedCount") { value(2) }
+                        jsonPath("$.payload.reviewSummary.overall.staffKindnessAverage") { value(3.0) }
+                        jsonPath("$.payload.reviewSummary.overall.staffKindnessCount") { value(2) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.servingSpeedAverage") { value(4.0) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.servingSpeedCount") { value(2) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.staffKindnessAverage") { value(4.0) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.staffKindnessCount") { value(1) }
+                    }
+                }
+            }
+            `when`("속도 5·4·4 면") {
+                then("4.3 으로 반올림한다") {
+                    seedFood(960L, "반올림떡볶이")
+                    listOf(5, 4, 4).forEachIndexed { i, speed -> createReview(960L + i, "KR", 960L, 3, servingSpeed = speed) }
+                    detail(960L).andExpect { jsonPath("$.payload.reviewSummary.overall.servingSpeedAverage") { value(4.3) } }
+                }
+            }
+            `when`("리뷰가 없거나, 있어도 속도·서비스를 아무도 답하지 않았으면") {
+                then("평균은 null(0.0 이 아님)·응답 수 0") {
+                    seedFood(970L, "무리뷰국밥")
+                    detail(970L, accessToken(979L, "KR")).andExpect {
+                        jsonPath("$.payload.reviewSummary.overall.servingSpeedAverage") { value(null as Any?) }
+                        jsonPath("$.payload.reviewSummary.overall.servingSpeedCount") { value(0) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.staffKindnessAverage") { value(null as Any?) }
+                        jsonPath("$.payload.reviewSummary.sameCountry.staffKindnessCount") { value(0) }
+                    }
+                    seedFood(971L, "무응답국밥")
+                    createReview(971L, "KR", 971L, 5)
+                    detail(971L).andExpect {
+                        jsonPath("$.payload.reviewSummary.overall.reviewCount") { value(1) }
+                        jsonPath("$.payload.reviewSummary.overall.servingSpeedAverage") { value(null as Any?) }
+                        jsonPath("$.payload.reviewSummary.overall.staffKindnessCount") { value(0) }
                     }
                 }
             }

@@ -82,13 +82,25 @@ data class FoodDetailResponse(
         )
         val sameCountry: ReviewRatingResponse?,
     ) {
-        @Schema(description = "리뷰 평점 요약 — 평균 별점·리뷰 수")
+        @Schema(description = "리뷰 평점 요약 — 평균 별점·리뷰 수·속도/서비스 평균")
         data class ReviewRatingResponse(
             @field:Schema(description = "평균 별점(소수 첫째 자리 반올림). 리뷰가 없으면 0.0 — null 없음.", example = "3.7")
             val averageRating: Double,
 
             @field:Schema(description = "리뷰 수", example = "3")
             val reviewCount: Long,
+
+            @field:Schema(description = "음식 나오는 속도 평균(답한 리뷰만, 소수 첫째 자리 반올림). 답한 리뷰가 없으면 null.", example = "4.0", nullable = true)
+            val servingSpeedAverage: Double? = null,
+
+            @field:Schema(description = "속도를 답한 리뷰 수", example = "2")
+            val servingSpeedCount: Long = 0,
+
+            @field:Schema(description = "직원 친절도 평균(답한 리뷰만, 소수 첫째 자리 반올림). 답한 리뷰가 없으면 null.", example = "3.5", nullable = true)
+            val staffKindnessAverage: Double? = null,
+
+            @field:Schema(description = "친절도를 답한 리뷰 수", example = "2")
+            val staffKindnessCount: Long = 0,
         )
 
         companion object {
@@ -97,11 +109,19 @@ data class FoodDetailResponse(
                     overall = ReviewRatingResponse(
                         averageRating = rating.averageRating ?: 0.0,
                         reviewCount = rating.reviewCount,
+                        servingSpeedAverage = rating.overallAxes.servingSpeedAverage,
+                        servingSpeedCount = rating.overallAxes.servingSpeedCount,
+                        staffKindnessAverage = rating.overallAxes.staffKindnessAverage,
+                        staffKindnessCount = rating.overallAxes.staffKindnessCount,
                     ),
                     sameCountry = if (sameCountryVisible) {
                         ReviewRatingResponse(
                             averageRating = rating.sameCountryAverageRating ?: 0.0,
                             reviewCount = rating.sameCountryReviewCount,
+                            servingSpeedAverage = rating.sameCountryAxes.servingSpeedAverage,
+                            servingSpeedCount = rating.sameCountryAxes.servingSpeedCount,
+                            staffKindnessAverage = rating.sameCountryAxes.staffKindnessAverage,
+                            staffKindnessCount = rating.sameCountryAxes.staffKindnessCount,
                         )
                     } else {
                         null

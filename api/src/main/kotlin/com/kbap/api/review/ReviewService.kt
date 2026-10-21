@@ -17,6 +17,7 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.MemberRankingEvent
 import com.kbap.common.domain.member.model.RankingEventType
 import com.kbap.api.core.Page
+import com.kbap.common.domain.review.RatingAggregate
 import com.kbap.common.domain.review.ReviewJpaRepository
 import com.kbap.common.domain.review.ReviewSort
 import com.kbap.common.domain.review.ReviewLikeJpaRepository
@@ -318,8 +319,18 @@ class ReviewService(
             reviewCount = overall.reviewCount,
             sameCountryAverageRating = sameCountry?.average?.roundToFirstDecimal(),
             sameCountryReviewCount = sameCountry?.reviewCount ?: 0,
+            overallAxes = axesOf(overall),
+            sameCountryAxes = sameCountry?.let(::axesOf) ?: RatingAxes.NONE,
         )
     }
+
+    private fun axesOf(aggregate: RatingAggregate): RatingAxes =
+        RatingAxes(
+            servingSpeedAverage = aggregate.servingSpeedAverage?.roundToFirstDecimal(),
+            servingSpeedCount = aggregate.servingSpeedCount,
+            staffKindnessAverage = aggregate.staffKindnessAverage?.roundToFirstDecimal(),
+            staffKindnessCount = aggregate.staffKindnessCount,
+        )
 
     @Transactional(readOnly = true)
     fun getTopRatedFoods(size: Int): List<TopRatedFoodRating> =
