@@ -1,9 +1,11 @@
 package com.kbap.common.domain.image
 
 import com.kbap.common.domain.image.model.UploadedImage
+import com.kbap.common.util.BotImagePaths
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
@@ -18,6 +20,19 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     ): List<java.time.LocalDateTime>
 
     fun findByPath(path: String): UploadedImage?
+
+    fun findByPathIn(paths: Collection<String>): List<UploadedImage>
+
+    fun findByPathStartingWithOrderByPath(prefix: String): List<UploadedImage>
+
+    @Query("""select u.path from UploadedImage u where u.path like :escapedPrefixPattern escape '\' order by u.path""")
+    fun findActivePathsLike(@Param("escapedPrefixPattern") escapedPrefixPattern: String): List<String>
+
+    @Query(
+        nativeQuery = true,
+        value = "select u.object_path from uploaded_image u where u.object_path like :escapedPrefixPattern escape '\\\\' and (u.status = 'ACTIVE' or u.updated_at >= :since) order by u.object_path",
+    )
+    fun findRecordedPathsLikeSince(@Param("escapedPrefixPattern") escapedPrefixPattern: String, @Param("since") since: LocalDateTime): List<String>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UploadedImage u where u.path in :paths")
@@ -39,6 +54,9 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     )
     fun countOrphansIn(@Param("before") before: LocalDateTime, @Param("segment") segment: String): Long
 
+    @Query(nativeQuery = true, value = "select u.id as id, u.object_path as path from uploaded_image u where $ORPHAN and u.id > :afterId order by u.id limit :size")
+    fun findOrphanPathPage(@Param("before") before: LocalDateTime, @Param("afterId") afterId: Long, @Param("size") size: Int): List<OrphanImagePath>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UploadedImage u where u.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): UploadedImage?
@@ -49,6 +67,10 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     @Query(nativeQuery = true, value = "select u.object_path from uploaded_image u where u.object_path in (:paths)")
     fun findRecordedPathsAnyStatus(@Param("paths") paths: Collection<String>): List<String>
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(nativeQuery = true, value = "update uploaded_image u set u.status = 'ACTIVE', u.updated_at = now(6) where u.object_path in (:paths) and u.status = 'DELETED'")
+    fun restoreDeletedByPaths(@Param("paths") paths: Collection<String>): Int
+
     @Query(nativeQuery = true, value = "select count(*) from uploaded_image u where u.object_path = :path")
     fun countRecordedAnyStatus(@Param("path") path: String): Long
 
@@ -58,7 +80,7 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/")
 
-        fun isCleanupTarget(path: String): Boolean = CLEANUP_SEGMENTS.any { path.contains(it) }
+        fun isCleanupTarget(path: String): Boolean = !BotImagePaths.isProtected(path) && CLEANUP_SEGMENTS.any { path.contains(it) }
 
         private const val CLEANUP_PURPOSE =
             "(locate('images/review/', u.object_path) > 0 " +

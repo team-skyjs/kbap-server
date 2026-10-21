@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface BookmarkJpaRepository : JpaRepository<Bookmark, Long> {
+    @Query("select new com.kbap.common.domain.bookmark.BookmarkListingEntry(b.id, b.foodId) from Bookmark b where b.memberId = :memberId order by b.id")
+    fun findListingEntries(@Param("memberId") memberId: Long): List<BookmarkListingEntry>
+
     fun findByMemberIdAndFoodId(memberId: Long, foodId: Long): Bookmark?
 
     fun findByMemberIdAndFoodIdIn(memberId: Long, foodIds: Collection<Long>): List<Bookmark>

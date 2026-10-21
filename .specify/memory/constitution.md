@@ -1,6 +1,25 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 7.0.0 → 8.0.0   (개정 2026-10-14)
+Bump rationale (MAJOR): 원칙 I 의 Test-First(NON-NEGOTIABLE) 강제를 폐지한다. 테스트는 사용자가
+  요청하거나 스펙이 명시할 때만 작성하며, 테스트 선작성·Red 확인·"테스트 없는 구현 머지 불가"
+  조항을 제거한다(KB-778 작업 중 사용자 결정).
+
+Modified principles:
+  I. Test-First Development → I. Tests on Request — 테스트 작성은 선택이며 요청 기반.
+
+Templates reviewed:
+  ✅ .specify/templates/tasks-template.md — Test-First REQUIRED 문구를 OPTIONAL 로 갱신.
+  ✅ .claude/skills/speckit-implement/SKILL.md — TDD 강제 항목 제거.
+  ✅ CLAUDE.md — 원칙 I 인용 문구 갱신.
+
+Follow-up: 없음.
+-->
+
+<!--
+SYNC IMPACT REPORT
+==================
 Version change: 6.0.0 → 7.0.0   (개정 2026-07-28)
 Bump rationale (MAJOR): 원칙 II·III·IV 가 강제하던 API 모듈의 계층 패키지
   `com.kbap.domain`·`com.kbap.application`을 폐기하고 `com.kbap.api.<feature>` 기능 패키지로
@@ -155,17 +174,17 @@ Follow-up: 없음(KB-134 구현과 동시 반영).
 
 ## Core Principles
 
-### I. Test-First Development (NON-NEGOTIABLE)
+### I. Tests on Request
 
-TDD로 진행한다. 요구사항을 토대로 **실패하는 테스트를 우선 작성**하고, 이를 통과시키는 방향으로
-구현하며 코드를 완성해 나간다. Red → Green → Refactor 사이클을 엄격히 따른다.
+테스트 작성은 **선택**이다. 사용자가 요청하거나 스펙이 명시한 경우에만 테스트를 작성하며, 테스트를
+먼저 쓰라거나 실패(Red)를 확인하라는 강제는 없다. 테스트가 없다는 이유로 구현을 머지 대상에서
+제외하지 않는다.
 
-- 구현 코드보다 테스트를 먼저 작성하고, 작성 직후 **반드시 실패(Red)** 함을 확인한다.
-- 테스트를 통과시키는 최소 구현(Green) 뒤 리팩터링(Refactor) 한다.
-- 테스트 없는 구현은 머지 대상이 아니다. 테스트는 선택이 아니라 필수다.
+- 테스트를 쓸 때는 프로젝트 테스트 스타일(Kotest BehaviorSpec, `@IntegrationTest`)을 따른다.
+- 기존 테스트 스위트는 변경 후에도 통과해야 한다(`./gradlew build`).
 
-Rationale: 요구사항을 실행 가능한 명세로 고정하고, 회귀를 방지하며, 설계를 테스트 가능한
-단위로 유지하기 위함이다.
+Rationale: 테스트 선작성 강제가 구현 속도를 떨어뜨리고 요청 범위를 넘는 테스트 코드를 만들었다.
+어디에 테스트를 둘지는 사용자가 정한다.
 
 ### II. Bounded Contexts — No Cross-Domain Coupling
 
@@ -309,4 +328,4 @@ Rationale: 외국인 사용자에게 음식 안전 정보를 모국어로 제공
 - 런타임 개발 가이드는 루트 [`CLAUDE.md`](../../CLAUDE.md), 상세 규범은
   [`docs/architecture/meogo-conventions.md`](../../docs/architecture/meogo-conventions.md)를 참조한다.
 
-**Version**: 7.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-07-28
+**Version**: 8.0.0 | **Ratified**: 2026-06-25 | **Last Amended**: 2026-10-14

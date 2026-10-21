@@ -1,6 +1,7 @@
 package com.kbap.api.review
 
 import com.kbap.api.core.ApiPaths
+import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.Page
 import com.kbap.api.core.auth.AuthMemberId
@@ -116,6 +117,75 @@ class ReviewController(
             ),
         )
     }
+
+    @GetMapping("/reviews", version = ApiVersions.PROCESSED_FOOD + "+")
+    override fun listReviewsWithProcessedFood(
+        @AuthMemberIdOrNull memberId: Long?,
+        @RequestParam(required = false) foodId: Long?,
+        @Valid @ModelAttribute request: ReviewListRequest,
+    ): ResponseEntity<BaseResponse<ReviewListPage>> {
+        val (sort, descending) = parseSort(request.sort)
+        validateRatingRange(request.minRating, request.maxRating)
+        return ResponseEntity.ok(
+            BaseResponse.ok(
+                reviewService.getReviewPage(
+                    memberId,
+                    foodId,
+                    request.countryCode,
+                    LanguageCode.from(request.lang),
+                    sort,
+                    descending,
+                    request.minRating,
+                    request.maxRating,
+                    ReviewListCursor.parse(request.cursor, sort),
+                    includeProcessed = true,
+                ),
+            ),
+        )
+    }
+
+    @GetMapping("/reviews/me", version = ApiVersions.PROCESSED_FOOD + "+")
+    override fun listMyReviewsWithProcessedFood(
+        @AuthMemberId memberId: Long,
+        @Valid @ModelAttribute request: ReviewPageRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                reviewService.getMyReviewPage(memberId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor), includeProcessed = true),
+            ),
+        )
+
+    @PostMapping("/processed-foods/{processedFoodId}/reviews", version = ApiVersions.PROCESSED_FOOD + "+")
+    override fun createProcessedFoodReview(
+        @AuthMemberId memberId: Long,
+        @PathVariable processedFoodId: Long,
+        @Valid @RequestBody request: ProcessedFoodReviewCreateRequest,
+    ): ResponseEntity<BaseResponse<ReviewResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                reviewService.createProcessedFoodReview(memberId, processedFoodId, request.rating!!, request.content, request.imagePaths),
+            ),
+        )
+
+    @GetMapping("/processed-foods/{processedFoodId}/reviews", version = ApiVersions.PROCESSED_FOOD + "+")
+    override fun listProcessedFoodReviews(
+        @AuthMemberIdOrNull memberId: Long?,
+        @PathVariable processedFoodId: Long,
+        @Valid @ModelAttribute request: ReviewPageRequest,
+    ): ResponseEntity<BaseResponse<Page<ReviewResponse>>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                reviewService.getProcessedFoodReviewPage(memberId, processedFoodId, LanguageCode.from(request.lang), CursorParser.parse(request.cursor)),
+            ),
+        )
+
+    @GetMapping("/reviews/{reviewId}")
+    override fun getReview(
+        @AuthMemberIdOrNull memberId: Long?,
+        @PathVariable reviewId: Long,
+        @Valid @ModelAttribute request: ReviewDetailRequest,
+    ): ResponseEntity<BaseResponse<ReviewResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(reviewService.getReview(memberId, reviewId, LanguageCode.from(request.lang))))
 
     private fun parseSort(raw: String?): Pair<ReviewSort, Boolean> =
         when (raw) {

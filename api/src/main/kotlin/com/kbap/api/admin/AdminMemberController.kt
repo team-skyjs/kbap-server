@@ -4,7 +4,10 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import com.kbap.api.core.auth.JwtAuthenticationFilter
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -13,14 +16,23 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.ADMIN + "/members", version = "1.0+")
 class AdminMemberController(
     private val adminMemberQueryService: AdminMemberQueryService,
+    private val scanUnlockResetService: AdminScanUnlockResetService,
 ) : AdminMemberApi {
+    @PostMapping("/{id}/scan-unlock/reset")
+    override fun resetScanUnlock(
+        @PathVariable id: Long,
+        @RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminAccountId: Long,
+    ): ResponseEntity<BaseResponse<AdminScanUnlockResetResponse>> =
+        ResponseEntity.ok(BaseResponse.ok(scanUnlockResetService.resetScanUnlock(adminAccountId, id)))
+
     @GetMapping
     override fun searchMemberPage(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(required = false) q: String?,
+        @RequestParam(required = false) isBot: Boolean?,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(adminMemberQueryService.searchMemberPage(page.coerceAtLeast(1), q)),
+            BaseResponse.ok(adminMemberQueryService.searchMemberPage(page.coerceAtLeast(1), q, isBot)),
         )
 
     @GetMapping("/{id}")

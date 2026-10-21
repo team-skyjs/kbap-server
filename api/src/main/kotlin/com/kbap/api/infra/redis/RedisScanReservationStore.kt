@@ -6,15 +6,16 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 @Component
 class RedisScanReservationStore(
     private val redisTemplate: StringRedisTemplate,
     @Value("\${kbap.scan.reservation-ttl-seconds:300}") private val reservationTtlSeconds: Long,
 ) : ScanReservationStore {
-    override fun reserve(memberId: Long, requestId: String, confirmedCount: Int, limit: Int): ScanReservationResult {
+    override fun reserve(memberId: Long, requestId: String, confirmedCount: Int, limit: Int, ttl: Duration?): ScanReservationResult {
         val now = System.currentTimeMillis()
-        val ttlMillis = reservationTtlSeconds * 1000
+        val ttlMillis = ttl?.toMillis() ?: (reservationTtlSeconds * 1000)
         val result = redisTemplate.execute(
             RESERVE_SCRIPT,
             listOf(key(memberId)),
@@ -54,7 +55,9 @@ class RedisScanReservationStore(
                 return 0
             end
             redis.call('ZADD', KEYS[1], ARGV[2], ARGV[5])
-            redis.call('PEXPIRE', KEYS[1], ARGV[6])
+            if redis.call('PTTL', KEYS[1]) < tonumber(ARGV[6]) then
+                redis.call('PEXPIRE', KEYS[1], ARGV[6])
+            end
             return 1
             """.trimIndent(),
             Long::class.java,

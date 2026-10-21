@@ -4,6 +4,8 @@ import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -14,8 +16,8 @@ class Review(
     @Column(name = "member_id", nullable = false)
     val memberId: Long,
 
-    @Column(name = "food_id", nullable = false)
-    val foodId: Long,
+    @Column(name = "food_id")
+    val foodId: Long?,
 
     @Column(nullable = false, columnDefinition = "TINYINT")
     var rating: Int,
@@ -29,6 +31,9 @@ class Review(
     @Column(length = MAX_CONTENT_LENGTH)
     var content: String? = null,
 
+    @Column(length = 10)
+    var language: String? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "image_refs")
     var imageRefs: List<String>? = null,
@@ -38,12 +43,20 @@ class Review(
 
     @Embedded
     var place: ReviewPlace? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_type", nullable = false, columnDefinition = "ENUM('FOOD','PROCESSED_FOOD')")
+    val targetType: ReviewTargetType = ReviewTargetType.FOOD,
+
+    @Column(name = "processed_food_id")
+    val processedFoodId: Long? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
 
     init {
+        require((targetType == ReviewTargetType.FOOD) == (foodId != null) && (targetType == ReviewTargetType.PROCESSED_FOOD) == (processedFoodId != null)) { "리뷰 대상은 타입별로 정확히 하나여야 합니다: $targetType" }
         requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
     }
 
@@ -52,6 +65,7 @@ class Review(
         servingSpeedRating: Int,
         staffKindnessRating: Int,
         content: String?,
+        language: String?,
         imageRefs: List<String>?,
         place: ReviewPlace?,
     ) {
@@ -60,6 +74,7 @@ class Review(
         this.servingSpeedRating = servingSpeedRating
         this.staffKindnessRating = staffKindnessRating
         this.content = content
+        this.language = language
         this.imageRefs = imageRefs
         this.place = place
     }
@@ -81,8 +96,29 @@ class Review(
     }
 
     companion object {
+        fun forProcessedFood(
+            memberId: Long,
+            processedFoodId: Long,
+            rating: Int,
+            content: String?,
+            language: String?,
+            imageRefs: List<String>?,
+            authorCountryCode: String?,
+        ): Review = Review(
+            memberId = memberId,
+            foodId = null,
+            rating = rating,
+            content = content,
+            language = language,
+            imageRefs = imageRefs,
+            authorCountryCode = authorCountryCode,
+            targetType = ReviewTargetType.PROCESSED_FOOD,
+            processedFoodId = processedFoodId,
+        )
+
         val RATING_RANGE = 1..5
         val EXTRA_RATING_RANGE = 0..5
+        const val MIN_CONTENT_LENGTH = 10
         const val MAX_CONTENT_LENGTH = 1000
         const val MAX_IMAGE_COUNT = 3
     }

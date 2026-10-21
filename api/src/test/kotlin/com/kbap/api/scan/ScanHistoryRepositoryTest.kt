@@ -9,6 +9,7 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import java.time.LocalDateTime
 import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.PageRequest
@@ -43,25 +44,25 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
             }
         }
 
-        fun seedFood(id: Long, koreanName: String, contentStatus: String = "READY") {
+        fun seedFood(id: Long, koreanName: String, contentStatus: String = "READY", status: String = "ACTIVE") {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO food (id, korean_name, description, spiciness, " +
                             "name_translations, description_translations, ingredients, content_status, status, created_at, updated_at) " +
-                            "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '[]', '$contentStatus', 'ACTIVE', " +
+                            "VALUES ($id, '$koreanName', '설명', 0, '{}', '{}', '[]', '$contentStatus', '$status', " +
                             "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
                     )
                 }
             }
         }
 
-        fun seedHistory(memberId: Long, foodId: Long, scannedAt: String) {
+        fun seedHistory(memberId: Long, foodId: Long, scannedAt: String, status: String = "ACTIVE") {
             dataSource.connection.use { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute(
                         "INSERT INTO scan_history (member_id, food_id, status, created_at, updated_at) " +
-                            "VALUES ($memberId, $foodId, 'ACTIVE', '$scannedAt', '$scannedAt')",
+                            "VALUES ($memberId, $foodId, '$status', '$scannedAt', '$scannedAt')",
                     )
                 }
             }
@@ -108,7 +109,38 @@ class ScanHistoryRepositoryTest : BehaviorSpec() {
                     seedHistory(11L, 2L, "2026-07-02 10:00:00")
                     seedHistory(11L, 1L, "2026-07-03 10:00:00")
 
-                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldContainExactly listOf(1L, 2L)
+                    val result = repository.findRecentScannedFoods(11L, PageRequest.of(0, 10))
+
+                    result.map { it.food.id } shouldContainExactly listOf(1L, 2L)
+                    result.map { it.scannedAt } shouldContainExactly listOf(
+                        LocalDateTime.of(2026, 7, 3, 10, 0, 0),
+                        LocalDateTime.of(2026, 7, 2, 10, 0, 0),
+                    )
+                }
+            }
+
+            `when`("삭제된 스캔 이력만 남은 음식이 있으면") {
+                then("그 음식은 반환하지 않고 남은 이력의 시각으로 정렬한다") {
+                    seedFood(1L, "김치찌개")
+                    seedFood(2L, "비빔밥")
+                    seedHistory(11L, 1L, "2026-07-01 10:00:00")
+                    seedHistory(11L, 1L, "2026-07-05 10:00:00", status = "DELETED")
+                    seedHistory(11L, 2L, "2026-07-02 10:00:00")
+                    seedFood(3L, "된장찌개")
+                    seedHistory(11L, 3L, "2026-07-06 10:00:00", status = "DELETED")
+
+                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldContainExactly listOf(2L, 1L)
+                }
+            }
+
+            `when`("삭제된 음식의 이력이 섞여 있으면") {
+                then("삭제된 음식은 반환하지 않는다") {
+                    seedFood(1L, "김치찌개")
+                    seedFood(2L, "삭제된찌개", status = "DELETED")
+                    seedHistory(11L, 1L, "2026-07-01 10:00:00")
+                    seedHistory(11L, 2L, "2026-07-03 10:00:00")
+
+                    repository.findRecentScannedFoods(11L, PageRequest.of(0, 10)).map { it.food.id } shouldContainExactly listOf(1L)
                 }
             }
 

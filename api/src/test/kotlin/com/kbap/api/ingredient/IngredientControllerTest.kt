@@ -123,7 +123,7 @@ class IngredientControllerTest : BehaviorSpec() {
                     diets.size() shouldBe 15
                     diets.first().path("code").asText() shouldBe "VEGAN"
                     diets.first().path("name").asText() shouldBe "비건"
-                    diets.first().path("ingredients").size() shouldBe 41
+                    diets.first().path("ingredients").size() shouldBe 43
 
                     val glutenFree = diets.first { it.path("code").asText() == "GLUTEN_FREE" }
                     glutenFree.path("ingredients").map { it.path("name").asText() } shouldBe

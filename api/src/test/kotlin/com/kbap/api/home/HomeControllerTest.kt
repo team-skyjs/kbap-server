@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.IntegrationTest
+import com.kbap.api.food.PopularFoodIdCache
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.port.auth.TokenIssuer
@@ -27,6 +28,9 @@ class HomeControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
+    @Autowired
+    private lateinit var popularFoodIdCache: PopularFoodIdCache
+
     private val mapper: ObjectMapper = jacksonObjectMapper()
 
     init {
@@ -43,6 +47,7 @@ class HomeControllerTest : BehaviorSpec() {
 
         beforeContainer {
             HomeTestSeed.reset(dataSource)
+            popularFoodIdCache.invalidateAll()
         }
 
         given("홈 — 리뷰 많은 음식") {
@@ -77,6 +82,18 @@ class HomeControllerTest : BehaviorSpec() {
                     val 비회원 = payload(null).path("mostReviewedFoods").map { it.path("foodId").asLong() }
                     회원 shouldContainExactly listOf(2L, 1L)
                     비회원 shouldContainExactly 회원
+                }
+            }
+
+            `when`("리뷰 수가 같은 음식이 있으면") {
+                then("id 가 큰 음식이 먼저다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 2)
+                    listOf(221L, 222L).forEach { HomeTestSeed.seedPlainMember(dataSource, it) }
+                    HomeTestSeed.seedReviews(dataSource, 2L, listOf(221L))
+                    HomeTestSeed.seedReviews(dataSource, 1L, listOf(222L))
+
+                    val ids = payload(null).path("mostReviewedFoods").map { it.path("foodId").asLong() }
+                    ids shouldContainExactly listOf(2L, 1L)
                 }
             }
         }
@@ -124,7 +141,7 @@ class HomeControllerTest : BehaviorSpec() {
 
                     payload.path("authenticated").asBoolean() shouldBe true
                     payload.path("avoidedSubstances").map { it.path("code").asText() } shouldContainExactly listOf("EGG")
-                    payload.path("popularFoods").size() shouldBe 5
+                    payload.path("popularFoods").size() shouldBe 7
                     payload.path("popularFoods").forEach {
                         it.path("imageRef").asText() shouldBe "https://cdn.test/menu-${it.path("foodId").asLong()}.png"
                     }

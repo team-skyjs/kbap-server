@@ -101,6 +101,9 @@ class Food(
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
 
+    @Column(name = "review_count", nullable = false, columnDefinition = "int not null default 0")
+    var reviewCount: Int = 0
+
     @Column(name = "ingredients_assessed", nullable = false, columnDefinition = "tinyint(1) not null default 0")
     var ingredientsAssessed: Boolean = ingredients != null
 
@@ -191,7 +194,7 @@ class Food(
         contentStatus = FoodContentStatus.PENDING_REVIEW
     }
 
-    fun displayName(lang: LanguageCode): String = localizedName().resolve(lang)
+    fun displayName(lang: LanguageCode): String = FoodName.resolve(koreanName, displayName, nameTranslations, lang)
 
     fun description(lang: LanguageCode): String = localizedDescription().resolve(lang)
 
@@ -207,9 +210,6 @@ class Food(
         if (!isReady()) return emptyList()
         return ingredients.orEmpty().filter { it.code in avoidedCodes }
     }
-
-    private fun localizedName(): LocalizedText =
-        LocalizedText(korean = displayName.ifBlank { koreanName }, translations = resolveLangs(nameTranslations))
 
     private fun localizedDescription(): LocalizedText =
         LocalizedText(korean = description, translations = resolveLangs(descriptionTranslations))

@@ -3,9 +3,11 @@ plugins {
 }
 
 dependencies {
+    "implementation"(libs.icu4j)
     "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
+    "implementation"(libs.lingua)
     "implementation"(libs.jjwt.api)
     "runtimeOnly"(libs.jjwt.impl)
     "runtimeOnly"(libs.jjwt.jackson)
@@ -17,6 +19,8 @@ dependencies {
 
     "implementation"("tools.jackson.module:jackson-module-kotlin")
 
+
+    "implementation"(libs.caffeine)
 
     "implementation"(libs.shedlock.spring)
     "implementation"(libs.shedlock.provider.jdbc.template)

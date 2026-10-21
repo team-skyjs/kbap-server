@@ -1,5 +1,6 @@
 package com.kbap.api.image
 
+import com.kbap.common.util.BotImagePaths
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.port.storage.StorageObjectStore
@@ -73,6 +74,10 @@ class UnrecordedUploadCleanupService(
                 purposeListed += page.size
                 val recorded = uploadedImageRepository.findRecordedPathsAnyStatus(page.map { it.path }).toSet()
                 for (obj in page) {
+                    if (BotImagePaths.isProtected(obj.path)) {
+                        settledKey = obj.path
+                        continue
+                    }
                     val isUnrecorded = obj.path !in recorded
                     if (isUnrecorded) unrecorded++
                     if (isUnrecorded && obj.lastModified.isBefore(cutoff) && uploadedImageRepository.countReferencesTo(obj.path) > 0) {
@@ -190,6 +195,7 @@ class UnrecordedUploadCleanupService(
     }
 
     private fun deleteIfStillUnrecorded(candidate: StoredObject): Outcome {
+        if (BotImagePaths.isProtected(candidate.path)) return Outcome.SKIPPED
         if (uploadedImageRepository.countRecordedAnyStatus(candidate.path) > 0) return Outcome.SKIPPED
         if (uploadedImageRepository.countReferencesTo(candidate.path) > 0) return Outcome.SKIPPED
         return try {

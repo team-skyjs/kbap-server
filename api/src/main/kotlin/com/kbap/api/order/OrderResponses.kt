@@ -73,6 +73,9 @@ data class OrderDetailResponse(
     )
     val scanImageUrl: String?,
 
+    @field:Schema(description = "주문의 원본 메뉴판 사진 전부(선택 순서) — 여러 장 스캔 묶음 주문은 묶음의 모든 사진(인식 실패 사진 포함), 단일 스캔 주문은 scanImageUrl 한 장, 사진 없는 주문은 빈 목록")
+    val scanImageUrls: List<String> = emptyList(),
+
     @field:Schema(description = "주문한 메뉴별 내역 — 주문 시점 스냅샷")
     val items: List<OrderItemResponse>,
 
@@ -115,8 +118,16 @@ data class OrderItemResponse(
     @field:Schema(description = "항목 식별자 — 사진 교체·원복 API 의 itemId", example = "501")
     val id: Long,
 
-    @field:Schema(description = "메뉴명", example = "순두부찌개")
+    @field:Schema(description = "메뉴명 — 스캔·주문 시점의 한국어 스냅샷", example = "순두부찌개")
     val menuName: String,
+
+    @field:Schema(
+        description = "요청 언어(Accept-Language)의 음식 이름 — 공개(READY) 음식만, 번역이 없으면 음식 API 처럼 카탈로그 한국어 이름. " +
+            "준비중 음식이거나 Accept-Language 가 지원 언어 코드(ko·en·ja·zh-Hans·zh-Hant·vi·id·th·ru·es)가 아니면 null — 화면은 name ?: menuName.",
+        example = "Soft Tofu Stew",
+        nullable = true,
+    )
+    val name: String?,
 
     @field:Schema(description = "수량", example = "2")
     val quantity: Int,

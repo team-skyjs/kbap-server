@@ -5,6 +5,8 @@ spring:
   flyway:
     enabled: true
   jpa:
+    # 운영과 같은 전제(KB-727): 영속성 컨텍스트는 트랜잭션 단위다.
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:
@@ -20,6 +22,14 @@ spring:
         speech: none
 
 kbap:
+  curation:
+    environment: dev
+  review-bot:
+    photo-sync-enabled: true
+  # 기존 리뷰 언어 채우기는 통합 컨텍스트 기동 때 돌지 않게 끈다 — 채우기 테스트가 직접 만들어 돌린다.
+  review:
+    language-backfill:
+      enabled: false
   auth:
     firebase:
       # 테스트는 실제 Firebase 를 호출하지 않는다 — SocialTokenVerifier 를 페이크 빈으로 대체한다.

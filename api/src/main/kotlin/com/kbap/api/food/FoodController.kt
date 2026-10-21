@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.common.util.CursorParser
 import com.kbap.api.core.Page
+import com.kbap.api.core.SearchPage
 import com.kbap.common.util.SearchKeywordParser
 import com.kbap.api.core.auth.AuthMemberId
 import com.kbap.api.core.auth.AuthMemberIdOrNull
@@ -13,6 +14,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.api.bookmark.BookmarkService
 import com.kbap.api.review.ReviewService
 import com.kbap.api.member.MemberService
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,10 +27,29 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/foods")
 class FoodController(
     private val foodService: FoodService,
+    private val selectedFoodsService: SelectedFoodsService,
     private val bookmarkService: BookmarkService,
     private val reviewService: ReviewService,
     private val memberService: MemberService,
+    private val listingService: FoodListingService,
 ) : FoodApi {
+    @GetMapping(version = "3.1+")
+    override fun browseSorted(
+        @Valid @ModelAttribute request: FoodListingRequest,
+        @AuthMemberIdOrNull memberId: Long?,
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>> {
+        val result = listingService.getFoodListingPage(
+            lang = LanguageCode.from(request.lang),
+            sort = FoodListingSort.parse(request.sort),
+            cursor = FoodListingCursor.parse(request.cursor),
+            memberId = memberId,
+            risks = RiskFilterParser.parse(request.risk),
+            saved = false,
+        )
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor)))
+    }
+
     @GetMapping
     override fun browse(
         @Valid @ModelAttribute request: FoodBrowseRequest,
@@ -45,11 +66,22 @@ class FoodController(
         return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
     }
 
+    @GetMapping("/selected")
+    override fun selected(
+        @Valid @ModelAttribute request: FoodSelectedRequest,
+        @AuthMemberIdOrNull memberId: Long?,
+        servletRequest: HttpServletRequest,
+    ): ResponseEntity<BaseResponse<SelectedFoodsResponse>> {
+        val ids = SelectedFoodIds.parse(servletRequest.getParameterValues("ids")?.toList())
+        val result = selectedFoodsService.getSelectedFoods(ids, LanguageCode.from(request.lang), memberId)
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store").body(BaseResponse.ok(result))
+    }
+
     @GetMapping("/search")
     override fun search(
         @Valid @ModelAttribute request: FoodSearchRequest,
         @AuthMemberIdOrNull memberId: Long?,
-    ): ResponseEntity<BaseResponse<Page<FoodSummaryResponse>>> {
+    ): ResponseEntity<BaseResponse<SearchPage<FoodSummaryResponse>>> {
         val scope = FoodSearchScope.from(request.scope)
         if (scope == FoodSearchScope.SCANNED && memberId == null) {
             throw BusinessException(ErrorCode.INVALID_ACCESS_TOKEN)
@@ -57,13 +89,14 @@ class FoodController(
         val result = foodService.searchFoodPage(
             SearchFoodsInput(
                 keyword = SearchKeywordParser.parse(request.keyword),
-                cursor = CursorParser.parse(request.cursor),
+                cursor = FoodSearchCursor.parse(request.cursor),
                 lang = LanguageCode.from(request.lang),
                 memberId = memberId,
                 scope = scope,
             ),
         )
-        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor?.encode())))
     }
 
     @GetMapping("/scanned")

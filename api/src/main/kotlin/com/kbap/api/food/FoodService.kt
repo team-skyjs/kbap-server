@@ -3,6 +3,7 @@ package com.kbap.api.food
 import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodImageJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.FoodMarketingPopularJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodImage
 import com.kbap.common.domain.food.model.RiskLevel
@@ -11,7 +12,6 @@ import com.kbap.common.domain.food.model.FoodContentOutboxStatus
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
-import com.kbap.common.util.LikeWildcards
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
@@ -28,12 +28,14 @@ import java.time.ZoneId
 @Service
 class FoodService(
     private val foodRepository: FoodJpaRepository,
+    private val foodMarketingPopularRepository: FoodMarketingPopularJpaRepository,
     private val foodImageRepository: FoodImageJpaRepository,
     private val outboxRepository: FoodContentOutboxJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val memberService: MemberService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val popularFoodIdCache: PopularFoodIdCache,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -101,27 +103,32 @@ class FoodService(
     }
 
     @Transactional(readOnly = true)
-    fun searchFoodPage(input: SearchFoodsInput): FoodPage =
+    fun searchFoodPage(input: SearchFoodsInput): FoodSearchPage =
         if (input.scope == FoodSearchScope.SCANNED) {
-            val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword, input.lang)
-            FoodPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
+            val rows = getScannedFoods(requireNotNull(input.memberId), input.keyword)
+            FoodSearchPage(items = summaryViews(rows, input.lang, input.memberId), nextCursor = null, hasNext = false)
         } else {
-            foodPage(getFoodsByKeyword(input.keyword, input.lang, input.cursor, PAGE_SIZE + 1), input.lang, input.memberId)
+            val ranked = FoodSearchRanker.rank(input.keyword, foodRepository.findSearchableNames()) { ids ->
+                scanHistoryRepository.countByFoodIds(ids).associate { it.foodId to it.count }
+            }
+            val remaining = FoodSearchRanker.after(ranked, input.cursor)
+            val page = remaining.take(PAGE_SIZE)
+            FoodSearchPage(
+                items = summaryViews(loadInGivenOrder(page.map { it.id }), input.lang, input.memberId),
+                nextCursor = page.lastOrNull()?.cursor().takeIf { remaining.size > PAGE_SIZE },
+                hasNext = remaining.size > PAGE_SIZE,
+            )
         }
 
     @Transactional(readOnly = true)
     internal fun getFoods(cursor: Long?, size: Int): List<Food> =
         loadDescending(foodRepository.findFoodPageIds(cursor, PageRequest.of(0, size)))
 
-    @Transactional(readOnly = true)
-    internal fun getFoodsByKeyword(keyword: String, lang: LanguageCode, cursor: Long?, size: Int): List<Food> =
-        loadDescending(
-            foodRepository.searchFoodPageIds(LikeWildcards.escape(keyword), translationJsonPath(lang), cursor, size),
-        )
-
-    private fun getScannedFoods(memberId: Long, keyword: String, lang: LanguageCode): List<Food> {
-        val ids = scanHistoryRepository.findScannedFoodIds(memberId, LikeWildcards.escape(keyword), translationJsonPath(lang))
-        return loadInGivenOrder(ids)
+    private fun getScannedFoods(memberId: Long, keyword: String): List<Food> {
+        val scannedIds = scanHistoryRepository.findScannedFoodIdsByRecency(memberId)
+        if (scannedIds.isEmpty()) return emptyList()
+        val matched = FoodSearchRanker.matchingIds(keyword, foodRepository.findSearchableNamesByIds(scannedIds))
+        return loadInGivenOrder(scannedIds.filter { it in matched })
     }
 
     @Transactional(readOnly = true)
@@ -139,9 +146,6 @@ class FoodService(
         val foodsById = foodRepository.findByIdIn(ids).associateBy { it.id }
         return ids.mapNotNull { foodsById[it] }
     }
-
-    private fun translationJsonPath(lang: LanguageCode): String? =
-        if (lang == LanguageCode.KO) null else "$.\"${lang.code}\""
 
     @Transactional(readOnly = true)
     fun getDetail(input: GetFoodDetailInput): GetFoodDetailResult {
@@ -200,7 +204,23 @@ class FoodService(
 
     @Transactional(readOnly = true)
     fun getPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> =
-        summaryViews(foodRepository.findRandom(size), lang, memberId)
+        summaryViews(loadInGivenOrder(popularFoodIdCache.getPopularFoodIds(size)), lang, memberId)
+
+    @Transactional(readOnly = true)
+    fun getFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(ids), lang, memberId)
+
+    @Transactional(readOnly = true)
+    fun getRandomMarketingPopularFoods(memberId: Long?, lang: LanguageCode, size: Int): List<FoodSummaryView> {
+        val ids = foodMarketingPopularRepository.findAllFoodIds()
+        if (ids.isEmpty()) return emptyList()
+        val pool = foodRepository.findByIdIn(ids).filter { it.isReady() }
+        return summaryViews(pool.shuffled().take(size), lang, memberId)
+    }
+
+    @Transactional(readOnly = true)
+    fun getReadyFoodSummariesInOrder(memberId: Long?, lang: LanguageCode, ids: List<Long>): List<FoodSummaryView> =
+        summaryViews(loadInGivenOrder(ids).filter { it.isReady() }, lang, memberId)
 
     @Transactional(readOnly = true)
     fun getRecentScannedFoods(memberId: Long, lang: LanguageCode, size: Int): List<RecentScannedFoodView> {

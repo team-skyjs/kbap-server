@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.booleans.shouldBeTrue
@@ -137,7 +138,7 @@ class ReviewControllerTest : BehaviorSpec() {
         fun createBody(
             foodId: Long?,
             rating: Int? = 4,
-            content: String? = null,
+            content: String? = "정말 맛있게 먹었어요",
             imagePaths: List<String>? = null,
             place: Map<String, Any?>? = null,
             servingSpeed: Int? = null,
@@ -230,10 +231,140 @@ class ReviewControllerTest : BehaviorSpec() {
         fun createReview(token: String, foodId: Long, rating: Int = 4): Long =
             reviewIdOf(create(token, createBody(foodId = foodId, rating = rating)).andExpect { status { isOk() } })
 
+        given("리뷰 본문 언어(language)") {
+            seedFood(7900L, "언어테스트음식")
+
+            fun storedLanguageOf(reviewId: Long): String? =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT language FROM food_review WHERE id = ?").use { ps ->
+                        ps.setLong(1, reviewId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getString(1)
+                        }
+                    }
+                }
+
+            fun payloadOf(result: ResultActionsDsl) =
+                mapper.readTree(result.andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
+
+            `when`("본문을 써서 작성하면") {
+                then("판별한 언어를 저장하고 응답에 싣는다 — 셀 글자가 없거나 애매하면 null 이다") {
+                    val token = accessToken(7900L)
+                    listOf(
+                        "진짜 맛있어요, 또 올게요" to "ko",
+                        "The broth was rich and so tasty" to "en",
+                        "湯頭濃郁，非常好吃！" to "zh-Hant",
+                        "ㅋ".repeat(10) to null,
+                    ).forEach { (content, expected) ->
+                        withClue(content) {
+                            val result = create(token, createBody(foodId = 7900L, content = content)).andExpect { status { isOk() } }
+                            val payload = payloadOf(result)
+
+                            payload.has("language") shouldBe true
+                            payload.path("language").takeUnless { it.isNull }?.asText() shouldBe expected
+                            storedLanguageOf(payload.path("reviewId").asLong()) shouldBe expected
+                        }
+                    }
+                }
+            }
+
+            `when`("본문을 다른 언어로 고치거나 셀 글자가 없는 본문으로 바꾸면") {
+                then("언어도 따라 바뀐다") {
+                    val token = accessToken(7901L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7900L, content = "정말 맛있었어요, 또 올게요")).andExpect { status { isOk() } })
+                    storedLanguageOf(reviewId) shouldBe "ko"
+
+                    payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4, content = "Really good, will come again")))
+                        .path("language").asText() shouldBe "en"
+                    storedLanguageOf(reviewId) shouldBe "en"
+
+                    payloadOf(update(token, reviewId, createBody(foodId = null, rating = 4, content = "ㅋ".repeat(10)))).path("language").isNull shouldBe true
+                    storedLanguageOf(reviewId) shouldBe null
+                }
+            }
+
+            `when`("리뷰를 내려주는 조회 응답들을 보면") {
+                then("음식별 목록·전체 피드·내 리뷰·음식 상세의 리뷰에 모두 language 가 실린다") {
+                    seedFood(7902L, "언어조회음식")
+                    val token = accessToken(7902L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7902L, content = "국물이 진하고 맛있어요")).andExpect { status { isOk() } })
+
+                    fun languageIn(reviews: com.fasterxml.jackson.databind.JsonNode): String? =
+                        reviews.single { it.path("reviewId").asLong() == reviewId }.path("language").asText()
+
+                    fun get(url: String) = payloadOf(mockMvc.get(url) { header("Authorization", "Bearer $token") }.andExpect { status { isOk() } })
+
+                    withClue("음식별 목록") { languageIn(get("/api/reviews?foodId=7902&lang=en").path("items")) shouldBe "ko" }
+                    withClue("전체 피드") { languageIn(get("/api/reviews?lang=en").path("items")) shouldBe "ko" }
+                    withClue("내 리뷰") { languageIn(get("/api/reviews/me?lang=en").path("items")) shouldBe "ko" }
+                    withClue("음식 상세") { languageIn(get("/api/foods/7902?lang=en").path("recentReviews")) shouldBe "ko" }
+                }
+            }
+        }
+
+        given("리뷰 본문 최소 길이 — 앞뒤 공백을 뺀 코드 포인트 10개") {
+            seedFood(7950L, "본문길이음식")
+
+            fun storedContentOf(reviewId: Long): String? =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT content FROM food_review WHERE id = ?").use { ps ->
+                        ps.setLong(1, reviewId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getString(1)
+                        }
+                    }
+                }
+
+            `when`("작성 본문이 없거나 짧으면") {
+                then("400 REVIEW-005 와 minLength 10 을 돌려주고 저장하지 않는다 — 없음·빈 문자열·공백만·9자·공백 덧댄 9자·이모지 9개") {
+                    val token = accessToken(7950L)
+                    listOf(null, "", " ".repeat(12), "가".repeat(9), "  ${"가".repeat(9)}  ", "😋".repeat(9)).forEach { content ->
+                        withClue(content ?: "본문 없음") {
+                            create(token, createBody(foodId = 7950L, content = content)).andExpect {
+                                status { isBadRequest() }
+                                jsonPath("$.code") { value("REVIEW-005") }
+                                jsonPath("$.payload.minLength") { value(10) }
+                            }
+                        }
+                    }
+                    rankingCounts(7950L) shouldBe (0 to 0)
+                }
+            }
+            `when`("작성 본문이 공백을 빼고 10자이면") {
+                then("200 이다 — 한글 10자·이모지 10개(서로게이트 20 단위)·앞뒤 공백 덧댄 10자") {
+                    listOf("가".repeat(10), "😋".repeat(10), "  ${"가".repeat(10)}  ").forEachIndexed { index, content ->
+                        withClue(content) {
+                            val token = accessToken(7951L + index)
+                            create(token, createBody(foodId = 7950L, content = content)).andExpect { status { isOk() } }
+                        }
+                    }
+                }
+            }
+            `when`("수정 본문이 없거나 짧으면") {
+                then("400 REVIEW-005 이고 기존 본문은 그대로다") {
+                    val token = accessToken(7955L)
+                    val reviewId = reviewIdOf(create(token, createBody(foodId = 7950L, content = "처음 쓴 리뷰 본문이에요")).andExpect { status { isOk() } })
+                    listOf(null, "   ", "가".repeat(9), "😋".repeat(9)).forEach { content ->
+                        withClue(content ?: "본문 없음") {
+                            update(token, reviewId, createBody(foodId = null, rating = 4, content = content)).andExpect {
+                                status { isBadRequest() }
+                                jsonPath("$.code") { value("REVIEW-005") }
+                            }
+                        }
+                    }
+                    storedContentOf(reviewId) shouldBe "처음 쓴 리뷰 본문이에요"
+                    update(token, reviewId, createBody(foodId = null, rating = 4, content = "😋".repeat(10))).andExpect { status { isOk() } }
+                    storedContentOf(reviewId) shouldBe "😋".repeat(10)
+                }
+            }
+        }
+
         given("리뷰 작성 API — POST /api/reviews") {
             seedFood(700L, "리뷰김치찌개")
 
-            `when`("별점만으로 작성하면") {
+            `when`("별점과 본문으로 작성하면") {
                 then("200 과 리뷰를 반환한다") {
                     val token = accessToken(700L)
                     create(token, createBody(foodId = 700L, rating = 5)).andExpect {
@@ -242,7 +373,7 @@ class ReviewControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.rating") { value(5) }
                         jsonPath("$.payload.foodId") { doesNotExist() }
                         jsonPath("$.payload.memberId") { doesNotExist() }
-                        jsonPath("$.payload.content") { value(null) }
+                        jsonPath("$.payload.content") { value("정말 맛있게 먹었어요") }
                         jsonPath("$.payload.imageUrls.length()") { value(0) }
                         jsonPath("$.payload.author.nickname") { value("리뷰어700") }
                         jsonPath("$.payload.author.countryCode") { value("KR") }
@@ -274,12 +405,12 @@ class ReviewControllerTest : BehaviorSpec() {
                         createBody(
                             foodId = 700L,
                             rating = 4,
-                            content = "맛있어요",
+                            content = "맛있어요 또 먹을래요",
                             imagePaths = listOf("images/review/2026/07/701_a.jpg", "images/review/2026/07/701_b.jpg"),
                         ),
                     ).andExpect {
                         status { isOk() }
-                        jsonPath("$.payload.content") { value("맛있어요") }
+                        jsonPath("$.payload.content") { value("맛있어요 또 먹을래요") }
                         jsonPath("$.payload.imageUrls.length()") { value(2) }
                     }
                 }
@@ -392,10 +523,10 @@ class ReviewControllerTest : BehaviorSpec() {
                         header("Authorization", "Bearer $token")
                         param("liked", "true")
                     }.andExpect { status { isOk() } }
-                    update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요")).andExpect {
+                    update(token, reviewId, createBody(foodId = null, rating = 5, content = "수정했어요, 더 맛있네요")).andExpect {
                         status { isOk() }
                         jsonPath("$.payload.rating") { value(5) }
-                        jsonPath("$.payload.content") { value("수정했어요") }
+                        jsonPath("$.payload.content") { value("수정했어요, 더 맛있네요") }
                         jsonPath("$.payload.likeCount") { value(1) }
                         jsonPath("$.payload.likedByMe") { value(true) }
                     }
@@ -939,6 +1070,60 @@ class ReviewControllerTest : BehaviorSpec() {
                         "DELETED" -> rankingCounts(memberId) shouldBe (0 to 0)
                         else -> rankingCounts(memberId) shouldBe (1 to 1)
                     }
+                }
+            }
+        }
+
+        given("음식 리뷰 수 연동") {
+            listOf(740L, 741L, 742L, 743L, 744L).forEach { seedFood(it, "리뷰수음식$it") }
+
+            fun foodReviewCount(foodId: Long): Int =
+                dataSource.connection.use { c ->
+                    c.prepareStatement("SELECT review_count FROM food WHERE id = ?").use { ps ->
+                        ps.setLong(1, foodId)
+                        ps.executeQuery().use { rs ->
+                            rs.next().shouldBeTrue()
+                            rs.getInt(1)
+                        }
+                    }
+                }
+
+            `when`("리뷰를 작성하면") {
+                then("음식 리뷰 수가 1 이 된다") {
+                    createReview(accessToken(740L), 740L)
+                    foodReviewCount(740L) shouldBe 1
+                }
+            }
+            `when`("두 회원이 같은 음식에 작성하면") {
+                then("음식 리뷰 수가 2 가 된다") {
+                    createReview(accessToken(741L), 741L)
+                    createReview(accessToken(742L), 741L)
+                    foodReviewCount(741L) shouldBe 2
+                }
+            }
+            `when`("리뷰를 수정하면") {
+                then("음식 리뷰 수는 바뀌지 않는다") {
+                    val token = accessToken(743L)
+                    val reviewId = createReview(token, 742L)
+                    update(token, reviewId, createBody(foodId = null, rating = 2)).andExpect { status { isOk() } }
+                    foodReviewCount(742L) shouldBe 1
+                }
+            }
+            `when`("본인이 리뷰를 삭제하면") {
+                then("음식 리뷰 수가 0 이 된다") {
+                    val token = accessToken(744L)
+                    val reviewId = createReview(token, 743L)
+                    remove(token, reviewId).andExpect { status { isOk() } }
+                    foodReviewCount(743L) shouldBe 0
+                }
+            }
+            `when`("삭제된 리뷰를 다시 삭제하면") {
+                then("400 이고 음식 리뷰 수는 0 에 머문다") {
+                    val token = accessToken(745L)
+                    val reviewId = createReview(token, 744L)
+                    remove(token, reviewId).andExpect { status { isOk() } }
+                    remove(token, reviewId).andExpect { status { isBadRequest() } }
+                    foodReviewCount(744L) shouldBe 0
                 }
             }
         }

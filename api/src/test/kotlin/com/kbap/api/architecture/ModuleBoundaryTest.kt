@@ -109,6 +109,7 @@ class ModuleBoundaryTest : BehaviorSpec({
 
         val allowedDomainDeps = mapOf(
             "admin" to emptySet(),
+            "curation" to emptySet(),
             "appversion" to emptySet(),
             "block" to emptySet(),
             "scan" to setOf("food", "member", "image", "ingredient"),
@@ -125,6 +126,7 @@ class ModuleBoundaryTest : BehaviorSpec({
             "community" to emptySet(),
             "notification" to emptySet(),
             "translation" to emptySet(),
+            "processedfood" to emptySet(),
         )
 
         `when`("발견된 도메인 컨텍스트 집합을 허용 맵과 대조하면") {

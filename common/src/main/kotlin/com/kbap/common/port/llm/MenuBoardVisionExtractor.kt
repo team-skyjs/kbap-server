@@ -35,3 +35,14 @@ data class ExtractedMenu(
         require(priceKrw == null || priceKrw >= 0) { "priceKrw 는 음수일 수 없습니다" }
     }
 }
+
+interface MenuBoardLineExtractor {
+    fun extractLines(imagePath: String): List<MenuBoardLine>
+}
+
+data class MenuBoardLine(
+    val rawName: String,
+    val koreanName: String,
+    val priceKrw: Int?,
+    val option: String?,
+)

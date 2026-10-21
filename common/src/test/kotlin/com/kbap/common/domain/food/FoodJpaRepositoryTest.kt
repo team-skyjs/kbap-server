@@ -5,6 +5,7 @@ import com.kbap.common.core.testsupport.MySqlContainerConfig
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.food.model.FoodViewLog
 import com.kbap.common.domain.food.model.ImageBatch
 import com.kbap.common.domain.food.model.ImageBatchItem
 import io.kotest.core.spec.style.BehaviorSpec
@@ -15,6 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.support.TransactionTemplate
+import java.time.LocalDateTime
 
 @SpringBootTest
 @Import(MySqlContainerConfig::class)
@@ -29,6 +33,15 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var imageBatchItemRepository: ImageBatchItemJpaRepository
+
+    @Autowired
+    private lateinit var foodViewLogRepository: FoodViewLogJpaRepository
+
+    @Autowired
+    private lateinit var jdbcTemplate: JdbcTemplate
+
+    @Autowired
+    private lateinit var transactionTemplate: TransactionTemplate
 
     init {
         val targets = LanguageCode.entries.filter { it != LanguageCode.KO }
@@ -154,29 +167,221 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                 }
             }
 
-            `when`("READY 와 PENDING_REVIEW 가 섞여 있고 이름으로 검색하면") {
-                then("READY 음식 id 만 반환한다") {
+            `when`("READY 와 PENDING_REVIEW 가 섞여 있고 검색용 이름을 읽으면") {
+                then("READY 음식만 돌려준다 — 한국어명·표시명·번역을 함께 싣는다") {
                     clear()
                     val readyId = saveReady("탐색-김치찌개")
                     savePendingReview("탐색-된장찌개")
 
-                    val ids = foodJpaRepository.searchFoodPageIds(
-                        keyword = "탐색",
-                        jsonPath = null,
-                        cursor = null,
-                        size = 10,
-                    )
+                    val names = foodJpaRepository.findSearchableNames()
 
-                    ids shouldBe listOf(readyId)
+                    names.map { it.id } shouldBe listOf(readyId)
+                    names.single().koreanName shouldBe "탐색-김치찌개"
+                    names.single().nameTranslations shouldBe foodJpaRepository.findById(readyId).get().nameTranslations
+                }
+            }
+        }
+
+        given("findPopular — 최근 조회수 순 인기 음식") {
+            fun since() = LocalDateTime.now().minusDays(30)
+
+            fun clearAll() {
+                clear()
+                foodViewLogRepository.deleteAll()
+            }
+
+            fun view(foodId: Long, times: Int) =
+                repeat(times) { foodViewLogRepository.save(FoodViewLog(foodId = foodId)) }
+
+            fun popularIds(size: Int = 10) = foodJpaRepository.findPopular(since(), size).map { it.id }
+
+            `when`("음식마다 조회수가 다르면") {
+                then("조회수가 많은 순으로 반환한다") {
+                    clearAll()
+                    val once = saveReady("인기-한번")
+                    val thrice = saveReady("인기-세번")
+                    val twice = saveReady("인기-두번")
+                    view(once, 1)
+                    view(thrice, 3)
+                    view(twice, 2)
+
+                    popularIds() shouldBe listOf(thrice, twice, once)
                 }
             }
 
-            `when`("PENDING_REVIEW 만 있고 랜덤 조회하면") {
-                then("빈 목록을 반환한다") {
-                    clear()
-                    savePendingReview("랜덤-검수대기")
+            `when`("조회수가 같으면") {
+                then("나중에 등록된 음식이 먼저 온다") {
+                    clearAll()
+                    val older = saveReady("동률-먼저")
+                    val newer = saveReady("동률-나중")
+                    view(older, 2)
+                    view(newer, 2)
 
-                    foodJpaRepository.findRandom(size = 10).shouldBeEmpty()
+                    popularIds() shouldBe listOf(newer, older)
+                }
+            }
+
+            `when`("공개되지 않은 음식에 조회 기록이 많으면") {
+                then("결과에 포함하지 않는다") {
+                    clearAll()
+                    val ready = saveReady("공개-음식")
+                    val pending = savePendingReview("검수대기-음식")
+                    view(ready, 1)
+                    view(pending, 5)
+
+                    popularIds() shouldBe listOf(ready)
+                }
+            }
+
+            `when`("조회 기록이 전부 기간 밖이면") {
+                then("그 음식은 결과에 포함하지 않는다") {
+                    clearAll()
+                    val recent = saveReady("기간-안")
+                    val stale = saveReady("기간-밖")
+                    view(recent, 1)
+                    view(stale, 3)
+                    jdbcTemplate.update(
+                        "UPDATE food_view_log SET created_at = ? WHERE food_id = ?",
+                        LocalDateTime.now().minusDays(31),
+                        stale,
+                    )
+
+                    popularIds() shouldBe listOf(recent)
+                }
+            }
+
+            `when`("조회 기록이 있는 음식이 요청 크기보다 적으면") {
+                then("조회 기록이 있는 음식만 반환한다") {
+                    clearAll()
+                    val viewed = saveReady("조회-있음1")
+                    val viewedMore = saveReady("조회-있음2")
+                    repeat(3) { saveReady("조회-없음$it") }
+                    view(viewed, 1)
+                    view(viewedMore, 2)
+
+                    popularIds(size = 10) shouldBe listOf(viewedMore, viewed)
+                }
+            }
+
+            `when`("조회 기록이 하나도 없으면") {
+                then("빈 목록을 반환한다") {
+                    clearAll()
+                    saveReady("무조회-음식")
+
+                    foodJpaRepository.findPopular(since(), 10).shouldBeEmpty()
+                }
+            }
+
+            `when`("조회 기록이 있는 음식이 요청 크기보다 많으면") {
+                then("상위 요청 크기만큼만 반환한다") {
+                    clearAll()
+                    val low = saveReady("상위-하")
+                    val mid = saveReady("상위-중")
+                    val high = saveReady("상위-상")
+                    view(low, 1)
+                    view(mid, 2)
+                    view(high, 3)
+
+                    popularIds(size = 2) shouldBe listOf(high, mid)
+                }
+            }
+        }
+
+        given("리뷰 많은 음식 조회") {
+            fun reviewCount(foodId: Long, count: Int) =
+                jdbcTemplate.update("UPDATE food SET review_count = ? WHERE id = ?", count, foodId)
+
+            fun mostReviewedIds(size: Int = 10) = foodJpaRepository.findMostReviewed(size).map { it.id }
+
+            `when`("음식마다 리뷰 수가 다르면") {
+                then("리뷰 수 내림차순으로 반환하고 리뷰 0건 음식은 빠진다") {
+                    clear()
+                    val one = saveReady("리뷰-한건")
+                    val three = saveReady("리뷰-세건")
+                    saveReady("리뷰-없음")
+                    reviewCount(one, 1)
+                    reviewCount(three, 3)
+
+                    mostReviewedIds() shouldBe listOf(three, one)
+                }
+            }
+
+            `when`("리뷰 수가 같으면") {
+                then("id 가 큰 음식이 먼저 온다") {
+                    clear()
+                    val older = saveReady("리뷰동률-먼저")
+                    val newer = saveReady("리뷰동률-나중")
+                    reviewCount(older, 2)
+                    reviewCount(newer, 2)
+
+                    mostReviewedIds() shouldBe listOf(newer, older)
+                }
+            }
+
+            `when`("공개되지 않은 음식의 리뷰 수가 크면") {
+                then("결과에 포함하지 않는다") {
+                    clear()
+                    val ready = saveReady("리뷰-공개")
+                    val pendingImage = savePendingImage("리뷰-이미지대기")
+                    val failed = saveFailed("리뷰-실패")
+                    reviewCount(ready, 1)
+                    reviewCount(pendingImage, 5)
+                    reviewCount(failed, 5)
+
+                    mostReviewedIds() shouldBe listOf(ready)
+                }
+            }
+
+            `when`("소프트 삭제된 음식의 리뷰 수가 크면") {
+                then("결과에 포함하지 않는다") {
+                    clear()
+                    val alive = saveReady("리뷰-생존")
+                    val ghostId = saveReady("리뷰-삭제")
+                    reviewCount(alive, 1)
+                    reviewCount(ghostId, 5)
+                    val ghost = foodJpaRepository.findById(ghostId).get()
+                    ghost.delete()
+                    foodJpaRepository.save(ghost)
+
+                    mostReviewedIds() shouldBe listOf(alive)
+                }
+            }
+
+            `when`("리뷰 있는 음식이 요청 크기보다 많으면") {
+                then("상위 요청 크기만큼만 반환한다") {
+                    clear()
+                    val low = saveReady("리뷰상위-하")
+                    val mid = saveReady("리뷰상위-중")
+                    val high = saveReady("리뷰상위-상")
+                    reviewCount(low, 1)
+                    reviewCount(mid, 2)
+                    reviewCount(high, 3)
+
+                    mostReviewedIds(size = 2) shouldBe listOf(high, mid)
+                }
+            }
+        }
+
+        given("음식 리뷰 수 증감") {
+            fun column(name: String, foodId: Long): Long =
+                jdbcTemplate.queryForObject("SELECT $name FROM food WHERE id = ?", Long::class.java, foodId)!!
+
+            `when`("두 번 늘리고 한 번 줄이면") {
+                then("리뷰 수는 1 이고 낙관 락 version 은 그대로다") {
+                    clear()
+                    val id = saveReady("증감-비빔밥")
+                    val versionBefore = column("version", id)
+
+                    transactionTemplate.executeWithoutResult {
+                        foodJpaRepository.increaseReviewCount(id)
+                        foodJpaRepository.increaseReviewCount(id)
+                    }
+                    column("review_count", id) shouldBe 2L
+
+                    transactionTemplate.executeWithoutResult { foodJpaRepository.decreaseReviewCount(id) }
+
+                    column("review_count", id) shouldBe 1L
+                    column("version", id) shouldBe versionBefore
                 }
             }
         }

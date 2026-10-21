@@ -2,7 +2,7 @@ package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
 import com.kbap.api.ingredient.AvoidedIngredientView
-import com.kbap.api.review.FoodRating
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -17,7 +17,7 @@ data class HomeResponse(
     val authenticated: Boolean,
     @field:Schema(description = "회원이 설정한 기피 성분. 비회원이거나 설정한 성분이 없으면 빈 배열")
     val avoidedSubstances: List<AvoidedSubstanceResponse>,
-    @field:Schema(description = "인기 음식 추천 (최대 5개). 비회원에게도 내려간다")
+    @field:Schema(description = "인기 음식 추천 — 완성(READY) 음식 중 무작위, 호출마다 달라진다. 최대 10개, 중복 없음. 비회원에게도 내려간다")
     val popularFoods: List<FoodSummaryResponse>,
     @field:Schema(
         description = "리뷰 많은 음식 (최대 10개). 활성 리뷰 수 내림차순이고 동률이면 최근 리뷰가 앞선다. " +
@@ -29,26 +29,37 @@ data class HomeResponse(
             "비회원이거나 이력이 없으면 빈 배열",
     )
     val recentScans: List<RecentScanResponse>,
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(
+        description = "평점 높은 음식 (X-API-Version 1.3 이상에서만 키가 존재, 최대 20개). 활성 리뷰 수 내림차순 → 총평점 내림차순 → foodId 내림차순. " +
+            "리뷰가 없는 음식은 빠지며 결과가 없으면 빈 배열. 비회원에게도 같은 목록이 내려간다",
+        nullable = true,
+    )
+    val topRatedFoods: List<TopRatedFoodResponse>? = null,
 ) {
     companion object {
-        fun from(
-            result: HomeResult,
-            authenticated: Boolean,
-            bookmarkedFoodIds: Set<Long>,
-            ratings: Map<Long, FoodRating>,
-        ) = HomeResponse(
+        fun from(result: HomeResult, authenticated: Boolean) = HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
             popularFoods = result.popularFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
             },
             mostReviewedFoods = result.mostReviewedFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in bookmarkedFoodIds, ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
             },
             recentScans = result.recentScans.map {
                 RecentScanResponse(
-                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in bookmarkedFoodIds, ratings[it.summary.foodId]),
+                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId]),
                     scannedAt = it.scannedAt,
+                )
+            },
+            topRatedFoods = result.topRatedFoods?.map {
+                TopRatedFoodResponse(
+                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId]),
+                    taste = it.rating.taste,
+                    servingSpeed = it.rating.servingSpeed,
+                    staffKindness = it.rating.staffKindness,
+                    overallRating = it.rating.overallRating,
                 )
             },
         )
@@ -61,6 +72,20 @@ data class RecentScanResponse(
     val food: FoodSummaryResponse,
     @field:Schema(description = "이 회원이 이 음식을 마지막으로 스캔한 시각 (ISO-8601 UTC)", example = "2026-08-21T03:15:00Z")
     val scannedAt: Instant,
+)
+
+@Schema(description = "평점 높은 음식 카드 — 음식 카드(FoodSummary) 필드 전부 + 세부 평점 평균(소수 1자리)")
+data class TopRatedFoodResponse(
+    @get:JsonUnwrapped
+    val food: FoodSummaryResponse,
+    @field:Schema(description = "맛 평점 평균 (활성 리뷰 rating 평균, review.averageRating 과 같은 값)", example = "4.7")
+    val taste: Double,
+    @field:Schema(description = "음식 나오는 속도 평균 — 입력(1~5)한 리뷰만 평균. 입력이 하나도 없으면 null", example = "4.4", nullable = true)
+    val servingSpeed: Double?,
+    @field:Schema(description = "친절도 평균 — 입력(1~5)한 리뷰만 평균. 입력이 하나도 없으면 null", example = "4.6", nullable = true)
+    val staffKindness: Double?,
+    @field:Schema(description = "총평점 — null 이 아닌 세 평균(반올림 전)의 평균을 소수 1자리로 반올림", example = "4.6")
+    val overallRating: Double,
 )
 
 @Schema(description = "회원이 기피하는 성분")

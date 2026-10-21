@@ -95,7 +95,7 @@ class ReviewBlockFilterTest : BehaviorSpec() {
             val response = mockMvc.post("/api/reviews") {
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating))
+                content = mapper.writeValueAsString(mapOf("foodId" to foodId, "rating" to rating, "content" to "정말 맛있게 먹었어요"))
             }.andReturn().response.getContentAsString(Charsets.UTF_8)
             return mapper.readTree(response).path("payload").path("reviewId").asLong()
         }
