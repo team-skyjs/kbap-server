@@ -78,7 +78,7 @@ class AvoidanceTest : BehaviorSpec({
                     SHRIMP to setOf(SALTED_SHRIMP),
                     OYSTER to setOf(OYSTER_SAUCE),
                     CLAM to setOf(SHORT_NECK_CLAM, OYSTER, OYSTER_SAUCE, ABALONE, MUSSEL, SCALLOP),
-                    SEAFOOD to seafoodLeaves,
+                    SEAFOOD to seafoodLeaves + setOf(CRUSTACEAN, MOLLUSK),
                     BROTH to setOf(DASHI, FISH_SAUCE, MEAT_BROTH),
                     POULTRY to setOf(CHICKEN),
                     PORK to setOf(LARD, GELATIN),
@@ -124,9 +124,9 @@ class AvoidanceTest : BehaviorSpec({
                     .mapValues { it.value.toSet() } shouldBe listOf(NUTS, CRUSTACEAN, MOLLUSK, MEAT).associateWith { it.impliedCodes }
             }
         }
-        `when`("해산물을 새 묶음(갑각류·연체류)과 비교하면") {
-            then("해산물 닫힘은 그대로이고 두 묶음의 하위를 전부 덮는다") {
-                SEAFOOD.impliedCodes shouldBe seafoodLeaves
+        `when`("해산물을 새 묶음(갑각류·연체류)과 비교하면 — 공부 막음") {
+            then("해산물이 두 묶음을 함의해 '갑각류'·'연체류' 표기도 걸리고, 이전 하위는 하나도 빠지지 않는다") {
+                SEAFOOD.impliedCodes shouldBe seafoodLeaves + setOf(CRUSTACEAN, MOLLUSK)
                 seafoodLeaves.containsAll(CRUSTACEAN.impliedCodes + MOLLUSK.impliedCodes) shouldBe true
             }
         }
@@ -157,8 +157,9 @@ class AvoidanceTest : BehaviorSpec({
 
         `when`("하위 재료 쪽에서 보면") {
             then("상위 카테고리를 함의하지 않는다 — 새우 회피가 해산물 전체로 번지지 않고, 자기 자신도 함의하지 않는다") {
-                val groups = setOf(SEAFOOD, DAIRY, NUTS, CRUSTACEAN, MOLLUSK, MEAT)
-                IngredientCode.entries.filter { it.impliedCodes.any { implied -> implied in groups } || it in it.impliedCodes } shouldBe emptyList()
+                val topGroups = setOf(SEAFOOD, DAIRY, NUTS, MEAT)
+                IngredientCode.entries.filter { it.impliedCodes.any { implied -> implied in topGroups } || it in it.impliedCodes } shouldBe emptyList()
+                IngredientCode.entries.filter { it.impliedCodes.any { implied -> implied == CRUSTACEAN || implied == MOLLUSK } } shouldBe listOf(SEAFOOD)
                 SHRIMP.impliedCodes shouldBe setOf(SALTED_SHRIMP)
             }
         }

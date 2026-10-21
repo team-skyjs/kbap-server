@@ -1547,6 +1547,23 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("해산물만 회피하는 회원이 갑각류·연체류로 태깅된 음식을 스캔하면 — 공부 막음") {
+                then("두 음식 모두 해산물 겹침") {
+                    val memberId = 6430L
+                    val path = "scan/6430/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SEAFOOD")
+                    listOf("갑각류묶음찌개" to "CRUSTACEAN", "연체류묶음볶음" to "MOLLUSK").forEach { (name, code) ->
+                        seedReadyFood(name)
+                        setFoodIngredients(name, """[{"code":"$code","inclusion_percent":80}]""")
+                    }
+                    vision.program(path, listOf("갑각류묶음찌개", "연체류묶음볶음").map { ExtractedMenu(it, it, 8000, matchedIdx = null) })
+                    val results = mapper.readTree(v2Scan(memberId, path).andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("payload").path("results")
+                    (0..1).map { i -> results[i].path("avoidances").any { it.path("code").asText() == "SEAFOOD" && it.path("overlapped").asBoolean() } } shouldBe listOf(true, true)
+                }
+            }
+
             `when`("기피성분 등록 회원의 스캔 결과에 미매칭 메뉴가 있으면") {
                 then("해당 항목의 avoidances 는 빈 배열이다 — 겹침 판정 불가") {
                     val memberId = 633L

@@ -203,6 +203,14 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     } shouldBe emptyList()
                 }
             }
+            `when`("해산물을 피하는 회원이 '갑각류'·'연체류'만 적힌 제품을 보면 — 공부 막음") {
+                then("둘 다 DETECTED(R-100 — 해산물이 새 묶음을 함의)") {
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 88432L, "SEAFOOD")
+                    listOf("갑각류", "연체류").mapIndexed { i, term ->
+                        avoidanceOf(88432L, seedProduct("PF-G-SF-$i", "해산물스낵$i", allergens = "알수없음", raw = "$term, 설탕")).getValue("SEAFOOD").path("match").asText()
+                    } shouldBe listOf("DETECTED", "DETECTED")
+                }
+            }
             `when`("돼지고기를 피하는 회원이 젤라틴 제품을 보면") {
                 then("유래 표기 없는 젤라틴은 DETECTED, 어류·식물성 젤라틴은 UNCONFIRMED(확인 필요)") {
                     FoodTestSeed.seedMemberAvoiding(dataSource, 88430L, "PORK")

@@ -354,6 +354,15 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read(null, "닭육수")) shouldBe setOf(IngredientCode.CHICKEN, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
             }
         }
+        `when`("육수·스톡·갈비 구를 띄어 쓰면(표시란·OCR) — Codex P1") {
+            then("붙여 쓴 것과 같이 읽는다") {
+                codes(IngredientLabelReader.read("고기 육수 함유", null)) shouldBe setOf(IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                codes(IngredientLabelReader.read("닭 육수", null)) shouldBe setOf(IngredientCode.CHICKEN, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                codes(IngredientLabelReader.read(null, "사골 육수")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                codes(IngredientLabelReader.read(null, "치킨 스톡, 비프 스톡")) shouldBe setOf(IngredientCode.CHICKEN, IngredientCode.BEEF, IngredientCode.MEAT_BROTH)
+                codes(IngredientLabelReader.read("양 갈비", null)) shouldBe setOf(IngredientCode.LAMB)
+            }
+        }
         `when`("양고기 용어가 나오면") {
             then("양고기로 읽고, 양파·양지는 양고기가 아니다") {
                 codes(IngredientLabelReader.read(null, "양고기, 머튼, 양갈비")) shouldBe setOf(IngredientCode.LAMB)

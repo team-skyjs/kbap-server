@@ -81,6 +81,15 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     } shouldBe emptyList()
                 }
             }
+            `when`("해산물을 피하는 회원이 '갑각류'·'연체류' 표시 성분표를 분석하면 — 공부 막음") {
+                then("DETECTED") {
+                    val token = member(88452L, "SEAFOOD").also { execute("UPDATE member SET scan_unlocked = 1 WHERE id = 88452") }
+                    listOf("갑각류", "연체류").map { term ->
+                        label(token, null, "원재료명: 정제수\n알레르기 유발물질: $term 함유").path("payload").path("avoidance")
+                            .single { it.path("code").asText() == "SEAFOOD" }.path("match").asText()
+                    } shouldBe listOf("DETECTED", "DETECTED")
+                }
+            }
             `when`("돼지고기를 피하는 회원이 젤라틴 성분표를 분석하면") {
                 then("유래 표기 없는 젤라틴은 DETECTED, 어류 젤라틴은 UNCONFIRMED") {
                     val token = member(88450L, "PORK").also { execute("UPDATE member SET scan_unlocked = 1 WHERE id = 88450") }
