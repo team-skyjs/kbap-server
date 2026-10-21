@@ -8,10 +8,10 @@ import tools.jackson.databind.JsonNode
 class DataGoKrHaccpProductSource(
     private val client: DataGoKrClient,
 ) : HaccpProductSource {
-    override fun getPage(foodType: String, pageNo: Int, pageSize: Int): HaccpProductPage {
+    override fun getPage(foodType: String?, pageNo: Int, pageSize: Int): HaccpProductPage {
         val json = client.getJson(
             OPERATION, PATH, KEY_PARAM,
-            mapOf("prdkind" to foodType, "returnType" to "json", "pageNo" to pageNo, "numOfRows" to pageSize),
+            mapOf("prdkind" to foodType.orEmpty(), "returnType" to "json", "pageNo" to pageNo, "numOfRows" to pageSize),
             SUCCESS,
         )
         val body = json.path("body")

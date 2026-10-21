@@ -33,14 +33,14 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
     }
 
     class FakeSource(var catalog: Map<String, List<HaccpProduct>>, private val counter: FakeCounter? = null) : HaccpProductSource {
-        val calls = mutableListOf<Pair<String, Int>>()
-        val failTypes = mutableSetOf<String>()
+        val calls = mutableListOf<Pair<String?, Int>>()
+        val failTypes = mutableSetOf<String?>()
 
-        override fun getPage(foodType: String, pageNo: Int, pageSize: Int): HaccpProductPage {
+        override fun getPage(foodType: String?, pageNo: Int, pageSize: Int): HaccpProductPage {
             calls += foodType to pageNo
             counter?.let { it.attempts += if (foodType in failTypes) 4 else 1 }
             if (foodType in failTypes) throw PublicDataCallException("HACCP 제품정보 호출 실패(재시도 3회): HTTP 504")
-            val all = catalog[foodType].orEmpty()
+            val all = if (foodType == null) catalog.values.flatten().distinctBy { it.reportNo } else catalog[foodType].orEmpty()
             return HaccpProductPage(all.drop((pageNo - 1) * pageSize).take(pageSize), all.size)
         }
     }
@@ -81,6 +81,36 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
             product("2011022182815", "포카칩 오리지널", "과자", maker = "오리온_청주"),
             product("2001054954113", "신라면컵", "유탕면류", maker = "알수없음"),
         )
+
+        given("가공식품 제품 마스터 미러링 — 유형 필터 없이 출처 전체(KB-844)") {
+            `when`("유형 목록이 비어 있으면") {
+                then("유형 없이 한 번 전체 페이지를 끝까지 돌아 모든 유형을 저장한다") {
+                    val dairy = listOf(product("19790188001100", "빙그레 바나나맛우유", "가공유", maker = "빙그레"))
+                    val source = FakeSource(mapOf("유탕면" to ramen, "과자" to snacks, "가공유" to dairy))
+
+                    val summary = mirror(source, FakeLookup(emptyMap()), emptyList()).mirror()
+
+                    source.calls shouldBe listOf<Pair<String?, Int>>(null to 1, null to 2, null to 3)
+                    summary.perType shouldBe mapOf("전체" to 5)
+                    summary.inserted shouldBe 5
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE food_type = '가공유' AND product_name = '빙그레 바나나맛우유'") shouldBe 1
+                }
+            }
+            `when`("유형별로 이미 적재된 행을 전체 순회가 다시 보면") {
+                then("기존 행은 가산 없이 그대로(내용 해시 불변)이고 새 행만 더한다") {
+                    mirror(FakeSource(mapOf("유탕면" to ramen)), FakeLookup(emptyMap()), listOf("유탕면")).mirror()
+                    val before = dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery("SELECT report_no, HEX(content_hash) FROM processed_food_product ORDER BY report_no").use { r -> generateSequence { if (r.next()) r.getString(1) to r.getString(2) else null }.toList() } } }
+
+                    val summary = mirror(FakeSource(mapOf("유탕면" to ramen, "과자" to snacks)), FakeLookup(emptyMap()), emptyList()).mirror()
+
+                    summary.unchanged shouldBe ramen.size
+                    summary.changed shouldBe 0
+                    summary.inserted shouldBe 1
+                    val after = dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery("SELECT report_no, HEX(content_hash) FROM processed_food_product ORDER BY report_no").use { r -> generateSequence { if (r.next()) r.getString(1) to r.getString(2) else null }.toList() } } }
+                    after.filter { (no, _) -> no in before.map { it.first } } shouldBe before
+                }
+            }
+        }
 
         given("가공식품 제품 마스터 미러링") {
             `when`("두 유형을 페이지 단위(2건)로 처음 돌리면") {
