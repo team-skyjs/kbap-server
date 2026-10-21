@@ -358,6 +358,13 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 listOf("우피젤라틴", "우피 젤라틴", "소 젤라틴", "소가죽젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.BEEF) }
             }
         }
+        `when`("'소'로 끝나는 다른 낱말 뒤 젤라틴이면 — Codex P2") {
+            then("소고기로 읽지 않는다") {
+                listOf("고소 젤라틴", "고소젤라틴", "젤라틴(고소)").forEach { term ->
+                    (IngredientCode.BEEF in codes(IngredientLabelReader.read(null, term))) shouldBe false
+                }
+            }
+        }
         `when`("'어류'가 나오면 — S-845 ③") {
             then("생선으로 읽는다") {
                 codes(IngredientLabelReader.read(null, "어류, 갑각류")) shouldBe setOf(IngredientCode.FISH, IngredientCode.CRUSTACEAN)
