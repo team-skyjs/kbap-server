@@ -193,7 +193,7 @@
 비프스톡	BEEF,MEAT_BROTH	block
 치킨스톡	CHICKEN,MEAT_BROTH	block
 닭육수	CHICKEN,MEAT_BROTH,BROTH	block
-고기육수	MEAT_BROTH,BROTH	block
+고기육수	MEAT_BROTH,BROTH	contains
 양고기	LAMB	contains
 양갈비	LAMB	contains
 머튼	LAMB	contains
