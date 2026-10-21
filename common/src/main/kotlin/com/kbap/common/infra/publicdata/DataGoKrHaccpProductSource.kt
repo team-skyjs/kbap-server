@@ -11,7 +11,7 @@ class DataGoKrHaccpProductSource(
     override fun getPage(foodType: String?, pageNo: Int, pageSize: Int): HaccpProductPage {
         val json = client.getJson(
             OPERATION, PATH, KEY_PARAM,
-            mapOf("prdkind" to foodType.orEmpty(), "returnType" to "json", "pageNo" to pageNo, "numOfRows" to pageSize),
+            listOfNotNull(foodType?.let { "prdkind" to it }, "returnType" to "json", "pageNo" to pageNo, "numOfRows" to pageSize).toMap(),
             SUCCESS,
         )
         val body = json.path("body")

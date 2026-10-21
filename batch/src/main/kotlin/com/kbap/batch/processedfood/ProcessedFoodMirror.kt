@@ -39,7 +39,7 @@ class ProcessedFoodMirror(
         var crossTypeDuplicates = 0
         var skipped = 0
 
-        foodTypes.forEach { type ->
+        foodTypes.ifEmpty { listOf(null) }.forEach { type ->
             var fetched = 0
             var pageNo = 1
             try {
@@ -58,10 +58,10 @@ class ProcessedFoodMirror(
                     pageNo++
                 }
             } catch (e: Exception) {
-                failedTypes += type
-                log.warn("가공식품 미러링 — 유형 {} 수집 중단 page={} 이유={}", type, pageNo, e.message)
+                failedTypes += type ?: ALL_TYPES
+                log.warn("가공식품 미러링 — 유형 {} 수집 중단 page={} 이유={}", type ?: ALL_TYPES, pageNo, e.message)
             }
-            perType[type] = fetched
+            perType[type ?: ALL_TYPES] = fetched
         }
 
         val maker = supplementMakers(now)
@@ -155,6 +155,7 @@ class ProcessedFoodMirror(
 
     private companion object {
         const val MAX_PAGES = 500
+        const val ALL_TYPES = "전체"
         const val DEFAULT_MAX_CONSECUTIVE_FAILURES = 5
     }
 }
