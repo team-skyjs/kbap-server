@@ -1,6 +1,7 @@
 package com.kbap.api.migration
 
 import com.kbap.api.IntegrationTest
+import com.kbap.common.domain.ingredient.model.IngredientCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.ints.shouldBeGreaterThan
@@ -35,14 +36,18 @@ class MigrationValidationTest : BehaviorSpec() {
             }
 
             `when`("마스터 시드가 채운 기피물질 카탈로그를 확인하면") {
-                then("81종 전부와 대표 성분(계란)의 9개 언어 번역이 온전하다") {
+                then("식별자 enum 전 종과 모든 행의 9개 언어 번역이 온전하다") {
                     dataSource.connection.use { conn ->
                         conn.createStatement().use { st ->
                             st.executeQuery(
                                 "SELECT COUNT(*) AS cnt FROM ingredients WHERE status = 'ACTIVE'",
                             ).use { rs ->
                                 rs.next()
-                                rs.getInt("cnt") shouldBe 81
+                                rs.getInt("cnt") shouldBe IngredientCode.entries.size
+                            }
+                            st.executeQuery("SELECT COUNT(*) FROM ingredients WHERE JSON_LENGTH(translations) <> 9").use { rs ->
+                                rs.next()
+                                rs.getInt(1) shouldBe 0
                             }
                             st.executeQuery(
                                 "SELECT korean_name, JSON_LENGTH(translations) AS langs " +
