@@ -12,7 +12,7 @@ object IngredientLabelReader {
     private val FLAVOR_MARKERS = listOf("맛", "향", "풍미", "향료")
     private val NEGATED = Regex("""\S+?\s*(무첨가|불포함|미사용|free)(?=\s|$)""", RegexOption.IGNORE_CASE)
     private val PARTICLES = setOf('을', '를', '이', '가', '은', '는', '와', '과', '의')
-    private val SPACED_PHRASES = Regex("""(어류|생선|피쉬|식물성)\s+(젤라틴)|(고기|사골|돈골|우골|소뼈|닭|소고기|돼지)\s+(육수)|(치킨|비프)\s+(스톡)|(양)\s+(갈비)""")
+    private val SPACED_PHRASES = Regex("""(?<![가-힣])(?:(어류|생선|피쉬|식물성)\s+(젤라틴)|(소고기|쇠고기|돼지고기|닭고기|양고기|고기|사골|돈골|우골|소뼈|닭|돼지)\s+(육수)|(치킨|비프)\s+(스톡)|(양)\s+(갈비))""")
 
     private val mandatory: List<IngredientLabelTerm> =
         load("mandatory-allergens.tsv").map { IngredientLabelTerm(it[0], codesOf(it[1]), IngredientLabelTermMode.EXACT) }

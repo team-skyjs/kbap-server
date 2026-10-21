@@ -194,6 +194,8 @@
 치킨스톡	CHICKEN,MEAT_BROTH	block
 닭육수	CHICKEN,MEAT_BROTH,BROTH	block
 고기육수	MEAT_BROTH,BROTH	contains
+돼지육수	PORK,MEAT_BROTH	contains
+물고기	FISH	contains
 양고기	LAMB	contains
 양갈비	LAMB	contains
 머튼	LAMB	contains
@@ -296,3 +298,4 @@
 피쉬젤라틴	GELATIN	suppress
 생선젤라틴	GELATIN	suppress
 식물성젤라틴	GELATIN	suppress
+물고기	MEAT_BROTH	suppress
