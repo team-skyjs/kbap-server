@@ -344,6 +344,25 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read("어류 젤라틴", null)) shouldBe setOf(IngredientCode.FISH)
             }
         }
+        `when`("유래를 괄호 뒤에 단 젤라틴이면 — S-845 ①") {
+            then("어류는 생선, 식물성은 아무것도 아니고 젤라틴으로 세지 않는다") {
+                codes(IngredientLabelReader.read(null, "젤라틴(어류), 설탕")) shouldBe setOf(IngredientCode.FISH)
+                codes(IngredientLabelReader.read(null, "젤라틴 (식물성)")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "젤라틴(돈피)")) shouldBe setOf(IngredientCode.PORK)
+            }
+        }
+        `when`("돼지·소 유래를 명시한 젤라틴이면 — S-845 ②") {
+            then("그 고기 코드만 읽고 젤라틴(소·돼지 양쪽 함의)으로 세지 않는다") {
+                listOf("돈피젤라틴", "돈피 젤라틴", "돼지 젤라틴", "돼지젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.PORK) }
+                listOf("우피젤라틴", "우피 젤라틴", "소 젤라틴", "소가죽젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.BEEF) }
+            }
+        }
+        `when`("'어류'가 나오면 — S-845 ③") {
+            then("생선으로 읽는다") {
+                codes(IngredientLabelReader.read(null, "어류, 갑각류")) shouldBe setOf(IngredientCode.FISH, IngredientCode.CRUSTACEAN)
+                codes(IngredientLabelReader.read("어류", null)) shouldBe setOf(IngredientCode.FISH)
+            }
+        }
         `when`("뼈 육수·스톡 용어가 나오면") {
             then("원래 고기와 고기 육수를 함께 읽는다") {
                 codes(IngredientLabelReader.read(null, "사골농축액")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH)
