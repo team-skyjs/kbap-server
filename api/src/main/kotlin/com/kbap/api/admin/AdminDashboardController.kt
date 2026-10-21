@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 class AdminDashboardController(
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminLlmReportService: AdminLlmReportService,
+    private val adminMemberQueryService: AdminMemberQueryService,
 ) : AdminDashboardApi {
     @GetMapping("/metrics")
     override fun getMetricsSummary(): ResponseEntity<BaseResponse<AdminDashboardMetricsResponse>> =
@@ -23,4 +24,11 @@ class AdminDashboardController(
         @RequestParam(defaultValue = "7") days: Int,
     ): ResponseEntity<BaseResponse<AdminLlmCostReportResponse>> =
         ResponseEntity.ok(BaseResponse.ok(adminLlmReportService.getLlmCostReport(days)))
+
+    @GetMapping("/signups")
+    override fun getDailySignups(
+        @RequestParam(defaultValue = "30") days: Int,
+        @RequestParam(required = false) isBot: Boolean?,
+    ): ResponseEntity<BaseResponse<List<AdminDailyCountResponse>>> =
+        ResponseEntity.ok(BaseResponse.ok(adminMemberQueryService.getDailySignups(days, isBot)))
 }

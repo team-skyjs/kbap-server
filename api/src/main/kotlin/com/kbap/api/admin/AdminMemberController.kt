@@ -30,10 +30,17 @@ class AdminMemberController(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(required = false) q: String?,
         @RequestParam(required = false) isBot: Boolean?,
+        @RequestParam(required = false) country: String?,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(adminMemberQueryService.searchMemberPage(page.coerceAtLeast(1), q, isBot)),
+            BaseResponse.ok(adminMemberQueryService.searchMemberPage(page.coerceAtLeast(1), q, isBot, country)),
         )
+
+    @GetMapping("/country-counts")
+    override fun getCountryCounts(
+        @RequestParam(required = false) isBot: Boolean?,
+    ): ResponseEntity<BaseResponse<List<AdminMemberCountryCountResponse>>> =
+        ResponseEntity.ok(BaseResponse.ok(adminMemberQueryService.getCountryCounts(isBot)))
 
     @GetMapping("/{id}")
     override fun getMemberDetail(

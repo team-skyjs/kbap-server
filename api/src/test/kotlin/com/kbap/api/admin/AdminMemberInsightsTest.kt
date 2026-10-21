@@ -1,5 +1,7 @@
 package com.kbap.api.admin
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -14,6 +16,7 @@ import com.kbap.common.domain.review.model.ReviewTargetType
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
@@ -36,9 +39,13 @@ class AdminMemberInsightsTest : BehaviorSpec() {
 
     init {
         val seoul = ZoneId.of("Asia/Seoul")
+        val mapper = jacksonObjectMapper()
 
         fun getJson(target: String, role: MemberRole = MemberRole.ADMIN): ResultActionsDsl =
             mockMvc.get(target) { header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, role)}") }
+
+        fun payload(target: String): JsonNode =
+            mapper.readTree(getJson(target).andReturn().response.getContentAsString(Charsets.UTF_8)).path("payload")
 
         fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
 
@@ -70,9 +77,9 @@ class AdminMemberInsightsTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].countryCode") { doesNotExist() }
                         jsonPath("$.payload.items[1].countryCode") { value("US") }
                     }
-                    getJson("/api/admin/members?country=KR").andExpect {
-                        jsonPath("$.payload.totalCount") { value(2) }
-                        jsonPath("$.payload.items[*].id") { value(listOf(krBot.id.toInt(), kr.id.toInt())) }
+                    payload("/api/admin/members?country=KR").let { p ->
+                        p.path("totalCount").asLong() shouldBe 2L
+                        p.path("items").map { it.path("id").asLong() } shouldBe listOf(krBot.id, kr.id)
                     }
                     getJson("/api/admin/members?country=kr&isBot=false").andExpect {
                         jsonPath("$.payload.totalCount") { value(1) }
@@ -111,8 +118,8 @@ class AdminMemberInsightsTest : BehaviorSpec() {
                         jsonPath("$.payload[0].count") { value(3) }
                         jsonPath("$.payload[1].countryCode") { doesNotExist() }
                         jsonPath("$.payload[1].count") { value(2) }
-                        jsonPath("$.payload[?(@.countryCode == 'JP')].count") { value(listOf(1)) }
                     }
+                    payload("/api/admin/members/country-counts").first { it.path("countryCode").asText() == "JP" }.path("count").asLong() shouldBe 1L
                     getJson("/api/admin/members/country-counts?isBot=false").andExpect {
                         jsonPath("$.payload[0].countryCode") { value("KR") }
                         jsonPath("$.payload[0].count") { value(2) }
@@ -180,7 +187,6 @@ class AdminMemberInsightsTest : BehaviorSpec() {
                         jsonPath("$.payload.totalPages") { value(1) }
                         jsonPath("$.payload.hasPrev") { value(false) }
                         jsonPath("$.payload.hasNext") { value(false) }
-                        jsonPath("$.payload.items[*].id") { value(listOf(botReview.id.toInt(), productReview.id.toInt(), foodReview.id.toInt())) }
                         jsonPath("$.payload.items[0].isBot") { value(true) }
                         jsonPath("$.payload.items[0].memberNickname") { value("봇") }
                         jsonPath("$.payload.items[1].targetType") { value("PROCESSED_FOOD") }
@@ -196,9 +202,10 @@ class AdminMemberInsightsTest : BehaviorSpec() {
                         jsonPath("$.payload.items[2].imageUrls.length()") { value(0) }
                         jsonPath("$.payload.items[2].createdAt") { exists() }
                     }
-                    getJson("/api/admin/reviews?isBot=false").andExpect {
-                        jsonPath("$.payload.totalCount") { value(2) }
-                        jsonPath("$.payload.items[*].isBot") { value(listOf(false, false)) }
+                    payload("/api/admin/reviews").path("items").map { it.path("id").asLong() } shouldBe listOf(botReview.id, productReview.id, foodReview.id)
+                    payload("/api/admin/reviews?isBot=false").let { p ->
+                        p.path("totalCount").asLong() shouldBe 2L
+                        p.path("items").map { it.path("isBot").asBoolean() } shouldBe listOf(false, false)
                     }
                     getJson("/api/admin/reviews?isBot=true").andExpect { jsonPath("$.payload.totalCount") { value(1) } }
                 }

@@ -36,6 +36,20 @@ interface TopRatedFoodAggregate {
 }
 
 interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
+    @Query(
+        value = """
+            SELECT r.* FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE r.status = 'ACTIVE' AND (:isBot IS NULL OR m.is_bot = :isBot)
+            ORDER BY r.id DESC
+        """,
+        countQuery = """
+            SELECT count(*) FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE r.status = 'ACTIVE' AND (:isBot IS NULL OR m.is_bot = :isBot)
+        """,
+        nativeQuery = true,
+    )
+    fun findPageByAuthorBot(@Param("isBot") isBot: Boolean?, pageable: Pageable): Page<Review>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Review r where r.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Review?

@@ -30,6 +30,8 @@ data class AdminMemberListItemResponse(
     @field:Schema(description = "리뷰 봇 계정 여부", example = "false")
     val isBot: Boolean,
     val createdAt: LocalDateTime,
+    @field:Schema(description = "국적 ISO2(미설정 null)", example = "KR", nullable = true)
+    val countryCode: String?,
 ) {
     companion object {
         fun from(member: Member): AdminMemberListItemResponse =
@@ -41,10 +43,17 @@ data class AdminMemberListItemResponse(
                 memberStatus = adminMemberStatusOf(member),
                 onboardingCompleted = member.onboardingCompleted,
                 isBot = member.isBot,
+                countryCode = member.countryCode,
                 createdAt = member.createdAt,
             )
     }
 }
+
+data class AdminMemberCountryCountResponse(
+    @field:Schema(description = "국적 ISO2(미설정 회원은 null 한 행)", example = "KR", nullable = true)
+    val countryCode: String?,
+    val count: Long,
+)
 
 data class AdminMemberDetailResponse(
     val id: Long,
