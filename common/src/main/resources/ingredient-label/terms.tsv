@@ -200,6 +200,10 @@
 양갈비	LAMB	contains
 머튼	LAMB	contains
 램	LAMB	exact
+램고기	LAMB	contains
+램갈비	LAMB	contains
+램찹	LAMB	contains
+육류가공품	MEAT	contains
 견과류	NUTS	contains
 갑각류	CRUSTACEAN	contains
 연체류	MOLLUSK	contains
