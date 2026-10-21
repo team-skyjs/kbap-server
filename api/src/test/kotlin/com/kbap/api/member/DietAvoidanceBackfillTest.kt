@@ -43,7 +43,7 @@ class DietAvoidanceBackfillTest : BehaviorSpec() {
         }
 
         fun stored(diet: DietCategory): List<String> = diet.avoidedIngredients.map { it.name }.filterNot { it in kb842Codes }.sorted()
-        fun required(diet: DietCategory, group: IngredientCode): Set<String> = (group.impliedCodes intersect diet.avoidedIngredients).map { it.name }.toSet()
+        fun required(diet: DietCategory, group: IngredientCode): Set<String> = (group.impliedCodes intersect diet.avoidedIngredients).map { it.name }.filterNot { it in kb842Codes }.toSet()
 
         given("기존 식단 회원 회피 코드 백필(S-844)") {
             `when`("식단 하나를 고르고 그 식단 코드를 그대로 둔 회원마다 돌리면") {
