@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class IdolPickService(
+class FoodIdolVideoService(
     private val foodIdolVideoRepository: FoodIdolVideoJpaRepository,
     private val foodService: FoodService,
     private val bookmarkService: BookmarkService,

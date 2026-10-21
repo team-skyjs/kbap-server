@@ -32,7 +32,7 @@ class FoodController(
     private val reviewService: ReviewService,
     private val memberService: MemberService,
     private val listingService: FoodListingService,
-    private val idolPickService: IdolPickService,
+    private val foodIdolVideoService: FoodIdolVideoService,
 ) : FoodApi {
     @GetMapping(version = "3.1+")
     override fun browseSorted(
@@ -83,7 +83,7 @@ class FoodController(
         @Valid @ModelAttribute request: FoodIdolPicksRequest,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<IdolPicksResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(idolPickService.getIdolPicks(LanguageCode.from(request.lang), memberId)))
+        ResponseEntity.ok(BaseResponse.ok(foodIdolVideoService.getIdolPicks(LanguageCode.from(request.lang), memberId)))
 
     @GetMapping("/search")
     override fun search(

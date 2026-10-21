@@ -14,7 +14,7 @@
 ## Phase 3: User Story 1 — idol-picks 목록 (P1)
 
 - [x] T004 [US1] 응답 DTO in api/src/main/kotlin/com/kbap/api/food/IdolPicksResponse.kt, 요청 DTO `FoodIdolPicksRequest` in FoodRequests.kt
-- [x] T005 [US1] `IdolPickService.getIdolPicks`(대표 선정·D7·READY 필터·북마크·평점) in api/src/main/kotlin/com/kbap/api/food/IdolPickService.kt
+- [x] T005 [US1] `FoodIdolVideoService.getIdolPicks`(대표 선정·D7·READY 필터·북마크·평점) in api/src/main/kotlin/com/kbap/api/food/FoodIdolVideoService.kt
 - [x] T006 [US1] `FoodController.idolPicks` + `FoodApi` Swagger
 - [x] T007 [US1] 통합 테스트(빈 목록·lang 누락·정렬·제외·회원/비회원) in api/src/test/kotlin/com/kbap/api/food/IdolPickControllerTest.kt, 시드 in home/HomeTestSeed.kt, TestTables.kt
 

@@ -4,7 +4,7 @@
 
 ## Summary
 
-Flyway 하나로 `food_idol_video` 생성 + 시드 36행(이름 기준 INSERT … SELECT). `IdolPickService` 가 ACTIVE 행 → 음식별 position 최소 → D7 정렬 → 기존 `getReadyFoodSummariesInOrder` 로 카드 생성 → 북마크·평점 배치(`SelectedFoodsService` 패턴) → 항목에 `video` 를 붙인다. `FoodController` 에 `GET /idol-picks` 1개(version 속성 없음). 홈·상세 무변.
+Flyway 하나로 `food_idol_video` 생성 + 시드 36행(이름 기준 INSERT … SELECT). `FoodIdolVideoService` 가 ACTIVE 행 → 음식별 position 최소 → D7 정렬 → 기존 `getReadyFoodSummariesInOrder` 로 카드 생성 → 북마크·평점 배치(`SelectedFoodsService` 패턴) → 항목에 `video` 를 붙인다. `FoodController` 에 `GET /idol-picks` 1개(version 속성 없음). 홈·상세 무변.
 
 ## Technical Context
 
@@ -25,7 +25,7 @@ api/src/main/resources/db/migration/V2026.10.21.02.20.22__food_idol_video_table.
 common/src/main/kotlin/com/kbap/common/domain/food/model/FoodIdolVideo.kt      # + IdolVideoPlatform
 common/src/main/kotlin/com/kbap/common/domain/food/FoodIdolVideoJpaRepository.kt
 api/src/main/kotlin/com/kbap/api/food/
-├── IdolPickService.kt          # 대표 규칙 + 조립
+├── FoodIdolVideoService.kt          # 대표 규칙 + 조립
 ├── IdolPicksResponse.kt        # IdolPicksResponse / IdolPickResponse(@JsonUnwrapped) / IdolPickVideoResponse
 ├── FoodRequests.kt             # FoodIdolPicksRequest(lang)
 └── FoodController.kt, FoodApi.kt
