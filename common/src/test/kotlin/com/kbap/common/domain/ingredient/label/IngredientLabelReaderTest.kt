@@ -344,6 +344,46 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 codes(IngredientLabelReader.read("어류 젤라틴", null)) shouldBe setOf(IngredientCode.FISH)
             }
         }
+        `when`("유래를 괄호 뒤에 단 젤라틴이면 — S-845 ①") {
+            then("어류는 생선, 식물성·한천은 아무것도 아니고 젤라틴으로 세지 않으며, 돈피는 젤라틴 + 돼지고기") {
+                codes(IngredientLabelReader.read(null, "젤라틴(어류), 설탕")) shouldBe setOf(IngredientCode.FISH)
+                codes(IngredientLabelReader.read(null, "젤라틴 (식물성)")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "젤라틴(한천), 한천젤라틴")) shouldBe emptySet()
+                codes(IngredientLabelReader.read(null, "젤라틴(돈피)")) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.PORK)
+            }
+        }
+        `when`("돼지·소 유래를 명시한 젤라틴이면 — S-845 ②") {
+            then("젤라틴은 그대로 세고(젤라틴 직접 회피자 보호) 그 고기 코드를 더한다") {
+                listOf("돈피젤라틴", "돈피 젤라틴", "돼지 젤라틴", "돼지젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.PORK) }
+                listOf("우피젤라틴", "우피 젤라틴", "소 젤라틴", "소가죽젤라틴").forEach { codes(IngredientLabelReader.read(null, it)) shouldBe setOf(IngredientCode.GELATIN, IngredientCode.BEEF) }
+            }
+        }
+        `when`("'소'로 끝나는 다른 낱말 뒤 젤라틴이면 — Codex P2") {
+            then("소고기로 읽지 않는다") {
+                listOf("고소 젤라틴", "고소젤라틴", "젤라틴(고소)").forEach { term ->
+                    (IngredientCode.BEEF in codes(IngredientLabelReader.read(null, term))) shouldBe false
+                }
+            }
+        }
+        `when`("소 유래 젤라틴에 접미어가 붙으면 — Codex P2") {
+            then("소고기 + 젤라틴으로 읽는다") {
+                listOf("소젤라틴분말", "젤라틴(소)분말", "소 젤라틴 분말").forEach { term ->
+                    codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.BEEF, IngredientCode.GELATIN)
+                }
+            }
+        }
+        `when`("쉼표 없이 한천과 젤라틴이 나란히 나열되면 — 공부") {
+            then("한천 젤라틴으로 붙이지 않아 젤라틴을 놓치지 않는다") {
+                (IngredientCode.GELATIN in codes(IngredientLabelReader.read(null, "펙틴 한천 젤라틴"))) shouldBe true
+                (IngredientCode.GELATIN in codes(IngredientLabelReader.read("펙틴 한천 젤라틴", null))) shouldBe true
+            }
+        }
+        `when`("'어류'가 나오면 — S-845 ③") {
+            then("생선으로 읽는다") {
+                codes(IngredientLabelReader.read(null, "어류, 갑각류")) shouldBe setOf(IngredientCode.FISH, IngredientCode.CRUSTACEAN)
+                codes(IngredientLabelReader.read("어류", null)) shouldBe setOf(IngredientCode.FISH)
+            }
+        }
         `when`("뼈 육수·스톡 용어가 나오면") {
             then("원래 고기와 고기 육수를 함께 읽는다") {
                 codes(IngredientLabelReader.read(null, "사골농축액")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH)

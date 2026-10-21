@@ -208,7 +208,10 @@
 갑각류	CRUSTACEAN	contains
 연체류	MOLLUSK	contains
 육류	MEAT	exact
+어류	FISH	contains
 어류젤라틴	FISH	contains
+우피젤라틴	BEEF	contains
+소가죽젤라틴	BEEF	contains
 피쉬젤라틴	FISH	contains
 오리고기	POULTRY	contains
 복숭아	PEACH	contains
@@ -303,3 +306,4 @@
 생선젤라틴	GELATIN	suppress
 식물성젤라틴	GELATIN	suppress
 물고기	MEAT_BROTH	suppress
+한천젤라틴	GELATIN	suppress
