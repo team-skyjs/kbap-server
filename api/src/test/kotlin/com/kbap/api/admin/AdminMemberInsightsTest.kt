@@ -94,9 +94,11 @@ class AdminMemberInsightsTest : BehaviorSpec() {
                         jsonPath("$.payload.items[0].id") { value(none.id) }
                     }
                     getJson("/api/admin/members?country=US&q=김밥").andExpect { jsonPath("$.payload.totalCount") { value(0) } }
-                    getJson("/api/admin/members?country=KOR").andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
+                    listOf("KOR", "ZZ").forEach { bad ->
+                        getJson("/api/admin/members?country=$bad").andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("COMMON-002") }
+                        }
                     }
                     us.id
                 }
