@@ -2,6 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.member.model.CountryCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.member.MemberAdRewardJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
@@ -95,7 +96,7 @@ class AdminMemberQueryService(
 
     private fun countryFilterOf(country: String?): String? {
         val value = country?.trim()?.uppercase()?.takeIf { it.isNotEmpty() } ?: return null
-        if (value != NO_COUNTRY && !value.matches(ISO2)) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (value != NO_COUNTRY && CountryCode.from(value) == null) throw BusinessException(ErrorCode.INVALID_REQUEST)
         return value
     }
 
@@ -195,8 +196,6 @@ class AdminMemberQueryService(
         private const val NO_MEMBER_ID = -1L
 
         private const val NO_COUNTRY = "NONE"
-
-        private val ISO2 = Regex("[A-Z]{2}")
 
         private val SIGNUP_DAYS_RANGE = 1..90
 
