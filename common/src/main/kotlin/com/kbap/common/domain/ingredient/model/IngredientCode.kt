@@ -103,7 +103,7 @@ enum class IngredientCode(val label: String) {
                 SHRIMP to setOf(SALTED_SHRIMP),
                 OYSTER to setOf(OYSTER_SAUCE),
                 CLAM to setOf(SHORT_NECK_CLAM, OYSTER, ABALONE, MUSSEL, SCALLOP),
-                SEAFOOD to setOf(FISH, SHRIMP, CRAB, CRAYFISH, LOBSTER, SQUID, OCTOPUS, OYSTER, ABALONE, MUSSEL, CLAM, SCALLOP),
+                SEAFOOD to setOf(FISH, CRUSTACEAN, MOLLUSK),
                 BROTH to setOf(DASHI, FISH_SAUCE, MEAT_BROTH),
                 POULTRY to setOf(CHICKEN),
                 PORK to setOf(LARD, GELATIN),
