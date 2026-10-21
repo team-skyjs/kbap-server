@@ -22,6 +22,7 @@ interface AdminMemberApi {
 
             - `q` 를 주면 닉네임·이메일 부분 일치로 검색하고, 숫자면 멤버 id 일치도 함께 매칭한다.
             - 각 항목의 `isBot` 은 리뷰 봇 계정 여부다. `isBot` 파라미터로 봇만/사람만 거를 수 있다.
+            - 각 항목의 `countryCode` 는 국적(ISO 3166-1 alpha-2, 미설정 null). `country` 파라미터로 거른다 — ISO2 정확 일치(대소문자 무시), `NONE` 은 미설정만, 형식 오류는 400(COMMON-002). q·isBot 과 AND.
             - 페이지 크기는 서버 고정(20)이며, 응답에 전체 건수(`totalCount`)를 포함한다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
         """,
@@ -40,7 +41,29 @@ interface AdminMemberApi {
         q: String?,
         @Parameter(description = "true 면 봇 계정만, false 면 사람 계정만, 생략하면 전체(q 와 함께 쓰면 둘 다 만족하는 건)", example = "false")
         isBot: Boolean?,
+        @Parameter(description = "국적 ISO2(예: KR) 정확 일치, NONE 이면 국적 미설정 회원만, 생략하면 전체", example = "KR")
+        country: String?,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>>
+
+    @Operation(
+        summary = "국적별 회원 수",
+        description = """
+            회원 수를 국적별로 센다 — 목록과 같은 범위(탈퇴·정지 포함 전 상태). 국적 미설정은 `countryCode` null 한 행.
+            건수 내림차순(같으면 국적 코드 순). `isBot` 으로 봇만/사람만. 회원 페이지·대시보드 공용.
+            - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun getCountryCounts(
+        @Parameter(description = "true 면 봇만, false 면 사람만, 생략하면 전체", example = "false")
+        isBot: Boolean?,
+    ): ResponseEntity<BaseResponse<List<AdminMemberCountryCountResponse>>>
 
     @Operation(
         summary = "회원 스캔 무제한 해제 취소",

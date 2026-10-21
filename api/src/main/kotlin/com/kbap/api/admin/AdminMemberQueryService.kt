@@ -2,6 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.member.model.CountryCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.member.MemberAdRewardJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
@@ -21,6 +22,8 @@ import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.LocalDate
 
 @Service
 class AdminMemberQueryService(
@@ -35,15 +38,17 @@ class AdminMemberQueryService(
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
-    fun searchMemberPage(page: Int, query: String? = null, isBot: Boolean? = null): AdminMemberListResponse {
+    fun searchMemberPage(page: Int, query: String? = null, isBot: Boolean? = null, country: String? = null): AdminMemberListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
+        val countryFilter = countryFilterOf(country)
         val pageable = PageRequest.of(page - 1, PAGE_SIZE)
         val result = when (keyword) {
-            null -> memberRepository.findPageAnyStatus(isBot, pageable)
+            null -> memberRepository.findPageAnyStatus(isBot, countryFilter, pageable)
             else -> memberRepository.searchPageAnyStatusByKeyword(
                 LikeWildcards.escape(keyword),
                 keyword.toLongOrNull() ?: NO_MEMBER_ID,
                 isBot,
+                countryFilter,
                 pageable,
             )
         }
@@ -55,6 +60,44 @@ class AdminMemberQueryService(
             hasPrev = page > 1,
             hasNext = page < result.totalPages,
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun getCountryCounts(isBot: Boolean?): List<AdminMemberCountryCountResponse> =
+        memberRepository.countByCountryCodeAnyStatus(isBot).map { AdminMemberCountryCountResponse(it.countryCode, it.count) }
+
+    @Transactional(readOnly = true)
+    fun getDailySignups(days: Int, isBot: Boolean?): List<AdminDailyCountResponse> {
+        if (days !in SIGNUP_DAYS_RANGE) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val today = LocalDate.now(SEOUL)
+        val from = today.minusDays(days - 1L)
+        val since = from.atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        val counts = memberRepository.findCreatedAtsSinceAnyStatus(since, isBot)
+            .groupingBy { it.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL).toLocalDate() }
+            .eachCount()
+        return (0 until days).map { from.plusDays(it.toLong()) }.map { AdminDailyCountResponse(it, counts[it]?.toLong() ?: 0L) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getReviewPage(page: Int, isBot: Boolean?): AdminReviewPageResponse {
+        val result = reviewRepository.findPageByAuthorBot(isBot, PageRequest.of(page - 1, ACTIVITY_PAGE_SIZE))
+        val authors = memberRepository.findAllAnyStatusByIdIn(result.content.map { it.memberId }.distinct().ifEmpty { listOf(NO_MEMBER_ID) }).associateBy { it.id }
+        val foodNames = foodNamesOf(result.content.mapNotNull { it.foodId })
+        val productNames = processedFoods.findAllById(result.content.mapNotNull { it.processedFoodId }.distinct()).associateBy({ it.id }, { it.productName })
+        return AdminReviewPageResponse(
+            items = result.content.map { AdminReviewItemResponse.from(it, authors[it.memberId], foodNames, productNames, imagePublicBaseUrl) },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    private fun countryFilterOf(country: String?): String? {
+        val value = country?.trim()?.uppercase()?.takeIf { it.isNotEmpty() } ?: return null
+        if (value != NO_COUNTRY && CountryCode.from(value) == null) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        return value
     }
 
     @Transactional(readOnly = true)
@@ -151,6 +194,12 @@ class AdminMemberQueryService(
         const val ACTIVITY_PAGE_SIZE = 20
 
         private const val NO_MEMBER_ID = -1L
+
+        private const val NO_COUNTRY = "NONE"
+
+        private val SIGNUP_DAYS_RANGE = 1..90
+
+        private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
     }
 }
 
