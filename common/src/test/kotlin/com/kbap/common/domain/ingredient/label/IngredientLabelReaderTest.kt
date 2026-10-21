@@ -382,6 +382,13 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 (IngredientCode.MEAT_BROTH in codes(IngredientLabelReader.read(null, "불고기"))) shouldBe false
             }
         }
+        `when`("고기 앞에 한글 수식어가 붙은 띄어 쓴 육수면 — Codex P2") {
+            then("수식어가 있어도 고기 육수로 읽는다") {
+                codes(IngredientLabelReader.read(null, "국산소고기 육수")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                codes(IngredientLabelReader.read("국산소고기 육수", null)) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+                codes(IngredientLabelReader.read(null, "한우사골 육수")) shouldBe setOf(IngredientCode.BEEF, IngredientCode.MEAT_BROTH, IngredientCode.BROTH)
+            }
+        }
         `when`("돼지 육수면(고기 없이) — 공부 참고") {
             then("돼지고기와 고기 육수·육수") {
                 listOf("돼지 육수", "돼지육수").forEach { term ->
