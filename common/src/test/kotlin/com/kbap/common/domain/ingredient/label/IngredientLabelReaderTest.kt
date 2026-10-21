@@ -365,6 +365,13 @@ class IngredientLabelReaderTest : BehaviorSpec({
                 }
             }
         }
+        `when`("소 유래 젤라틴에 접미어가 붙으면 — Codex P2") {
+            then("소고기 + 젤라틴으로 읽는다") {
+                listOf("소젤라틴분말", "젤라틴(소)분말", "소 젤라틴 분말").forEach { term ->
+                    codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.BEEF, IngredientCode.GELATIN)
+                }
+            }
+        }
         `when`("'어류'가 나오면 — S-845 ③") {
             then("생선으로 읽는다") {
                 codes(IngredientLabelReader.read(null, "어류, 갑각류")) shouldBe setOf(IngredientCode.FISH, IngredientCode.CRUSTACEAN)
