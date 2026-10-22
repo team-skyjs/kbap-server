@@ -182,6 +182,13 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     reportNos(list("?query=꿀호떡&type=SNACKS")) shouldBe listOf("QT-2")
                 }
             }
+            `when`("검색어에 맞는 다른 유형 제품이 후보 상한(300)보다 많으면 — Codex P1") {
+                then("유형을 색인 단계에서 먼저 걸러 그 유형 제품이 나온다") {
+                    (1..301).forEach { seed("CP-%03d".format(it), "공통과자%03d".format(it), "㈜스낵", "과자") }
+                    seed("CP-BREAD", "공통빵이름이아주긴베이커리제품", "㈜베이커리", "빵류")
+                    reportNos(list("?query=공통&type=BREAD")) shouldBe listOf("CP-BREAD")
+                }
+            }
             `when`("제조사 검색어로 유형을 거르는데 다른 유형에 이름이 맞는 제품이 있으면 — Codex P1") {
                 then("다른 유형 제품이 순위·제조사만 일치 숨김에 끼어들지 않아 그 유형의 제조사 제품이 나온다") {
                     seed("QM-1", "베이커리 감자칩", "㈜스낵", "과자")
