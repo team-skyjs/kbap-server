@@ -109,7 +109,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
 
         given("성분표 분석 — 표시란 머리말(KB-841)") {
             `when`("머리말이 붙은 2면 원문을 보내면") {
-                then("머리말은 미매핑에 나오지 않고 검출은 그대로다") {
+                then("검출은 그대로이고 머리말이 미매핑으로 새지 않는다(KB-866 부터 미매핑은 항상 빈 배열)") {
                     val p = label(
                         member(88411L),
                         null,
@@ -117,9 +117,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                         "알레르기 유발물질: 밀, 새우 함유\n알레르기유발성분: 대두",
                     ).path("payload")
                     p.path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP", "SOY")
-                    val unmapped = p.path("unmapped").map { it.asText() }
-                    unmapped.filter { it.replace(" ", "") in setOf("원재료명및함량", "원재료명", "식품유형", "내용량", "알레르기", "유발물질", "알레르기유발물질", "알레르기유발성분") } shouldBe emptyList()
-                    unmapped.contains("정제수") shouldBe true
+                    p.path("unmapped").size() shouldBe 0
                 }
             }
             `when`("OCR 이 머리말을 띄어 쓰면(알레르기 유발 물질) — Codex P1") {

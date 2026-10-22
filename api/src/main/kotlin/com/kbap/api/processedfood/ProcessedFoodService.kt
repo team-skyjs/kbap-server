@@ -4,7 +4,6 @@ import com.kbap.api.core.SearchPage
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
@@ -25,7 +24,7 @@ class ProcessedFoodService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int): SearchPage<ProcessedFoodSummaryResponse> {
+    fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int, memberId: Long? = null): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
         if (tokens.isEmpty()) throw BusinessException(ErrorCode.BLANK_SEARCH_KEYWORD)
         val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
@@ -35,8 +34,9 @@ class ProcessedFoodService(
         val hasNext = ranked.size > offset + size
         val page = ranked.drop(offset).take(size)
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
+        val avoidance = memberId?.let { memberService.getAvoidance(it) }
         return SearchPage(
-            items = page.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id]) },
+            items = page.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id], avoidance) },
             hasNext = hasNext,
             nextCursor = if (hasNext) (offset + size).toString() else null,
         )
@@ -146,9 +146,8 @@ class ProcessedFoodService(
     }
 
     private fun detailOf(product: ProcessedFoodProduct, memberId: Long?): ProcessedFoodDetailResponse {
-        val reading = IngredientLabelReader.read(product.allergens, product.rawMaterials)
         val rating = reviews.aggregateRatingsByProcessedFoodIds(listOf(product.id)).singleOrNull()
-        return ProcessedFoodDetailResponse.of(product, reading, memberId?.let { memberService.getAvoidance(it) }, rating)
+        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, rating)
     }
 
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?): List<ProcessedFoodProduct> {

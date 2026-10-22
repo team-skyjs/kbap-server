@@ -44,7 +44,7 @@ data class ProcessedFoodLabelScanResponse(
     val labelSource: ProcessedFoodLabelSource,
     @field:Schema(description = "검출 재료(근거 원문 포함)")
     val detections: List<ProcessedFoodDetectionResponse>,
-    @field:Schema(description = "81종 어디에도 대응하지 못한 원문 토큰 — 앱이 '확인 필요'로 보여 준다")
+    @field:Schema(description = "폐기(KB-866) — 81종 밖 원재료는 판정에서 빠져 항상 빈 배열이다. 앱 호환을 위해 남겨 둔다", deprecated = true)
     val unmapped: List<String>,
     @field:Schema(description = "같은 제조시설·혼입 등 '함유 가능' 표기에서 읽힌 재료 — 검출로 세지 않고 회피 대조에도 넣지 않는 참고 정보")
     val mayContain: List<ProcessedFoodMayContainResponse>,
@@ -54,6 +54,12 @@ data class ProcessedFoodLabelScanResponse(
     val rawText: String,
     @field:Schema(description = "이번 호출에서 1회 차감했는지")
     val charged: Boolean,
+    @field:Schema(description = "내 판정(가공식품 상세와 같은 규칙) — 회피 재료 0개·읽은 원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
+    val verdict: ProcessedFoodVerdict?,
+    val avoidMatches: List<ProcessedFoodVerdictMatch>,
+    val mayContainMatches: List<ProcessedFoodVerdictMatch>,
+    val unclearIngredients: List<String>,
+    val majorAllergens: List<IngredientCode>,
 )
 
 @Schema(description = "함유 가능 표기 재료")

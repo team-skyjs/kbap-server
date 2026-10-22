@@ -273,7 +273,7 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                     p.path("image").path("url").asText() shouldBe "http://img/1.jpg"
                     p.path("image").path("attributionKey").asText() shouldBe "processedFood.image.haccp"
                     p.path("avoidance").isNull shouldBe true
-                    p.path("unmapped").map { it.asText() }.toSet() shouldBe setOf("미국산", "버터향")
+                    p.path("unmapped").size() shouldBe 0
                 }
             }
             `when`("우유·땅콩을 피하는 회원이 보면") {

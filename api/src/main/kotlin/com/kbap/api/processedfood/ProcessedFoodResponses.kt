@@ -2,6 +2,7 @@ package com.kbap.api.processedfood
 
 import com.kbap.common.domain.ingredient.label.AllergenDeclaration
 import com.kbap.common.domain.ingredient.label.IngredientLabelMatch
+import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.ingredient.label.IngredientLabelReading
 import com.kbap.common.domain.ingredient.label.IngredientLabelSource
 import com.kbap.common.domain.ingredient.model.Avoidance
@@ -29,13 +30,18 @@ data class ProcessedFoodSummaryResponse(
     val reviewCount: Long? = null,
     @field:Schema(description = "평균 별점 — 리뷰가 없거나 집계하지 않은 카드(이름 스캔 후보)는 null", example = "4.2", nullable = true)
     val avgRating: Double? = null,
+    @field:Schema(description = "조회 회원의 내 판정(상세와 같은 규칙) — 비회원·회피 재료 0개·원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
+    val verdict: ProcessedFoodVerdict? = null,
 ) {
     companion object {
-        fun from(product: ProcessedFoodProduct) =
-            ProcessedFoodSummaryResponse(product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl))
+        fun from(product: ProcessedFoodProduct, avoidance: Avoidance? = null) =
+            ProcessedFoodSummaryResponse(
+                product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl),
+                verdict = avoidance?.let { ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, it).verdict },
+            )
 
-        fun withReviews(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate?) =
-            from(product).copy(reviewCount = rating?.reviewCount ?: 0, avgRating = rating?.average)
+        fun withReviews(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate?, avoidance: Avoidance? = null) =
+            from(product, avoidance).copy(reviewCount = rating?.reviewCount ?: 0, avgRating = rating?.average)
     }
 }
 
@@ -69,7 +75,7 @@ data class ProcessedFoodDetailResponse(
     val labelSource: ProcessedFoodLabelSource,
     @field:Schema(description = "검출된 회피 재료 — 출처(알레르기 표시 우선)와 근거 토큰. 검출되지 않은 재료는 '없음'이 아니라 미확인이다")
     val detections: List<ProcessedFoodDetectionResponse>,
-    @field:Schema(description = "81종 어디에도 대응하지 못한 원문 토큰(원재료·알레르기 표시) — 앱이 '확인 필요'로 보여 준다. 검출 없음이 안전을 뜻하지 않는다", example = "[\"미국산\", \"버터향\"]")
+    @field:Schema(description = "폐기(KB-866) — 81종 밖 원재료는 판정에서 빠져 항상 빈 배열이다. 앱 호환을 위해 남겨 둔다", deprecated = true)
     val unmapped: List<String>,
     @field:Schema(description = "조회 회원의 회피 재료별 대조 — DETECTED 또는 UNCONFIRMED 뿐(없음·안전 판정 없음). 비회원은 null", nullable = true)
     val avoidance: List<ProcessedFoodAvoidanceResponse>?,
@@ -78,10 +84,24 @@ data class ProcessedFoodDetailResponse(
     val image: ProcessedFoodImageResponse?,
     @field:Schema(description = "리뷰 요약(수·평균 별점)")
     val reviewSummary: ProcessedFoodReviewSummaryResponse,
+    @field:Schema(description = "내 판정 — AVOID·CAUTION·SAFE·SAFE_WITH_NOTE. 비회원·회피 재료 0개·원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
+    val verdict: ProcessedFoodVerdict?,
+    @field:Schema(description = "원재료·알레르기 표시에 걸린 내 회피 재료와 근거 토큰(AVOID 근거)")
+    val avoidMatches: List<ProcessedFoodVerdictMatch>,
+    @field:Schema(description = "혼입 가능 표기에만 걸린 내 회피 재료와 그 문구(CAUTION 근거)")
+    val mayContainMatches: List<ProcessedFoodVerdictMatch>,
+    @field:Schema(description = "혼입 가능 문장(같은 제조시설·혼입 등)에서 읽힌 재료 전부 — 회원 여부·회피와 무관(성분표 분석 결과의 mayContain 과 같은 형태). detections 에는 들어가지 않는다")
+    val mayContain: List<ProcessedFoodMayContainResponse>,
+    @field:Schema(description = "내용 불명 원재료(향료·혼합제제·가공품·복합원재료 등 서버 사전) — SAFE_WITH_NOTE 근거", example = "[\"합성향료\"]")
+    val unclearIngredients: List<String>,
+    @field:Schema(description = "한국 표시 의무 알레르기(식품표시광고법 시행규칙 별표 2) 중 들어 있는 코드 — 혼입 가능 표기는 빼고. 비회원·회피 0개 화면용")
+    val majorAllergens: List<IngredientCode>,
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, reading: IngredientLabelReading, avoidance: Avoidance?, rating: ProcessedFoodRatingAggregate?): ProcessedFoodDetailResponse =
-            ProcessedFoodDetailResponse(
+        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, rating: ProcessedFoodRatingAggregate?): ProcessedFoodDetailResponse {
+            val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
+            val reading = judgement.reading
+            return ProcessedFoodDetailResponse(
                 id = product.id,
                 reportNo = product.reportNo,
                 productName = product.productName,
@@ -92,16 +112,23 @@ data class ProcessedFoodDetailResponse(
                 allergens = product.allergens,
                 labelSource = when {
                     reading.declaration == AllergenDeclaration.LISTED -> ProcessedFoodLabelSource.DECLARED
-                    !product.rawMaterials.isNullOrBlank() -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
+                    !IngredientLabelReader.isRawNotProvided(product.rawMaterials) -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
                     else -> ProcessedFoodLabelSource.NONE
                 },
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
-                unmapped = reading.unmappedTokens,
+                unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
                 image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
                 reviewSummary = ProcessedFoodReviewSummaryResponse(rating?.reviewCount ?: 0, rating?.average),
+                verdict = judgement.verdict,
+                avoidMatches = judgement.avoidMatches,
+                mayContainMatches = judgement.mayContainMatches,
+                mayContain = judgement.mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
+                unclearIngredients = judgement.unclearIngredients,
+                majorAllergens = judgement.majorAllergens,
             )
+        }
 
         fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
             avoidance.chosen.sortedBy { it.ordinal }.map { chosen ->

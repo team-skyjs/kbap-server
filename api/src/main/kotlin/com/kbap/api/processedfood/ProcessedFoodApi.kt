@@ -33,7 +33,7 @@ interface ProcessedFoodApi {
         ],
     )
     @ApiErrors(ErrorCode.BLANK_SEARCH_KEYWORD, ErrorCode.INVALID_CURSOR)
-    fun search(@ParameterObject request: ProcessedFoodSearchRequest): ResponseEntity<BaseResponse<SearchPage<ProcessedFoodSummaryResponse>>>
+    fun search(@ParameterObject request: ProcessedFoodSearchRequest, memberId: Long?): ResponseEntity<BaseResponse<SearchPage<ProcessedFoodSummaryResponse>>>
 
     @Operation(
         summary = "가공식품 상세 (3.2+)",

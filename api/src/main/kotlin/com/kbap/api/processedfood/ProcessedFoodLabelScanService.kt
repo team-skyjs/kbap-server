@@ -51,7 +51,9 @@ class ProcessedFoodLabelScanService(
             }
         }
         val hangulTokens = unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 }
-        val readable = text.hasLabelLine && (reading.detections.isNotEmpty() || hangulTokens >= if (headingSeen) 1 else MIN_HANGUL_TOKENS)
+        val mayContainRead = text.mayContain?.let { IngredientLabelReader.read(null, withoutHeadings(it)).detections }.orEmpty()
+        val readable = mayContainRead.isNotEmpty() ||
+            text.hasLabelLine && (reading.detections.isNotEmpty() || hangulTokens >= if (headingSeen) 1 else MIN_HANGUL_TOKENS)
         val operation = analysisId?.let { continued(memberId, it, now) }
         if (!readable) throw BusinessException(ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ)
         val key = operation?.let { ProcessedFoodNameScanService.uuidOf(it.requestKey) } ?: clientRequestId!!
@@ -86,16 +88,23 @@ class ProcessedFoodLabelScanService(
 
     private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean): ProcessedFoodLabelScanResponse {
         val mayContain = text.mayContain?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
+        val avoidance = memberService.getAvoidance(memberId)
+        val judgement = ProcessedFoodJudge.judge(reading, mayContain, withoutHeadings(text.rawMaterials).ifBlank { null }, avoidance)
         return ProcessedFoodLabelScanResponse(
             analysisId = key.toString(),
             state = ProcessedFoodNameScanState.LABEL_RESULT,
             labelSource = sourceOf(reading, text),
             detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
-            unmapped = unmappedOf(reading),
+            unmapped = emptyList(),
             mayContain = mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
-            avoidance = ProcessedFoodDetailResponse.avoidanceOf(memberService.getAvoidance(memberId), reading),
+            avoidance = ProcessedFoodDetailResponse.avoidanceOf(avoidance, reading),
             rawText = text.rawText,
             charged = charged,
+            verdict = judgement.verdict,
+            avoidMatches = judgement.avoidMatches,
+            mayContainMatches = judgement.mayContainMatches,
+            unclearIngredients = judgement.unclearIngredients,
+            majorAllergens = judgement.majorAllergens,
         )
     }
 
