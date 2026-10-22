@@ -259,6 +259,20 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("목록에서 저장된 제조사 번역을 다시 보면 — 공부 #462(제조사 캐시 해시)") {
+                then("저장할 때와 읽을 때 같은 표시 제조사로 해시해 두 번째부터 제조사 엔진 호출이 0 이다") {
+                    val id = seed("TR-M1", "제조사과자", "㈜동네식품", null, null)
+                    get("/api/processed-foods?query=제조사과자&lang=en")
+                    translations.awaitIdle()
+                    translator.calls.count { it.first == "동네식품" } shouldBe 1
+                    translator.calls.clear()
+
+                    get("/api/processed-foods?query=제조사과자&lang=en").path("items")[0].path("maker").asText() shouldBe "[en] 동네식품"
+                    get("/api/processed-foods/$id?lang=en").path("maker").asText() shouldBe "[en] 동네식품"
+                    translations.awaitIdle()
+                    translator.calls.count { it.first == "동네식품" } shouldBe 0
+                }
+            }
             `when`("대표 상품이 카탈로그 별칭 이름 행으로만 있으면 — Codex P2(#462 vOvFC)") {
                 then("목록과 같은 이름+별칭 해석으로 미리 번역 대상에 든다") {
                     seed("TR-A1", "바나나맛 우유", "㈜빙그레", "원유, 설탕", "우유 함유")
