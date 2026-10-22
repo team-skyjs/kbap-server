@@ -16,7 +16,9 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.sql.DataSource
@@ -54,6 +56,7 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
         ).path("payload")
         fun member(): String {
             FoodTestSeed.seedMemberAvoiding(dataSource, 86801L)
+            execute("UPDATE member SET scan_count = 0, scan_unlocked = 1 WHERE id = 86801")
             return tokenIssuer.issueAccessToken(86801L, MemberRole.USER)
         }
         fun resetCounter() = redis.delete("pf-translate:" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
@@ -184,6 +187,52 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     get("/api/processed-foods/$id?lang=en", member()).path("name").asText() shouldBe "상한과자"
                     translations.awaitIdle()
                     translator.calls.size shouldBe 0
+                }
+            }
+            `when`("이름 스캔에 lang 이 없으면 — Codex P2(#462 vOIe6)") {
+                then("스캔과 같은 기본값(영어)으로 후보 번역을 예약해 다음 스캔부터 영어 이름이다") {
+                    val token = member()
+                    seed("TR-13", "스캔과자", "㈜동네식품", null, null)
+                    fun scan() = mapper.readTree(
+                        mockMvc.post("/api/processed-foods/scan/name") {
+                            header("X-API-Version", "3.2")
+                            header("Authorization", "Bearer $token")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(mapOf("ocrText" to "스캔과자"))
+                        }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("candidates")[0].path("name").asText()
+
+                    scan() shouldBe "스캔과자"
+                    translations.awaitIdle()
+                    scan() shouldBe "[en] 스캔과자"
+                }
+            }
+            `when`("대표 상품 미리 번역이 도는 중에 또 시작하면 — Codex P2(#462 vOIfE)") {
+                then("두 번째는 건너뛰어 같은 원문을 두 번 번역하지 않는다") {
+                    seed("TR-14", "빙그레 바나나맛 우유", "㈜빙그레", "원유, 설탕", "우유 함유")
+                    translator.reply = { text, target -> Thread.sleep(200); "[${target.code}] $text" }
+
+                    translations.prewarmFeaturedInBackground(listOf(LanguageCode.EN))
+                    repeat(50) { if (translator.calls.isEmpty()) Thread.sleep(20) }
+                    translations.prewarmFeatured(listOf(LanguageCode.EN)) shouldBe 0
+                    translations.awaitIdle()
+
+                    translator.calls.size shouldBe 3
+                    translator.calls.map { it.first }.toSet().size shouldBe 3
+                }
+            }
+            `when`("원문이 바뀌었는데 옛 원문 번역이 아직 돌고 있으면 — Codex P2(#462 vOIfL)") {
+                then("옛 번역을 기다려 돌려주지 않고 새 원문을 번역한다") {
+                    val token = member()
+                    translations.syncDeadlineMillis = 100L
+                    translator.reply = { text, target -> if (text == "옛이름과자") Thread.sleep(800); "[${target.code}] $text" }
+                    val id = seed("TR-15", "옛이름과자", "㈜동네식품", null, null)
+
+                    get("/api/processed-foods/$id?lang=en", token).path("name").asText() shouldBe "옛이름과자"
+                    execute("UPDATE processed_food_product SET product_name = '새이름과자' WHERE id = $id")
+                    translations.syncDeadlineMillis = 3000L
+
+                    get("/api/processed-foods/$id?lang=en", token).path("name").asText() shouldBe "[en] 새이름과자"
                 }
             }
             `when`("목록을 영어로 보면") {
