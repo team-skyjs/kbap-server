@@ -23,6 +23,14 @@ data class ProcessedFoodLabelText(
                 joined
             }
 
+        fun splitMayContain(text: String?): Pair<String?, String?> {
+            if (text.isNullOrBlank()) return text to null
+            val sentences = Normalizer.normalize(text, Normalizer.Form.NFKC).split(SENTENCE_BREAK).map { it.trim() }.filter { it.isNotEmpty() }
+            val (mayContain, rest) = sentences.partition { MAY_CONTAIN.containsMatchIn(it) }
+            if (mayContain.isEmpty()) return text to null
+            return rest.joinToString("\n").ifEmpty { null } to mayContain.joinToString("\n")
+        }
+
         fun of(pages: List<String>): ProcessedFoodLabelText {
             val seen = mutableSetOf<String>()
             val pageLines = pages.map { page ->

@@ -28,13 +28,13 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
             }
         }
         `when`("땅콩이 혼입 가능 표기에만 있고 땅콩 회피 회원이 보면") {
-            then("CAUTION 이고 혼입 가능 근거를 준다 — 원재료 검출로 세지 않는다") {
+            then("CAUTION 이고 근거로 혼입 가능 문구를 준다 — 원재료 검출로 세지 않는다") {
                 val judgement = ProcessedFoodJudge.judge(crackerAllergens, crackerRaw, avoiding(IngredientCode.PEANUT))
 
                 judgement.verdict shouldBe ProcessedFoodVerdict.CAUTION
                 judgement.avoidMatches.shouldBeEmpty()
                 judgement.mayContainMatches.map { it.code } shouldBe listOf(IngredientCode.PEANUT)
-                judgement.mayContainMatches.single().evidence shouldBe listOf("땅콩")
+                judgement.mayContainMatches.single().evidence shouldBe listOf("이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다")
             }
         }
         `when`("향료가 들어 있고 회피 재료와 무관하면") {
