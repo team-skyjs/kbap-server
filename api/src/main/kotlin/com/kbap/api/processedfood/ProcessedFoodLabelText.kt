@@ -27,13 +27,13 @@ data class ProcessedFoodLabelText(
 
         private fun isDeclaration(sentence: String): Boolean = "알레르기" in sentence || DECLARATION_END.containsMatchIn(sentence)
 
-        private fun partitionMayContain(sentences: List<String>, splitsFacility: (String) -> Boolean): Pair<List<String>, List<String>> {
+        private fun partitionMayContain(sentences: List<String>, splitsClauses: (String) -> Boolean): Pair<List<String>, List<String>> {
             val definite = mutableListOf<String>()
             val mayContain = mutableListOf<String>()
             sentences.forEach { sentence ->
                 when {
                     !MAY_CONTAIN.containsMatchIn(sentence) -> definite += sentence
-                    FACILITY.containsMatchIn(sentence) && !splitsFacility(sentence) -> mayContain += sentence
+                    !splitsClauses(sentence) -> mayContain += sentence
                     FACILITY.containsMatchIn(sentence) -> {
                         val segments = sentence.split(',').map { it.trim() }.filter { it.isNotEmpty() }
                         val opener = segments.indexOfFirst { CLAUSE_OPENER.containsMatchIn(it) }
