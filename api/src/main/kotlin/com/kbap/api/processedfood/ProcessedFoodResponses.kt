@@ -98,7 +98,7 @@ data class ProcessedFoodDetailResponse(
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
                 unmapped = reading.unmappedTokens,
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
-                source = ProcessedFoodSourceResponse(product.source, "processedFood.source.haccp", product.collectedAt),
+                source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
                 image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
                 reviewSummary = ProcessedFoodReviewSummaryResponse(rating?.reviewCount ?: 0, rating?.average),
             )

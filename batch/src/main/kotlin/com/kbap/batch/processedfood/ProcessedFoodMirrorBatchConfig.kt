@@ -58,7 +58,17 @@ class ProcessedFoodMirrorBatchConfig(
     }
 
     @Bean
-    fun processedFoodMirrorJob(mirror: ProcessedFoodMirror): Job {
+    fun processedFoodC002Seed(repository: ProcessedFoodProductJpaRepository, transactionManager: PlatformTransactionManager, clock: Clock) =
+        ProcessedFoodC002Seed(repository, TransactionTemplate(transactionManager), clock)
+
+    @Bean
+    fun processedFoodMirrorJob(mirror: ProcessedFoodMirror, c002Seed: ProcessedFoodC002Seed): Job {
+        val c002Step = StepBuilder("${JOB}C002Step", jobRepository)
+            .tasklet({ _, _ ->
+                c002Seed.seed()
+                RepeatStatus.FINISHED
+            }, ResourcelessTransactionManager())
+            .build()
         val step = StepBuilder("${JOB}Step", jobRepository)
             .tasklet({ contribution, _ ->
                 if (mirror.mirror().isPartial()) contribution.exitStatus = ExitStatus(PARTIAL)
@@ -68,7 +78,8 @@ class ProcessedFoodMirrorBatchConfig(
         return JobBuilder(JOB, jobRepository)
             .incrementer(RunIdIncrementer())
             .listener(jobNameMdcListener)
-            .start(step)
+            .start(c002Step)
+            .next(step)
             .build()
     }
 
