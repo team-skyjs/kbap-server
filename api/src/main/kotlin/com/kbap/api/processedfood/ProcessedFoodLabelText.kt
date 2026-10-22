@@ -27,17 +27,17 @@ data class ProcessedFoodLabelText(
 
         private fun isDeclaration(sentence: String): Boolean = "알레르기" in sentence || DECLARATION_END.containsMatchIn(sentence)
 
+        private fun cutAtOpener(sentence: String): List<String> {
+            val opener = CLAUSE_OPENER.find(sentence)?.range?.first
+            if (opener == null || opener == 0 || !MAY_CONTAIN.containsMatchIn(sentence.substring(opener))) return listOf(sentence)
+            val leading = sentence.substring(0, opener).trim().trimEnd(',', '.', '。', ' ')
+            return listOfNotNull(leading.ifEmpty { null }, sentence.substring(opener))
+        }
+
         private fun partitionMayContain(sentences: List<String>, splitsClauses: (String) -> Boolean): Pair<List<String>, List<String>> {
             val definite = mutableListOf<String>()
             val mayContain = mutableListOf<String>()
-            sentences.forEach { whole ->
-                val opener = CLAUSE_OPENER.find(whole)?.range?.first
-                val sentence = if (opener != null && opener > 0 && MAY_CONTAIN.containsMatchIn(whole.substring(opener))) {
-                    whole.substring(0, opener).trim().trimEnd(',', '.', '。', ' ').takeIf { it.isNotEmpty() }?.let { definite += it }
-                    whole.substring(opener)
-                } else {
-                    whole
-                }
+            sentences.flatMap(::cutAtOpener).forEach { sentence ->
                 when {
                     !MAY_CONTAIN.containsMatchIn(sentence) -> definite += sentence
                     !splitsClauses(sentence) -> mayContain += sentence
