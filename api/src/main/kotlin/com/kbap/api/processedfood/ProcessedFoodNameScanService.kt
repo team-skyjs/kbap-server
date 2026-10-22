@@ -59,8 +59,7 @@ class ProcessedFoodNameScanService(
                 keyRetireAfter = now.plus(KEY_TTL),
             ),
         )
-        val avoidance = memberService.getAvoidance(memberId)
-        return ProcessedFoodNameScanResponse(analysisId.toString(), state, candidates.map { ProcessedFoodSummaryResponse.from(it, avoidance) }, operation.expiresAt)
+        return ProcessedFoodNameScanResponse(analysisId.toString(), state, processedFoodService.getSummaries(candidates, memberId), operation.expiresAt)
     }
 
     @Transactional

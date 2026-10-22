@@ -24,21 +24,60 @@ class ProcessedFoodService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int, memberId: Long? = null): SearchPage<ProcessedFoodSummaryResponse> {
+    fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int, memberId: Long? = null, type: ProcessedFoodType? = null): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
-        if (tokens.isEmpty()) throw BusinessException(ErrorCode.BLANK_SEARCH_KEYWORD)
-        val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
+        val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value >= 0 && (tokens.isEmpty() || value <= MAX_OFFSET) } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val lastMirror = products.findLastCompletedMirrorStartedAt()
-        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror).products
-        val hasNext = ranked.size > offset + size
-        val page = ranked.drop(offset).take(size)
-        val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
+        if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId)
+        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type).products
+            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+        return pageOf(ranked.drop(offset).take(size), ranked.size > offset + size, offset, size, memberId)
+    }
+
+    private fun listPage(type: ProcessedFoodType?, offset: Int, size: Int, lastMirror: LocalDateTime?, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
+        val catalog = featuredCatalog.productsByPriority()
+        val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
+            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+        val featured = catalog.mapNotNull { product -> representativeOf(product, named)?.let { it to product } }
+            .distinctBy { it.first.id }
+        val featuredIds = featured.map { it.first.id }.toSet()
+        val featuredGroups = featured.map { (row, _) -> ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker()) }.toSet()
+        val featuredByName = featured.flatMap { (_, product) -> namesOf(product).map { it.lowercase() to product } }.groupBy({ it.first }, { it.second })
+        val makerPrefixes = featured.flatMap { (_, product) -> featuredCatalog.makerAliases(product.maker) }.distinct()
+        val rest = candidateIndex.listedRows(lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE, type)
+            .filterNot { row ->
+                row.id in featuredIds || row.groupKey in featuredGroups || foldsIntoFeatured(row, featuredByName, makerPrefixes)
+            }
+            .map { it.id }
+        val ids = featured.map { it.first.id } + rest
+        val pageIds = ids.drop(offset).take(size)
+        val loaded = products.findAllById(pageIds).associateBy { it.id }
+        return pageOf(pageIds.mapNotNull(loaded::get), ids.size > offset.toLong() + size, offset, size, memberId)
+    }
+
+    private fun foldsIntoFeatured(
+        row: ProcessedFoodCandidateIndex.ListedRow,
+        featuredByName: Map<String, List<ProcessedFoodFeaturedCatalog.FeaturedProduct>>,
+        makerPrefixes: List<String>,
+    ): Boolean {
+        val key = row.normalizedName.lowercase()
+        val names = listOf(key) + makerPrefixes.filter { key.startsWith(it) && key.length > it.length }.map { key.removePrefix(it) }
+        return names.any { name -> featuredByName[name]?.any { foldsInto(row.normalizedName, row.displayMaker, it) } == true }
+    }
+
+    @Transactional(readOnly = true)
+    fun getSummaries(products: List<ProcessedFoodProduct>, memberId: Long?): List<ProcessedFoodSummaryResponse> {
+        val ratings = reviews.aggregateRatingsByProcessedFoodIds(products.map { it.id }).associateBy { it.processedFoodId }
         val avoidance = memberId?.let { memberService.getAvoidance(it) }
+        return products.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id], avoidance) }
+    }
+
+    private fun pageOf(page: List<ProcessedFoodProduct>, hasNext: Boolean, offset: Int, size: Int, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
         return SearchPage(
-            items = page.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id], avoidance) },
+            items = getSummaries(page, memberId),
             hasNext = hasNext,
-            nextCursor = if (hasNext) (offset + size).toString() else null,
+            nextCursor = if (hasNext) (offset.toLong() + size).toString() else null,
         )
     }
 
@@ -75,12 +114,19 @@ class ProcessedFoodService(
         return ranked.copy(products = ranked.products.take(limit))
     }
 
-    private fun featuredFirst(ranked: List<Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>, text: String, tokens: List<String>, lastMirror: LocalDateTime?): RankedCandidates {
+    private fun featuredFirst(
+        ranked: List<Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>,
+        text: String,
+        tokens: List<String>,
+        lastMirror: LocalDateTime?,
+        type: ProcessedFoodType? = null,
+    ): RankedCandidates {
         val featured = featuredCatalog.boostedProducts(text, tokens)
         val boosted = if (featured.isEmpty()) {
             emptyList()
         } else {
             val rows = products.findAllByNormalizedNameIn(featured.flatMap { namesOf(it.product) }).filterNot { it.isDiscontinued(lastMirror) }
+                .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
             featured.mapNotNull { boost ->
                 representativeOf(boost.product, rows)?.let { Triple(it, boost.matchLength, boost.product) }
                     ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
@@ -88,9 +134,9 @@ class ProcessedFoodService(
         }
         val boostedIds = boosted.map { it.first.id }.toSet()
         val rest = ranked.filterNot { (product, _) ->
-            product.id in boostedIds || boosted.any { (_, _, featuredProduct) -> foldsInto(product, featuredProduct) }
+            product.id in boostedIds || boosted.any { (_, _, featuredProduct) -> foldsInto(product.normalizedName, product.displayMaker(), featuredProduct) }
         }
-            .groupBy { groupKeyOf(it.first) }.values
+            .groupBy { ProcessedFoodGrouping.keyOf(it.first.normalizedName, it.first.displayMaker()) }.values
             .map { group -> latestOf(group.map { it.first })!! to group.first().second }
         val longestBoost = boosted.maxOfOrNull { it.second } ?: 0
         val boostedNameKeys = boosted.flatMap { listOf(it.third.name, it.first.normalizedName) }.map { it.lowercase() }.toSet()
@@ -107,18 +153,18 @@ class ProcessedFoodService(
     private fun representativeOf(product: ProcessedFoodFeaturedCatalog.FeaturedProduct, rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? {
         val names = namesOf(product).map { it.lowercase() }.toSet()
         val named = rows.filter { it.normalizedName.lowercase() in names }
-        val pool = named.filter { isMadeBy(it, product.maker) }.ifEmpty { named.filter { it.normalizedName.equals(product.name, ignoreCase = true) } }
+        val pool = named.filter { isMadeBy(it.displayMaker(), product.maker) }.ifEmpty { named.filter { it.normalizedName.equals(product.name, ignoreCase = true) } }
         return latestOf(pool.filter { it.normalizedName.equals(product.name, ignoreCase = true) }) ?: latestOf(pool)
     }
 
-    private fun foldsInto(row: ProcessedFoodProduct, product: ProcessedFoodFeaturedCatalog.FeaturedProduct): Boolean {
-        if (!isMadeBy(row, product.maker) && row.displayMaker() != null) return false
+    private fun foldsInto(normalizedName: String, displayMaker: String?, product: ProcessedFoodFeaturedCatalog.FeaturedProduct): Boolean {
+        if (!isMadeBy(displayMaker, product.maker) && displayMaker != null) return false
         val names = namesOf(product).map { it.lowercase() }.toSet()
-        return row.normalizedName.lowercase() in names || withoutMaker(row.normalizedName, product.maker).any { it in names }
+        return normalizedName.lowercase() in names || withoutMaker(normalizedName, product.maker).any { it in names }
     }
 
-    private fun isMadeBy(row: ProcessedFoodProduct, maker: String): Boolean {
-        val key = makerKeyOf(row).lowercase()
+    private fun isMadeBy(displayMaker: String?, maker: String): Boolean {
+        val key = ProcessedFoodGrouping.makerKeyOf(displayMaker).lowercase()
         return key.isNotEmpty() && featuredCatalog.makerAliases(maker).any { it in key }
     }
 
@@ -130,12 +176,6 @@ class ProcessedFoodService(
     private fun latestOf(rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? =
         rows.maxWithOrNull(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id }))
 
-    private fun groupKeyOf(product: ProcessedFoodProduct): String {
-        val maker = makerKeyOf(product)
-        return product.normalizedName.removePrefix(maker).ifEmpty { product.normalizedName } + "|" + maker
-    }
-
-    private fun makerKeyOf(product: ProcessedFoodProduct): String = product.displayMaker()?.let(ProcessedFoodSnapshot::normalizeName).orEmpty()
 
     private fun available(product: ProcessedFoodProduct?): ProcessedFoodProduct {
         if (product == null) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
@@ -150,11 +190,11 @@ class ProcessedFoodService(
         return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, rating)
     }
 
-    private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?): List<ProcessedFoodProduct> {
+    private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?, type: ProcessedFoodType? = null): List<ProcessedFoodProduct> {
         val seenSince = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
         return (
-            tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT) } +
-                makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT) }
+            tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) } +
+                makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) }
             ).distinct().let(products::findAllById)
     }
 

@@ -175,9 +175,9 @@ class ProcessedFoodControllerTest : BehaviorSpec() {
                 }
             }
             `when`("검색어가 비면") {
-                then("400 FOOD-003 을 유지한다") {
-                    get("/api/processed-foods?query=", expected = 400).path("code").asText() shouldBe "FOOD-003"
-                    get("/api/processed-foods?query=   ", expected = 400).path("code").asText() shouldBe "FOOD-003"
+                then("검색어 없는 목록으로 200 이다(KB-867 — 종전 400 FOOD-003)") {
+                    get("/api/processed-foods?query=").path("success").asBoolean() shouldBe true
+                    get("/api/processed-foods?query=   ").path("success").asBoolean() shouldBe true
                 }
             }
             `when`("구버전 헤더로 부르면") {
