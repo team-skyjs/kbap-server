@@ -57,5 +57,6 @@ interface ProcessedFoodApi {
     fun detail(
         @Parameter(description = "가공식품 id", example = "1201") id: Long,
         memberId: Long?,
+        @Parameter(description = "표시 언어(ko·en·ja·zh-Hans·zh-Hant·vi·id·th·ru·es) — 없으면 ko. name·maker·ingredients·allergenStatement 를 번역(처음 요청 때 번역해 저장, 실패·일일 상한 초과면 원문)", example = "en") lang: String?,
     ): ResponseEntity<BaseResponse<ProcessedFoodDetailResponse>>
 }

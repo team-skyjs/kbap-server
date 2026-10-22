@@ -68,6 +68,7 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     p.path("allergenStatement").path("translated").asText() shouldBe "[en] 우유 함유"
                     p.path("allergenStatement").path("original").asText() shouldBe "우유 함유"
                     translator.calls.map { it.first }.toSet() shouldBe setOf("빙그레 바나나맛 우유", "원유(국산) 85%, 정제수, 설탕", "우유 함유")
+                    translator.transactionActiveDuringCalls.all { !it } shouldBe true
                 }
                 then("두 번째부터는 저장된 번역을 써서 엔진을 다시 부르지 않는다") {
                     val id = seed("TR-2", "새우깡", "㈜농심", "소맥분(밀), 새우", null)
