@@ -111,7 +111,7 @@ class ProcessedFoodReviewAxesTest : BehaviorSpec() {
                 }
             }
             `when`("상세 리뷰 요약을 보면") {
-                then("축마다 {average, count} 이고 미입력·범위 밖 값은 분모에서 빠지며 overall 은 있는 축의 평균이다") {
+                then("축마다 {average, count} 이고 미입력·범위 밖 값은 분모에서 빠지며 overall 은 별점 평균이다(맵기·당도는 세기라 넣지 않음)") {
                     val productId = product("집계과자")
                     write(productId, member("ax-5"), mapOf("rating" to 5, "spiciness" to 4))
                     write(productId, member("ax-6"), mapOf("rating" to 3, "spiciness" to 2, "sweetness" to 2))
@@ -125,7 +125,7 @@ class ProcessedFoodReviewAxesTest : BehaviorSpec() {
                     summary.path("spiciness").path("count").asLong() shouldBe 2L
                     summary.path("sweetness").path("average").asDouble() shouldBe 2.0
                     summary.path("sweetness").path("count").asLong() shouldBe 1L
-                    summary.path("overall").path("average").asDouble() shouldBe 3.0
+                    summary.path("overall").path("average").asDouble() shouldBe 4.0
                     summary.path("overall").path("count").asLong() shouldBe 3L
                     summary.path("count").asLong() shouldBe 3L
                 }
@@ -138,13 +138,27 @@ class ProcessedFoodReviewAxesTest : BehaviorSpec() {
                 }
             }
             `when`("리뷰를 수정하면") {
-                then("맵기·당도를 바꿀 수 있고 생략하면 비운다(NULL)") {
+                then("값을 주면 바꾸고, 키를 빼면 기존 값을 유지하고, 명시적 null 이면 비운다 — 공부 #461") {
                     val author = member("ax-8")
-                    val id = write(product("수정과자"), author, mapOf("rating" to 4, "spiciness" to 1, "sweetness" to 1)).path("payload").path("reviewId").asLong()
+                    val id = write(product("수정과자"), author, mapOf("rating" to 4, "spiciness" to 1, "sweetness" to 3)).path("payload").path("reviewId").asLong()
 
                     update(id, author, mapOf("rating" to 4, "spiciness" to 5)).path("payload").path("spiciness").asInt() shouldBe 5
                     nullable("SELECT spiciness_rating FROM food_review WHERE id = $id") shouldBe 5
+                    nullable("SELECT sweetness_rating FROM food_review WHERE id = $id") shouldBe 3
+
+                    update(id, author, mapOf("rating" to 4, "sweetness" to null))
+                    nullable("SELECT spiciness_rating FROM food_review WHERE id = $id") shouldBe 5
                     nullable("SELECT sweetness_rating FROM food_review WHERE id = $id") shouldBe null
+                }
+                then("범위를 벗어나면 400 이다") {
+                    val author = member("ax-9")
+                    val id = write(product("수정범위과자"), author, mapOf("rating" to 4)).path("payload").path("reviewId").asLong()
+                    mvc.patch("/api/reviews/$id") {
+                        header("X-API-Version", "3.2")
+                        header("Authorization", "Bearer ${token(author)}")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = mapper.writeValueAsString(mapOf("content" to "다시 먹어보니 더 맛있네요", "rating" to 4, "spiciness" to 7))
+                    }.andExpect { status { isBadRequest() } }
                 }
             }
         }
