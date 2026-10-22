@@ -96,6 +96,13 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     seen shouldBe listOf("FT-1", "FT-2", "RS-1", "RS-3")
                     cursor shouldBe null
                 }
+                then("목록은 검색 커서 상한(10,000)에 걸리지 않는다 — 전체 목록이 1만 칸을 넘어도 끝까지 넘긴다") {
+                    seedShelf()
+                    val page = list("?cursor=20000").path("payload")
+                    page.path("items").size() shouldBe 0
+                    page.path("hasNext").asBoolean() shouldBe false
+                    list("?cursor=-1", expected = 400)
+                }
             }
             `when`("유형 칩으로 거르면") {
                 then("대표 상품과 나머지 모두 그 유형만 남는다") {
