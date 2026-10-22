@@ -215,6 +215,11 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 ProcessedFoodJudge.judge(null, glued, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
                 ProcessedFoodJudge.judge(null, "원재료명: 소맥분, 설탕, 본 제품은 땅콩을 사용한 제품과 같은 생산라인에서 생산합니다", avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
             }
+            then("'이 제품은 …를 사용한 제품과 같은 제조 시설'처럼 여는 말로 시작하는 원재료 칸 문장은 통째로 혼입이다(로컬 실데이터 형태)") {
+                val raw = "쌀, 콩나물, 바지락살, 정제소금. 이 제품은 난류, 우유, 메밀, 땅콩, 대두, 밀, 고등어, 게, 돼지고기, 복숭아, 토마토, 새우를 사용한 제품과 같은 제조 시설에서 제조하고 있습니다."
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.EGG)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
             then("알레르기 칸의 시설 문장은 통째로 혼입이다") {
                 ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
