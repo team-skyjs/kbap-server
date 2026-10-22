@@ -199,6 +199,25 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
                     scan(member(85834L), "SrcafA\n바나나맛\n우유").path("candidates")[0].path("reportNo").asText() shouldBe "BM-2"
                 }
             }
+            `when`("다른 제조사의 같은 이름 제품이 있으면 — 공부 3R") {
+                then("대표 상품 칸은 카탈로그 제조사 행이고, 다른 제조사 행은 후보에 따로 남는다") {
+                    seed("KK-1", "꿀꽈배기", "㈜농심", seenHoursAgo = 10)
+                    seed("KK-2", "꿀꽈배기", "풍전나이스제과", seenHoursAgo = 1)
+                    val p = scan(member(85841L), "꿀꽈배기")
+                    p.path("candidates")[0].path("reportNo").asText() shouldBe "KK-1"
+                    reportNos(p.path("candidates")).contains("KK-2") shouldBe true
+                    boostedOf(p.path("analysisId").asText()) shouldBe listOf("KK-1")
+                }
+            }
+            `when`("허니버터칩이 DB 에 '허니버터칩'·'해태 허니버터칩' 두 이름으로 있으면 — 공부 3R F18") {
+                then("한 칸이고 카탈로그 이름 행이 그 칸이다") {
+                    seed("HB-1", "허니버터칩", "해태제과식품㈜/서울특별시 용산구", seenHoursAgo = 10)
+                    seed("HB-2", "해태 허니버터칩", "해태가루비㈜_강원도 원주시", seenHoursAgo = 1)
+                    val candidates = reportNos(scan(member(85842L), "해태\n허니버터칩\n4개입").path("candidates"))
+                    candidates.first() shouldBe "HB-1"
+                    candidates.contains("HB-2") shouldBe false
+                }
+            }
             `when`("두 글자 별칭이 다른 단어 속에만 있으면(불닭소스) — 공부") {
                 then("올리지 않는다") {
                     seed("FK-3", "불닭볶음면", "삼양식품㈜")
