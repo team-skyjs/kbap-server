@@ -30,8 +30,10 @@ object IngredientLabelReader {
 
     fun mandatoryAllergenCodes(): Set<IngredientCode> = mandatory.flatMap { it.codes }.toSet()
 
+    fun isNotProvided(text: String?): Boolean = text.isNullOrBlank() || text.replace(SPACES, "") in NOT_PROVIDED
+
     fun read(allergens: String?, rawMaterials: String?): IngredientLabelReading {
-        val declared = allergens?.let(::normalize)?.takeIf { it.isNotBlank() && it.replace(SPACES, "") !in NOT_PROVIDED }
+        val declared = allergens?.let(::normalize)?.takeUnless(::isNotProvided)
         val fromAllergens = declared?.let { scan(it, splitSpaces = true) }.orEmpty()
         val fromRaw = rawMaterials?.let { scan(normalize(it), splitSpaces = false) }.orEmpty()
         val detections = linkedMapOf<IngredientCode, IngredientLabelDetection>()
