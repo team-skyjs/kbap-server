@@ -83,6 +83,13 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     reportNos(list("")) shouldBe listOf("FT-1", "FT-2", "RS-1", "RS-3")
                 }
             }
+            `when`("나머지에 대표 상품의 제조사명+이름 행이 다른 제조사 표기로 있으면") {
+                then("대표 상품 칸으로 묶여 따로 나오지 않는다") {
+                    seedShelf()
+                    seed("RS-5", "농심 신라면", "농심태경(주)", "유탕면류")
+                    reportNos(list("?type=RAMEN")) shouldBe listOf("FT-2")
+                }
+            }
             `when`("커서로 넘기면") {
                 then("겹치거나 빠지지 않고 끝에서 hasNext 가 false 다") {
                     seedShelf()

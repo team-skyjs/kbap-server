@@ -44,16 +44,27 @@ class ProcessedFoodService(
             .distinctBy { it.first.id }
         val featuredIds = featured.map { it.first.id }.toSet()
         val featuredGroups = featured.map { (row, _) -> ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker()) }.toSet()
+        val featuredByName = featured.flatMap { (_, product) -> namesOf(product).map { it.lowercase() to product } }.groupBy({ it.first }, { it.second })
+        val makerPrefixes = featured.flatMap { (_, product) -> featuredCatalog.makerAliases(product.maker) }.distinct()
         val rest = candidateIndex.listedRows(lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE, type)
             .filterNot { row ->
-                row.id in featuredIds || row.groupKey in featuredGroups ||
-                    featured.any { (_, product) -> foldsInto(row.normalizedName, row.displayMaker, product) }
+                row.id in featuredIds || row.groupKey in featuredGroups || foldsIntoFeatured(row, featuredByName, makerPrefixes)
             }
             .map { it.id }
         val ids = featured.map { it.first.id } + rest
         val pageIds = ids.drop(offset).take(size)
         val loaded = products.findAllById(pageIds).associateBy { it.id }
         return pageOf(pageIds.mapNotNull(loaded::get), ids.size > offset + size, offset, size, memberId)
+    }
+
+    private fun foldsIntoFeatured(
+        row: ProcessedFoodCandidateIndex.ListedRow,
+        featuredByName: Map<String, List<ProcessedFoodFeaturedCatalog.FeaturedProduct>>,
+        makerPrefixes: List<String>,
+    ): Boolean {
+        val key = row.normalizedName.lowercase()
+        val names = listOf(key) + makerPrefixes.filter { key.startsWith(it) && key.length > it.length }.map { key.removePrefix(it) }
+        return names.any { name -> featuredByName[name]?.any { foldsInto(row.normalizedName, row.displayMaker, it) } == true }
     }
 
     private fun pageOf(page: List<ProcessedFoodProduct>, hasNext: Boolean, offset: Int, size: Int, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
