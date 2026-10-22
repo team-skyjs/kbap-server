@@ -13,9 +13,9 @@ data class ProcessedFoodLabelText(
         private val WHITESPACE = Regex("[ \\t\\u00A0]+")
         private val MAY_CONTAIN = Regex("(같은|동일한)\\s*(제조\\s*)?(시설|공정)|(같은|동일한)\\s*((생산|제조)\\s*)?(라인|설비|장소)|혼입|함유\\s*가능|함유(될|할)\\s*수|포함될\\s*수|들어\\s*있을\\s*수|섞일\\s*수")
         private val FACILITY = Regex("(같은|동일한)\\s*(제조\\s*)?(시설|공정)|(같은|동일한)\\s*((생산|제조)\\s*)?(라인|설비|장소)|사용한\\s*제품|제품과")
-        private val CLAUSE_OPENER = Regex("(이|본|해당|당|동)\\s*(제품|상품|품목)|본품|본\\s*상품|제품은")
+        private val CLAUSE_OPENER = Regex("이\\s*(제품|상품|품목)|(?<![가-힣])((본|해당|당|동)\\s*(제품|상품|품목)|본품|본\\s*상품|제품은)")
         private val DECLARATION_END = Regex("함유\\s*[.)。]?\\s*$")
-        private val SENTENCE_BREAK = Regex("(?<=함유)\\s*[.,。]\\s*|(?<=함유)(?![.,。]|\\s*(된|될|할|한|하는|되는|가능|량))\\s*|(?<=[^\\d][.。!?])(?!\\d)\\s*|(?<=습니다|합니다|있음)\\s+|\\s+(?=원재료|알레르기)|\\s*(?=[※*])")
+        private val SENTENCE_BREAK = Regex("(?<=함유)\\s*[.,。]\\s*|(?<=함유)(?![.,。]|\\s*(된|될|할|한|하는|되는|가능|량))\\s*|(?<=[^\\d][.。!?])(?!\\d)\\s*|(?<=습니다|합니다|있음)\\s+|\\s+(?=원재료|알레르기|이\\s*제품은)|\\s*(?=[※*])")
 
         private val LIST_CONTINUES = charArrayOf(',', '(', '·')
 
