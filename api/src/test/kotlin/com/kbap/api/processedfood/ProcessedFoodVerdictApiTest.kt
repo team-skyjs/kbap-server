@@ -160,6 +160,22 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     result.path("verdict").asText() shouldBe "AVOID"
                 }
             }
+            `when`("성분표 원재료 줄이 자리표시값이고 혼입 문장만 읽히면 — Codex P2(#459)") {
+                then("labelSource 는 INGREDIENTS_ONLY 가 아니라 NONE 이다(상세와 같은 규칙)") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "원재료명: 알수없음\n이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다.")),
+                            "lang" to "ko",
+                        ),
+                        member(86609L, "PEANUT"),
+                    )
+                    result.path("labelSource").asText() shouldBe "NONE"
+                    result.path("verdict").asText() shouldBe "CAUTION"
+                }
+            }
             `when`("성분표가 혼입 문구뿐이면 — Codex P1") {
                 then("읽을 수 없음으로 거절하지 않고 같은 규칙으로 CAUTION 을 낸다") {
                     val result = post(
