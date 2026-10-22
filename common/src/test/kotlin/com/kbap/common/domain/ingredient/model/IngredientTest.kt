@@ -48,11 +48,11 @@ class IngredientTest : BehaviorSpec({
 
     given("성분 코드 식별자 enum") {
         `when`("전체 코드를 조회하면") {
-            then("정확히 81종이다") {
-                IngredientCode.entries.size shouldBe 81
+            then("후속 카탈로그 코드까지 87종이다") {
+                IngredientCode.entries.size shouldBe 87
             }
             then("코드는 모두 유일하다") {
-                IngredientCode.entries.map { it.name }.distinct().size shouldBe 81
+                IngredientCode.entries.map { it.name }.distinct().size shouldBe 87
             }
         }
 

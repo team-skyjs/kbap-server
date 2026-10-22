@@ -129,6 +129,45 @@ class MemberControllerTest : BehaviorSpec() {
             clearMembers()
         }
 
+        given("후속 카탈로그 출시 전 회원") {
+            `when`("아직 카탈로그에 없는 새 묶음 코드를 온보딩에 제출하면") {
+                then("저장을 거부한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-005") }
+                    }
+                }
+            }
+
+            `when`("새 묶음 코드가 활성 카탈로그에 존재하면") {
+                then("동일 코드를 온보딩에 저장할 수 있다") {
+                    dataSource.connection.use { connection ->
+                        connection.createStatement().use { statement ->
+                            statement.executeUpdate(
+                                "INSERT INTO ingredients (code, korean_name, translations, status, created_at, updated_at) " +
+                                    "VALUES ('NUTS', '견과류', '{}', 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                        }
+                    }
+                    try {
+                        val token = loginAccessToken()
+                        submitOnboarding(token, validBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                            status { isOk() }
+                        }
+                        val profile = getMyProfile(token).andReturn().response.contentAsString
+                        objectMapper.readTree(profile).path("payload").path("avoidanceSubstanceCodes").first().asText() shouldBe "NUTS"
+                    } finally {
+                        dataSource.connection.use { connection ->
+                            connection.createStatement().use { statement ->
+                                statement.executeUpdate("DELETE FROM ingredients WHERE code = 'NUTS'")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         given("온보딩 미완료 회원") {
             `when`("유효한 온보딩 정보를 제출하면") {
                 then("200 으로 응답하고 프로필·온보딩 완료가 저장된다") {
