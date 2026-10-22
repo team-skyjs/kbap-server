@@ -86,9 +86,8 @@ class ProcessedFoodService(
                     ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
             }
         }
-        val boostedNames = boosted.map { it.first.normalizedName }.toSet()
-        val boostedGroups = boosted.map { groupKeyOf(it.first) }.toSet()
-        val rest = ranked.filterNot { it.first.normalizedName in boostedNames || groupKeyOf(it.first) in boostedGroups }
+        val boostedNames = boosted.flatMap { listOf(it.first.normalizedName, bareNameOf(it.first)) }.toSet()
+        val rest = ranked.filterNot { it.first.normalizedName in boostedNames || bareNameOf(it.first) in boostedNames }
             .groupBy { groupKeyOf(it.first) }.values
             .map { group -> latestOf(group.map { it.first })!! to group.first().second }
         val longestBoost = boosted.maxOfOrNull { it.second } ?: 0
@@ -101,11 +100,10 @@ class ProcessedFoodService(
     private fun latestOf(rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? =
         rows.maxWithOrNull(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id }))
 
-    private fun groupKeyOf(product: ProcessedFoodProduct): String {
-        val maker = makerKeyOf(product)
-        val name = product.normalizedName.removePrefix(maker).ifEmpty { product.normalizedName }
-        return "$name|$maker"
-    }
+    private fun groupKeyOf(product: ProcessedFoodProduct): String = bareNameOf(product) + "|" + makerKeyOf(product)
+
+    private fun bareNameOf(product: ProcessedFoodProduct): String =
+        product.normalizedName.removePrefix(makerKeyOf(product)).ifEmpty { product.normalizedName }
 
     private fun makerKeyOf(product: ProcessedFoodProduct): String = product.displayMaker()?.let(ProcessedFoodSnapshot::normalizeName).orEmpty()
 
