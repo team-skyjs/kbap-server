@@ -162,6 +162,13 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("알레르기 칸 자리표시값에 구두점이 붙어 있으면 — 공부 4R") {
+            then("'(알수없음)'·'알수없음.'도 표시 없음으로 보아 원재료까지 모르면 판정하지 않는다") {
+                listOf("(알수없음)", "알수없음.").forEach { allergens ->
+                    ProcessedFoodJudge.judge(allergens, "알수없음", avoiding(IngredientCode.MILK)).verdict shouldBe null
+                }
+            }
+        }
         `when`("원재료와 알레르기 표시가 둘 다 없으면") {
             then("회원이어도 판정하지 않는다(null) — 근거 없는 SAFE 를 내지 않는다") {
                 listOf(null to null, "알수없음" to " ", null to "알수없음", "알수없음" to "정보없음", "미표시" to "모름").forEach { (allergens, raw) ->
