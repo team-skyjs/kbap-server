@@ -144,7 +144,7 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
         }
         `when`("원재료와 알레르기 표시가 둘 다 없으면") {
             then("회원이어도 판정하지 않는다(null) — 근거 없는 SAFE 를 내지 않는다") {
-                listOf(null to null, "알수없음" to " ").forEach { (allergens, raw) ->
+                listOf(null to null, "알수없음" to " ", null to "알수없음", "알수없음" to "정보없음", "미표시" to "모름").forEach { (allergens, raw) ->
                     ProcessedFoodJudge.judge(allergens, raw, avoiding(IngredientCode.MILK)).verdict shouldBe null
                 }
             }
