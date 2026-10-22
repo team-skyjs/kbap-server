@@ -31,7 +31,7 @@ class ProcessedFoodService(
         val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.rank(candidates, tokens), tokens.joinToString(" "), tokens, lastMirror).products
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror).products
         val hasNext = ranked.size > offset + size
         val page = ranked.drop(offset).take(size)
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
@@ -71,11 +71,11 @@ class ProcessedFoodService(
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
-        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER).map { it.first }, queries.joinToString(" "), tokens, lastMirror)
+        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror)
         return ranked.copy(products = ranked.products.take(limit))
     }
 
-    private fun featuredFirst(ranked: List<ProcessedFoodProduct>, text: String, tokens: List<String>, lastMirror: LocalDateTime?): RankedCandidates {
+    private fun featuredFirst(ranked: List<Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>, text: String, tokens: List<String>, lastMirror: LocalDateTime?): RankedCandidates {
         val featured = featuredCatalog.boostedProducts(text, tokens)
         val boosted = if (featured.isEmpty()) {
             emptyList()
@@ -87,8 +87,11 @@ class ProcessedFoodService(
             }
         }
         val boostedNames = boosted.map { it.normalizedName }.toSet()
-        val rest = ranked.filterNot { it.normalizedName in boostedNames }.groupBy(::groupKeyOf).values.map { latestOf(it)!! }
-        return RankedCandidates(boosted + rest, boosted.map { it.reportNo })
+        val rest = ranked.filterNot { it.first.normalizedName in boostedNames }
+            .groupBy { groupKeyOf(it.first) }.values
+            .map { group -> latestOf(group.map { it.first })!! to group.first().second }
+        val (exact, others) = rest.partition { boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) }
+        return RankedCandidates(exact.map { it.first } + boosted + others.map { it.first }, boosted.map { it.reportNo })
     }
 
     private fun latestOf(rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? =

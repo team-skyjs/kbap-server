@@ -32,7 +32,7 @@ data class ProcessedFoodNameScanResponse(
     @field:Schema(description = "분석 ID — 확정과 성분표 이어가기(KB-560)에 그대로 쓴다")
     val analysisId: String,
     val state: ProcessedFoodNameScanState,
-    @field:Schema(description = "후보(최대 5) — 검색 결과 항목과 같은 형태. NO_CANDIDATE 면 빈 배열")
+    @field:Schema(description = "후보(최대 30, 한 번에 — 페이지 없음) — 검색 결과 항목과 같은 형태. 대표 상품이 걸리면 맨 위(이름 그대로 읽힌 다른 제품이 있으면 그 아래), 같은 제품(정규화 이름·제조사)은 1칸. NO_CANDIDATE 면 빈 배열")
     val candidates: List<ProcessedFoodSummaryResponse>,
     @field:Schema(description = "확정 가능 기한(발급 후 30분)")
     val expiresAt: LocalDateTime,
