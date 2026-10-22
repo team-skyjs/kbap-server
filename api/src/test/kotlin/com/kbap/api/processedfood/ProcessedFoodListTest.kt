@@ -12,8 +12,10 @@ import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -137,6 +139,32 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     banana.path("rating").path("count").asLong() shouldBe 2L
                     banana.path("verdict").asText() shouldBe "AVOID"
                     list("").path("payload").path("items")[1].path("rating").path("count").asLong() shouldBe 0L
+                }
+            }
+        }
+
+        given("이름 스캔 후보 평점(KB-867, 디자인 16)") {
+            `when`("후보를 받으면") {
+                then("후보마다 목록과 같은 rating{average,count} 이 실린다") {
+                    val id = seed("NS-1", "꿀호떡", "㈜베이커리", "빵류")
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 86721L)
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 86722L)
+                    review(86721L, id, 5)
+                    review(86722L, id, 3)
+                    val token = member(86723L)
+                    execute("UPDATE member SET scan_count = 0, scan_unlocked = 1 WHERE id = 86723")
+
+                    val candidate = mapper.readTree(
+                        mockMvc.post("/api/processed-foods/scan/name") {
+                            header("X-API-Version", "3.2")
+                            header("Authorization", "Bearer $token")
+                            contentType = MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(mapOf("ocrText" to "꿀호떡"))
+                        }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("candidates")[0]
+                    candidate.path("reportNo").asText() shouldBe "NS-1"
+                    candidate.path("rating").path("average").asDouble() shouldBe 4.0
+                    candidate.path("rating").path("count").asLong() shouldBe 2L
                 }
             }
         }
