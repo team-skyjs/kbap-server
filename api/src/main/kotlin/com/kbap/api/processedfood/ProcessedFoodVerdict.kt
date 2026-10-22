@@ -37,6 +37,8 @@ object ProcessedFoodJudge {
             .groupBy({ it[1].trim() }, { it[0].trim() })
     private val containsTerms = unclearTerms[CONTAINS].orEmpty()
     private val standaloneTerms = unclearTerms[STANDALONE].orEmpty()
+    private val wholeTerms = unclearTerms[WHOLE].orEmpty().toSet()
+    private val PERCENT = Regex("""\d+(\.\d+)?\s*%""")
     private val TOKEN_BREAK = Regex("""[,()\[\]{}/·:]+""")
     private val ITEM_BREAK = Regex("""[,/·]+""")
     private val SUB_INGREDIENTS = Regex("""[(\[{]""")
@@ -44,6 +46,7 @@ object ProcessedFoodJudge {
         IngredientLabelReader.mandatoryAllergenCodes().associateWith { major -> setOf(major) + (major.impliedCodes - IngredientCode.GELATIN) }
     private const val CONTAINS = "contains"
     private const val STANDALONE = "standalone"
+    private const val WHOLE = "whole"
 
     fun judge(allergens: String?, rawMaterials: String?, avoidance: Avoidance?): ProcessedFoodJudgement {
         val (declared, declaredMayContain) = ProcessedFoodLabelText.splitMayContain(allergens)
@@ -85,6 +88,7 @@ object ProcessedFoodJudge {
         val bareSeasonings = text.split(ITEM_BREAK).map { it.trim() }
             .filter { item -> item.isNotEmpty() && !SUB_INGREDIENTS.containsMatchIn(item) && standaloneTerms.any { it in item } }
             .map { it.trimEnd(')', ']', '}').trim() }
-        return text.split(ITEM_BREAK).flatMap { item -> (categories + bareSeasonings).filter { it in item } }.distinct()
+        val bareWords = text.split(ITEM_BREAK).map { it.replace(PERCENT, "").trim() }.filter { it in wholeTerms }
+        return text.split(ITEM_BREAK).flatMap { item -> (categories + bareSeasonings + bareWords).filter { it in item } }.distinct()
     }
 }
