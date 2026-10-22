@@ -30,7 +30,7 @@ class ProcessedFoodService(
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId)
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror).products
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type).products
             .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
         return pageOf(ranked.drop(offset).take(size), ranked.size > offset + size, offset, size, memberId)
     }
@@ -114,12 +114,19 @@ class ProcessedFoodService(
         return ranked.copy(products = ranked.products.take(limit))
     }
 
-    private fun featuredFirst(ranked: List<Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>, text: String, tokens: List<String>, lastMirror: LocalDateTime?): RankedCandidates {
+    private fun featuredFirst(
+        ranked: List<Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>,
+        text: String,
+        tokens: List<String>,
+        lastMirror: LocalDateTime?,
+        type: ProcessedFoodType? = null,
+    ): RankedCandidates {
         val featured = featuredCatalog.boostedProducts(text, tokens)
         val boosted = if (featured.isEmpty()) {
             emptyList()
         } else {
             val rows = products.findAllByNormalizedNameIn(featured.flatMap { namesOf(it.product) }).filterNot { it.isDiscontinued(lastMirror) }
+                .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
             featured.mapNotNull { boost ->
                 representativeOf(boost.product, rows)?.let { Triple(it, boost.matchLength, boost.product) }
                     ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
