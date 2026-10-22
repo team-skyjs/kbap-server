@@ -28,6 +28,8 @@ class ProcessedFoodFeaturedCatalog {
             .map { Boost(it.product, it.longest.codePointCount(0, it.longest.length)) }
     }
 
+    fun makerAliases(maker: String): List<String> = makers[maker].orEmpty()
+
     private fun tokenOnly(alias: String): Boolean {
         val length = alias.codePointCount(0, alias.length)
         return length <= SHORT_ALIAS || (alias.endsWith(FLAVOR_SUFFIX) && length <= SHORT_FLAVOR)
