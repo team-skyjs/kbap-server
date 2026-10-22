@@ -12,6 +12,8 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
 
     fun findByReportNo(reportNo: String): ProcessedFoodProduct?
 
+    fun findAllByNormalizedNameIn(normalizedNames: Collection<String>): List<ProcessedFoodProduct>
+
     @Query(
         nativeQuery = true,
         value = """

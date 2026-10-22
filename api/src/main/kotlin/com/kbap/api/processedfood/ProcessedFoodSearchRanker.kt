@@ -16,6 +16,8 @@ object ProcessedFoodSearchRanker {
     fun rawTokensOf(query: String): List<String> =
         query.trim().split(Regex("""\s+""")).filter { it.isNotBlank() }.distinct().take(MAX_TOKENS)
 
+    fun isExact(score: ProcessedFoodSearchScore): Boolean = score.grade == EXACT
+
     val ORDER: Comparator<Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>> =
         compareBy({ it.second.grade }, { -it.second.coverage }, { it.first.normalizedName.length }, { it.first.id })
 

@@ -16,7 +16,7 @@ interface ProcessedFoodNameScanApi {
     @Operation(
         summary = "이름 스캔 (3.2+)",
         description = """
-            앞면 OCR 텍스트를 줄·전체 질의로 바꿔(용량·NEW·오리지널 제거, 맛 낱말 유지/제거 두 질의) 가공식품 검색기로 후보 최대 5개를 준다. LLM 없음. **차감 없음.**
+            앞면 OCR 텍스트를 줄·전체 질의로 바꿔(용량·NEW·오리지널 제거, 맛 낱말 유지/제거 두 질의) 가공식품 검색기로 후보 최대 30개를 한 번에 준다(대표 상품 우선·같은 제품 1칸). LLM 없음. **차감 없음.**
             후보가 없으면 state=NO_CANDIDATE — 같은 analysisId 로 성분표 촬영(KB-560)으로 이어간다.
         """,
     )
