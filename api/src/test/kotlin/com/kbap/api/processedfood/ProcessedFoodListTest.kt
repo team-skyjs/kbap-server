@@ -111,6 +111,10 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     page.path("items").size() shouldBe 0
                     page.path("hasNext").asBoolean() shouldBe false
                     list("?cursor=-1", expected = 400)
+                    val last = list("?cursor=2147483647").path("payload")
+                    last.path("items").size() shouldBe 0
+                    last.path("hasNext").asBoolean() shouldBe false
+                    last.path("nextCursor").isNull shouldBe true
                 }
             }
             `when`("유형 칩으로 거르면") {
@@ -176,6 +180,13 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     seed("QT-2", "꿀호떡 스낵", "㈜스낵", "과자")
                     reportNos(list("?query=꿀호떡&type=BREAD")) shouldBe listOf("QT-1")
                     reportNos(list("?query=꿀호떡&type=SNACKS")) shouldBe listOf("QT-2")
+                }
+            }
+            `when`("제조사 검색어로 유형을 거르는데 다른 유형에 이름이 맞는 제품이 있으면 — Codex P1") {
+                then("다른 유형 제품이 순위·제조사만 일치 숨김에 끼어들지 않아 그 유형의 제조사 제품이 나온다") {
+                    seed("QM-1", "베이커리 감자칩", "㈜스낵", "과자")
+                    seed("QM-2", "꿀호떡", "㈜베이커리", "빵류")
+                    reportNos(list("?query=베이커리&type=BREAD")) shouldBe listOf("QM-2")
                 }
             }
         }
