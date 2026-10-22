@@ -11,15 +11,19 @@ import java.text.Normalizer
 class ProcessedFoodFeaturedCatalog {
     private val catalog: Catalog = ClassPathResource(RESOURCE).inputStream.use { jacksonObjectMapper().readValue(it) }
     private val products: List<FeaturedProduct> = catalog.products.sortedBy { it.priority }
-    private val makers: List<FeaturedMaker> = catalog.makers.map { maker -> maker.copy(aliases = maker.aliases.map(::keyOf)) }
+    private val makers: Map<String, List<String>> = catalog.makers.associate { maker -> maker.name to maker.aliases.map(::keyOf) }
 
     fun boostedProducts(text: String, tokens: List<String>): List<FeaturedProduct> {
         val textKey = keyOf(text)
         val tokenKeys = tokens.map(::keyOf).toSet()
-        val makersInText = makers.filter { maker -> maker.aliases.any { it in textKey } }.map { it.name }.toSet()
         return products.filter { product ->
-            product.aliases.map(::keyOf).any { it in tokenKeys || it in textKey } && makersInText.all { it == product.maker }
+            product.aliases.map(::keyOf).any { it in tokenKeys || it in textKey } && !otherMakerShown(product.maker, textKey)
         }
+    }
+
+    private fun otherMakerShown(maker: String, textKey: String): Boolean {
+        val ownInText = makers[maker].orEmpty().filter { it in textKey }
+        return makers.any { (name, aliases) -> name != maker && aliases.any { alias -> alias in textKey && ownInText.none { alias in it } } }
     }
 
     private fun keyOf(value: String): String = ProcessedFoodSnapshot.normalizeName(Normalizer.normalize(value, Normalizer.Form.NFKC)).lowercase()

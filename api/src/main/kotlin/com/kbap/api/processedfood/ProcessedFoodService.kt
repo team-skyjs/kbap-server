@@ -9,6 +9,7 @@ import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.review.ReviewJpaRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -21,6 +22,8 @@ class ProcessedFoodService(
     private val candidateIndex: ProcessedFoodCandidateIndex,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional(readOnly = true)
     fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
@@ -28,7 +31,7 @@ class ProcessedFoodService(
         val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.rank(candidates, tokens), query.orEmpty(), tokens, lastMirror).products
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.rank(candidates, tokens), tokens.joinToString(" "), tokens, lastMirror).products
         val hasNext = ranked.size > offset + size
         val page = ranked.drop(offset).take(size)
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
@@ -78,10 +81,13 @@ class ProcessedFoodService(
             emptyList()
         } else {
             val rows = products.findAllByNormalizedNameIn(featured.map { it.name }).filterNot { it.isDiscontinued(lastMirror) }
-            featured.mapNotNull { entry -> latestOf(rows.filter { it.normalizedName == entry.name && makerKeyOf(it) == entry.maker }) }
+            featured.mapNotNull { entry ->
+                latestOf(rows.filter { it.normalizedName == entry.name })
+                    ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", entry.name, entry.maker) }
+            }
         }
-        val boostedGroups = boosted.map(::groupKeyOf).toSet()
-        val rest = ranked.filterNot { groupKeyOf(it) in boostedGroups }.groupBy(::groupKeyOf).values.map { latestOf(it)!! }
+        val boostedNames = boosted.map { it.normalizedName }.toSet()
+        val rest = ranked.filterNot { it.normalizedName in boostedNames }.groupBy(::groupKeyOf).values.map { latestOf(it)!! }
         return RankedCandidates(boosted + rest, boosted.map { it.reportNo })
     }
 

@@ -124,13 +124,38 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
             }
             `when`("별칭이 걸리지 않는 OCR 이면") {
                 then("기존 순위 그대로다(정확 → 앞 일치 → 포함, 같은 등급은 짧은 이름 → id)") {
-                    seed("SR-1", "왕새우칩", "㈜농심")
-                    seed("SR-2", "새우깡블랙", "㈜농심")
-                    seed("SR-3", "새우깡", "㈜농심")
-                    seed("SR-4", "매운새우깡", "㈜농심")
-                    val p = scan(member(85804L), "새우깡")
+                    seed("SR-1", "왕감자칩", "㈜태광")
+                    seed("SR-2", "감자스틱매운맛", "㈜태광")
+                    seed("SR-3", "감자스틱", "㈜태광")
+                    seed("SR-4", "왕감자스틱", "㈜태광")
+                    val p = scan(member(85804L), "감자스틱")
                     reportNos(p.path("candidates")) shouldBe listOf("SR-3", "SR-2", "SR-4")
                     boostedOf(p.path("analysisId").asText()) shouldBe emptyList()
+                }
+            }
+            `when`("대표 상품이 아닌 제품도 공장별 여러 행이면") {
+                then("같은 이름·같은 제조사는 가장 최근에 본 1칸, 제조사가 다르면 따로") {
+                    seed("DUP-1", "감자스틱", "㈜태광_파주공장", seenHoursAgo = 20)
+                    seed("DUP-2", "감자스틱", "㈜태광_김해공장", seenHoursAgo = 1)
+                    seed("DUP-3", "감자스틱", "㈜다른제과")
+                    reportNos(scan(member(85806L), "감자스틱").path("candidates")) shouldBe listOf("DUP-2", "DUP-3")
+                }
+            }
+            `when`("DB 제조사가 '알수없음'인 대표 상품 행이면") {
+                then("이름으로만 맞춰 올린다") {
+                    seed("SH-1", "신라면", "알수없음")
+                    seed("SH-2", "신라면볶음면", "㈜농심")
+                    val p = scan(member(85807L), "농심\n辛라면")
+                    p.path("candidates")[0].path("reportNo").asText() shouldBe "SH-1"
+                    boostedOf(p.path("analysisId").asText()) shouldBe listOf("SH-1")
+                }
+            }
+            `when`("대표 상품 제조사 이름 안에 다른 제조사 이름이 들어 있으면(롯데칠성 ⊃ 롯데)") {
+                then("자기 제조사로 보고 올린다") {
+                    seed("CS-1", "칠성사이다", "롯데칠성음료㈜")
+                    seed("CS-2", "칠성사이다제로", "롯데칠성음료㈜")
+                    val p = scan(member(85808L), "롯데칠성\n칠성사이다 제로")
+                    boostedOf(p.path("analysisId").asText()) shouldBe listOf("CS-1")
                 }
             }
             `when`("맞는 제품이 30개를 넘으면") {
@@ -152,10 +177,10 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
             }
             `when`("별칭이 걸리지 않는 검색어면") {
                 then("기존 순위 그대로다") {
-                    seed("SR-1", "왕새우칩", "㈜농심")
-                    seed("SR-2", "새우깡블랙", "㈜농심")
-                    seed("SR-3", "새우깡", "㈜농심")
-                    reportNos(search("새우깡").path("items")) shouldBe listOf("SR-3", "SR-2")
+                    seed("SR-1", "왕감자칩", "㈜태광")
+                    seed("SR-2", "감자스틱매운맛", "㈜태광")
+                    seed("SR-3", "감자스틱", "㈜태광")
+                    reportNos(search("감자스틱").path("items")) shouldBe listOf("SR-3", "SR-2")
                 }
             }
         }
