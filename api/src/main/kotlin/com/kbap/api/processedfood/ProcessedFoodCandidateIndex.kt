@@ -42,11 +42,11 @@ class ProcessedFoodCandidateIndex(
     fun listedRows(seenSince: LocalDateTime, type: ProcessedFoodType?): List<ListedRow> =
         fresh().entries.asSequence()
             .filter { it.isAvailableSince(seenSince) && (type == null || it.type == type) }
-            .groupBy { ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker) }
+            .groupBy { it.groupKey }
             .values
             .map { group -> group.maxWith(compareBy<Entry>({ it.lastSeenAt }, { it.id })) }
             .sortedBy { it.id }
-            .map { ListedRow(it.id, it.normalizedName, it.displayMaker) }
+            .map { ListedRow(it.id, it.normalizedName, it.displayMaker, it.groupKey) }
 
     private fun fresh(): Snapshot {
         val current = snapshot
@@ -86,7 +86,7 @@ class ProcessedFoodCandidateIndex(
             normalizedName = row.normalizedName,
             displayMaker = ProcessedFoodProduct.displayMakerOf(row.manufacturer, row.seller, row.makerSupplement),
             type = ProcessedFoodType.of(row.foodType),
-        )
+        ).let { it.copy(groupKey = ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker)) }
     }
 
     private data class Entry(
@@ -99,11 +99,12 @@ class ProcessedFoodCandidateIndex(
         val normalizedName: String,
         val displayMaker: String?,
         val type: ProcessedFoodType?,
+        val groupKey: String = "",
     ) {
         fun isAvailableSince(seenSince: LocalDateTime): Boolean = !tracksDiscontinuation || !lastSeenAt.isBefore(seenSince)
     }
 
-    data class ListedRow(val id: Long, val normalizedName: String, val displayMaker: String?)
+    data class ListedRow(val id: Long, val normalizedName: String, val displayMaker: String?, val groupKey: String)
 
     private data class Snapshot(val entries: List<Entry>, val fingerprint: String?, val checkedAt: Long)
 

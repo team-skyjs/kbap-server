@@ -27,7 +27,7 @@ class ProcessedFoodService(
     @Transactional(readOnly = true)
     fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int, memberId: Long? = null, type: ProcessedFoodType? = null): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
-        val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
+        val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value >= 0 && (tokens.isEmpty() || value <= MAX_OFFSET) } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId)
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
@@ -46,7 +46,7 @@ class ProcessedFoodService(
         val featuredGroups = featured.map { (row, _) -> ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker()) }.toSet()
         val rest = candidateIndex.listedRows(lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE, type)
             .filterNot { row ->
-                row.id in featuredIds || ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker) in featuredGroups ||
+                row.id in featuredIds || row.groupKey in featuredGroups ||
                     featured.any { (_, product) -> foldsInto(row.normalizedName, row.displayMaker, product) }
             }
             .map { it.id }
