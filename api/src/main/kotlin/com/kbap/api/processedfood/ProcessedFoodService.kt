@@ -30,6 +30,7 @@ class ProcessedFoodService(
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId)
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
+            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
         val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror).products
             .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
         return pageOf(ranked.drop(offset).take(size), ranked.size > offset + size, offset, size, memberId)
@@ -53,7 +54,7 @@ class ProcessedFoodService(
         val ids = featured.map { it.first.id } + rest
         val pageIds = ids.drop(offset).take(size)
         val loaded = products.findAllById(pageIds).associateBy { it.id }
-        return pageOf(pageIds.mapNotNull(loaded::get), ids.size > offset + size, offset, size, memberId)
+        return pageOf(pageIds.mapNotNull(loaded::get), ids.size > offset.toLong() + size, offset, size, memberId)
     }
 
     private fun foldsIntoFeatured(
@@ -77,7 +78,7 @@ class ProcessedFoodService(
         return SearchPage(
             items = getSummaries(page, memberId),
             hasNext = hasNext,
-            nextCursor = if (hasNext) (offset + size).toString() else null,
+            nextCursor = if (hasNext) (offset.toLong() + size).toString() else null,
         )
     }
 
