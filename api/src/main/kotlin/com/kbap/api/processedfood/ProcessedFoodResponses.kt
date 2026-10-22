@@ -31,6 +31,14 @@ data class ProcessedFoodSummaryResponse(
     val avgRating: Double? = null,
     @field:Schema(description = "조회 회원의 내 판정(상세와 같은 규칙) — 비회원·회피 재료 0개·원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
     val verdict: ProcessedFoodVerdict? = null,
+    @field:Schema(description = "표시 이름 — 요청 언어 번역(KB-868) 전까지는 한국어 원문과 같다", example = "빙그레 바나나맛 우유")
+    val name: String = productName,
+    @field:Schema(description = "한국어 원문 제품명", example = "빙그레 바나나맛 우유")
+    val nameKo: String = productName,
+    @field:Schema(description = "유형 칩 — 어디에도 안 맞으면 null", nullable = true)
+    val type: ProcessedFoodType? = ProcessedFoodType.of(foodType),
+    @field:Schema(description = "평점 — 목록·검색에서 채운다(리뷰 없으면 average null·count 0). 이름 스캔 후보는 집계하지 않아 null", nullable = true)
+    val rating: ProcessedFoodRatingResponse? = null,
 ) {
     companion object {
         fun from(product: ProcessedFoodProduct, avoidance: Avoidance? = null) =
@@ -40,9 +48,21 @@ data class ProcessedFoodSummaryResponse(
             )
 
         fun withReviews(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate?, avoidance: Avoidance? = null) =
-            from(product, avoidance).copy(reviewCount = rating?.reviewCount ?: 0, avgRating = rating?.average)
+            from(product, avoidance).copy(
+                reviewCount = rating?.reviewCount ?: 0,
+                avgRating = rating?.average,
+                rating = ProcessedFoodRatingResponse(rating?.average, rating?.reviewCount ?: 0),
+            )
     }
 }
+
+@Schema(description = "가공식품 평점")
+data class ProcessedFoodRatingResponse(
+    @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.5", nullable = true)
+    val average: Double?,
+    @field:Schema(description = "리뷰 수", example = "2")
+    val count: Long,
+)
 
 @Schema(description = "가공식품 리뷰 요약")
 data class ProcessedFoodReviewSummaryResponse(
