@@ -70,6 +70,17 @@ class ProcessedFoodC002SeedTest : BehaviorSpec() {
                     rows("SELECT COUNT(*) FROM processed_food_product")[0][0] shouldBe "2"
                 }
             }
+            `when`("적재가 DB 오류로 실패하면 — 공부 #455") {
+                then("예외를 던지지 않고 실패를 요약에 남기며 아무 행도 넣지 않는다(같은 잡의 HACCP 미러 스텝이 이어서 돈다)") {
+                    val broken = ProcessedFoodC002Seed.Row("9".repeat(30), "너무긴번호", "과자", "(주)테스트", "밀가루")
+
+                    val summary = seed(listOf(yeomyung, broken)).seed()
+
+                    summary.inserted shouldBe 0
+                    (summary.failure != null) shouldBe true
+                    rows("SELECT COUNT(*) FROM processed_food_product")[0][0] shouldBe "0"
+                }
+            }
             `when`("같은 품목보고번호가 HACCP 에 이미 있으면") {
                 then("C002 행은 넣지 않고 충돌로 남기며 HACCP 행은 그대로다") {
                     val haccp = HaccpProduct(
