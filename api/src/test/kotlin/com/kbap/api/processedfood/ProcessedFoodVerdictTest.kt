@@ -239,6 +239,21 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("여는 말 글자가 재료명 낱말 안에 있으면(유당·유제품) — 공부 #459 4a74c5ff") {
+            then("낱말 가운데를 자르지 않아 우유 회피가 SAFE 로 내려가지 않는다") {
+                listOf("설탕, 유당 제품은 땅콩과 같은 시설에서 제조", "설탕, 유제품은 땅콩과 같은 시설에서 제조").forEach { raw ->
+                    val verdict = ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict
+                    (verdict == ProcessedFoodVerdict.CAUTION || verdict == ProcessedFoodVerdict.AVOID) shouldBe true
+                }
+            }
+        }
+        `when`("성분표 스캔에서 원재료 뒤에 '이 제품은 … 함유' 표시가 공백으로 이어지면 — 공부 #459 4a74c5ff") {
+            then("develop 처럼 원재료와 알레르기 표시로 나눈다") {
+                val label = ProcessedFoodLabelText.of(listOf("원재료명: 밀가루, 마늘 이 제품은 우유, 대두를 함유"))
+                label.rawMaterials shouldBe "원재료명: 밀가루, 마늘"
+                label.allergens shouldBe "이 제품은 우유, 대두를 함유"
+            }
+        }
         `when`("알레르기 칸에서 혼입 문구 뒤에 여는 말 시설 경고가 이어지면 — Codex P2(#459 vM4Nk)") {
             then("여는 말 앞 조각도 혼입 규칙을 거쳐 땅콩은 혼입(CAUTION)이지 확정이 아니다") {
                 val allergens = "알레르기 유발물질: 땅콩 혼입 가능, 본 제품은 대두를 사용한 제품과 같은 제조시설에서 제조합니다"
