@@ -114,6 +114,21 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     result.path("unmapped").size() shouldBe 0
                 }
             }
+            `when`("성분표 원재료 줄이 머리말 + 자리표시값뿐이면 — Codex P1") {
+                then("머리말을 뗀 값으로 판정해 의무 알레르기 밖 회피(마늘)에 SAFE 를 내지 않는다") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "원재료명: 알수없음\n알레르기 유발물질: 밀, 대두 함유")),
+                            "lang" to "ko",
+                        ),
+                        member(86604L, "GARLIC"),
+                    )
+                    result.path("verdict").isNull shouldBe true
+                }
+            }
         }
     }
 }
