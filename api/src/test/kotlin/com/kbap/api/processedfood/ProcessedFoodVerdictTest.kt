@@ -211,6 +211,13 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("원재료 칸에서 접두 없는 '제품은'이 쉼표 없이 시설 경고를 열면 — Codex P1(#459 vK9DG)") {
+            then("앞 원재료는 확정, 경고만 혼입이다") {
+                val raw = "소맥분(밀) 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+        }
         `when`("'같은 제조설비'·'같은 제조라인'·'같은 제조장소' 문장이면 — Codex P2(#459 vG-R3)") {
             then("알레르기 칸이든 원재료 칸이든 혼입으로 보아 CAUTION 이다") {
                 listOf("같은 제조설비", "같은 제조라인", "동일한 제조 라인", "같은 제조장소").forEach { place ->
