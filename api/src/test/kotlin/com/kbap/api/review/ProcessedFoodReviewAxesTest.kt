@@ -104,17 +104,17 @@ class ProcessedFoodReviewAxesTest : BehaviorSpec() {
                 }
             }
             `when`("범위를 벗어나면") {
-                then("400 이다") {
+                then("요청 검증에서 400 이다") {
                     val productId = product("범위과자")
-                    write(productId, member("ax-3"), mapOf("rating" to 4, "spiciness" to 0), expected = 400)
-                    write(productId, member("ax-4"), mapOf("rating" to 4, "sweetness" to 6), expected = 400)
+                    write(productId, member("ax-3"), mapOf("rating" to 4, "spiciness" to 0), expected = 400).path("message").asText().startsWith("spiciness:") shouldBe true
+                    write(productId, member("ax-4"), mapOf("rating" to 4, "sweetness" to 6), expected = 400).path("message").asText().startsWith("sweetness:") shouldBe true
                 }
             }
             `when`("상세 리뷰 요약을 보면") {
                 then("축마다 {average, count} 이고 미입력·범위 밖 값은 분모에서 빠지며 overall 은 있는 축의 평균이다") {
                     val productId = product("집계과자")
                     write(productId, member("ax-5"), mapOf("rating" to 5, "spiciness" to 4))
-                    write(productId, member("ax-6"), mapOf("rating" to 3, "spiciness" to 2, "sweetness" to 5))
+                    write(productId, member("ax-6"), mapOf("rating" to 3, "spiciness" to 2, "sweetness" to 2))
                     val outside = write(productId, member("ax-7"), mapOf("rating" to 4)).path("payload").path("reviewId").asLong()
                     sql("UPDATE food_review SET spiciness_rating = 9, sweetness_rating = 0 WHERE id = $outside")
 
@@ -123,9 +123,9 @@ class ProcessedFoodReviewAxesTest : BehaviorSpec() {
                     summary.path("taste").path("count").asLong() shouldBe 3L
                     summary.path("spiciness").path("average").asDouble() shouldBe 3.0
                     summary.path("spiciness").path("count").asLong() shouldBe 2L
-                    summary.path("sweetness").path("average").asDouble() shouldBe 5.0
+                    summary.path("sweetness").path("average").asDouble() shouldBe 2.0
                     summary.path("sweetness").path("count").asLong() shouldBe 1L
-                    summary.path("overall").path("average").asDouble() shouldBe 4.0
+                    summary.path("overall").path("average").asDouble() shouldBe 3.0
                     summary.path("overall").path("count").asLong() shouldBe 3L
                     summary.path("count").asLong() shouldBe 3L
                 }
