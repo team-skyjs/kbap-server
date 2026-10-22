@@ -61,6 +61,20 @@ class CurationPublicationTest : BehaviorSpec() {
     init {
         beforeEach { reset() }
         afterSpec { reset() }
+        given("공개 상세 항목의 한국어 장소명(KB-864)") {
+            `when`("영어·일본어로 요청해도") {
+                then("nameKo·areaKo 는 한국어 원본이고 name·area 는 요청 언어 그대로다") {
+                    publish("sights"); publish("stations"); publish("busan")
+                    listOf("en", "ja").forEach { lang ->
+                        val first = service.getDetail("stations", lang).items.first()
+                        first.name shouldBe "$lang name1"
+                        first.area shouldBe "$lang area1"
+                        first.nameKo shouldBe "ko name1"
+                        first.areaKo shouldBe "ko area1"
+                    }
+                }
+            }
+        }
         given("최초 세 모음 원자 활성화") {
             `when`("두 모음을 게시하고 하나를 내린 뒤 세번째를 게시하면") {
                 then("보존 스냅샷 셋을 공개 셋으로 오인하지 않는다") {
