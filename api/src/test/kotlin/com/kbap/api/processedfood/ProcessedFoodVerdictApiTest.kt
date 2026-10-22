@@ -94,6 +94,20 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     p.path("majorAllergens").map { it.asText() } shouldBe listOf("WHEAT")
                 }
             }
+            `when`("혼입 문장이 있는 제품 상세를 비회원·다른 회피 회원이 보면 — 공부 7R") {
+                then("회원 여부와 무관한 mayContain 으로 혼입 재료를 받는다") {
+                    val id = seed("VD-5", "땅콩공장 비스킷", "밀 함유. 이 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다.", "소맥분(밀), 설탕")
+
+                    val guest = get("/api/processed-foods/$id")
+                    guest.path("majorAllergens").map { it.asText() } shouldBe listOf("WHEAT")
+                    guest.path("mayContain").map { it.path("code").asText() } shouldBe listOf("PEANUT")
+                    guest.path("mayContainMatches").size() shouldBe 0
+
+                    val wheatAvoider = get("/api/processed-foods/$id", member(86606L, "WHEAT"))
+                    wheatAvoider.path("mayContain").map { it.path("code").asText() } shouldBe listOf("PEANUT")
+                    wheatAvoider.path("mayContainMatches").size() shouldBe 0
+                }
+            }
             `when`("원재료가 자리표시값이고 알레르기 표시도 없으면 — Codex P2(#458)") {
                 then("labelSource 는 NONE 이다") {
                     val id = seed("VD-4", "모르는 과자", null, "알수없음")
