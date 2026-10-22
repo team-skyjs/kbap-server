@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import com.kbap.common.domain.LanguageCode
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -39,6 +40,8 @@ data class ProcessedFoodNameScanResponse(
 )
 
 @Schema(description = "가공식품 이름 스캔 확정 결과")
+data class ProcessedFoodNameConfirmation(val response: ProcessedFoodNameConfirmResponse, val language: LanguageCode)
+
 data class ProcessedFoodNameConfirmResponse(
     val analysisId: String,
     val state: ProcessedFoodNameScanState,

@@ -19,6 +19,7 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -89,11 +90,23 @@ class ProcessedFoodTranslationService(
 
     fun prewarmFeatured(languages: List<LanguageCode>): Int {
         if (!prewarming.compareAndSet(false, true)) {
-            log.info("가공식품 대표 상품 미리 번역이 이미 도는 중이라 건너뜁니다 languages={}", languages.map { it.code })
+            log.info("가공식품 대표 상품 미리 번역이 이 태스크에서 이미 도는 중이라 건너뜁니다 languages={}", languages.map { it.code })
             return 0
         }
         try {
-            return prewarmFeaturedOnce(languages)
+            val owner = UUID.randomUUID().toString()
+            val locked = runCatching { redis.opsForValue().setIfAbsent(PREWARM_LOCK_KEY, owner, PREWARM_LOCK_TTL) == true }
+                .onFailure { log.warn("가공식품 미리 번역 공유 락을 잡지 못해 건너뜁니다", it) }
+                .getOrDefault(false)
+            if (!locked) {
+                log.info("가공식품 대표 상품 미리 번역이 다른 태스크에서 도는 중이라 건너뜁니다 languages={}", languages.map { it.code })
+                return 0
+            }
+            try {
+                return prewarmFeaturedOnce(languages)
+            } finally {
+                runCatching { if (redis.opsForValue().get(PREWARM_LOCK_KEY) == owner) redis.delete(PREWARM_LOCK_KEY) }
+            }
         } finally {
             prewarming.set(false)
         }
@@ -195,7 +208,7 @@ class ProcessedFoodTranslationService(
     private fun brandNameOf(maker: String): String? {
         val key = ProcessedFoodSnapshot.normalizeName(maker).lowercase()
         return brandNames.keys
-            .flatMap { brand -> featuredCatalog.makerAliases(brand).map { alias -> brand to alias } }
+            .flatMap { brand -> (featuredCatalog.makerAliases(brand) + ProcessedFoodSnapshot.normalizeName(brand).lowercase()).map { alias -> brand to alias } }
             .filter { (_, alias) -> alias.isNotEmpty() && alias in key }
             .maxByOrNull { (_, alias) -> alias.length }
             ?.let { (brand, _) -> brandNames[brand] }
@@ -240,6 +253,8 @@ class ProcessedFoodTranslationService(
         private const val FOREGROUND_THREADS = 4
         private const val FOREGROUND_QUEUE = 50
         private const val BUDGET_KEY_PREFIX = "pf-translate:"
+        private const val PREWARM_LOCK_KEY = "pf-translate:prewarm"
+        private val PREWARM_LOCK_TTL = Duration.ofHours(2)
         private val BUDGET_KEY_TTL = Duration.ofDays(2)
         private const val IDLE_WAIT_NANOS = 10_000_000_000L
         private const val IDLE_POLL_MILLIS = 50L
