@@ -177,6 +177,22 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 ProcessedFoodJudge.judge(null, "원유 85.5%, 설탕 1.2%", avoiding(IngredientCode.MILK)).avoidMatches.single().evidence shouldContain "원유"
             }
         }
+        `when`("확정 원재료와 혼입 문구가 한 문장에 쉼표로 붙어 있으면 — Codex P1") {
+            then("혼입 표지가 있는 쉼표 조각만 혼입이고 앞 조각은 확정 원재료다(애매하면 AVOID 쪽)") {
+                val raw = "소맥분, 설탕, 우유 함유 가능"
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+            then("같은 제조시설 문장은 쉼표로 나누지 않고 통째로 혼입이다") {
+                ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 제조시설에서 제조하고 있습니다.", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+        }
+        `when`("확정 근거 없이 혼입 문장만 있고 내 회피와 겹치지 않으면 — Codex P1") {
+            then("밀이 없다는 근거가 아니므로 SAFE 가 아니라 null 이다") {
+                ProcessedFoodJudge.judge("땅콩 혼입 가능", null, avoiding(IngredientCode.WHEAT)).verdict shouldBe null
+                ProcessedFoodJudge.judge("땅콩 혼입 가능", null, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+        }
         `when`("원재료와 알레르기 표시가 둘 다 없으면") {
             then("회원이어도 판정하지 않는다(null) — 근거 없는 SAFE 를 내지 않는다") {
                 listOf(null to null, "알수없음" to " ", null to "알수없음", "알수없음" to "정보없음", "미표시" to "모름").forEach { (allergens, raw) ->
