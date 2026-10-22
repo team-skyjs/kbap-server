@@ -38,8 +38,8 @@ class ProcessedFoodService(
     private fun listPage(type: ProcessedFoodType?, offset: Int, size: Int, lastMirror: LocalDateTime?, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
         val catalog = featuredCatalog.productsByPriority()
         val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
+            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
         val featured = catalog.mapNotNull { product -> representativeOf(product, named)?.let { it to product } }
-            .filter { (row, _) -> type == null || ProcessedFoodType.of(row.foodType) == type }
             .distinctBy { it.first.id }
         val featuredIds = featured.map { it.first.id }.toSet()
         val featuredGroups = featured.map { (row, _) -> ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker()) }.toSet()
