@@ -11,8 +11,6 @@ import java.time.LocalDateTime
 interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Long> {
     fun findByTargetTypeAndTargetIdAndLanguage(targetType: TranslationTargetType, targetId: Long, language: String): ContentTranslation?
 
-    fun countByTargetTypeInAndUpdatedAtGreaterThanEqual(targetTypes: Collection<TranslationTargetType>, since: LocalDateTime): Long
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         nativeQuery = true,

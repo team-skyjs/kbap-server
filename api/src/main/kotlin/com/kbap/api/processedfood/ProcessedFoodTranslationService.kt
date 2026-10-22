@@ -11,20 +11,24 @@ import com.kbap.common.port.llm.TextTranslator
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.Semaphore
-
-data class ProcessedFoodTexts(val name: String, val maker: String?, val ingredients: String?, val allergens: String?)
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class ProcessedFoodTranslationService(
@@ -32,20 +36,19 @@ class ProcessedFoodTranslationService(
     private val translatorProvider: ObjectProvider<TextTranslator>,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
     private val products: ProcessedFoodProductJpaRepository,
+    private val redis: StringRedisTemplate,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.processed-food.translation.daily-budget-krw:5000}") var dailyBudgetKrw: Double,
     @Value("\${kbap.processed-food.translation.estimated-krw-per-call:0.4}") private val estimatedKrwPerCall: Double,
-    @Value("\${kbap.processed-food.translation.max-concurrent-engine-calls:2}") maxConcurrentEngineCalls: Int,
+    @Value("\${kbap.processed-food.translation.sync-deadline-ms:3000}") var syncDeadlineMillis: Long,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
     private val writeTransaction = TransactionTemplate(transactionManager)
-    private val enginePermits = Semaphore(maxConcurrentEngineCalls)
-    private val background = ThreadPoolExecutor(
-        BACKGROUND_THREADS, BACKGROUND_THREADS, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue(BACKGROUND_QUEUE),
-        { Thread(it, "pf-translation").apply { isDaemon = true } },
-    )
-    private val inFlight = ConcurrentHashMap.newKeySet<String>()
+    private val background = executor("pf-translation", BACKGROUND_THREADS, BACKGROUND_QUEUE)
+    private val foreground = executor("pf-translation-sync", FOREGROUND_THREADS, FOREGROUND_QUEUE)
+    private val inFlight = ConcurrentHashMap<String, CompletableFuture<String?>>()
+    private val engineCalls = AtomicInteger()
     private val brandNames: Map<String, String> =
         requireNotNull(javaClass.getResourceAsStream("/processed-food/maker-names.tsv")) { "maker-names.tsv" }
             .bufferedReader(Charsets.UTF_8).readLines()
@@ -53,34 +56,29 @@ class ProcessedFoodTranslationService(
             .map { it.split('\t') }
             .associate { it[0].trim() to it[1].trim() }
 
-    fun localizeDetail(detail: ProcessedFoodDetailResponse, language: LanguageCode): ProcessedFoodDetailResponse {
+    fun localizeDetail(detail: ProcessedFoodDetailResponse, language: LanguageCode, member: Boolean): ProcessedFoodDetailResponse {
         if (language == LanguageCode.KO) return detail
-        val texts = textsOf(detail.id, detail.productName, detail.maker, detail.ingredients?.original, detail.allergenStatement?.original, language, waitForEngine = true)
+        val deadline = if (member) System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(syncDeadlineMillis) else null
+        val name = request(TranslationTargetType.PF_NAME, detail.id, detail.productName, language, deadline != null)
+        val maker = detail.maker?.let { if (brandNameOf(it) != null) null else request(TranslationTargetType.PF_MAKER, detail.id, it, language, deadline != null) }
+        val ingredients = request(TranslationTargetType.PF_INGREDIENTS, detail.id, detail.ingredients?.original, language, sync = false)
+        val allergens = request(TranslationTargetType.PF_ALLERGENS, detail.id, detail.allergenStatement?.original, language, sync = false)
         return detail.copy(
-            name = texts.name,
-            maker = texts.maker,
-            ingredients = detail.ingredients?.let { it.copy(translated = texts.ingredients ?: it.original) },
-            allergenStatement = detail.allergenStatement?.let { it.copy(translated = texts.allergens ?: it.original) },
+            name = name.await(deadline) ?: detail.productName,
+            maker = detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
+            ingredients = detail.ingredients?.let { it.copy(translated = ingredients.await(null) ?: it.original) },
+            allergenStatement = detail.allergenStatement?.let { it.copy(translated = allergens.await(null) ?: it.original) },
         )
     }
 
     fun localizeSummaries(items: List<ProcessedFoodSummaryResponse>, language: LanguageCode): List<ProcessedFoodSummaryResponse> {
         if (language == LanguageCode.KO) return items
         return items.map { item ->
-            val texts = textsOf(item.id, item.productName, item.maker, null, null, language, waitForEngine = false)
-            item.copy(name = texts.name, maker = texts.maker)
+            item.copy(
+                name = request(TranslationTargetType.PF_NAME, item.id, item.productName, language, sync = false).await(null) ?: item.productName,
+                maker = item.maker?.let { brandNameOf(it) ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false).await(null) ?: it },
+            )
         }
-    }
-
-    private fun textsOf(productId: Long, name: String, maker: String?, ingredients: String?, allergens: String?, language: LanguageCode, waitForEngine: Boolean): ProcessedFoodTexts {
-        fun field(type: TranslationTargetType, source: String?): String? =
-            source?.takeIf { it.isNotBlank() }?.let { translated(type, productId, it, language, waitForEngine) ?: it }
-        return ProcessedFoodTexts(
-            name = field(TranslationTargetType.PF_NAME, name) ?: name,
-            maker = maker?.let { brandNameOf(it) ?: field(TranslationTargetType.PF_MAKER, it) },
-            ingredients = field(TranslationTargetType.PF_INGREDIENTS, ingredients),
-            allergens = field(TranslationTargetType.PF_ALLERGENS, allergens),
-        )
     }
 
     fun prewarmFeatured(languages: List<LanguageCode>): Int {
@@ -88,18 +86,18 @@ class ProcessedFoodTranslationService(
         val rows = readTransaction.execute { products.findAllByNormalizedNameIn(names) }!!
             .groupBy { it.normalizedName }.values
             .map { group -> group.maxWith(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id })) }
-        val before = countEngineCallsToday()
+        val before = engineCalls.get()
         languages.filter { it != LanguageCode.KO }.forEach { language ->
             rows.forEach { row ->
-                textsOf(
-                    row.id, row.productName, row.displayMaker(),
-                    row.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided),
-                    row.allergens?.takeUnless(IngredientLabelReader::isNotProvided),
-                    language, waitForEngine = true,
-                )
+                listOf(
+                    TranslationTargetType.PF_NAME to row.productName,
+                    TranslationTargetType.PF_MAKER to row.displayMaker()?.takeIf { brandNameOf(it) == null },
+                    TranslationTargetType.PF_INGREDIENTS to row.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided),
+                    TranslationTargetType.PF_ALLERGENS to row.allergens?.takeUnless(IngredientLabelReader::isNotProvided),
+                ).forEach { (type, source) -> source?.takeIf { it.isNotBlank() }?.let { cachedOrNull(type, row.id, it, language) ?: translateAndStore(type, row.id, it, hashOf(it), language) } }
             }
         }
-        val translated = (countEngineCallsToday() - before).toInt()
+        val translated = engineCalls.get() - before
         log.info("가공식품 대표 상품 미리 번역 완료 languages={} products={} translated={}", languages.map { it.code }, rows.size, translated)
         return translated
     }
@@ -113,6 +111,66 @@ class ProcessedFoodTranslationService(
         while (inFlight.isNotEmpty() && System.nanoTime() < deadline) Thread.sleep(IDLE_POLL_MILLIS)
     }
 
+    private sealed interface Pending
+    private data class Ready(val text: String?) : Pending
+    private data class Running(val future: CompletableFuture<String?>?) : Pending
+
+    private fun Pending?.await(deadline: Long?): String? = when (this) {
+        null -> null
+        is Ready -> text
+        is Running -> if (future == null || deadline == null) null else try {
+            future.get((deadline - System.nanoTime()).coerceAtLeast(0), TimeUnit.NANOSECONDS)
+        } catch (e: TimeoutException) {
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun request(type: TranslationTargetType, productId: Long, source: String?, language: LanguageCode, sync: Boolean): Pending? {
+        if (source.isNullOrBlank()) return null
+        val hash = hashOf(source)
+        val cached = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) }
+        if (cached != null && cached.sourceHash == hash) {
+            if (cached.translatedText.isNotBlank()) return Ready(cached.translatedText)
+            if (!cached.updatedAt.isBefore(LocalDate.now().atStartOfDay())) return Ready(null)
+        }
+        val key = "${type.name}:$productId:${language.code}"
+        inFlight[key]?.let { return Running(it) }
+        val future = CompletableFuture<String?>()
+        if (inFlight.putIfAbsent(key, future) != null) return Running(inFlight[key])
+        try {
+            (if (sync) foreground else background).execute {
+                try {
+                    future.complete(translateAndStore(type, productId, source, hash, language))
+                } catch (e: RuntimeException) {
+                    future.complete(null)
+                } finally {
+                    inFlight.remove(key, future)
+                }
+            }
+        } catch (e: RejectedExecutionException) {
+            inFlight.remove(key, future)
+            return Running(null)
+        }
+        return Running(future)
+    }
+
+    private fun cachedOrNull(type: TranslationTargetType, productId: Long, source: String, language: LanguageCode): String? {
+        val cached = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) }
+        return cached?.takeIf { it.sourceHash == hashOf(source) && (it.translatedText.isNotBlank() || !it.updatedAt.isBefore(LocalDate.now().atStartOfDay())) }?.translatedText
+    }
+
+    private fun withinBudget(): Boolean = try {
+        val key = BUDGET_KEY_PREFIX + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
+        val attempts = redis.opsForValue().increment(key) ?: return false
+        if (attempts == 1L) redis.expire(key, BUDGET_KEY_TTL)
+        attempts * estimatedKrwPerCall <= dailyBudgetKrw
+    } catch (e: RuntimeException) {
+        log.warn("가공식품 번역 일일 상한 계수 실패 — 번역하지 않고 원문으로 둔다", e)
+        false
+    }
+
     private fun brandNameOf(maker: String): String? {
         val key = ProcessedFoodSnapshot.normalizeName(maker).lowercase()
         return brandNames.keys
@@ -122,47 +180,18 @@ class ProcessedFoodTranslationService(
             ?.let { (brand, _) -> brandNames[brand] }
     }
 
-    private fun translated(type: TranslationTargetType, productId: Long, source: String, language: LanguageCode, waitForEngine: Boolean): String? {
-        val hash = hashOf(source)
-        val cached = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) }
-        if (cached != null && cached.sourceHash == hash) {
-            if (cached.translatedText.isNotBlank()) return cached.translatedText
-            if (!cached.updatedAt.isBefore(LocalDate.now().atStartOfDay())) return null
-        }
-        if (!waitForEngine) {
-            val key = "${type.name}:$productId:${language.code}"
-            if (inFlight.add(key)) {
-                try {
-                    background.execute {
-                        try {
-                            translateAndStore(type, productId, source, hash, language)
-                        } finally {
-                            inFlight.remove(key)
-                        }
-                    }
-                } catch (e: RejectedExecutionException) {
-                    inFlight.remove(key)
-                }
-            }
-            return null
-        }
-        return translateAndStore(type, productId, source, hash, language)
-    }
-
     private fun translateAndStore(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): String? {
-        if (countEngineCallsToday() * estimatedKrwPerCall + estimatedKrwPerCall > dailyBudgetKrw) {
+        val translator = translatorProvider.getIfAvailable() ?: return null
+        if (!withinBudget()) {
             log.warn("가공식품 번역 일일 상한(₩{})에 닿아 원문으로 둔다 — type={}, productId={}, language={}", dailyBudgetKrw, type, productId, language.code)
             return null
         }
-        val translator = translatorProvider.getIfAvailable() ?: return null
-        if (!enginePermits.tryAcquire()) return null
+        engineCalls.incrementAndGet()
         val text = try {
             translator.translate(source, language).text.trim()
         } catch (e: RuntimeException) {
             log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
             ""
-        } finally {
-            enginePermits.release()
         }
         val usable = text.takeIf { it.isNotEmpty() && it.length <= MAX_TRANSLATED_LENGTH }
         runCatching {
@@ -171,8 +200,10 @@ class ProcessedFoodTranslationService(
         return usable
     }
 
-    private fun countEngineCallsToday(): Long =
-        readTransaction.execute { translations.countByTargetTypeInAndUpdatedAtGreaterThanEqual(PRODUCT_TYPES, LocalDate.now().atStartOfDay()) }!!
+    private fun executor(name: String, threads: Int, queue: Int): ExecutorService = ThreadPoolExecutor(
+        threads, threads, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue(queue),
+        { Thread(it, name).apply { isDaemon = true } },
+    )
 
     private fun hashOf(source: String): String =
         MessageDigest.getInstance("SHA-256").digest("$CACHE_VERSION\n$source".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
@@ -184,8 +215,11 @@ class ProcessedFoodTranslationService(
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500
+        private const val FOREGROUND_THREADS = 4
+        private const val FOREGROUND_QUEUE = 50
+        private const val BUDGET_KEY_PREFIX = "pf-translate:"
+        private val BUDGET_KEY_TTL = Duration.ofDays(2)
         private const val IDLE_WAIT_NANOS = 10_000_000_000L
         private const val IDLE_POLL_MILLIS = 50L
-        private val PRODUCT_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER, TranslationTargetType.PF_INGREDIENTS, TranslationTargetType.PF_ALLERGENS)
     }
 }

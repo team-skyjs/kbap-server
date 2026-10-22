@@ -40,7 +40,7 @@ class ProcessedFoodController(
         @RequestParam(required = false) lang: String?,
     ): ResponseEntity<BaseResponse<ProcessedFoodDetailResponse>> =
         ResponseEntity.ok(
-            BaseResponse.ok(translationService.localizeDetail(processedFoodService.getProcessedFoodDetail(id, memberId), ProcessedFoodTranslationService.languageOf(lang))),
+            BaseResponse.ok(translationService.localizeDetail(processedFoodService.getProcessedFoodDetail(id, memberId), ProcessedFoodTranslationService.languageOf(lang), member = memberId != null)),
         )
 }
 
