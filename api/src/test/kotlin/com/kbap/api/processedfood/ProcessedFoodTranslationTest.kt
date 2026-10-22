@@ -322,6 +322,43 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     translations.prewarmFeatured(listOf(LanguageCode.EN)) shouldBe 3
                 }
             }
+            `when`("제조사 이름 안에 짧은 브랜드 정식 이름(hy)이 들어 있으면 — Codex P2(#463 vQJaF)") {
+                then("정식 이름은 제조사 전체와 같을 때만 사전 표기로 쓰고, 부분 일치는 LLM 번역이다") {
+                    val token = member()
+                    val healthy = seed("TR-H1", "건강과자", "Healthy Foods", null, null)
+                    get("/api/processed-foods/$healthy?lang=en", token).path("maker").asText() shouldBe "[en] Healthy Foods"
+                    val daesang = seed("TR-H2", "대상과자2", "(주)대상", null, null)
+                    get("/api/processed-foods/$daesang?lang=en", token).path("maker").asText() shouldBe "Daesang"
+                }
+            }
+            `when`("미리 번역이 오래 걸리면 — Codex P2(#463 vQJaM)") {
+                then("소유한 공유 락의 만료를 처리 중 연장한다") {
+                    seed("TR-R1", "빙그레 바나나맛 우유", "㈜빙그레", null, null)
+                    seed("TR-R2", "신라면", "㈜농심", null, null)
+                    val ttls = mutableListOf<Long>()
+                    translator.reply = { text, target ->
+                        if (ttls.isEmpty()) redis.expire("pf-translate:prewarm", java.time.Duration.ofSeconds(5))
+                        ttls += redis.getExpire("pf-translate:prewarm")
+                        "[${target.code}] $text"
+                    }
+
+                    translations.prewarmFeatured(listOf(LanguageCode.EN)) shouldBe 2
+                    (ttls.last() > 3600) shouldBe true
+                }
+                then("다른 태스크가 가져간 락은 끝날 때 지우지 않는다") {
+                    seed("TR-R3", "빙그레 바나나맛 우유", "㈜빙그레", null, null)
+                    translator.reply = { text, target ->
+                        redis.opsForValue().set("pf-translate:prewarm", "other-task")
+                        "[${target.code}] $text"
+                    }
+                    try {
+                        translations.prewarmFeatured(listOf(LanguageCode.EN))
+                        redis.opsForValue().get("pf-translate:prewarm") shouldBe "other-task"
+                    } finally {
+                        redis.delete("pf-translate:prewarm")
+                    }
+                }
+            }
             `when`("목록을 영어로 보면") {
                 then("저장된 번역만 쓰고(없으면 원문) 빠진 번역은 뒤에서 채워 다음 요청부터 번역이 보인다") {
                     seed("TR-7", "목록과자", "㈜동네식품", "밀가루", null)
