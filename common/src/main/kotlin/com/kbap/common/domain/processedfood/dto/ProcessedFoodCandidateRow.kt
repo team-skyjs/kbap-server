@@ -9,4 +9,5 @@ interface ProcessedFoodCandidateRow {
     val seller: String?
     val makerSupplement: String?
     val lastSeenAt: LocalDateTime
+    val source: String
 }

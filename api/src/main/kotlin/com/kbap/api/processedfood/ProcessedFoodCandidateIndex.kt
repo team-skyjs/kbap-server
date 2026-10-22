@@ -2,6 +2,7 @@ package com.kbap.api.processedfood
 
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.dto.ProcessedFoodCandidateRow
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -21,7 +22,7 @@ class ProcessedFoodCandidateIndex(
     fun nameCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int): List<Long> {
         val key = keyword.lowercase()
         return fresh().entries.asSequence()
-            .filter { !it.lastSeenAt.isBefore(seenSince) && key in it.name }
+            .filter { it.isAvailableSince(seenSince) && key in it.name }
             .sortedWith(compareBy<Entry>({ it.name != key }, { !it.name.startsWith(key) }, { it.nameLength }, { it.id }))
             .take(limit)
             .map { it.id }
@@ -31,7 +32,7 @@ class ProcessedFoodCandidateIndex(
     fun makerCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int): List<Long> {
         val key = keyword.lowercase()
         return fresh().entries.asSequence()
-            .filter { !it.lastSeenAt.isBefore(seenSince) && it.makers.any { maker -> key in maker } }
+            .filter { it.isAvailableSince(seenSince) && it.makers.any { maker -> key in maker } }
             .sortedWith(compareBy<Entry>({ it.nameLength }, { it.id }))
             .take(limit)
             .map { it.id }
@@ -72,10 +73,20 @@ class ProcessedFoodCandidateIndex(
             nameLength = row.normalizedName.codePointCount(0, row.normalizedName.length),
             makers = (raw + raw.map { it.replace(MAKER_NOISE, "") }).distinct(),
             lastSeenAt = row.lastSeenAt,
+            tracksDiscontinuation = ProcessedFoodProduct.tracksDiscontinuation(row.source),
         )
     }
 
-    private data class Entry(val id: Long, val name: String, val nameLength: Int, val makers: List<String>, val lastSeenAt: LocalDateTime)
+    private data class Entry(
+        val id: Long,
+        val name: String,
+        val nameLength: Int,
+        val makers: List<String>,
+        val lastSeenAt: LocalDateTime,
+        val tracksDiscontinuation: Boolean,
+    ) {
+        fun isAvailableSince(seenSince: LocalDateTime): Boolean = !tracksDiscontinuation || !lastSeenAt.isBefore(seenSince)
+    }
 
     private data class Snapshot(val entries: List<Entry>, val fingerprint: String?, val checkedAt: Long)
 

@@ -98,7 +98,7 @@ data class ProcessedFoodDetailResponse(
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
                 unmapped = reading.unmappedTokens,
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
-                source = ProcessedFoodSourceResponse(product.source, "processedFood.source.haccp", product.collectedAt),
+                source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
                 image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
                 reviewSummary = ProcessedFoodReviewSummaryResponse(rating?.reviewCount ?: 0, rating?.average),
             )
@@ -135,9 +135,9 @@ data class ProcessedFoodAvoidanceResponse(
 )
 
 data class ProcessedFoodSourceResponse(
-    @field:Schema(description = "데이터 출처", example = "HACCP")
+    @field:Schema(description = "데이터 출처 — HACCP(식품안전정보원 HACCP 제품정보) 또는 C002(식약처 품목제조보고)", example = "HACCP", allowableValues = ["HACCP", "C002"])
     val provider: String,
-    @field:Schema(description = "출처 고지 문구 키 — 앱이 언어별 문구로 바꾼다", example = "processedFood.source.haccp")
+    @field:Schema(description = "출처 고지 문구 키 — 앱이 언어별 문구로 바꾼다. processedFood.source.haccp 또는 processedFood.source.c002", example = "processedFood.source.haccp")
     val attributionKey: String,
     @field:Schema(description = "이 제품을 처음 수집한 시각. 원본 내용 변경 시각은 아직 기록하지 않아 내려가지 않는다(미러 확인 시각을 갱신일로 보이지 않기 위해)")
     val collectedAt: LocalDateTime,

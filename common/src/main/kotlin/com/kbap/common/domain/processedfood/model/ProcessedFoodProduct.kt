@@ -116,7 +116,7 @@ class ProcessedFoodProduct(
         listOf(manufacturer, seller, makerSupplement).firstNotNullOfOrNull(::companyNameOf)
 
     fun isDiscontinued(lastCompletedMirrorAt: LocalDateTime?): Boolean =
-        lastCompletedMirrorAt != null && lastSeenAt.isBefore(lastCompletedMirrorAt.minus(DISCONTINUED_AFTER))
+        tracksDiscontinuation(source) && lastCompletedMirrorAt != null && lastSeenAt.isBefore(lastCompletedMirrorAt.minus(DISCONTINUED_AFTER))
 
     companion object {
         val DISCONTINUED_AFTER: Duration = Duration.ofDays(3)
@@ -135,6 +135,9 @@ class ProcessedFoodProduct(
             return name.replace(TRAILING_NOISE, "").takeIf { it.isNotEmpty() }
         }
         const val SOURCE_HACCP = "HACCP"
+        const val SOURCE_C002 = "C002"
+
+        fun tracksDiscontinuation(source: String): Boolean = source == SOURCE_HACCP
         const val REPORT_NO_LENGTH = 20
         const val NAME_LENGTH = 200
         const val PRODUCT_GB_LENGTH = 20
@@ -150,9 +153,10 @@ class ProcessedFoodProduct(
         fun secureImageUrl(url: String?): String? =
             url?.let { HACCP_HTTP.replaceFirst(it, "https://") }
 
-        fun collect(snapshot: ProcessedFoodSnapshot, collectedAt: LocalDateTime): ProcessedFoodProduct =
+        fun collect(snapshot: ProcessedFoodSnapshot, collectedAt: LocalDateTime, source: String = SOURCE_HACCP): ProcessedFoodProduct =
             ProcessedFoodProduct(
                 reportNo = snapshot.reportNo,
+                source = source,
                 contentHash = snapshot.contentHash(),
                 collectedAt = collectedAt,
                 lastSeenAt = collectedAt,
