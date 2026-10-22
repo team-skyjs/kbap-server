@@ -237,6 +237,10 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
                 ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
+            then("알레르기 칸에서 수식어 하나가 목록 전체에 걸리면 목록 전체가 혼입이다 — Codex P1(#457)") {
+                ProcessedFoodJudge.judge("땅콩, 대두 함유 가능", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, "소맥분, 설탕, 우유 함유 가능", avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+            }
             then("알레르기 칸의 시설 문장은 통째로 혼입이다") {
                 ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
