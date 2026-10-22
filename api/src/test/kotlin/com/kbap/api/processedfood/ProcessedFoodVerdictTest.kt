@@ -105,6 +105,16 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                     judgement.mayContainMatches.map { it.code } shouldBe listOf(IngredientCode.PEANUT)
                 }
             }
+            then("서술형('함유하고·함유되어') 뒤는 경계라 앞의 알레르기 표시는 AVOID 다 — 공부 2R") {
+                listOf(
+                    "우유를 함유하고 있으며 땅콩 혼입 가능",
+                    "우유가 함유되어 있으며, 같은 제조시설에서 땅콩을 사용한 제품을 제조합니다",
+                ).forEach { allergens ->
+                    val judgement = ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.MILK, IngredientCode.PEANUT))
+                    judgement.verdict shouldBe ProcessedFoodVerdict.AVOID
+                    judgement.avoidMatches.map { it.code } shouldBe listOf(IngredientCode.MILK)
+                }
+            }
             then("'함유된·함유될·함유 가능'은 경계가 아니라 혼입 문장 그대로다") {
                 listOf(
                     "이 제품은 우유가 함유된 제품과 같은 시설에서 제조합니다",
@@ -117,8 +127,11 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
         }
         `when`("시즈닝·조미료·양념·믹스·베이스가 원재료로 나오면 — 공부 1R") {
             then("괄호 하위 원재료 없이 단독일 때만 내용 불명이다") {
-                ProcessedFoodJudge.judge(null, "감자, 바베큐시즈닝, 양념(간장, 설탕), 조미료, 핫케이크믹스, 수프베이스(사골, 정제소금)", null).unclearIngredients shouldBe
-                    listOf("바베큐시즈닝", "조미료", "핫케이크믹스")
+                ProcessedFoodJudge.judge(null, "감자, 바베큐시즈닝, 양념(간장, 설탕), 조미료, 믹스, 수프베이스(사골, 정제소금)", null).unclearIngredients shouldBe
+                    listOf("바베큐시즈닝", "조미료", "믹스")
+            }
+            then("베이스·믹스는 항목 전체가 그 낱말일 때만이다 — 토마토베이스·견과믹스처럼 원료가 드러나면 아니다(공부 2R)") {
+                ProcessedFoodJudge.judge(null, "토마토베이스, 견과믹스, 베이스, 핫케이크믹스", null).unclearIngredients shouldBe listOf("베이스")
             }
         }
         `when`("원재료 없이 알레르기 표시가 혼입 문장뿐이면 — Codex P1") {
