@@ -1,6 +1,7 @@
 package com.kbap.api.translation
 
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import com.kbap.common.port.llm.TextTranslator
 import com.kbap.common.port.llm.TranslatedText
 import org.springframework.context.annotation.Bean
@@ -8,7 +9,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.concurrent.CopyOnWriteArrayList
 
-class FakeTextTranslator : TextTranslator {
+class FakeTextTranslator : TextTranslator, ProcessedFoodTextTranslator {
     val calls: MutableList<Pair<String, LanguageCode>> = CopyOnWriteArrayList()
     val transactionActiveDuringCalls: MutableList<Boolean> = CopyOnWriteArrayList()
 

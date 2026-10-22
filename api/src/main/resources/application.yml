@@ -175,6 +175,16 @@ kbap:
       pricing:
         input-usd-per-million-tokens: 0.2
         output-usd-per-million-tokens: 1.2
+    processed-food-translation:
+      enabled: true
+      api-key: ${OPENAI_API_KEY:}
+      model: ${PROCESSED_FOOD_TRANSLATION_MODEL:gpt-5-nano}
+      reasoning-effort: minimal
+      max-retries: 0
+      timeout: 12s
+      pricing:
+        input-usd-per-million-tokens: 0.05
+        output-usd-per-million-tokens: 0.4
     # 음식 이미지 배치 생성(KB-226): OpenAI Batch API 일괄 제출 + 3시간 주기(하루 8회) 폴링 회수. 빈 조립은 무조건이고
     # 키 검증은 첫 호출 시점 — 키 없이는 관리자 제출·회수만 실패하고 부팅은 성공한다.
     # pricing 은 Batch 단가(동기 대비 50% 할인가)를 넣는다 — 회수 시 장당 llm_call_cost 1행 기록.
