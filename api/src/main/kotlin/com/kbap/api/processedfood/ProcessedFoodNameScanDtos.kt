@@ -40,8 +40,6 @@ data class ProcessedFoodNameScanResponse(
 )
 
 @Schema(description = "가공식품 이름 스캔 확정 결과")
-data class ProcessedFoodNameConfirmation(val response: ProcessedFoodNameConfirmResponse, val language: LanguageCode)
-
 data class ProcessedFoodNameConfirmResponse(
     val analysisId: String,
     val state: ProcessedFoodNameScanState,
@@ -50,3 +48,5 @@ data class ProcessedFoodNameConfirmResponse(
     @field:Schema(description = "확정 품목 상세(가공식품 상세와 같은 응답). REJECTED 면 null", nullable = true)
     val product: ProcessedFoodDetailResponse?,
 )
+
+data class ProcessedFoodNameConfirmation(val response: ProcessedFoodNameConfirmResponse, val language: LanguageCode)

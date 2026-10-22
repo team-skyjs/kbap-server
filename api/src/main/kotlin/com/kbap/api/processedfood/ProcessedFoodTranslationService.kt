@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -103,20 +104,26 @@ class ProcessedFoodTranslationService(
                 return 0
             }
             try {
-                return prewarmFeaturedOnce(languages)
+                return prewarmFeaturedOnce(languages) {
+                    runCatching { redis.execute(RENEW_IF_OWNER, listOf(PREWARM_LOCK_KEY), owner, PREWARM_LOCK_TTL.toMillis().toString()) == 1L }.getOrDefault(false)
+                }
             } finally {
-                runCatching { if (redis.opsForValue().get(PREWARM_LOCK_KEY) == owner) redis.delete(PREWARM_LOCK_KEY) }
+                runCatching { redis.execute(DELETE_IF_OWNER, listOf(PREWARM_LOCK_KEY), owner) }
             }
         } finally {
             prewarming.set(false)
         }
     }
 
-    private fun prewarmFeaturedOnce(languages: List<LanguageCode>): Int {
+    private fun prewarmFeaturedOnce(languages: List<LanguageCode>, stillOwned: () -> Boolean): Int {
         val rows = processedFoodService.getFeaturedProducts()
         val before = engineCalls.get()
         languages.filter { it != LanguageCode.KO }.forEach { language ->
             rows.forEach { row ->
+                if (!stillOwned()) {
+                    log.warn("가공식품 미리 번역 공유 락을 잃어 멈춥니다 languages={}", languages.map { it.code })
+                    return engineCalls.get() - before
+                }
                 listOf(
                     TranslationTargetType.PF_NAME to row.productName,
                     TranslationTargetType.PF_MAKER to row.displayMaker()?.takeIf { brandNameOf(it) == null },
@@ -207,8 +214,9 @@ class ProcessedFoodTranslationService(
 
     private fun brandNameOf(maker: String): String? {
         val key = ProcessedFoodSnapshot.normalizeName(maker).lowercase()
+        brandNames.keys.firstOrNull { ProcessedFoodSnapshot.normalizeName(it).lowercase() == key }?.let { return brandNames[it] }
         return brandNames.keys
-            .flatMap { brand -> (featuredCatalog.makerAliases(brand) + ProcessedFoodSnapshot.normalizeName(brand).lowercase()).map { alias -> brand to alias } }
+            .flatMap { brand -> featuredCatalog.makerAliases(brand).map { alias -> brand to alias } }
             .filter { (_, alias) -> alias.isNotEmpty() && alias in key }
             .maxByOrNull { (_, alias) -> alias.length }
             ?.let { (brand, _) -> brandNames[brand] }
@@ -255,6 +263,14 @@ class ProcessedFoodTranslationService(
         private const val BUDGET_KEY_PREFIX = "pf-translate:"
         private const val PREWARM_LOCK_KEY = "pf-translate:prewarm"
         private val PREWARM_LOCK_TTL = Duration.ofHours(2)
+        private val RENEW_IF_OWNER = DefaultRedisScript(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('PEXPIRE', KEYS[1], ARGV[2]) else return 0 end",
+            Long::class.java,
+        )
+        private val DELETE_IF_OWNER = DefaultRedisScript(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+            Long::class.java,
+        )
         private val BUDGET_KEY_TTL = Duration.ofDays(2)
         private const val IDLE_WAIT_NANOS = 10_000_000_000L
         private const val IDLE_POLL_MILLIS = 50L
