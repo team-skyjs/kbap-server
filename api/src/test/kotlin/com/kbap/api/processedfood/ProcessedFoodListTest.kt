@@ -182,6 +182,13 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     reportNos(list("?query=꿀호떡&type=SNACKS")) shouldBe listOf("QT-2")
                 }
             }
+            `when`("대표 상품의 최신 행이 요청 유형과 다르면 — Codex P2") {
+                then("요청 유형의 행으로 대표 상품을 골라 결과가 비지 않는다") {
+                    seed("FR-RAMEN", "신라면", "㈜농심", "유탕면류", seenHoursAgo = 5)
+                    seed("FR-OTHER", "신라면", "㈜농심", "기타가공품", seenHoursAgo = 1)
+                    reportNos(list("?query=신라면&type=RAMEN")) shouldBe listOf("FR-RAMEN")
+                }
+            }
             `when`("검색어에 맞는 다른 유형 제품이 후보 상한(300)보다 많으면 — Codex P1") {
                 then("유형을 색인 단계에서 먼저 걸러 그 유형 제품이 나온다") {
                     (1..301).forEach { seed("CP-%03d".format(it), "공통과자%03d".format(it), "㈜스낵", "과자") }
