@@ -13,6 +13,7 @@ data class ProcessedFoodLabelText(
         private val WHITESPACE = Regex("[ \\t\\u00A0]+")
         private val MAY_CONTAIN = Regex("(같은|동일한)\\s*(제조\\s*)?(시설|공정)|(같은|동일한)\\s*(생산\\s*)?(라인|설비|장소)|혼입|함유\\s*가능|함유(될|할)\\s*수|포함될\\s*수|들어\\s*있을\\s*수|섞일\\s*수")
         private val FACILITY = Regex("(같은|동일한)\\s*(제조\\s*)?(시설|공정)|(같은|동일한)\\s*(생산\\s*)?(라인|설비|장소)|사용한\\s*제품|제품과")
+        private val CLAUSE_OPENER = Regex("(이|본|해당)\\s*제품|제품은")
         private val DECLARATION_END = Regex("함유\\s*[.)。]?\\s*$")
         private val SENTENCE_BREAK = Regex("(?<=함유)\\s*[.,。]\\s*|(?<=함유)(?![.,。]|\\s*(된|될|할|하는|되는|가능|량))\\s*|(?<=[^\\d][.。!?])(?!\\d)\\s*|(?<=습니다|합니다|있음)\\s+|\\s+(?=원재료|알레르기|이\\s*제품은)|\\s*(?=[※*])")
 
@@ -33,9 +34,19 @@ data class ProcessedFoodLabelText(
                 when {
                     !MAY_CONTAIN.containsMatchIn(sentence) -> definite += sentence
                     FACILITY.containsMatchIn(sentence) && !splitsFacility(sentence) -> mayContain += sentence
+                    FACILITY.containsMatchIn(sentence) -> {
+                        val segments = sentence.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                        val opener = segments.indexOfFirst { CLAUSE_OPENER.containsMatchIn(it) }
+                        val (leading, warning) = if (opener >= 0) {
+                            segments.take(opener) to segments.drop(opener)
+                        } else {
+                            segments.partition { !(MAY_CONTAIN.containsMatchIn(it) || FACILITY.containsMatchIn(it)) }
+                        }
+                        mayContain += warning.joinToString(", ")
+                        if (leading.isNotEmpty()) definite += leading.joinToString(", ")
+                    }
                     else -> {
-                        val (marked, plain) = sentence.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-                            .partition { MAY_CONTAIN.containsMatchIn(it) || FACILITY.containsMatchIn(it) }
+                        val (marked, plain) = sentence.split(',').map { it.trim() }.filter { it.isNotEmpty() }.partition { MAY_CONTAIN.containsMatchIn(it) }
                         mayContain += marked.joinToString(", ")
                         if (plain.isNotEmpty()) definite += plain.joinToString(", ")
                     }
