@@ -199,6 +199,15 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
                     scan(member(85834L), "SrcafA\n바나나맛\n우유").path("candidates")[0].path("reportNo").asText() shouldBe "BM-2"
                 }
             }
+            `when`("팔도비빔면 봉지와 컵이 함께 있으면 — S-853") {
+                then("'팔도비빔면'은 봉지(순창고추장 팔도비빔면), '팔도비빔면컵'은 컵이 1위다") {
+                    seed("PB-BAG", "순창고추장 팔도비빔면", "팔도 이천공장F1:경기도 이천시 부발읍 중부대로 1655", seenHoursAgo = 1)
+                    seed("PB-CUP", "팔도비빔면컵", "㈜팔도/본사:서울특별시", seenHoursAgo = 1)
+
+                    scan(member(85861L), "팔도\n팔도비빔면\n130g").path("candidates")[0].path("reportNo").asText() shouldBe "PB-BAG"
+                    scan(member(85862L), "팔도\n팔도비빔면컵\n115g").path("candidates")[0].path("reportNo").asText() shouldBe "PB-CUP"
+                }
+            }
             `when`("다른 제조사의 같은 이름 제품이 있으면 — 공부 3R") {
                 then("대표 상품 칸은 카탈로그 제조사 행이고, 다른 제조사 행은 후보에 따로 남는다") {
                     seed("KK-1", "꿀꽈배기", "㈜농심", seenHoursAgo = 10)

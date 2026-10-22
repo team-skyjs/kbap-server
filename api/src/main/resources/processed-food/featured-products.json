@@ -463,15 +463,22 @@
       "priority": 45
     },
     {
-      "name": "팔도비빔면컵",
+      "name": "순창고추장팔도비빔면",
       "maker": "팔도",
       "aliases": [
         "팔도비빔면",
-        "비빔면",
-        "bibimmen",
-        "bibimmyeon"
+        "비빔면"
       ],
       "priority": 46
+    },
+    {
+      "name": "팔도비빔면컵",
+      "maker": "팔도",
+      "aliases": [
+        "팔도비빔면컵",
+        "비빔면컵"
+      ],
+      "priority": 47
     },
     {
       "name": "불닭볶음탕면",
@@ -481,7 +488,7 @@
         "볶음탕면",
         "buldakstew"
       ],
-      "priority": 47
+      "priority": 48
     },
     {
       "name": "메로나",
@@ -491,7 +498,7 @@
         "melona",
         "melonbar"
       ],
-      "priority": 48
+      "priority": 49
     },
     {
       "name": "감자깡",
@@ -501,7 +508,7 @@
         "potatokkang",
         "gamjakkang"
       ],
-      "priority": 49
+      "priority": 50
     },
     {
       "name": "고구마깡",
@@ -511,7 +518,7 @@
         "sweetpotatosnack",
         "gogumakkang"
       ],
-      "priority": 50
+      "priority": 51
     },
     {
       "name": "양파링ORIGINAL",
@@ -521,7 +528,7 @@
         "onionring",
         "onionrings"
       ],
-      "priority": 51
+      "priority": 52
     },
     {
       "name": "꽃게랑",
@@ -531,7 +538,7 @@
         "kkotgerang",
         "crabsnack"
       ],
-      "priority": 52
+      "priority": 53
     },
     {
       "name": "해태맛동산",
@@ -541,7 +548,7 @@
         "matdongsan",
         "해태맛동"
       ],
-      "priority": 53
+      "priority": 54
     },
     {
       "name": "꼬깔콘고소한맛",
@@ -551,7 +558,7 @@
         "kkokkalcorn",
         "꼬깔콘고소한맛"
       ],
-      "priority": 54
+      "priority": 55
     },
     {
       "name": "포스틱",
@@ -561,7 +568,7 @@
         "postick",
         "potatostick"
       ],
-      "priority": 55
+      "priority": 56
     },
     {
       "name": "고래밥볶음양념맛",
@@ -571,7 +578,7 @@
         "gorebab",
         "whalesnack"
       ],
-      "priority": 56
+      "priority": 57
     },
     {
       "name": "초코송이",
@@ -581,7 +588,7 @@
         "chocosongi",
         "chocomushroom"
       ],
-      "priority": 57
+      "priority": 58
     },
     {
       "name": "다이제",
@@ -591,7 +598,7 @@
         "diget",
         "digestive"
       ],
-      "priority": 58
+      "priority": 59
     },
     {
       "name": "칙촉",
@@ -601,7 +608,7 @@
         "chicchoc",
         "chikchok"
       ],
-      "priority": 59
+      "priority": 60
     },
     {
       "name": "마가렛트",
@@ -611,7 +618,7 @@
         "margaret",
         "lottemargaret"
       ],
-      "priority": 60
+      "priority": 61
     },
     {
       "name": "카스타드",
@@ -621,7 +628,7 @@
         "custard",
         "lottecustard"
       ],
-      "priority": 61
+      "priority": 62
     },
     {
       "name": "오예스",
@@ -631,7 +638,7 @@
         "ohyes",
         "오예"
       ],
-      "priority": 62
+      "priority": 63
     },
     {
       "name": "에이스",
@@ -641,7 +648,7 @@
         "acecracker",
         "haitaiace"
       ],
-      "priority": 63
+      "priority": 64
     },
     {
       "name": "참크래커",
@@ -651,7 +658,7 @@
         "chamcracker",
         "crowncracker"
       ],
-      "priority": 64
+      "priority": 65
     },
     {
       "name": "버터와플",
@@ -661,7 +668,7 @@
         "butterwaffle",
         "crownbutterwaffle"
       ],
-      "priority": 65
+      "priority": 66
     },
     {
       "name": "빠다코코낫",
@@ -671,7 +678,7 @@
         "buttercoconut",
         "빠다코코넛"
       ],
-      "priority": 66
+      "priority": 67
     },
     {
       "name": "후렌치파이딸기",
@@ -681,7 +688,7 @@
         "frenchpie",
         "후렌치파이딸"
       ],
-      "priority": 67
+      "priority": 68
     },
     {
       "name": "빈츠",
@@ -691,7 +698,7 @@
         "vinch",
         "lottevinch"
       ],
-      "priority": 68
+      "priority": 69
     },
     {
       "name": "가나밀크",
@@ -702,7 +709,7 @@
         "ghanamilk",
         "가나초콜릿"
       ],
-      "priority": 69
+      "priority": 70
     },
     {
       "name": "크런키",
@@ -712,7 +719,7 @@
         "crunky",
         "crunkychocolate"
       ],
-      "priority": 70
+      "priority": 71
     },
     {
       "name": "자유시간",
@@ -722,7 +729,7 @@
         "freetime",
         "jayusigan"
       ],
-      "priority": 71
+      "priority": 72
     },
     {
       "name": "핫브레이크",
@@ -732,7 +739,7 @@
         "hotbreak",
         "핫브"
       ],
-      "priority": 72
+      "priority": 73
     },
     {
       "name": "새콤달콤딸기",
@@ -742,7 +749,7 @@
         "saekomdalkom",
         "새콤달콤딸기"
       ],
-      "priority": 73
+      "priority": 74
     },
     {
       "name": "왕꿈틀이",
@@ -752,7 +759,7 @@
         "꿈틀이",
         "wangkkumteuri"
       ],
-      "priority": 74
+      "priority": 75
     },
     {
       "name": "자일리톨오리지날",
@@ -762,7 +769,7 @@
         "xylitol",
         "자일리톨오리지날"
       ],
-      "priority": 75
+      "priority": 76
     },
     {
       "name": "죠리퐁",
@@ -772,7 +779,7 @@
         "jolipong",
         "joripong"
       ],
-      "priority": 76
+      "priority": 77
     },
     {
       "name": "사또밥",
@@ -782,7 +789,7 @@
         "sattobap",
         "satto"
       ],
-      "priority": 77
+      "priority": 78
     },
     {
       "name": "예감",
@@ -792,7 +799,7 @@
         "yegam",
         "orionyegam"
       ],
-      "priority": 78
+      "priority": 79
     },
     {
       "name": "포테토칩",
@@ -802,7 +809,7 @@
         "potatochip",
         "nongshimpotatochip"
       ],
-      "priority": 79
+      "priority": 80
     },
     {
       "name": "리얼브라우니",
@@ -813,7 +820,7 @@
         "realbrownie",
         "marketo"
       ],
-      "priority": 80
+      "priority": 81
     },
     {
       "name": "해태아이비",
@@ -823,7 +830,7 @@
         "해태아이비",
         "haitaiivy"
       ],
-      "priority": 81
+      "priority": 82
     },
     {
       "name": "포카리스웨트",
@@ -834,7 +841,7 @@
         "pocarisweat",
         "pocari"
       ],
-      "priority": 82
+      "priority": 83
     },
     {
       "name": "해태갈아만든배",
@@ -844,7 +851,7 @@
         "갈배",
         "crushedpear"
       ],
-      "priority": 83
+      "priority": 84
     },
     {
       "name": "비락식혜",
@@ -855,7 +862,7 @@
         "sikhye",
         "vilac"
       ],
-      "priority": 84
+      "priority": 85
     },
     {
       "name": "아침햇살",
@@ -865,7 +872,7 @@
         "morningrice",
         "achimhaessal"
       ],
-      "priority": 85
+      "priority": 86
     },
     {
       "name": "칠성사이다",
@@ -875,7 +882,7 @@
         "chilsungcider",
         "chilsung"
       ],
-      "priority": 86
+      "priority": 87
     },
     {
       "name": "맥콜",
@@ -885,7 +892,7 @@
         "mccol",
         "mccoll"
       ],
-      "priority": 87
+      "priority": 88
     },
     {
       "name": "맥심카누라떼",
@@ -896,7 +903,7 @@
         "kanu",
         "kanulatte"
       ],
-      "priority": 88
+      "priority": 89
     },
     {
       "name": "초코에몽",
@@ -906,7 +913,7 @@
         "chocoemong",
         "에몽"
       ],
-      "priority": 89
+      "priority": 90
     },
     {
       "name": "투게더",
@@ -916,7 +923,7 @@
         "together",
         "bingraetogether"
       ],
-      "priority": 90
+      "priority": 91
     },
     {
       "name": "참붕어싸만코",
@@ -926,7 +933,7 @@
         "붕어싸만코",
         "samanco"
       ],
-      "priority": 91
+      "priority": 92
     },
     {
       "name": "바밤바",
@@ -936,7 +943,7 @@
         "babamba",
         "bambam"
       ],
-      "priority": 92
+      "priority": 93
     },
     {
       "name": "빠삐코",
@@ -946,7 +953,7 @@
         "papico",
         "papicoice"
       ],
-      "priority": 93
+      "priority": 94
     },
     {
       "name": "지도표성경김",
@@ -957,7 +964,7 @@
         "seaweed",
         "seasonedlaver"
       ],
-      "priority": 94
+      "priority": 95
     },
     {
       "name": "양반더바삭한양반김",
@@ -967,7 +974,7 @@
         "yangban",
         "seasonedseaweed"
       ],
-      "priority": 95
+      "priority": 96
     },
     {
       "name": "비비고김스낵",
@@ -978,7 +985,7 @@
         "bibigo",
         "seaweedsnack"
       ],
-      "priority": 96
+      "priority": 97
     },
     {
       "name": "해찬들알찬고추장그린",
@@ -989,7 +996,7 @@
         "haechandle",
         "gochujang"
       ],
-      "priority": 97
+      "priority": 98
     },
     {
       "name": "청정원태양초고추장",
@@ -999,7 +1006,7 @@
         "chungjungone",
         "gochujang"
       ],
-      "priority": 98
+      "priority": 99
     },
     {
       "name": "햇반",
@@ -1009,7 +1016,7 @@
         "hetbahn",
         "cookedrice"
       ],
-      "priority": 99
+      "priority": 100
     },
     {
       "name": "스팸클래식",
@@ -1019,7 +1026,7 @@
         "spam",
         "스팸클래식"
       ],
-      "priority": 100
+      "priority": 101
     },
     {
       "name": "아몬드빼빼로",
@@ -1029,7 +1036,7 @@
         "almondpepero",
         "아몬드빼"
       ],
-      "priority": 101
+      "priority": 102
     }
   ],
   "makers": [
