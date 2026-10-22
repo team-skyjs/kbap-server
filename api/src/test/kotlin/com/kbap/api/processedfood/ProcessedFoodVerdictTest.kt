@@ -37,12 +37,20 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 judgement.mayContainMatches.single().evidence shouldBe listOf("이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다")
             }
         }
-        `when`("향료가 들어 있고 회피 재료와 무관하면") {
-            then("SAFE_WITH_NOTE 이고 내용 불명 원재료를 준다") {
+        `when`("향료만 들어 있고 회피 재료와 무관하면 — R-116") {
+            then("향료는 내용 불명으로 보지 않아 SAFE 다") {
                 val judgement = ProcessedFoodJudge.judge(bananaMilkAllergens, bananaMilkRaw, avoiding(IngredientCode.SHRIMP))
 
+                judgement.verdict shouldBe ProcessedFoodVerdict.SAFE
+                judgement.unclearIngredients.shouldBeEmpty()
+            }
+        }
+        `when`("혼합제제가 들어 있고 회피 재료와 무관하면") {
+            then("SAFE_WITH_NOTE 이고 내용 불명 원재료를 준다") {
+                val judgement = ProcessedFoodJudge.judge(null, "소맥분(밀), 설탕, 혼합제제(유화제), 합성향료", avoiding(IngredientCode.SHRIMP))
+
                 judgement.verdict shouldBe ProcessedFoodVerdict.SAFE_WITH_NOTE
-                judgement.unclearIngredients shouldBe listOf("합성향료")
+                judgement.unclearIngredients shouldBe listOf("혼합제제")
             }
         }
         `when`("회피 재료도 내용 불명 원재료도 없으면") {

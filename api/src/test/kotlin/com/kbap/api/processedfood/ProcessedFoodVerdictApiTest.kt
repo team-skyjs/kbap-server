@@ -74,7 +74,7 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     val mine = get("/api/processed-foods/$id", member(86601L, "MILK"))
                     mine.path("verdict").asText() shouldBe "AVOID"
                     mine.path("avoidMatches")[0].path("code").asText() shouldBe "MILK"
-                    mine.path("unclearIngredients").map { it.asText() } shouldBe listOf("합성향료")
+                    mine.path("unclearIngredients").size() shouldBe 0
                     mine.path("unmapped").size() shouldBe 0
                     mine.path("detections").map { it.path("code").asText() } shouldBe listOf("MILK")
 
