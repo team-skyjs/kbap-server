@@ -169,6 +169,14 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("마침표 뒤에 띄어쓰기 없이 혼입 문장이 붙으면 — Codex P1") {
+            then("마침표를 문장 경계로 보아 앞 원재료는 AVOID 근거이고, 소수점은 자르지 않는다") {
+                val raw = "우유, 설탕.이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다"
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, "원유 85.5%, 설탕 1.2%", avoiding(IngredientCode.MILK)).avoidMatches.single().evidence shouldContain "원유"
+            }
+        }
         `when`("원재료와 알레르기 표시가 둘 다 없으면") {
             then("회원이어도 판정하지 않는다(null) — 근거 없는 SAFE 를 내지 않는다") {
                 listOf(null to null, "알수없음" to " ", null to "알수없음", "알수없음" to "정보없음", "미표시" to "모름").forEach { (allergens, raw) ->

@@ -87,7 +87,7 @@ class ProcessedFoodLabelScanService(
     private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean): ProcessedFoodLabelScanResponse {
         val mayContain = text.mayContain?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
         val avoidance = memberService.getAvoidance(memberId)
-        val judgement = ProcessedFoodJudge.judge(reading, mayContain, text.rawMaterials, avoidance)
+        val judgement = ProcessedFoodJudge.judge(reading, mayContain, withoutHeadings(text.rawMaterials).ifBlank { null }, avoidance)
         return ProcessedFoodLabelScanResponse(
             analysisId = key.toString(),
             state = ProcessedFoodNameScanState.LABEL_RESULT,

@@ -2,6 +2,7 @@ package com.kbap.api.processedfood
 
 import com.kbap.common.domain.ingredient.label.AllergenDeclaration
 import com.kbap.common.domain.ingredient.label.IngredientLabelMatch
+import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.ingredient.label.IngredientLabelReading
 import com.kbap.common.domain.ingredient.label.IngredientLabelSource
 import com.kbap.common.domain.ingredient.model.Avoidance
@@ -115,8 +116,9 @@ data class ProcessedFoodDetailResponse(
     val majorAllergens: List<IngredientCode>,
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, reading: IngredientLabelReading, avoidance: Avoidance?, rating: ProcessedFoodRatingAggregate?): ProcessedFoodDetailResponse {
+        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, rating: ProcessedFoodRatingAggregate?): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
+            val reading = judgement.reading
             return ProcessedFoodDetailResponse(
                 id = product.id,
                 reportNo = product.reportNo,
@@ -128,7 +130,7 @@ data class ProcessedFoodDetailResponse(
                 allergens = product.allergens,
                 labelSource = when {
                     reading.declaration == AllergenDeclaration.LISTED -> ProcessedFoodLabelSource.DECLARED
-                    !product.rawMaterials.isNullOrBlank() -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
+                    !IngredientLabelReader.isRawNotProvided(product.rawMaterials) -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
                     else -> ProcessedFoodLabelSource.NONE
                 },
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },

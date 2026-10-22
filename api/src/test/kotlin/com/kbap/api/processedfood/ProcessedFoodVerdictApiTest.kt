@@ -83,6 +83,23 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     guest.path("majorAllergens").map { it.asText() } shouldBe listOf("MILK")
                 }
             }
+            `when`("알레르기 표시에 혼입 문장이 섞인 제품 상세를 땅콩 회피 회원이 보면 — Codex P1(#458)") {
+                then("검출·회피 대조·주요 알레르기도 판정과 같은 분리 판독을 써서 땅콩이 검출로 나오지 않는다") {
+                    val id = seed("VD-3", "땅콩공장 쿠키", "밀 함유. 이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다.", "소맥분(밀), 설탕")
+
+                    val p = get("/api/processed-foods/$id", member(86605L, "PEANUT"))
+                    p.path("verdict").asText() shouldBe "CAUTION"
+                    p.path("detections").map { it.path("code").asText() } shouldBe listOf("WHEAT")
+                    p.path("avoidance")[0].path("match").asText() shouldBe "UNCONFIRMED"
+                    p.path("majorAllergens").map { it.asText() } shouldBe listOf("WHEAT")
+                }
+            }
+            `when`("원재료가 자리표시값이고 알레르기 표시도 없으면 — Codex P2(#458)") {
+                then("labelSource 는 NONE 이다") {
+                    val id = seed("VD-4", "모르는 과자", null, "알수없음")
+                    get("/api/processed-foods/$id").path("labelSource").asText() shouldBe "NONE"
+                }
+            }
             `when`("땅콩 회피 회원이 목록과 이름 스캔 후보를 보면") {
                 then("항목마다 판정이 붙고 비회원 목록은 판정이 null 이다") {
                     seed("VD-2", "땅콩공장 크래커", "밀, 대두 함유. 이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다.", "소맥분(밀), 대두유, 설탕")
@@ -112,6 +129,21 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     result.path("verdict").asText() shouldBe "CAUTION"
                     result.path("mayContainMatches")[0].path("code").asText() shouldBe "PEANUT"
                     result.path("unmapped").size() shouldBe 0
+                }
+            }
+            `when`("성분표 원재료 줄이 머리말 + 자리표시값뿐이면 — Codex P1") {
+                then("머리말을 뗀 값으로 판정해 의무 알레르기 밖 회피(마늘)에 SAFE 를 내지 않는다") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "원재료명: 알수없음\n알레르기 유발물질: 밀, 대두 함유")),
+                            "lang" to "ko",
+                        ),
+                        member(86604L, "GARLIC"),
+                    )
+                    result.path("verdict").isNull shouldBe true
                 }
             }
         }
