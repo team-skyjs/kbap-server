@@ -25,8 +25,9 @@ class ProcessedFoodController(
     @GetMapping(version = ApiVersions.PROCESSED_FOOD + "+")
     override fun search(
         @Valid @ModelAttribute request: ProcessedFoodSearchRequest,
+        @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<SearchPage<ProcessedFoodSummaryResponse>>> =
-        ResponseEntity.ok(BaseResponse.ok(processedFoodService.searchProcessedFoodPage(request.query, request.cursor, request.size)))
+        ResponseEntity.ok(BaseResponse.ok(processedFoodService.searchProcessedFoodPage(request.query, request.cursor, request.size, memberId)))
 
     @GetMapping("/{id}", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun detail(
