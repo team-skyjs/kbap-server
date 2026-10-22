@@ -44,6 +44,7 @@ object ProcessedFoodJudge {
     private val SUB_INGREDIENTS = Regex("""[(\[{]""")
     private val majorParents: Map<IngredientCode, Set<IngredientCode>> =
         IngredientLabelReader.mandatoryAllergenCodes().associateWith { major -> setOf(major) + (major.impliedCodes - IngredientCode.GELATIN) }
+    private val majorFamily: Set<IngredientCode> = majorParents.values.flatten().toSet()
     private const val CONTAINS = "contains"
     private const val STANDALONE = "standalone"
     private const val WHOLE = "whole"
@@ -58,9 +59,10 @@ object ProcessedFoodJudge {
 
     fun judge(contained: IngredientLabelReading, mayContain: List<IngredientLabelDetection>, rawMaterials: String?, avoidance: Avoidance?): ProcessedFoodJudgement {
         val unclear = unclearIn(rawMaterials)
+        val rawUnknown = IngredientLabelReader.isRawNotProvided(rawMaterials)
         val detected = contained.detections.map { it.code }.toSet()
         val majorAllergens = majorParents.filterValues { family -> family.any { it in detected } }.keys.sortedBy { it.ordinal }
-        val readable = contained.detections.isNotEmpty() || mayContain.isNotEmpty() || !IngredientLabelReader.isNotProvided(rawMaterials) || contained.declaration == AllergenDeclaration.LISTED
+        val readable = contained.detections.isNotEmpty() || mayContain.isNotEmpty() || !rawUnknown || contained.declaration == AllergenDeclaration.LISTED
         if (avoidance == null || avoidance.chosen.isEmpty() || !readable) {
             return ProcessedFoodJudgement(null, emptyList(), emptyList(), unclear, majorAllergens)
         }
@@ -70,6 +72,7 @@ object ProcessedFoodJudge {
         val verdict = when {
             avoidMatches.isNotEmpty() -> ProcessedFoodVerdict.AVOID
             mayContainMatches.isNotEmpty() -> ProcessedFoodVerdict.CAUTION
+            rawUnknown && !avoidance.codes.all { it in majorFamily } -> null
             unclear.isNotEmpty() -> ProcessedFoodVerdict.SAFE_WITH_NOTE
             else -> ProcessedFoodVerdict.SAFE
         }

@@ -5,6 +5,8 @@ import java.text.Normalizer
 
 object IngredientLabelReader {
     private val NOT_PROVIDED = setOf("알수없음", "정보없음", "미표시", "모름")
+    private val RAW_NOT_PROVIDED = setOf("알수없음", "정보없음", "미표시", "모름", "해당없음", "없음", "미기재", "표시없음", "na")
+    private val RAW_PLACEHOLDER_NOISE = Regex("""[\s\p{P}]""")
     private val NOISE = Regex("""\d+(\.\d+)?\s*%|함유\s*가능|함유|(?<!불)포함""")
     private val SEPARATORS = Regex("""[^\p{L}\p{N}\p{Zs}%.]+|[\u1100-\u11FF\u3131-\u318Eー]+|(?<!\d)\.|\.(?!\d)""")
     private val SPACES = Regex("""\s+""")
@@ -32,10 +34,13 @@ object IngredientLabelReader {
 
     fun isNotProvided(text: String?): Boolean = text.isNullOrBlank() || text.replace(SPACES, "") in NOT_PROVIDED
 
+    fun isRawNotProvided(text: String?): Boolean =
+        text.isNullOrBlank() || Normalizer.normalize(text, Normalizer.Form.NFKC).replace(RAW_PLACEHOLDER_NOISE, "").lowercase().let { it.isEmpty() || it in RAW_NOT_PROVIDED }
+
     fun read(allergens: String?, rawMaterials: String?): IngredientLabelReading {
         val declared = allergens?.let(::normalize)?.takeUnless(::isNotProvided)
         val fromAllergens = declared?.let { scan(it, splitSpaces = true) }.orEmpty()
-        val fromRaw = rawMaterials?.let { scan(normalize(it), splitSpaces = false) }.orEmpty()
+        val fromRaw = rawMaterials?.takeUnless(::isRawNotProvided)?.let { scan(normalize(it), splitSpaces = false) }.orEmpty()
         val detections = linkedMapOf<IngredientCode, IngredientLabelDetection>()
         fromAllergens.forEach { (token, codes) ->
             codes.forEach { detections.putIfAbsent(it, IngredientLabelDetection(it, IngredientLabelSource.ALLERGEN_DECLARATION, token)) }
