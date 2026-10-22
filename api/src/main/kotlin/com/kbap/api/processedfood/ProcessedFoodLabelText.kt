@@ -24,15 +24,18 @@ data class ProcessedFoodLabelText(
                 joined
             }
 
-        private fun partitionMayContain(sentences: List<String>): Pair<List<String>, List<String>> {
+        private fun isDeclaration(sentence: String): Boolean = "알레르기" in sentence || DECLARATION_END.containsMatchIn(sentence)
+
+        private fun partitionMayContain(sentences: List<String>, splitsFacility: (String) -> Boolean): Pair<List<String>, List<String>> {
             val definite = mutableListOf<String>()
             val mayContain = mutableListOf<String>()
             sentences.forEach { sentence ->
                 when {
                     !MAY_CONTAIN.containsMatchIn(sentence) -> definite += sentence
-                    FACILITY.containsMatchIn(sentence) -> mayContain += sentence
+                    FACILITY.containsMatchIn(sentence) && !splitsFacility(sentence) -> mayContain += sentence
                     else -> {
-                        val (marked, plain) = sentence.split(',').map { it.trim() }.filter { it.isNotEmpty() }.partition { MAY_CONTAIN.containsMatchIn(it) }
+                        val (marked, plain) = sentence.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                            .partition { MAY_CONTAIN.containsMatchIn(it) || FACILITY.containsMatchIn(it) }
                         mayContain += marked.joinToString(", ")
                         if (plain.isNotEmpty()) definite += plain.joinToString(", ")
                     }
@@ -41,10 +44,10 @@ data class ProcessedFoodLabelText(
             return definite to mayContain
         }
 
-        fun splitMayContain(text: String?): Pair<String?, String?> {
+        fun splitMayContain(text: String?, ingredientField: Boolean): Pair<String?, String?> {
             if (text.isNullOrBlank()) return text to null
             val sentences = Normalizer.normalize(text, Normalizer.Form.NFKC).split(SENTENCE_BREAK).map { it.trim() }.filter { it.isNotEmpty() }
-            val (rest, mayContain) = partitionMayContain(sentences)
+            val (rest, mayContain) = partitionMayContain(sentences) { ingredientField }
             if (mayContain.isEmpty()) return text to null
             return rest.joinToString("\n").ifEmpty { null } to mayContain.joinToString("\n")
         }
@@ -58,8 +61,8 @@ data class ProcessedFoodLabelText(
             }
             val lines = pageLines.flatten()
             val sentences = pageLines.flatMap(::joinListContinuations).flatMap { it.split(SENTENCE_BREAK) }.map { it.trim() }.filter { it.isNotEmpty() }
-            val (rest, mayContain) = partitionMayContain(sentences)
-            val (declaration, raw) = rest.partition { "알레르기" in it || DECLARATION_END.containsMatchIn(it) }
+            val (rest, mayContain) = partitionMayContain(sentences) { !isDeclaration(it) }
+            val (declaration, raw) = rest.partition(::isDeclaration)
             return ProcessedFoodLabelText(
                 rawText = lines.joinToString("\n"),
                 allergens = declaration.joinToString("\n").ifEmpty { null },
