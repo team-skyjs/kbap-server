@@ -183,8 +183,8 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
                 }
             }
             `when`("같은 제품이 '제조사+이름' 행으로도 있으면 — 공부 2R 요청 1") {
-                then("한 칸으로 묶인다") {
-                    seed("JR-1", "진라면 매운맛", "㈜오뚜기", seenHoursAgo = 1)
+                then("대표 상품 행의 DB 제조사가 '알수없음'이어도 한 칸으로 묶인다(fixture F05 형태)") {
+                    seed("JR-1", "진라면 매운맛", "알수없음", seenHoursAgo = 1)
                     seed("JR-3", "오뚜기 진라면 매운맛", "㈜오뚜기", seenHoursAgo = 5)
                     val candidates = reportNos(scan(member(85833L), "오뚜기\n진라면(매운맛)").path("candidates"))
                     candidates.first() shouldBe "JR-1"
