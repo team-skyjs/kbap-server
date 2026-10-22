@@ -18,7 +18,10 @@ import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.Semaphore
 
 data class ProcessedFoodTexts(val name: String, val maker: String?, val ingredients: String?, val allergens: String?)
@@ -38,7 +41,10 @@ class ProcessedFoodTranslationService(
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
     private val writeTransaction = TransactionTemplate(transactionManager)
     private val enginePermits = Semaphore(maxConcurrentEngineCalls)
-    private val background = Executors.newFixedThreadPool(BACKGROUND_THREADS) { Thread(it, "pf-translation").apply { isDaemon = true } }
+    private val background = ThreadPoolExecutor(
+        BACKGROUND_THREADS, BACKGROUND_THREADS, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue(BACKGROUND_QUEUE),
+        { Thread(it, "pf-translation").apply { isDaemon = true } },
+    )
     private val inFlight = ConcurrentHashMap.newKeySet<String>()
     private val brandNames: Map<String, String> =
         requireNotNull(javaClass.getResourceAsStream("/processed-food/maker-names.tsv")) { "maker-names.tsv" }
@@ -119,16 +125,23 @@ class ProcessedFoodTranslationService(
     private fun translated(type: TranslationTargetType, productId: Long, source: String, language: LanguageCode, waitForEngine: Boolean): String? {
         val hash = hashOf(source)
         val cached = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) }
-        if (cached != null && cached.sourceHash == hash) return cached.translatedText
+        if (cached != null && cached.sourceHash == hash) {
+            if (cached.translatedText.isNotBlank()) return cached.translatedText
+            if (!cached.updatedAt.isBefore(LocalDate.now().atStartOfDay())) return null
+        }
         if (!waitForEngine) {
             val key = "${type.name}:$productId:${language.code}"
             if (inFlight.add(key)) {
-                background.execute {
-                    try {
-                        translateAndStore(type, productId, source, hash, language)
-                    } finally {
-                        inFlight.remove(key)
+                try {
+                    background.execute {
+                        try {
+                            translateAndStore(type, productId, source, hash, language)
+                        } finally {
+                            inFlight.remove(key)
+                        }
                     }
+                } catch (e: RejectedExecutionException) {
+                    inFlight.remove(key)
                 }
             }
             return null
@@ -146,16 +159,16 @@ class ProcessedFoodTranslationService(
         val text = try {
             translator.translate(source, language).text.trim()
         } catch (e: RuntimeException) {
-            log.warn("가공식품 번역 실패 — 원문으로 둔다: type={}, productId={}, language={}", type, productId, language.code, e)
-            return null
+            log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
+            ""
         } finally {
             enginePermits.release()
         }
-        if (text.isEmpty() || text.length > MAX_TRANSLATED_LENGTH) return null
+        val usable = text.takeIf { it.isNotEmpty() && it.length <= MAX_TRANSLATED_LENGTH }
         runCatching {
-            writeTransaction.executeWithoutResult { translations.upsert(type.name, productId, language.code, hash, text, null, LocalDateTime.now()) }
+            writeTransaction.executeWithoutResult { translations.upsert(type.name, productId, language.code, hash, usable.orEmpty(), null, LocalDateTime.now()) }
         }.onFailure { log.warn("가공식품 번역 저장 실패 — 번역문은 돌려준다: type={}, productId={}, language={}", type, productId, language.code, it) }
-        return text
+        return usable
     }
 
     private fun countEngineCallsToday(): Long =
@@ -170,6 +183,7 @@ class ProcessedFoodTranslationService(
         const val CACHE_VERSION = "pf1"
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
+        private const val BACKGROUND_QUEUE = 500
         private const val IDLE_WAIT_NANOS = 10_000_000_000L
         private const val IDLE_POLL_MILLIS = 50L
         private val PRODUCT_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER, TranslationTargetType.PF_INGREDIENTS, TranslationTargetType.PF_ALLERGENS)
