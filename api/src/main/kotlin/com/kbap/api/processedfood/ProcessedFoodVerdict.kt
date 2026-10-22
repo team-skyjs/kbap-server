@@ -74,6 +74,7 @@ object ProcessedFoodJudge {
         val verdict = when {
             avoidMatches.isNotEmpty() -> ProcessedFoodVerdict.AVOID
             mayContainMatches.isNotEmpty() -> ProcessedFoodVerdict.CAUTION
+            rawUnknown && contained.declaration != AllergenDeclaration.LISTED -> null
             rawUnknown && !avoidance.codes.all { it in majorFamily } -> null
             unclear.isNotEmpty() -> ProcessedFoodVerdict.SAFE_WITH_NOTE
             else -> ProcessedFoodVerdict.SAFE
