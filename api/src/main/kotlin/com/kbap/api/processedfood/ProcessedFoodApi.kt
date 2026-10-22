@@ -17,9 +17,11 @@ import org.springframework.http.ResponseEntity
 @SecurityRequirement(name = "bearerAuth")
 interface ProcessedFoodApi {
     @Operation(
-        summary = "가공식품 검색 (3.2+)",
+        summary = "가공식품 목록·검색 (3.2+)",
         description = """
-            제품명·제조사로 가공식품을 찾는다. 비회원 사용 가능.
+            제품명·제조사로 가공식품을 찾는다. 비회원 사용 가능(회원 토큰이 있으면 항목마다 verdict).
+            - query 가 없거나 공백이면 목록: 대표 상품(카탈로그 priority 순) 먼저, 그다음 나머지(같은 제품 한 칸, id 순). 커서로 이어 받는다.
+            - type(유형 칩)을 주면 목록·검색 결과 모두 그 유형만 남긴다.
             - 질의는 공백으로 나눈 토큰마다 미러와 같은 정규화(공백·괄호·가운뎃점·'오리지널' 제거)를 한다.
             - 정렬(LLM 없음): 제품명 완전 일치 → 접두 → 포함 → (제품명이 맞는 결과가 하나도 없을 때만) 제조사만 일치. 같은 등급은 맞춘 토큰 수가 많은 순, 짧은 이름 순.
             - 생산종료(최근 미러 실행보다 3일 넘게 안 보인 제품)는 빠진다.
@@ -32,7 +34,7 @@ interface ProcessedFoodApi {
             ApiResponse(responseCode = "400", description = "검색어 누락·빈 값(FOOD-003), 커서 형식 불일치(FOOD-002), size 범위 밖"),
         ],
     )
-    @ApiErrors(ErrorCode.BLANK_SEARCH_KEYWORD, ErrorCode.INVALID_CURSOR)
+    @ApiErrors(ErrorCode.INVALID_CURSOR)
     fun search(@ParameterObject request: ProcessedFoodSearchRequest, memberId: Long?): ResponseEntity<BaseResponse<SearchPage<ProcessedFoodSummaryResponse>>>
 
     @Operation(

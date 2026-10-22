@@ -123,6 +123,9 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                     judgement.avoidMatches.map { it.code } shouldBe listOf(IngredientCode.MILK)
                 }
             }
+            then("'함유한 제품과 같은 제조시설'도 경계가 아니라 혼입 문장 그대로다 — Codex P2") {
+                ProcessedFoodJudge.judge("우유를 함유한 제품과 같은 제조시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
             then("'함유된·함유될·함유 가능'은 경계가 아니라 혼입 문장 그대로다") {
                 listOf(
                     "이 제품은 우유가 함유된 제품과 같은 시설에서 제조합니다",

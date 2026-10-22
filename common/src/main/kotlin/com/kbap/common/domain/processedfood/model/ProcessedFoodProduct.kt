@@ -121,8 +121,7 @@ class ProcessedFoodProduct(
         metaImageUrl = snapshot.metaImageUrl
     }
 
-    fun displayMaker(): String? =
-        listOf(manufacturer, seller, makerSupplement).firstNotNullOfOrNull(::companyNameOf)
+    fun displayMaker(): String? = displayMakerOf(manufacturer, seller, makerSupplement)
 
     fun isDiscontinued(lastCompletedMirrorAt: LocalDateTime?): Boolean =
         tracksDiscontinuation(source) && lastCompletedMirrorAt != null && lastSeenAt.isBefore(lastCompletedMirrorAt.minus(DISCONTINUED_AFTER))
@@ -134,6 +133,9 @@ class ProcessedFoodProduct(
         private val TRAILING_NOISE = Regex("""본사$|(?<=[가-힣])[A-Z0-9]+$""")
         private val FIRST_WORD_STOP = Regex("""\d|공장$|^본사$""")
         private val ADDRESS_WORD = Regex("""\d|공장$|^본사$|(특별시|광역시|특별자치시|특별자치도|[시도군구])$|^(서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)$""")
+
+        fun displayMakerOf(manufacturer: String?, seller: String?, makerSupplement: String?): String? =
+            listOf(manufacturer, seller, makerSupplement).firstNotNullOfOrNull(::companyNameOf)
 
         fun companyNameOf(raw: String?): String? {
             if (raw == null || ProcessedFoodSnapshot.isUnknownMaker(raw)) return null

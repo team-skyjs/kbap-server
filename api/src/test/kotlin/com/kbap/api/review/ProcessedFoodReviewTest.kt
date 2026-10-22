@@ -209,7 +209,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                 }
             }
             `when`("이름 스캔 후보 카드를 보면") {
-                then("리뷰를 집계하지 않으므로 reviewCount·avgRating 이 null 이다(0 으로 보이지 않게)") {
+                then("목록과 같이 리뷰를 묶음 집계해 reviewCount·avgRating·rating 이 실린다(KB-867, 디자인 16)") {
                     val productId = product("후보과자")
                     write(productId, member("pfr-cand-review"))
                     val candidate = json(
@@ -221,8 +221,9 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                         }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
                     ).path("payload").path("candidates")[0]
                     candidate.path("id").asLong() shouldBe productId
-                    candidate.path("reviewCount").isNull shouldBe true
-                    candidate.path("avgRating").isNull shouldBe true
+                    candidate.path("reviewCount").asLong() shouldBe 1
+                    candidate.path("avgRating").asDouble() shouldBe 4.0
+                    candidate.path("rating").path("count").asLong() shouldBe 1
                 }
             }
         }
