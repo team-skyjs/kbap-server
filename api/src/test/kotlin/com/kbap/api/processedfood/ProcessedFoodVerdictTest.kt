@@ -239,6 +239,14 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("알레르기 칸에서 혼입 문구 뒤에 여는 말 시설 경고가 이어지면 — Codex P2(#459 vM4Nk)") {
+            then("여는 말 앞 조각도 혼입 규칙을 거쳐 땅콩은 혼입(CAUTION)이지 확정이 아니다") {
+                val allergens = "알레르기 유발물질: 땅콩 혼입 가능, 본 제품은 대두를 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.SOY)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodLabelText.of(listOf(allergens)).mayContain.orEmpty().contains("땅콩 혼입 가능") shouldBe true
+            }
+        }
         `when`("'같은 제조설비'·'같은 제조라인'·'같은 제조장소' 문장이면 — Codex P2(#459 vG-R3)") {
             then("알레르기 칸이든 원재료 칸이든 혼입으로 보아 CAUTION 이다") {
                 listOf("같은 제조설비", "같은 제조라인", "동일한 제조 라인", "같은 제조장소").forEach { place ->
