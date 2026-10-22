@@ -174,6 +174,31 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("이름이 '…맛'으로 끝나는 대표 상품을 띄어 쓴 OCR 로 스캔하면 — 공부 2R 재발") {
+                then("그 맛의 대표 상품이 1위다") {
+                    seed("JR-1", "진라면 매운맛", "㈜오뚜기")
+                    seed("JR-2", "진라면 순한맛", "㈜오뚜기")
+                    scan(member(85831L), "진라면 순한맛").path("candidates")[0].path("reportNo").asText() shouldBe "JR-2"
+                    scan(member(85832L), "진라면 매운맛").path("candidates")[0].path("reportNo").asText() shouldBe "JR-1"
+                }
+            }
+            `when`("같은 제품이 '제조사+이름' 행으로도 있으면 — 공부 2R 요청 1") {
+                then("한 칸으로 묶인다") {
+                    seed("JR-1", "진라면 매운맛", "㈜오뚜기", seenHoursAgo = 1)
+                    seed("JR-3", "오뚜기 진라면 매운맛", "㈜오뚜기", seenHoursAgo = 5)
+                    val candidates = reportNos(scan(member(85833L), "오뚜기\n진라면(매운맛)").path("candidates"))
+                    candidates.first() shouldBe "JR-1"
+                    candidates.count { it == "JR-1" || it == "JR-3" } shouldBe 1
+                }
+            }
+            `when`("OCR 이 '바나나맛'/'우유'로 줄을 나눠 이름이 '우유'뿐인 행이 정확 일치하면 — 공부 2R 요청 2") {
+                then("대표 상품의 가장 긴 일치보다 짧은 정확 일치는 대표 상품 아래다") {
+                    seedBananaShelf()
+                    seed("MK-1", "우유", "서울우유협동조합")
+                    seed("MK-2", "우유", "㈜푸르밀")
+                    scan(member(85834L), "SrcafA\n바나나맛\n우유").path("candidates")[0].path("reportNo").asText() shouldBe "BM-2"
+                }
+            }
             `when`("두 글자 별칭이 다른 단어 속에만 있으면(불닭소스) — 공부") {
                 then("올리지 않는다") {
                     seed("FK-3", "불닭볶음면", "삼양식품㈜")
