@@ -60,7 +60,7 @@ object ProcessedFoodJudge {
         val unclear = unclearIn(rawMaterials)
         val detected = contained.detections.map { it.code }.toSet()
         val majorAllergens = majorParents.filterValues { family -> family.any { it in detected } }.keys.sortedBy { it.ordinal }
-        val readable = contained.detections.isNotEmpty() || mayContain.isNotEmpty() || !rawMaterials.isNullOrBlank() || contained.declaration == AllergenDeclaration.LISTED
+        val readable = contained.detections.isNotEmpty() || mayContain.isNotEmpty() || !IngredientLabelReader.isNotProvided(rawMaterials) || contained.declaration == AllergenDeclaration.LISTED
         if (avoidance == null || avoidance.chosen.isEmpty() || !readable) {
             return ProcessedFoodJudgement(null, emptyList(), emptyList(), unclear, majorAllergens)
         }
