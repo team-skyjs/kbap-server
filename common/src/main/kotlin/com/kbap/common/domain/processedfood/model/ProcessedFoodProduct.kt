@@ -66,7 +66,7 @@ class ProcessedFoodProduct(
     var metaImageUrl: String? = null,
 
     @Column(name = "source", nullable = false, length = 30)
-    val source: String = SOURCE_HACCP,
+    var source: String = SOURCE_HACCP,
 
     @Column(name = "content_hash", nullable = false, length = 64, columnDefinition = "char(64)")
     var contentHash: String = "",
@@ -77,6 +77,15 @@ class ProcessedFoodProduct(
     @Column(name = "last_seen_at", nullable = false)
     var lastSeenAt: LocalDateTime = LocalDateTime.MIN,
 ) : BaseEntity() {
+    fun promoteToHaccp(snapshot: ProcessedFoodSnapshot, seenAt: LocalDateTime) {
+        require(source == SOURCE_C002) { "C002 행만 HACCP 로 승격할 수 있습니다" }
+        require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 승격할 수 없습니다" }
+        source = SOURCE_HACCP
+        lastSeenAt = seenAt
+        copyFrom(snapshot)
+        contentHash = snapshot.contentHash()
+    }
+
     fun refresh(snapshot: ProcessedFoodSnapshot, seenAt: LocalDateTime): Boolean {
         require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 갱신할 수 없습니다" }
         lastSeenAt = seenAt

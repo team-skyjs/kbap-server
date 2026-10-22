@@ -97,19 +97,34 @@ class ProcessedFoodC002SeedTest : BehaviorSpec() {
             }
         }
 
-        given("HACCP 미러가 C002 행과 같은 품목보고번호를 가져오면(KB-859)") {
+        given("HACCP 미러가 C002 행과 같은 품목보고번호를 가져오면(KB-859 후속 — 예진 승인)") {
             `when`("미러링하면") {
-                then("덮어쓰지 않고 건너뛰어 C002 행 내용이 그대로다") {
+                then("HACCP 값으로 갱신하고 source 를 HACCP 로 승격해 사진·알레르기 표시가 생기고 생산종료 판정 대상이 된다") {
                     seed(listOf(angry)).seed()
                     val haccp = HaccpProduct(
-                        "20010549541161", "앵그리 짜파구리 HACCP", "식품", "유탕면", "유처리제품", "㈜농심_구미", "㈜농심_구미", null, "137g", "밀가루", "밀", "총 내용량", "http://img/1.jpg", null,
+                        "20010549541161", "앵그리 짜파구리 HACCP", "식품", "유탕면", "유처리제품", "㈜농심_구미", "㈜농심_구미", null, "137g", "밀가루", "밀, 대두 함유", "총 내용량", "http://img/1.jpg", null,
                     )
 
                     val summary = ProcessedFoodMirror(FakeSource(mapOf("유탕면" to listOf(haccp))), FakeLookup(emptyMap()), repository, TransactionTemplate(transactionManager), clock, emptyList(), 10, 0, counter = FakeCounter()).mirror()
 
-                    summary.sourceConflicts shouldBe 1
-                    summary.changed shouldBe 0
-                    rows("SELECT source, product_name, image_url FROM processed_food_product WHERE report_no = '20010549541161'") shouldBe listOf(listOf("C002", "앵그리짜파구리", null))
+                    summary.promotedFromC002 shouldBe 1
+                    summary.sourceConflicts shouldBe 0
+                    rows("SELECT source, product_name, image_url, allergens FROM processed_food_product WHERE report_no = '20010549541161'") shouldBe
+                        listOf(listOf("HACCP", "앵그리 짜파구리 HACCP", "http://img/1.jpg", "밀, 대두 함유"))
+                    val promoted = repository.findByReportNo("20010549541161")!!
+                    promoted.isDiscontinued(promoted.lastSeenAt.plusDays(4)) shouldBe true
+                }
+                then("다음 C002 적재는 승격된 행을 HACCP 행으로 보고 건드리지 않는다(반대 방향 금지)") {
+                    seed(listOf(angry)).seed()
+                    val haccp = HaccpProduct(
+                        "20010549541161", "앵그리 짜파구리 HACCP", "식품", "유탕면", "유처리제품", "㈜농심_구미", "㈜농심_구미", null, "137g", "밀가루", "밀, 대두 함유", "총 내용량", "http://img/1.jpg", null,
+                    )
+                    ProcessedFoodMirror(FakeSource(mapOf("유탕면" to listOf(haccp))), FakeLookup(emptyMap()), repository, TransactionTemplate(transactionManager), clock, emptyList(), 10, 0, counter = FakeCounter()).mirror()
+
+                    val again = seed(listOf(angry)).seed()
+
+                    again.haccpConflicts shouldBe listOf("20010549541161")
+                    rows("SELECT source, product_name FROM processed_food_product WHERE report_no = '20010549541161'") shouldBe listOf(listOf("HACCP", "앵그리 짜파구리 HACCP"))
                 }
             }
         }

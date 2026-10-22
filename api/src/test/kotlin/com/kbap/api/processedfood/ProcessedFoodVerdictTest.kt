@@ -37,12 +37,20 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 judgement.mayContainMatches.single().evidence shouldBe listOf("이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다")
             }
         }
-        `when`("향료가 들어 있고 회피 재료와 무관하면") {
-            then("SAFE_WITH_NOTE 이고 내용 불명 원재료를 준다") {
+        `when`("향료만 들어 있고 회피 재료와 무관하면 — R-116") {
+            then("향료는 내용 불명으로 보지 않아 SAFE 다") {
                 val judgement = ProcessedFoodJudge.judge(bananaMilkAllergens, bananaMilkRaw, avoiding(IngredientCode.SHRIMP))
 
+                judgement.verdict shouldBe ProcessedFoodVerdict.SAFE
+                judgement.unclearIngredients.shouldBeEmpty()
+            }
+        }
+        `when`("혼합제제가 들어 있고 회피 재료와 무관하면") {
+            then("SAFE_WITH_NOTE 이고 내용 불명 원재료를 준다") {
+                val judgement = ProcessedFoodJudge.judge(null, "소맥분(밀), 설탕, 혼합제제(유화제), 합성향료", avoiding(IngredientCode.SHRIMP))
+
                 judgement.verdict shouldBe ProcessedFoodVerdict.SAFE_WITH_NOTE
-                judgement.unclearIngredients shouldBe listOf("합성향료")
+                judgement.unclearIngredients shouldBe listOf("혼합제제")
             }
         }
         `when`("회피 재료도 내용 불명 원재료도 없으면") {
@@ -188,6 +196,116 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
             }
             then("같은 제조시설 문장은 쉼표로 나누지 않고 통째로 혼입이다") {
                 ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 제조시설에서 제조하고 있습니다.", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+        }
+        `when`("같은 라인·설비·장소에서 생산한다는 문장이면 — 공부 #457 참고") {
+            then("혼입 문장으로 보아 CAUTION 이고 문장 전체가 혼입이다") {
+                listOf(
+                    "이 제품은 땅콩, 대두를 사용한 제품과 같은 라인에서 생산합니다.",
+                    "땅콩을 사용한 제품과 같은 생산 설비에서 제조합니다.",
+                    "땅콩을 취급하는 같은 장소에서 생산합니다.",
+                ).forEach { allergens ->
+                    val judgement = ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.PEANUT, IngredientCode.SOY))
+                    judgement.verdict shouldBe ProcessedFoodVerdict.CAUTION
+                    judgement.avoidMatches.shouldBeEmpty()
+                }
+            }
+        }
+        `when`("원재료 칸에서 접두 없는 '제품은'이 쉼표 없이 시설 경고를 열면 — Codex P1(#459 vK9DG)") {
+            then("앞 원재료는 확정, 경고만 혼입이다") {
+                val raw = "소맥분(밀) 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+        }
+        `when`("원재료 칸에서 여는 말이 앞 낱말에 공백 없이 붙어 시설 경고를 열면 — Codex P1(#459, 세 번째 같은 계열)") {
+            then("여는 말이 시작하는 문자 위치에서 잘라 앞은 확정, 뒤만 혼입이다") {
+                val raw = "소맥분(밀)이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodLabelText.splitMayContain(raw, ingredientField = true) shouldBe
+                    ("소맥분(밀)" to "이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다")
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+            then("공백·쉼표·접두 변형이 한 규칙으로 같은 결과다") {
+                listOf(
+                    "소맥분(밀), 이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다",
+                    "소맥분(밀),이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다",
+                    "소맥분(밀) 본 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다",
+                    "소맥분(밀)본품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다",
+                    "소맥분(밀) 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다",
+                ).forEach { raw ->
+                    ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                    ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                }
+            }
+        }
+        `when`("여는 말 글자가 재료명 낱말 안에 있으면(유당·유제품) — 공부 #459 4a74c5ff") {
+            then("낱말 가운데를 자르지 않아 우유 회피가 SAFE 로 내려가지 않는다") {
+                listOf("설탕, 유당 제품은 땅콩과 같은 시설에서 제조", "설탕, 유제품은 땅콩과 같은 시설에서 제조").forEach { raw ->
+                    val verdict = ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict
+                    (verdict == ProcessedFoodVerdict.CAUTION || verdict == ProcessedFoodVerdict.AVOID) shouldBe true
+                }
+            }
+        }
+        `when`("성분표 스캔에서 원재료 뒤에 '이 제품은 … 함유' 표시가 공백으로 이어지면 — 공부 #459 4a74c5ff") {
+            then("develop 처럼 원재료와 알레르기 표시로 나눈다") {
+                val label = ProcessedFoodLabelText.of(listOf("원재료명: 밀가루, 마늘 이 제품은 우유, 대두를 함유"))
+                label.rawMaterials shouldBe "원재료명: 밀가루, 마늘"
+                label.allergens shouldBe "이 제품은 우유, 대두를 함유"
+            }
+        }
+        `when`("알레르기 칸에서 혼입 문구 뒤에 여는 말 시설 경고가 이어지면 — Codex P2(#459 vM4Nk)") {
+            then("여는 말 앞 조각도 혼입 규칙을 거쳐 땅콩은 혼입(CAUTION)이지 확정이 아니다") {
+                val allergens = "알레르기 유발물질: 땅콩 혼입 가능, 본 제품은 대두를 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.SOY)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodLabelText.of(listOf(allergens)).mayContain.orEmpty().contains("땅콩 혼입 가능") shouldBe true
+            }
+        }
+        `when`("'같은 제조설비'·'같은 제조라인'·'같은 제조장소' 문장이면 — Codex P2(#459 vG-R3)") {
+            then("알레르기 칸이든 원재료 칸이든 혼입으로 보아 CAUTION 이다") {
+                listOf("같은 제조설비", "같은 제조라인", "동일한 제조 라인", "같은 제조장소").forEach { place ->
+                    val warning = "땅콩을 사용한 제품과 ${place}에서 제조합니다"
+                    ProcessedFoodJudge.judge(warning, "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                    ProcessedFoodJudge.judge(null, "소맥분, 설탕, $warning", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                }
+            }
+        }
+        `when`("원재료 칸에서 시설·라인 문구가 원재료 목록과 한 문장에 붙으면 — Codex P1·공부 #459") {
+            then("표지가 든 쉼표 조각만 혼입이고 앞 원재료는 확정이다") {
+                val glued = "소맥분(밀), 설탕, 땅콩과 같은 라인에서 생산"
+                ProcessedFoodJudge.judge(null, glued, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, glued, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, "원재료명: 소맥분, 설탕, 본 제품은 땅콩을 사용한 제품과 같은 생산라인에서 생산합니다", avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+            }
+            then("'이 제품은 …를 사용한 제품과 같은 제조 시설'처럼 여는 말로 시작하는 원재료 칸 문장은 통째로 혼입이다(로컬 실데이터 형태)") {
+                val raw = "쌀, 콩나물, 바지락살, 정제소금. 이 제품은 난류, 우유, 메밀, 땅콩, 대두, 밀, 고등어, 게, 돼지고기, 복숭아, 토마토, 새우를 사용한 제품과 같은 제조 시설에서 제조하고 있습니다."
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.EGG)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+            then("여는 말이 바로 앞 원재료와 한 조각에 붙어도 여는 말이 새 문장을 시작한다 — 공부 #459") {
+                mapOf(
+                    "소맥분, 설탕, 우유 본 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.MILK,
+                    "소맥분(밀) 본 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.WHEAT,
+                    "소맥분, 설탕, 우유 해당 제품은 땅콩을 사용한 제품과 같은 라인에서 생산합니다" to IngredientCode.MILK,
+                    "소맥분, 설탕, 우유 당 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.MILK,
+                    "소맥분, 설탕, 우유 본품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.MILK,
+                ).forEach { (raw, definite) ->
+                    ProcessedFoodJudge.judge(null, raw, avoiding(definite)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                    ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                }
+            }
+            then("쉼표 뒤 띄어쓰기 없이 여는 말이 붙어도 앞 원재료는 확정이다 — Codex P1(#458)") {
+                val raw = "소맥분(밀),설탕,이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+            then("알레르기 칸에서 수식어 하나가 목록 전체에 걸리면 목록 전체가 혼입이다 — Codex P1(#457)") {
+                ProcessedFoodJudge.judge("땅콩, 대두 함유 가능", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, "소맥분, 설탕, 우유 함유 가능", avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+            }
+            then("알레르기 칸의 시설 문장은 통째로 혼입이다") {
+                ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
         }
         `when`("확정 근거 없이 혼입 문장만 있고 내 회피와 겹치지 않으면 — Codex P1") {
