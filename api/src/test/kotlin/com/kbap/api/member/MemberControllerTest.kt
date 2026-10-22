@@ -351,6 +351,21 @@ class MemberControllerTest : BehaviorSpec() {
                 "countryCode" to "JP",
             )
 
+            `when`("카탈로그에 없는 새 묶음 코드를 제출하면") {
+                then("400 으로 거절하고 기존 회피 코드를 유지한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andReturn()
+
+                    updateProfile(token, updateBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("MEMBER-005") }
+                    }
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
+                }
+            }
+
             `when`("온보딩을 완료한 회원이 유효한 값으로 수정하면") {
                 then("200 으로 응답하고 프로필이 갱신되며 온보딩 상태는 유지된다") {
                     val token = loginAccessToken()
