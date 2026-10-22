@@ -66,6 +66,8 @@ class ReviewController(
                     content = request.content,
                     imagePaths = request.imagePaths,
                     place = request.place?.toDomain(),
+                    spiciness = request.spiciness,
+                    sweetness = request.sweetness,
                 ),
             ),
         )
@@ -163,7 +165,7 @@ class ReviewController(
     ): ResponseEntity<BaseResponse<ReviewResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                reviewService.createProcessedFoodReview(memberId, processedFoodId, request.rating!!, request.content, request.imagePaths),
+                reviewService.createProcessedFoodReview(memberId, processedFoodId, request.rating!!, request.content, request.imagePaths, request.spiciness, request.sweetness),
             ),
         )
 

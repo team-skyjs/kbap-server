@@ -186,8 +186,7 @@ class ProcessedFoodService(
     }
 
     private fun detailOf(product: ProcessedFoodProduct, memberId: Long?): ProcessedFoodDetailResponse {
-        val rating = reviews.aggregateRatingsByProcessedFoodIds(listOf(product.id)).singleOrNull()
-        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, rating)
+        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodId(product.id))
     }
 
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?, type: ProcessedFoodType? = null): List<ProcessedFoodProduct> {

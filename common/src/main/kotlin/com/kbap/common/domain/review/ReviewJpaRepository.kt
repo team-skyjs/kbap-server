@@ -31,6 +31,15 @@ interface ProcessedFoodRatingAggregate {
     val reviewCount: Long
 }
 
+interface ProcessedFoodReviewAxes {
+    val reviewCount: Long
+    val taste: Double?
+    val spicinessAverage: Double?
+    val spicinessCount: Long
+    val sweetnessAverage: Double?
+    val sweetnessCount: Long
+}
+
 interface TopRatedFoodAggregate {
     val foodId: Long
     val reviewCount: Long
@@ -105,6 +114,19 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """,
     )
     fun aggregateRatingsByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: List<Long>): List<ProcessedFoodRatingAggregate>
+
+    @Query(
+        """
+        select count(r) as reviewCount, avg(r.rating) as taste,
+               avg(case when r.spicinessRating between 1 and 5 then r.spicinessRating end) as spicinessAverage,
+               count(case when r.spicinessRating between 1 and 5 then 1 end) as spicinessCount,
+               avg(case when r.sweetnessRating between 1 and 5 then r.sweetnessRating end) as sweetnessAverage,
+               count(case when r.sweetnessRating between 1 and 5 then 1 end) as sweetnessCount
+        from Review r
+        where r.processedFoodId = :processedFoodId
+        """,
+    )
+    fun aggregateAxesByProcessedFoodId(@Param("processedFoodId") processedFoodId: Long): ProcessedFoodReviewAxes
 
     @Query(
         """

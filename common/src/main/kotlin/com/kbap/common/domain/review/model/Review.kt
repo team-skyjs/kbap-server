@@ -28,6 +28,12 @@ class Review(
     @Column(name = "staff_kindness_rating", nullable = false, columnDefinition = "TINYINT")
     var staffKindnessRating: Int = 0,
 
+    @Column(name = "spiciness_rating", columnDefinition = "TINYINT")
+    var spicinessRating: Int? = null,
+
+    @Column(name = "sweetness_rating", columnDefinition = "TINYINT")
+    var sweetnessRating: Int? = null,
+
     @Column(length = MAX_CONTENT_LENGTH)
     var content: String? = null,
 
@@ -58,21 +64,27 @@ class Review(
     init {
         require((targetType == ReviewTargetType.FOOD) == (foodId != null) && (targetType == ReviewTargetType.PROCESSED_FOOD) == (processedFoodId != null)) { "리뷰 대상은 타입별로 정확히 하나여야 합니다: $targetType" }
         requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
+        requireTasteAxes(spicinessRating, sweetnessRating)
     }
 
     fun update(
         rating: Int,
         servingSpeedRating: Int,
         staffKindnessRating: Int,
+        spicinessRating: Int? = null,
+        sweetnessRating: Int? = null,
         content: String?,
         language: String?,
         imageRefs: List<String>?,
         place: ReviewPlace?,
     ) {
         requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
+        requireTasteAxes(spicinessRating, sweetnessRating)
         this.rating = rating
         this.servingSpeedRating = servingSpeedRating
         this.staffKindnessRating = staffKindnessRating
+        this.spicinessRating = spicinessRating
+        this.sweetnessRating = sweetnessRating
         this.content = content
         this.language = language
         this.imageRefs = imageRefs
@@ -80,6 +92,12 @@ class Review(
     }
 
     fun isOwnedBy(memberId: Long): Boolean = this.memberId == memberId
+
+    private fun requireTasteAxes(spicinessRating: Int?, sweetnessRating: Int?) {
+        require(spicinessRating == null || spicinessRating in RATING_RANGE) { "spicinessRating 은 1~5 또는 null 이어야 합니다: $spicinessRating" }
+        require(sweetnessRating == null || sweetnessRating in RATING_RANGE) { "sweetnessRating 은 1~5 또는 null 이어야 합니다: $sweetnessRating" }
+        require(targetType == ReviewTargetType.PROCESSED_FOOD || (spicinessRating == null && sweetnessRating == null)) { "맵기·당도는 가공식품 리뷰에만 있습니다" }
+    }
 
     private fun requireValid(
         rating: Int,
@@ -104,10 +122,14 @@ class Review(
             language: String?,
             imageRefs: List<String>?,
             authorCountryCode: String?,
+            spicinessRating: Int? = null,
+            sweetnessRating: Int? = null,
         ): Review = Review(
             memberId = memberId,
             foodId = null,
             rating = rating,
+            spicinessRating = spicinessRating,
+            sweetnessRating = sweetnessRating,
             content = content,
             language = language,
             imageRefs = imageRefs,
