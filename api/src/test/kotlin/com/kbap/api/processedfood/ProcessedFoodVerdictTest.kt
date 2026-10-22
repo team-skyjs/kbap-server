@@ -142,6 +142,26 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 judgement.mayContainMatches.map { it.code } shouldBe listOf(IngredientCode.PEANUT)
             }
         }
+        `when`("원재료를 모르고 알레르기 표시만 있으면 — 공부 3R") {
+            then("회피 재료가 의무 알레르기 가족 밖에 하나라도 있으면 SAFE 를 내지 않는다(null)") {
+                ProcessedFoodJudge.judge("밀, 대두 함유", "알수없음", avoiding(IngredientCode.GARLIC, IngredientCode.GELATIN, IngredientCode.MEAT)).verdict shouldBe null
+            }
+            then("회피 재료가 모두 의무 알레르기 가족 안이면 알레르기 표시로 판정한다") {
+                ProcessedFoodJudge.judge("밀, 대두 함유", "알수없음", avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.SAFE
+            }
+            then("알레르기 표시에 회피 재료가 보이면 가족 밖 회피가 섞여도 AVOID 다(확인된 검출은 버리지 않는다)") {
+                ProcessedFoodJudge.judge("우유 함유", "알수없음", avoiding(IngredientCode.MILK, IngredientCode.GARLIC)).verdict shouldBe ProcessedFoodVerdict.AVOID
+            }
+        }
+        `when`("원재료 칸이 자리표시값 변형이면 — 공부 3R") {
+            then("'알 수 없음'을 계란으로 읽지 않고, 변형도 모두 근거 없음으로 본다") {
+                ProcessedFoodJudge.judge(null, "알 수 없음", avoiding(IngredientCode.MILK)).verdict shouldBe null
+                ProcessedFoodJudge.judge(null, "알 수 없음", null).majorAllergens.shouldBeEmpty()
+                listOf("해당없음", "없음", "-", "(알수없음)", "알수없음.", "미기재", "표시없음", "N/A").forEach { raw ->
+                    ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict shouldBe null
+                }
+            }
+        }
         `when`("원재료와 알레르기 표시가 둘 다 없으면") {
             then("회원이어도 판정하지 않는다(null) — 근거 없는 SAFE 를 내지 않는다") {
                 listOf(null to null, "알수없음" to " ", null to "알수없음", "알수없음" to "정보없음", "미표시" to "모름").forEach { (allergens, raw) ->
