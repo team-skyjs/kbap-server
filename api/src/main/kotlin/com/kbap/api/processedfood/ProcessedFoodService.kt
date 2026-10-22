@@ -29,8 +29,7 @@ class ProcessedFoodService(
         val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value >= 0 && (tokens.isEmpty() || value <= MAX_OFFSET) } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId)
-        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
-            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
         val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror).products
             .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
         return pageOf(ranked.drop(offset).take(size), ranked.size > offset + size, offset, size, memberId)
@@ -184,11 +183,11 @@ class ProcessedFoodService(
         return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, rating)
     }
 
-    private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?): List<ProcessedFoodProduct> {
+    private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?, type: ProcessedFoodType? = null): List<ProcessedFoodProduct> {
         val seenSince = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
         return (
-            tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT) } +
-                makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT) }
+            tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) } +
+                makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) }
             ).distinct().let(products::findAllById)
     }
 

@@ -19,20 +19,20 @@ class ProcessedFoodCandidateIndex(
     @Volatile
     private var snapshot: Snapshot? = null
 
-    fun nameCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int): List<Long> {
+    fun nameCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int, type: ProcessedFoodType? = null): List<Long> {
         val key = keyword.lowercase()
         return fresh().entries.asSequence()
-            .filter { it.isAvailableSince(seenSince) && key in it.name }
+            .filter { it.isAvailableSince(seenSince) && (type == null || it.type == type) && key in it.name }
             .sortedWith(compareBy<Entry>({ it.name != key }, { !it.name.startsWith(key) }, { it.nameLength }, { it.id }))
             .take(limit)
             .map { it.id }
             .toList()
     }
 
-    fun makerCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int): List<Long> {
+    fun makerCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int, type: ProcessedFoodType? = null): List<Long> {
         val key = keyword.lowercase()
         return fresh().entries.asSequence()
-            .filter { it.isAvailableSince(seenSince) && it.makers.any { maker -> key in maker } }
+            .filter { it.isAvailableSince(seenSince) && (type == null || it.type == type) && it.makers.any { maker -> key in maker } }
             .sortedWith(compareBy<Entry>({ it.nameLength }, { it.id }))
             .take(limit)
             .map { it.id }
