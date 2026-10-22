@@ -4,7 +4,6 @@ import com.kbap.api.core.SearchPage
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
-import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
@@ -147,9 +146,8 @@ class ProcessedFoodService(
     }
 
     private fun detailOf(product: ProcessedFoodProduct, memberId: Long?): ProcessedFoodDetailResponse {
-        val reading = IngredientLabelReader.read(product.allergens, product.rawMaterials)
         val rating = reviews.aggregateRatingsByProcessedFoodIds(listOf(product.id)).singleOrNull()
-        return ProcessedFoodDetailResponse.of(product, reading, memberId?.let { memberService.getAvoidance(it) }, rating)
+        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, rating)
     }
 
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?): List<ProcessedFoodProduct> {

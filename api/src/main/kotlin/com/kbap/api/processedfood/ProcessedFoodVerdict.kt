@@ -20,6 +20,7 @@ data class ProcessedFoodVerdictMatch(
 )
 
 data class ProcessedFoodJudgement(
+    val reading: IngredientLabelReading,
     val verdict: ProcessedFoodVerdict?,
     val avoidMatches: List<ProcessedFoodVerdictMatch>,
     val mayContainMatches: List<ProcessedFoodVerdictMatch>,
@@ -64,7 +65,7 @@ object ProcessedFoodJudge {
         val majorAllergens = majorParents.filterValues { family -> family.any { it in detected } }.keys.sortedBy { it.ordinal }
         val readable = contained.detections.isNotEmpty() || mayContain.isNotEmpty() || !rawUnknown || contained.declaration == AllergenDeclaration.LISTED
         if (avoidance == null || avoidance.chosen.isEmpty() || !readable) {
-            return ProcessedFoodJudgement(null, emptyList(), emptyList(), unclear, majorAllergens)
+            return ProcessedFoodJudgement(contained, null, emptyList(), emptyList(), unclear, majorAllergens)
         }
         val avoidMatches = matchesOf(avoidance, contained.detections)
         val matched = avoidMatches.map { it.code }.toSet()
@@ -76,7 +77,7 @@ object ProcessedFoodJudge {
             unclear.isNotEmpty() -> ProcessedFoodVerdict.SAFE_WITH_NOTE
             else -> ProcessedFoodVerdict.SAFE
         }
-        return ProcessedFoodJudgement(verdict, avoidMatches, mayContainMatches, unclear, majorAllergens)
+        return ProcessedFoodJudgement(contained, verdict, avoidMatches, mayContainMatches, unclear, majorAllergens)
     }
 
     private fun matchesOf(avoidance: Avoidance, detections: List<IngredientLabelDetection>): List<ProcessedFoodVerdictMatch> =
