@@ -195,6 +195,19 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 제조시설에서 제조하고 있습니다.", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
         }
+        `when`("같은 라인·설비·장소에서 생산한다는 문장이면 — 공부 #457 참고") {
+            then("혼입 문장으로 보아 CAUTION 이고 문장 전체가 혼입이다") {
+                listOf(
+                    "이 제품은 땅콩, 대두를 사용한 제품과 같은 라인에서 생산합니다.",
+                    "땅콩을 사용한 제품과 같은 생산 설비에서 제조합니다.",
+                    "땅콩을 취급하는 같은 장소에서 생산합니다.",
+                ).forEach { allergens ->
+                    val judgement = ProcessedFoodJudge.judge(allergens, "소맥분, 설탕", avoiding(IngredientCode.PEANUT, IngredientCode.SOY))
+                    judgement.verdict shouldBe ProcessedFoodVerdict.CAUTION
+                    judgement.avoidMatches.shouldBeEmpty()
+                }
+            }
+        }
         `when`("확정 근거 없이 혼입 문장만 있고 내 회피와 겹치지 않으면 — Codex P1") {
             then("밀이 없다는 근거가 아니므로 SAFE 가 아니라 null 이다") {
                 ProcessedFoodJudge.judge("땅콩 혼입 가능", null, avoiding(IngredientCode.WHEAT)).verdict shouldBe null
