@@ -13,6 +13,8 @@ import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import jakarta.persistence.EntityManagerFactory
+import org.hibernate.SessionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.test.web.servlet.MockMvc
@@ -33,6 +35,7 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
     @Autowired private lateinit var translations: ProcessedFoodTranslationService
     @Autowired private lateinit var tokenIssuer: TokenIssuer
     @Autowired private lateinit var redis: StringRedisTemplate
+    @Autowired private lateinit var entityManagerFactory: EntityManagerFactory
 
     private val mapper = jacksonObjectMapper()
 
@@ -233,6 +236,34 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     translations.syncDeadlineMillis = 3000L
 
                     get("/api/processed-foods/$id?lang=en", token).path("name").asText() shouldBe "[en] 새이름과자"
+                }
+            }
+            `when`("번역이 저장된 목록을 영어로 보면 — Codex P2(#462 vOvEw)") {
+                then("번역 캐시를 항목마다가 아니라 한 번에 읽어 항목 수와 무관하게 쿼리 수가 같다") {
+                    (1..3).forEach { seed("TR-B$it", "묶음과자$it", "㈜동네식품$it", null, null) }
+                    get("/api/processed-foods?size=3&lang=en")
+                    translations.awaitIdle()
+
+                    val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
+                    val originallyEnabled = statistics.isStatisticsEnabled
+                    statistics.isStatisticsEnabled = true
+                    try {
+                        val counts = listOf(1, 3).map { size ->
+                            statistics.clear()
+                            get("/api/processed-foods?size=$size&lang=en").path("items").map { it.path("name").asText() }.all { it.startsWith("[en] ") } shouldBe true
+                            statistics.prepareStatementCount
+                        }
+                        counts.last() shouldBe counts.first()
+                    } finally {
+                        statistics.isStatisticsEnabled = originallyEnabled
+                    }
+                }
+            }
+            `when`("대표 상품이 카탈로그 별칭 이름 행으로만 있으면 — Codex P2(#462 vOvFC)") {
+                then("목록과 같은 이름+별칭 해석으로 미리 번역 대상에 든다") {
+                    seed("TR-A1", "바나나맛 우유", "㈜빙그레", "원유, 설탕", "우유 함유")
+
+                    translations.prewarmFeatured(listOf(LanguageCode.EN)) shouldBe 3
                 }
             }
             `when`("목록을 영어로 보면") {
