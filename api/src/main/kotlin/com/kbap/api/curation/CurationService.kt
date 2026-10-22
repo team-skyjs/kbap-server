@@ -43,7 +43,7 @@ class CurationService(
         val urls = imageUrls(row, validation.photos(doc).mapNotNull { it.photo })
         val card = card(row, doc, language, urls)
         return CurationDetail(key, card.title, card.description, card.coverImageUrl, card.coverImageAttribution, 10, row.publishedRevision, row.publishedAt ?: unavailable(), requestedLang, language, language != requestedLang,
-            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), urls.getValue(item.image!!.assetId), attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }, item.images.ifEmpty { listOf(item.image!!) }.map { CurationPublicImage(urls.getValue(it.assetId), attribution(it)) }) })
+            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), urls.getValue(item.image!!.assetId), attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }, item.images.ifEmpty { listOf(item.image!!) }.map { CurationPublicImage(urls.getValue(it.assetId), attribution(it)) }, item.name[LanguageCode.KO.code], item.area[LanguageCode.KO.code]) })
     }
 
     @Transactional(readOnly = true)
