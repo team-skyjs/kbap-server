@@ -90,6 +90,8 @@ data class ProcessedFoodDetailResponse(
     val avoidMatches: List<ProcessedFoodVerdictMatch>,
     @field:Schema(description = "혼입 가능 표기에만 걸린 내 회피 재료와 그 문구(CAUTION 근거)")
     val mayContainMatches: List<ProcessedFoodVerdictMatch>,
+    @field:Schema(description = "혼입 가능 문장(같은 제조시설·혼입 등)에서 읽힌 재료 전부 — 회원 여부·회피와 무관(성분표 분석 결과의 mayContain 과 같은 형태). detections 에는 들어가지 않는다")
+    val mayContain: List<ProcessedFoodMayContainResponse>,
     @field:Schema(description = "내용 불명 원재료(향료·혼합제제·가공품·복합원재료 등 서버 사전) — SAFE_WITH_NOTE 근거", example = "[\"합성향료\"]")
     val unclearIngredients: List<String>,
     @field:Schema(description = "한국 표시 의무 알레르기(식품표시광고법 시행규칙 별표 2) 중 들어 있는 코드 — 혼입 가능 표기는 빼고. 비회원·회피 0개 화면용")
@@ -122,6 +124,7 @@ data class ProcessedFoodDetailResponse(
                 verdict = judgement.verdict,
                 avoidMatches = judgement.avoidMatches,
                 mayContainMatches = judgement.mayContainMatches,
+                mayContain = judgement.mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
                 unclearIngredients = judgement.unclearIngredients,
                 majorAllergens = judgement.majorAllergens,
             )
