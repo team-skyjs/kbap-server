@@ -77,6 +77,8 @@ class ReviewService(
         rating: Int,
         content: String?,
         imagePaths: List<String>?,
+        spiciness: Int? = null,
+        sweetness: Int? = null,
     ): ReviewResponse {
         if (!processedFoodReviewSwitch.writeEnabled) throw BusinessException(ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED)
         val product = processedFoodService.getAvailableProduct(processedFoodId)
@@ -85,7 +87,7 @@ class ReviewService(
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         val review = reviewRepository.save(
-            Review.forProcessedFood(memberId, product.id, rating, content, languageDetector.detect(content)?.code, imagePaths, authorCountryCode),
+            Review.forProcessedFood(memberId, product.id, rating, content, languageDetector.detect(content)?.code, imagePaths, authorCountryCode, spiciness, sweetness),
         )
         rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood = false))
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount = 0, likedByMe = false, processedFood = ReviewProcessedFoodResponse.from(product))
@@ -170,6 +172,8 @@ class ReviewService(
         content: String?,
         imagePaths: List<String>?,
         place: ReviewPlace?,
+        spiciness: Int? = null,
+        sweetness: Int? = null,
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
         verifyContentLength(content)
@@ -179,6 +183,8 @@ class ReviewService(
             rating = rating,
             servingSpeedRating = if (forFood) servingSpeed ?: 0 else 0,
             staffKindnessRating = if (forFood) staffKindness ?: 0 else 0,
+            spicinessRating = if (forFood) null else spiciness,
+            sweetnessRating = if (forFood) null else sweetness,
             content = content,
             language = languageDetector.detect(content)?.code,
             imageRefs = imagePaths,

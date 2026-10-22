@@ -9,6 +9,7 @@ import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
+import com.kbap.common.domain.review.ProcessedFoodReviewAxes
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -71,7 +72,32 @@ data class ProcessedFoodReviewSummaryResponse(
     val count: Long,
     @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.2", nullable = true)
     val avgRating: Double?,
-)
+    @field:Schema(description = "종합 — 값이 있는 축(맛·맵기·당도) 평균의 평균, count 는 리뷰 수")
+    val overall: ProcessedFoodRatingResponse,
+    @field:Schema(description = "맛 — 별점 평균, count 는 리뷰 수")
+    val taste: ProcessedFoodRatingResponse,
+    @field:Schema(description = "맵기 — 1~5 로 입력된 리뷰만 분모(미입력 제외)")
+    val spiciness: ProcessedFoodRatingResponse,
+    @field:Schema(description = "당도 — 1~5 로 입력된 리뷰만 분모(미입력 제외)")
+    val sweetness: ProcessedFoodRatingResponse,
+) {
+    companion object {
+        fun of(axes: ProcessedFoodReviewAxes): ProcessedFoodReviewSummaryResponse {
+            val taste = axes.taste?.takeIf { axes.reviewCount > 0 }
+            val present = listOfNotNull(taste, axes.spicinessAverage, axes.sweetnessAverage)
+            return ProcessedFoodReviewSummaryResponse(
+                count = axes.reviewCount,
+                avgRating = taste,
+                overall = ProcessedFoodRatingResponse(present.takeIf { it.isNotEmpty() }?.average()?.roundToFirstDecimal(), axes.reviewCount),
+                taste = ProcessedFoodRatingResponse(taste?.roundToFirstDecimal(), axes.reviewCount),
+                spiciness = ProcessedFoodRatingResponse(axes.spicinessAverage?.roundToFirstDecimal(), axes.spicinessCount),
+                sweetness = ProcessedFoodRatingResponse(axes.sweetnessAverage?.roundToFirstDecimal(), axes.sweetnessCount),
+            )
+        }
+
+        private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
+    }
+}
 
 @Schema(description = "알레르기 판독 근거 — DECLARED: 알레르기 표시란(의무 표시)이 있다 · INGREDIENTS_ONLY: 표시란이 '알수없음'·빈 값이라 원재료 원문으로만 판독 · NONE: 둘 다 없다")
 enum class ProcessedFoodLabelSource { DECLARED, INGREDIENTS_ONLY, NONE }
@@ -118,7 +144,7 @@ data class ProcessedFoodDetailResponse(
     val majorAllergens: List<IngredientCode>,
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, rating: ProcessedFoodRatingAggregate?): ProcessedFoodDetailResponse {
+        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
             return ProcessedFoodDetailResponse(
@@ -140,7 +166,7 @@ data class ProcessedFoodDetailResponse(
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
                 image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
-                reviewSummary = ProcessedFoodReviewSummaryResponse(rating?.reviewCount ?: 0, rating?.average),
+                reviewSummary = ProcessedFoodReviewSummaryResponse.of(axes),
                 verdict = judgement.verdict,
                 avoidMatches = judgement.avoidMatches,
                 mayContainMatches = judgement.mayContainMatches,

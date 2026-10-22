@@ -78,6 +78,16 @@ data class ReviewUpdateRequest(
     @field:Valid
     @field:Schema(description = "위치 정보(생략 시 기존 위치 정보 제거)")
     val place: ReviewPlaceRequest? = null,
+
+    @field:Min(1, message = "spiciness 는 1 이상이어야 합니다")
+    @field:Max(5, message = "spiciness 는 5 이하여야 합니다")
+    @field:Schema(description = "맵기(1~5 정수, 선택) — 가공식품 리뷰만. 생략하면 비운다(null). 음식 리뷰에서는 무시", example = "3", nullable = true)
+    val spiciness: Int? = null,
+
+    @field:Min(1, message = "sweetness 는 1 이상이어야 합니다")
+    @field:Max(5, message = "sweetness 는 5 이하여야 합니다")
+    @field:Schema(description = "당도(1~5 정수, 선택) — 가공식품 리뷰만. 생략하면 비운다(null). 음식 리뷰에서는 무시", example = "2", nullable = true)
+    val sweetness: Int? = null,
 )
 
 @Schema(
@@ -151,4 +161,14 @@ data class ProcessedFoodReviewCreateRequest(
     @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")
     @field:Schema(description = "업로드 완료된 리뷰 사진 경로(옵션, 최대 3장)")
     val imagePaths: List<String>? = null,
+
+    @field:Min(1, message = "spiciness 는 1 이상이어야 합니다")
+    @field:Max(5, message = "spiciness 는 5 이하여야 합니다")
+    @field:Schema(description = "맵기(1~5 정수, 선택) — 가공식품 리뷰만. 생략하면 미입력(null)", example = "3", nullable = true)
+    val spiciness: Int? = null,
+
+    @field:Min(1, message = "sweetness 는 1 이상이어야 합니다")
+    @field:Max(5, message = "sweetness 는 5 이하여야 합니다")
+    @field:Schema(description = "당도(1~5 정수, 선택) — 가공식품 리뷰만. 생략하면 미입력(null)", example = "2", nullable = true)
+    val sweetness: Int? = null,
 )
