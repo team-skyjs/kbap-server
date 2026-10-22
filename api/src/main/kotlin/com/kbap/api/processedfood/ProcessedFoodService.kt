@@ -80,24 +80,32 @@ class ProcessedFoodService(
         val boosted = if (featured.isEmpty()) {
             emptyList()
         } else {
-            val rows = products.findAllByNormalizedNameIn(featured.map { it.name }).filterNot { it.isDiscontinued(lastMirror) }
-            featured.mapNotNull { entry ->
-                latestOf(rows.filter { it.normalizedName == entry.name })
-                    ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", entry.name, entry.maker) }
+            val rows = products.findAllByNormalizedNameIn(featured.map { it.product.name }).filterNot { it.isDiscontinued(lastMirror) }
+            featured.mapNotNull { boost ->
+                latestOf(rows.filter { it.normalizedName == boost.product.name })?.let { it to boost.matchLength }
+                    ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
             }
         }
-        val boostedNames = boosted.map { it.normalizedName }.toSet()
-        val rest = ranked.filterNot { it.first.normalizedName in boostedNames }
+        val boostedNames = boosted.map { it.first.normalizedName }.toSet()
+        val boostedGroups = boosted.map { groupKeyOf(it.first) }.toSet()
+        val rest = ranked.filterNot { it.first.normalizedName in boostedNames || groupKeyOf(it.first) in boostedGroups }
             .groupBy { groupKeyOf(it.first) }.values
             .map { group -> latestOf(group.map { it.first })!! to group.first().second }
-        val (exact, others) = rest.partition { boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) }
-        return RankedCandidates(exact.map { it.first } + boosted + others.map { it.first }, boosted.map { it.reportNo })
+        val longestBoost = boosted.maxOfOrNull { it.second } ?: 0
+        val (exactAbove, below) = rest.partition {
+            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && it.first.normalizedName.length >= longestBoost
+        }
+        return RankedCandidates(exactAbove.map { it.first } + boosted.map { it.first } + below.map { it.first }, boosted.map { it.first.reportNo })
     }
 
     private fun latestOf(rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? =
         rows.maxWithOrNull(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id }))
 
-    private fun groupKeyOf(product: ProcessedFoodProduct): String = product.normalizedName + "|" + makerKeyOf(product)
+    private fun groupKeyOf(product: ProcessedFoodProduct): String {
+        val maker = makerKeyOf(product)
+        val name = product.normalizedName.removePrefix(maker).ifEmpty { product.normalizedName }
+        return "$name|$maker"
+    }
 
     private fun makerKeyOf(product: ProcessedFoodProduct): String = product.displayMaker()?.let(ProcessedFoodSnapshot::normalizeName).orEmpty()
 
