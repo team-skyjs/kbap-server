@@ -64,6 +64,8 @@ class TranslationService(
     private fun sourceOf(viewerMemberId: Long?, targetType: TranslationTargetType, targetId: Long): String =
         when (targetType) {
             TranslationTargetType.REVIEW -> reviewService.getVisibleReview(viewerMemberId, targetId).content.orEmpty()
+            TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER, TranslationTargetType.PF_INGREDIENTS, TranslationTargetType.PF_ALLERGENS ->
+                throw BusinessException(ErrorCode.INVALID_REQUEST)
         }
 
     private fun translateOrFail(source: String, targetType: TranslationTargetType, targetId: Long, language: LanguageCode): TranslatedContent {

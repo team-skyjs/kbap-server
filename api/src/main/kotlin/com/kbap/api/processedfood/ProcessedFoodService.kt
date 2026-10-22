@@ -147,6 +147,14 @@ class ProcessedFoodService(
         return RankedCandidates(exactAbove.map { it.first } + boosted.map { it.first } + below.map { it.first }, boosted.map { it.first.reportNo })
     }
 
+    @Transactional(readOnly = true)
+    fun getFeaturedProducts(): List<ProcessedFoodProduct> {
+        val catalog = featuredCatalog.productsByPriority()
+        val lastMirror = products.findLastCompletedMirrorStartedAt()
+        val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
+        return catalog.mapNotNull { representativeOf(it, named) }.distinctBy { it.id }
+    }
+
     private fun namesOf(product: ProcessedFoodFeaturedCatalog.FeaturedProduct): List<String> =
         (listOf(product.name) + product.aliases).map(ProcessedFoodSnapshot::normalizeName).distinct()
 
