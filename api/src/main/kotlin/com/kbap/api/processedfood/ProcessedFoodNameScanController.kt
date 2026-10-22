@@ -20,6 +20,7 @@ import java.util.UUID
 class ProcessedFoodNameScanController(
     private val nameScanService: ProcessedFoodNameScanService,
     private val labelScanService: ProcessedFoodLabelScanService,
+    private val translationService: ProcessedFoodTranslationService,
 ) : ProcessedFoodNameScanApi {
     @PostMapping("/label", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun scanLabel(
@@ -42,10 +43,16 @@ class ProcessedFoodNameScanController(
     override fun scanName(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: ProcessedFoodNameScanRequest,
-    ): ResponseEntity<BaseResponse<ProcessedFoodNameScanResponse>> =
-        ResponseEntity.ok(
-            BaseResponse.ok(nameScanService.scanName(memberId, request.ocrText.orEmpty(), LanguageCode.from(request.lang.orEmpty()).code)),
+    ): ResponseEntity<BaseResponse<ProcessedFoodNameScanResponse>> {
+        val language = LanguageCode.from(request.lang.orEmpty())
+        return ResponseEntity.ok(
+            BaseResponse.ok(
+                nameScanService.scanName(memberId, request.ocrText.orEmpty(), language.code).let {
+                    it.copy(candidates = translationService.localizeSummaries(it.candidates, language))
+                },
+            ),
         )
+    }
 
     @PostMapping("/confirm", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun confirm(

@@ -33,7 +33,7 @@ data class ProcessedFoodSummaryResponse(
     val avgRating: Double? = null,
     @field:Schema(description = "조회 회원의 내 판정(상세와 같은 규칙) — 비회원·회피 재료 0개·원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
     val verdict: ProcessedFoodVerdict? = null,
-    @field:Schema(description = "표시 이름 — 요청 언어 번역(KB-868) 전까지는 한국어 원문과 같다", example = "빙그레 바나나맛 우유")
+    @field:Schema(description = "표시 이름 — 요청 lang 의 저장된 번역(없으면 한국어 원문, 빠진 번역은 뒤에서 채운다)", example = "Banana Flavored Milk")
     val name: String = productName,
     @field:Schema(description = "한국어 원문 제품명", example = "빙그레 바나나맛 우유")
     val nameKo: String = productName,
@@ -57,6 +57,14 @@ data class ProcessedFoodSummaryResponse(
             )
     }
 }
+
+@Schema(description = "번역문과 한국어 원문")
+data class ProcessedFoodLocalizedText(
+    @field:Schema(description = "요청 lang 번역 — 한국어 요청·번역 실패·일일 상한 초과면 원문과 같다")
+    val translated: String,
+    @field:Schema(description = "한국어 원문")
+    val original: String,
+)
 
 @Schema(description = "가공식품 평점")
 data class ProcessedFoodRatingResponse(
@@ -141,6 +149,14 @@ data class ProcessedFoodDetailResponse(
     val unclearIngredients: List<String>,
     @field:Schema(description = "한국 표시 의무 알레르기(식품표시광고법 시행규칙 별표 2) 중 들어 있는 코드 — 혼입 가능 표기는 빼고. 비회원·회피 0개 화면용")
     val majorAllergens: List<IngredientCode>,
+    @field:Schema(description = "표시 이름 — 요청 lang 번역(실패·상한 초과면 한국어 원문)", example = "Banana Flavored Milk")
+    val name: String = productName,
+    @field:Schema(description = "한국어 원문 제품명", example = "빙그레 바나나맛 우유")
+    val nameKo: String = productName,
+    @field:Schema(description = "원재료 — translated(요청 lang, 실패 시 원문)·original(한국어). 원재료 원문이 없거나 '알수없음' 등이면 null", nullable = true)
+    val ingredients: ProcessedFoodLocalizedText? = null,
+    @field:Schema(description = "알레르기 표시 — translated·original. 표시가 없거나 '알수없음' 등이면 null", nullable = true)
+    val allergenStatement: ProcessedFoodLocalizedText? = null,
 ) {
     companion object {
         fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes): ProcessedFoodDetailResponse {
@@ -172,6 +188,8 @@ data class ProcessedFoodDetailResponse(
                 mayContain = judgement.mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
                 unclearIngredients = judgement.unclearIngredients,
                 majorAllergens = judgement.majorAllergens,
+                ingredients = product.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
+                allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
             )
         }
 
