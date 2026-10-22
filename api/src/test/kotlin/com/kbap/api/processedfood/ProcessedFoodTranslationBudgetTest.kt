@@ -2,7 +2,6 @@ package com.kbap.api.processedfood
 
 import com.kbap.api.translation.FakeTextTranslator
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.port.llm.TextTranslator
 import io.kotest.core.spec.style.BehaviorSpec
@@ -30,7 +29,7 @@ class ProcessedFoodTranslationBudgetTest : BehaviorSpec({
                 `when`(transactions.getTransaction(any())).thenReturn(SimpleTransactionStatus())
                 val service = ProcessedFoodTranslationService(
                     mock(ContentTranslationJpaRepository::class.java), provider, ProcessedFoodFeaturedCatalog(),
-                    mock(ProcessedFoodProductJpaRepository::class.java), redis, transactions,
+                    mock(ProcessedFoodService::class.java), redis, transactions,
                     dailyBudgetKrw = 5000.0, estimatedKrwPerCall = 0.4, syncDeadlineMillis = 3000L,
                 )
                 val item = ProcessedFoodSummaryResponse(1L, "R-1", "동네과자", "㈜동네식품", "과자", null)

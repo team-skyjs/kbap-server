@@ -2,10 +2,9 @@ package com.kbap.api.processedfood
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
-import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
-import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
+import com.kbap.common.domain.translation.model.ContentTranslation
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.llm.TextTranslator
 import org.slf4j.LoggerFactory
@@ -36,7 +35,7 @@ class ProcessedFoodTranslationService(
     private val translations: ContentTranslationJpaRepository,
     private val translatorProvider: ObjectProvider<TextTranslator>,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
-    private val products: ProcessedFoodProductJpaRepository,
+    private val processedFoodService: ProcessedFoodService,
     private val redis: StringRedisTemplate,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.processed-food.translation.daily-budget-krw:5000}") var dailyBudgetKrw: Double,
@@ -74,11 +73,16 @@ class ProcessedFoodTranslationService(
     }
 
     fun localizeSummaries(items: List<ProcessedFoodSummaryResponse>, language: LanguageCode): List<ProcessedFoodSummaryResponse> {
-        if (language == LanguageCode.KO) return items
+        if (language == LanguageCode.KO || items.isEmpty()) return items
+        val cache = readTransaction.execute {
+            translations.findAllByTargetTypeInAndTargetIdInAndLanguage(SUMMARY_TYPES, items.map { it.id }, language.code)
+        }!!.associateBy { it.targetType to it.targetId }
         return items.map { item ->
             item.copy(
-                name = request(TranslationTargetType.PF_NAME, item.id, item.productName, language, sync = false).await(null) ?: item.productName,
-                maker = item.maker?.let { brandNameOf(it) ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false).await(null) ?: it },
+                name = request(TranslationTargetType.PF_NAME, item.id, item.productName, language, sync = false, cache[TranslationTargetType.PF_NAME to item.id]).await(null) ?: item.productName,
+                maker = item.maker?.let {
+                    brandNameOf(it) ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false, cache[TranslationTargetType.PF_MAKER to item.id]).await(null) ?: it
+                },
             )
         }
     }
@@ -96,10 +100,7 @@ class ProcessedFoodTranslationService(
     }
 
     private fun prewarmFeaturedOnce(languages: List<LanguageCode>): Int {
-        val names = featuredCatalog.productsByPriority().map { ProcessedFoodSnapshot.normalizeName(it.name) }
-        val rows = readTransaction.execute { products.findAllByNormalizedNameIn(names) }!!
-            .groupBy { it.normalizedName }.values
-            .map { group -> group.maxWith(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id })) }
+        val rows = processedFoodService.getFeaturedProducts()
         val before = engineCalls.get()
         languages.filter { it != LanguageCode.KO }.forEach { language ->
             rows.forEach { row ->
@@ -141,10 +142,16 @@ class ProcessedFoodTranslationService(
         }
     }
 
-    private fun request(type: TranslationTargetType, productId: Long, source: String?, language: LanguageCode, sync: Boolean): Pending? {
+    private fun request(
+        type: TranslationTargetType,
+        productId: Long,
+        source: String?,
+        language: LanguageCode,
+        sync: Boolean,
+        cached: ContentTranslation? = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) },
+    ): Pending? {
         if (source.isNullOrBlank()) return null
         val hash = hashOf(source)
-        val cached = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) }
         if (cached != null && cached.sourceHash == hash) {
             if (cached.translatedText.isNotBlank()) return Ready(cached.translatedText)
             if (!cached.updatedAt.isBefore(LocalDate.now().atStartOfDay())) return Ready(null)
@@ -229,6 +236,7 @@ class ProcessedFoodTranslationService(
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500
+        private val SUMMARY_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER)
         private const val FOREGROUND_THREADS = 4
         private const val FOREGROUND_QUEUE = 50
         private const val BUDGET_KEY_PREFIX = "pf-translate:"
