@@ -40,6 +40,7 @@ class ProcessedFoodMirror(
         var crossTypeDuplicates = 0
         var skipped = 0
         var sourceConflicts = 0
+        var promotedFromC002 = 0
 
         foodTypes.ifEmpty { listOf(null) }.forEach { type ->
             val label = type ?: ALL_TYPES
@@ -72,6 +73,7 @@ class ProcessedFoodMirror(
                 inserted += outcome.inserted
                 skipped += outcome.skipped
                 sourceConflicts += outcome.sourceConflicts
+                promotedFromC002 += outcome.promotedFromC002
                 changed += outcome.changed
                 unchanged += outcome.unchanged
                 pageNo++
@@ -89,6 +91,7 @@ class ProcessedFoodMirror(
             crossTypeDuplicates = crossTypeDuplicates,
             skippedRows = skipped,
             sourceConflicts = sourceConflicts,
+            promotedFromC002 = promotedFromC002,
             failedTypes = failedTypes,
             failedPages = failedPages,
             makerLookups = maker.calls,
@@ -105,17 +108,23 @@ class ProcessedFoodMirror(
     private fun upsert(products: List<HaccpProduct>, now: LocalDateTime): UpsertOutcome {
         val (storable, oversized) = products.partition { it.reportNo.length <= ProcessedFoodProduct.REPORT_NO_LENGTH }
         oversized.forEach { log.warn("가공식품 미러링 — 품목보고번호가 {}자를 넘어 건너뜁니다 length={} name={}", ProcessedFoodProduct.REPORT_NO_LENGTH, it.reportNo.length, it.productName.take(30)) }
-        if (storable.isEmpty()) return UpsertOutcome(0, 0, 0, oversized.size, 0)
+        if (storable.isEmpty()) return UpsertOutcome(0, 0, 0, oversized.size, 0, 0)
         val existing = repository.findAllByReportNoIn(storable.map { it.reportNo }).associateBy { it.reportNo }
         var inserted = 0
         var changed = 0
         var unchanged = 0
         var sourceConflicts = 0
+        var promotedFromC002 = 0
         storable.forEach { product ->
             val snapshot = product.toSnapshot()
             val row = existing[product.reportNo]
             when {
                 row == null -> { repository.save(ProcessedFoodProduct.collect(snapshot, now)); inserted++ }
+                row.source == ProcessedFoodProduct.SOURCE_C002 -> {
+                    row.promoteToHaccp(snapshot, now)
+                    promotedFromC002++
+                    log.info("가공식품 미러링 — C002 행을 HACCP 값으로 갱신하고 HACCP 로 승격 reportNo={}", row.reportNo)
+                }
                 row.source != ProcessedFoodProduct.SOURCE_HACCP -> {
                     sourceConflicts++
                     log.warn("가공식품 미러링 — 같은 품목보고번호의 {} 행이 있어 HACCP 행으로 덮어쓰지 않고 건너뜁니다 reportNo={}", row.source, row.reportNo)
@@ -124,7 +133,7 @@ class ProcessedFoodMirror(
                 else -> unchanged++
             }
         }
-        return UpsertOutcome(inserted, changed, unchanged, oversized.size, sourceConflicts)
+        return UpsertOutcome(inserted, changed, unchanged, oversized.size, sourceConflicts, promotedFromC002)
     }
 
     private fun supplementMakers(now: LocalDateTime): MakerOutcome {
@@ -171,7 +180,7 @@ class ProcessedFoodMirror(
         metaImageUrl = metaImageUrl?.take(ProcessedFoodProduct.URL_LENGTH),
     )
 
-    private data class UpsertOutcome(val inserted: Int, val changed: Int, val unchanged: Int, val skipped: Int, val sourceConflicts: Int)
+    private data class UpsertOutcome(val inserted: Int, val changed: Int, val unchanged: Int, val skipped: Int, val sourceConflicts: Int, val promotedFromC002: Int)
 
     private data class MakerOutcome(val calls: Int, val filled: Int, val failures: Int, val aborted: Boolean)
 
@@ -192,6 +201,7 @@ data class ProcessedFoodMirrorSummary(
     val crossTypeDuplicates: Int,
     val skippedRows: Int,
     val sourceConflicts: Int,
+    val promotedFromC002: Int,
     val failedTypes: List<String>,
     val failedPages: List<String>,
     val makerLookups: Int,
