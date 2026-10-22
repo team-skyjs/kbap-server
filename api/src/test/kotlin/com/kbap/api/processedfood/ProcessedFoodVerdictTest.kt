@@ -232,6 +232,11 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                     ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
                 }
             }
+            then("쉼표 뒤 띄어쓰기 없이 여는 말이 붙어도 앞 원재료는 확정이다 — Codex P1(#458)") {
+                val raw = "소맥분(밀),설탕,이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조합니다"
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
             then("알레르기 칸의 시설 문장은 통째로 혼입이다") {
                 ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
