@@ -89,11 +89,17 @@ class ProcessedFoodNameScanFixtureTest : BehaviorSpec() {
                     report.count { it.second } shouldBeGreaterThanOrEqual 24
                 }
             }
-            `when`("C002 로 들어온 인기 상품 이름을 스캔하면(KB-859)") {
+            `when`("C002 로 들어온 인기 상품·대표 상품 이름을 스캔하면(KB-859)") {
                 then("그 제품이 1위다") {
-                    listOf("농심" to "얼큰한너구리", "그래미" to "여명808", "오리온" to "꼬북칩초코츄러스맛", "롯데" to "젤리먹은스크류바").forEach { (maker, name) ->
-                        val first = nameScanService.scanName(81301L, "$maker\n$name\n120g", "ko").candidates.first()
-                        ProcessedFoodSnapshot.normalizeName(first.productName) shouldBe name
+                    listOf(
+                        Triple("농심", "얼큰한너구리", "얼큰한너구리"),
+                        Triple("그래미", "여명808", "여명808"),
+                        Triple("오리온", "꼬북칩초코츄러스맛", "꼬북칩초코츄러스맛"),
+                        Triple("롯데", "젤리먹은스크류바", "젤리먹은스크류바"),
+                        Triple("팔도", "팔도비빔면", "순창고추장팔도비빔면"),
+                    ).forEach { (maker, ocrName, expected) ->
+                        val first = nameScanService.scanName(81301L, "$maker\n$ocrName\n120g", "ko").candidates.first()
+                        ProcessedFoodSnapshot.normalizeName(first.productName) shouldBe expected
                     }
                 }
             }
