@@ -43,14 +43,16 @@ class ProcessedFoodNameScanController(
     override fun scanName(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: ProcessedFoodNameScanRequest,
-    ): ResponseEntity<BaseResponse<ProcessedFoodNameScanResponse>> =
-        ResponseEntity.ok(
+    ): ResponseEntity<BaseResponse<ProcessedFoodNameScanResponse>> {
+        val language = LanguageCode.from(request.lang.orEmpty())
+        return ResponseEntity.ok(
             BaseResponse.ok(
-                nameScanService.scanName(memberId, request.ocrText.orEmpty(), LanguageCode.from(request.lang.orEmpty()).code).let {
-                    it.copy(candidates = translationService.localizeSummaries(it.candidates, ProcessedFoodTranslationService.languageOf(request.lang)))
+                nameScanService.scanName(memberId, request.ocrText.orEmpty(), language.code).let {
+                    it.copy(candidates = translationService.localizeSummaries(it.candidates, language))
                 },
             ),
         )
+    }
 
     @PostMapping("/confirm", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun confirm(

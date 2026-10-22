@@ -28,6 +28,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 @Service
@@ -49,6 +50,7 @@ class ProcessedFoodTranslationService(
     private val foreground = executor("pf-translation-sync", FOREGROUND_THREADS, FOREGROUND_QUEUE)
     private val inFlight = ConcurrentHashMap<String, CompletableFuture<String?>>()
     private val engineCalls = AtomicInteger()
+    private val prewarming = AtomicBoolean(false)
     private val brandNames: Map<String, String> =
         requireNotNull(javaClass.getResourceAsStream("/processed-food/maker-names.tsv")) { "maker-names.tsv" }
             .bufferedReader(Charsets.UTF_8).readLines()
@@ -82,6 +84,18 @@ class ProcessedFoodTranslationService(
     }
 
     fun prewarmFeatured(languages: List<LanguageCode>): Int {
+        if (!prewarming.compareAndSet(false, true)) {
+            log.info("가공식품 대표 상품 미리 번역이 이미 도는 중이라 건너뜁니다 languages={}", languages.map { it.code })
+            return 0
+        }
+        try {
+            return prewarmFeaturedOnce(languages)
+        } finally {
+            prewarming.set(false)
+        }
+    }
+
+    private fun prewarmFeaturedOnce(languages: List<LanguageCode>): Int {
         val names = featuredCatalog.productsByPriority().map { ProcessedFoodSnapshot.normalizeName(it.name) }
         val rows = readTransaction.execute { products.findAllByNormalizedNameIn(names) }!!
             .groupBy { it.normalizedName }.values
@@ -108,7 +122,7 @@ class ProcessedFoodTranslationService(
 
     fun awaitIdle() {
         val deadline = System.nanoTime() + IDLE_WAIT_NANOS
-        while (inFlight.isNotEmpty() && System.nanoTime() < deadline) Thread.sleep(IDLE_POLL_MILLIS)
+        while ((inFlight.isNotEmpty() || prewarming.get()) && System.nanoTime() < deadline) Thread.sleep(IDLE_POLL_MILLIS)
     }
 
     private sealed interface Pending
@@ -135,7 +149,7 @@ class ProcessedFoodTranslationService(
             if (cached.translatedText.isNotBlank()) return Ready(cached.translatedText)
             if (!cached.updatedAt.isBefore(LocalDate.now().atStartOfDay())) return Ready(null)
         }
-        val key = "${type.name}:$productId:${language.code}"
+        val key = "${type.name}:$productId:${language.code}:$hash"
         inFlight[key]?.let { return Running(it) }
         val future = CompletableFuture<String?>()
         if (inFlight.putIfAbsent(key, future) != null) return Running(inFlight[key])
