@@ -208,6 +208,15 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("'같은 제조설비'·'같은 제조라인'·'같은 제조장소' 문장이면 — Codex P2(#459 vG-R3)") {
+            then("알레르기 칸이든 원재료 칸이든 혼입으로 보아 CAUTION 이다") {
+                listOf("같은 제조설비", "같은 제조라인", "동일한 제조 라인", "같은 제조장소").forEach { place ->
+                    val warning = "땅콩을 사용한 제품과 ${place}에서 제조합니다"
+                    ProcessedFoodJudge.judge(warning, "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                    ProcessedFoodJudge.judge(null, "소맥분, 설탕, $warning", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                }
+            }
+        }
         `when`("원재료 칸에서 시설·라인 문구가 원재료 목록과 한 문장에 붙으면 — Codex P1·공부 #459") {
             then("표지가 든 쉼표 조각만 혼입이고 앞 원재료는 확정이다") {
                 val glued = "소맥분(밀), 설탕, 땅콩과 같은 라인에서 생산"
