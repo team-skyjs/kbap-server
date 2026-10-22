@@ -145,6 +145,21 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     result.path("unmapped").size() shouldBe 0
                 }
             }
+            `when`("성분표가 혼입 문구뿐이면 — Codex P1") {
+                then("읽을 수 없음으로 거절하지 않고 같은 규칙으로 CAUTION 을 낸다") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "알레르기 유발물질: 땅콩 혼입 가능")),
+                            "lang" to "ko",
+                        ),
+                        member(86607L, "PEANUT"),
+                    )
+                    result.path("verdict").asText() shouldBe "CAUTION"
+                }
+            }
             `when`("성분표 원재료 줄이 머리말 + 자리표시값뿐이면 — Codex P1") {
                 then("머리말을 뗀 값으로 판정해 의무 알레르기 밖 회피(마늘)에 SAFE 를 내지 않는다") {
                     val result = post(
