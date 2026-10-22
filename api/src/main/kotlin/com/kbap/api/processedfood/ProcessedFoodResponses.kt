@@ -72,7 +72,7 @@ data class ProcessedFoodReviewSummaryResponse(
     val count: Long,
     @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.2", nullable = true)
     val avgRating: Double?,
-    @field:Schema(description = "종합 — 값이 있는 축(맛·맵기·당도) 평균의 평균, count 는 리뷰 수")
+    @field:Schema(description = "종합 — 별점 평균(맵기·당도는 세기라 넣지 않는다), count 는 리뷰 수")
     val overall: ProcessedFoodRatingResponse,
     @field:Schema(description = "맛 — 별점 평균, count 는 리뷰 수")
     val taste: ProcessedFoodRatingResponse,
@@ -84,11 +84,10 @@ data class ProcessedFoodReviewSummaryResponse(
     companion object {
         fun of(axes: ProcessedFoodReviewAxes): ProcessedFoodReviewSummaryResponse {
             val taste = axes.taste?.takeIf { axes.reviewCount > 0 }
-            val present = listOfNotNull(taste, axes.spicinessAverage, axes.sweetnessAverage)
             return ProcessedFoodReviewSummaryResponse(
                 count = axes.reviewCount,
                 avgRating = taste,
-                overall = ProcessedFoodRatingResponse(present.takeIf { it.isNotEmpty() }?.average()?.roundToFirstDecimal(), axes.reviewCount),
+                overall = ProcessedFoodRatingResponse(taste?.roundToFirstDecimal(), axes.reviewCount),
                 taste = ProcessedFoodRatingResponse(taste?.roundToFirstDecimal(), axes.reviewCount),
                 spiciness = ProcessedFoodRatingResponse(axes.spicinessAverage?.roundToFirstDecimal(), axes.spicinessCount),
                 sweetness = ProcessedFoodRatingResponse(axes.sweetnessAverage?.roundToFirstDecimal(), axes.sweetnessCount),

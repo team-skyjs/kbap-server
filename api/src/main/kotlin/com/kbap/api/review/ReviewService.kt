@@ -1,5 +1,6 @@
 package com.kbap.api.review
 
+import java.util.Optional
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
@@ -172,8 +173,8 @@ class ReviewService(
         content: String?,
         imagePaths: List<String>?,
         place: ReviewPlace?,
-        spiciness: Int? = null,
-        sweetness: Int? = null,
+        spiciness: Optional<Int>? = null,
+        sweetness: Optional<Int>? = null,
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
         verifyContentLength(content)
@@ -183,8 +184,8 @@ class ReviewService(
             rating = rating,
             servingSpeedRating = if (forFood) servingSpeed ?: 0 else 0,
             staffKindnessRating = if (forFood) staffKindness ?: 0 else 0,
-            spicinessRating = if (forFood) null else spiciness,
-            sweetnessRating = if (forFood) null else sweetness,
+            spicinessRating = if (forFood) null else spiciness.keepingWhenAbsent(review.spicinessRating),
+            sweetnessRating = if (forFood) null else sweetness.keepingWhenAbsent(review.sweetnessRating),
             content = content,
             language = languageDetector.detect(content)?.code,
             imageRefs = imagePaths,
@@ -353,6 +354,8 @@ class ReviewService(
         }
 
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
+
+    private fun Optional<Int>?.keepingWhenAbsent(current: Int?): Int? = if (this == null) current else orElse(null)
 
     @Transactional(readOnly = true)
     fun getRecentFoodReviews(foodId: Long, viewerMemberId: Long?, lang: LanguageCode): List<ReviewResponse> =
