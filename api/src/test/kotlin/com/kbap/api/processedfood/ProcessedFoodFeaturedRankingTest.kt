@@ -158,6 +158,53 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
                     boostedOf(p.path("analysisId").asText()) shouldBe listOf("CS-1")
                 }
             }
+            `when`("짧은 별칭의 대표 상품과 더 구체적인 대표 상품이 함께 걸리면 — 공부 막음") {
+                then("더 길게 일치한 쪽만 올리고, 짧은 쪽은 올리지 않는다") {
+                    seed("FK-1", "포카칩", "㈜오리온")
+                    seed("FK-2", "포카리스웨트", "동아오츠카㈜")
+                    seed("FK-3", "불닭볶음면", "삼양식품㈜")
+                    seed("FK-4", "까르보불닭볶음면", "삼양식품㈜")
+                    scan(member(85811L), "포카리스웨트").let { p ->
+                        p.path("candidates")[0].path("reportNo").asText() shouldBe "FK-2"
+                        boostedOf(p.path("analysisId").asText()) shouldBe listOf("FK-2")
+                    }
+                    scan(member(85812L), "까르보불닭볶음면").let { p ->
+                        p.path("candidates")[0].path("reportNo").asText() shouldBe "FK-4"
+                        boostedOf(p.path("analysisId").asText()) shouldBe listOf("FK-4")
+                    }
+                }
+            }
+            `when`("두 글자 별칭이 다른 단어 속에만 있으면(불닭소스) — 공부") {
+                then("올리지 않는다") {
+                    seed("FK-3", "불닭볶음면", "삼양식품㈜")
+                    seed("SA-1", "불닭소스", "삼양식품㈜")
+                    val p = scan(member(85813L), "불닭소스")
+                    p.path("candidates")[0].path("reportNo").asText() shouldBe "SA-1"
+                    boostedOf(p.path("analysisId").asText()) shouldBe emptyList()
+                }
+            }
+            `when`("카탈로그 밖 제품이 이름 그대로(정확 일치) 읽히면 — 공부") {
+                then("그 제품이 먼저이고 대표 상품은 그 아래다") {
+                    seed("FS-1", "빙그레 딸기맛 우유", "㈜빙그레")
+                    seed("FS-2", "맥심 모카골드 마일드 커피믹스", "동서식품㈜")
+                    seed("FS-3", "올리브 짜파게티", "㈜농심")
+                    seed("FS-4", "비락식혜", "팔도㈜")
+                    seed("PB-1", "딸기맛 포키", "㈜해태")
+                    seed("PB-2", "노브랜드 딸기맛 우유", "㈜이마트")
+                    seed("PB-3", "맥심 화이트골드", "동서식품㈜")
+                    seed("PB-4", "짜파게티 범벅", "㈜농심")
+                    seed("PB-5", "식혜", "㈜웰그린")
+                    listOf(
+                        "딸기맛 포키" to listOf("PB-1", "FS-1"),
+                        "노브랜드 딸기맛 우유" to listOf("PB-2", "FS-1"),
+                        "맥심 화이트골드" to listOf("PB-3", "FS-2"),
+                        "짜파게티 범벅" to listOf("PB-4", "FS-3"),
+                        "식혜" to listOf("PB-5", "FS-4"),
+                    ).forEachIndexed { i, (ocr, top2) ->
+                        reportNos(scan(member(85820L + i), ocr).path("candidates")).take(2) shouldBe top2
+                    }
+                }
+            }
             `when`("맞는 제품이 30개를 넘으면") {
                 then("후보를 30개까지 한 번에 준다") {
                     (1..40).forEach { seed("MANY-$it", "새우스낵$it", "㈜농심") }
