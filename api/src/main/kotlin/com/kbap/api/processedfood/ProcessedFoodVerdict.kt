@@ -52,8 +52,8 @@ object ProcessedFoodJudge {
     private const val WHOLE = "whole"
 
     fun judge(allergens: String?, rawMaterials: String?, avoidance: Avoidance?): ProcessedFoodJudgement {
-        val (declared, declaredMayContain) = ProcessedFoodLabelText.splitMayContain(allergens)
-        val (raw, rawMayContain) = ProcessedFoodLabelText.splitMayContain(rawMaterials)
+        val (declared, declaredMayContain) = ProcessedFoodLabelText.splitMayContain(allergens, ingredientField = false)
+        val (raw, rawMayContain) = ProcessedFoodLabelText.splitMayContain(rawMaterials, ingredientField = true)
         val mayContainText = listOfNotNull(declaredMayContain, rawMayContain).joinToString("\n").ifEmpty { null }
         val mayContain = mayContainText?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
         return judge(IngredientLabelReader.read(declared, raw), mayContain, raw, avoidance)

@@ -74,7 +74,7 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     val mine = get("/api/processed-foods/$id", member(86601L, "MILK"))
                     mine.path("verdict").asText() shouldBe "AVOID"
                     mine.path("avoidMatches")[0].path("code").asText() shouldBe "MILK"
-                    mine.path("unclearIngredients").map { it.asText() } shouldBe listOf("합성향료")
+                    mine.path("unclearIngredients").size() shouldBe 0
                     mine.path("unmapped").size() shouldBe 0
                     mine.path("detections").map { it.path("code").asText() } shouldBe listOf("MILK")
 
@@ -143,6 +143,37 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     result.path("verdict").asText() shouldBe "CAUTION"
                     result.path("mayContainMatches")[0].path("code").asText() shouldBe "PEANUT"
                     result.path("unmapped").size() shouldBe 0
+                }
+            }
+            `when`("성분표 OCR 원재료 줄에 시설 문구가 붙어 있으면 — Codex P1(#459)") {
+                then("앞 원재료는 확정으로 읽어 밀 회피가 AVOID 다") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "원재료명: 소맥분, 설탕, 본 제품은 땅콩을 사용한 제품과 같은 생산라인에서 생산합니다")),
+                            "lang" to "ko",
+                        ),
+                        member(86608L, "WHEAT"),
+                    )
+                    result.path("verdict").asText() shouldBe "AVOID"
+                }
+            }
+            `when`("성분표 원재료 줄이 자리표시값이고 혼입 문장만 읽히면 — Codex P2(#459)") {
+                then("labelSource 는 INGREDIENTS_ONLY 가 아니라 NONE 이다(상세와 같은 규칙)") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "원재료명: 알수없음\n이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다.")),
+                            "lang" to "ko",
+                        ),
+                        member(86609L, "PEANUT"),
+                    )
+                    result.path("labelSource").asText() shouldBe "NONE"
+                    result.path("verdict").asText() shouldBe "CAUTION"
                 }
             }
             `when`("성분표가 혼입 문구뿐이면 — Codex P1") {
