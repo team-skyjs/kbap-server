@@ -54,6 +54,12 @@ data class ReviewResponse(
     @field:Schema(description = "직원 친절도 평가 — 항상 0~5 정수, 0 은 평가 안 함", example = "4")
     val staffKindness: Int,
 
+    @field:Schema(description = "맵기(1~5) — 가공식품 리뷰만, 미입력·음식 리뷰는 null", example = "3", nullable = true)
+    val spiciness: Int? = null,
+
+    @field:Schema(description = "당도(1~5) — 가공식품 리뷰만, 미입력·음식 리뷰는 null", example = "2", nullable = true)
+    val sweetness: Int? = null,
+
     @field:Schema(description = "리뷰 본문(없으면 null)", example = "정말 맛있어요")
     val content: String?,
 
@@ -113,6 +119,8 @@ data class ReviewResponse(
                 rating = review.rating,
                 servingSpeed = review.servingSpeedRating,
                 staffKindness = review.staffKindnessRating,
+                spiciness = review.spicinessRating,
+                sweetness = review.sweetnessRating,
                 content = review.content,
                 language = review.language,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },

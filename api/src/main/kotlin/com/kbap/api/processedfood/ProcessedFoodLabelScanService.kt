@@ -153,7 +153,7 @@ class ProcessedFoodLabelScanService(
 
     private fun sourceOf(reading: IngredientLabelReading, text: ProcessedFoodLabelText): ProcessedFoodLabelSource = when {
         reading.declaration == AllergenDeclaration.LISTED -> ProcessedFoodLabelSource.DECLARED
-        text.rawMaterials.isNotBlank() -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
+        !IngredientLabelReader.isRawNotProvided(withoutHeadings(text.rawMaterials)) -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
         else -> ProcessedFoodLabelSource.NONE
     }
 

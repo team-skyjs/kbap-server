@@ -1,5 +1,6 @@
 package com.kbap.api.review
 
+import java.util.Optional
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
@@ -77,6 +78,8 @@ class ReviewService(
         rating: Int,
         content: String?,
         imagePaths: List<String>?,
+        spiciness: Int? = null,
+        sweetness: Int? = null,
     ): ReviewResponse {
         if (!processedFoodReviewSwitch.writeEnabled) throw BusinessException(ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED)
         val product = processedFoodService.getAvailableProduct(processedFoodId)
@@ -85,7 +88,7 @@ class ReviewService(
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
         val review = reviewRepository.save(
-            Review.forProcessedFood(memberId, product.id, rating, content, languageDetector.detect(content)?.code, imagePaths, authorCountryCode),
+            Review.forProcessedFood(memberId, product.id, rating, content, languageDetector.detect(content)?.code, imagePaths, authorCountryCode, spiciness, sweetness),
         )
         rankingEventRepository.save(MemberRankingEvent.reviewCreated(memberId, review.id, firstReviewOfFood = false))
         return ReviewResponse.from(review, imagePublicBaseUrl, authorOf(memberId), likeCount = 0, likedByMe = false, processedFood = ReviewProcessedFoodResponse.from(product))
@@ -170,6 +173,8 @@ class ReviewService(
         content: String?,
         imagePaths: List<String>?,
         place: ReviewPlace?,
+        spiciness: Optional<Int>? = null,
+        sweetness: Optional<Int>? = null,
     ): ReviewResponse {
         val review = getMyReview(memberId, reviewId)
         verifyContentLength(content)
@@ -179,6 +184,8 @@ class ReviewService(
             rating = rating,
             servingSpeedRating = if (forFood) servingSpeed ?: 0 else 0,
             staffKindnessRating = if (forFood) staffKindness ?: 0 else 0,
+            spicinessRating = if (forFood) null else spiciness.keepingWhenAbsent(review.spicinessRating),
+            sweetnessRating = if (forFood) null else sweetness.keepingWhenAbsent(review.sweetnessRating),
             content = content,
             language = languageDetector.detect(content)?.code,
             imageRefs = imagePaths,
@@ -347,6 +354,8 @@ class ReviewService(
         }
 
     private fun Double.roundToFirstDecimal(): Double = Math.round(this * 10) / 10.0
+
+    private fun Optional<Int>?.keepingWhenAbsent(current: Int?): Int? = if (this == null) current else orElse(null)
 
     @Transactional(readOnly = true)
     fun getRecentFoodReviews(foodId: Long, viewerMemberId: Long?, lang: LanguageCode): List<ReviewResponse> =
