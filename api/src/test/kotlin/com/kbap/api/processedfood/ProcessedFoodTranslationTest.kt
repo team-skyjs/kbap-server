@@ -104,6 +104,22 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     p.path("ingredients").path("translated").asText() shouldBe "밀가루"
                 }
             }
+            `when`("엔진이 실패한 항목을 다시 요청하면 — 보안 검토") {
+                then("같은 날에는 엔진을 다시 부르지 않고(실패 캐시) 실패한 호출도 일일 상한에 센다") {
+                    translator.reply = { _, _ -> throw IllegalStateException("engine down") }
+                    val id = seed("TR-9", "재시도과자", "㈜빙그레", null, null)
+                    get("/api/processed-foods/$id?lang=en")
+                    val calls = translator.calls.size
+
+                    get("/api/processed-foods/$id?lang=en").path("name").asText() shouldBe "재시도과자"
+                    translator.calls.size shouldBe calls
+
+                    translations.dailyBudgetKrw = 0.4
+                    translator.reply = { text, target -> "[${target.code}] $text" }
+                    val other = seed("TR-10", "다음과자", "㈜빙그레", null, null)
+                    get("/api/processed-foods/$other?lang=en").path("name").asText() shouldBe "다음과자"
+                }
+            }
             `when`("오늘 번역 지출이 일일 상한에 닿으면") {
                 then("엔진을 부르지 않고 원문으로 폴백한다") {
                     translations.dailyBudgetKrw = 0.0
