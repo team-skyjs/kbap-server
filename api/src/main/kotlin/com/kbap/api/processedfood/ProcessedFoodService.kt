@@ -7,6 +7,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.review.ReviewJpaRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,14 +19,16 @@ class ProcessedFoodService(
     private val memberService: MemberService,
     private val reviews: ReviewJpaRepository,
     private val candidateIndex: ProcessedFoodCandidateIndex,
+    private val featuredCatalog: ProcessedFoodFeaturedCatalog,
 ) {
     @Transactional(readOnly = true)
     fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
         if (tokens.isEmpty()) throw BusinessException(ErrorCode.BLANK_SEARCH_KEYWORD)
         val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value in 0..MAX_OFFSET } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
-        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct())
-        val ranked = ProcessedFoodSearchRanker.rank(candidates, tokens)
+        val lastMirror = products.findLastCompletedMirrorStartedAt()
+        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror)
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.rank(candidates, tokens), query.orEmpty(), tokens, lastMirror).products
         val hasNext = ranked.size > offset + size
         val page = ranked.drop(offset).take(size)
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
@@ -52,20 +55,42 @@ class ProcessedFoodService(
         detailOf(products.findByReportNo(reportNo) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND), memberId)
 
     @Transactional(readOnly = true)
-    fun getNameScanCandidates(queries: List<String>, limit: Int): List<ProcessedFoodProduct> {
+    fun getNameScanCandidates(queries: List<String>, limit: Int): RankedCandidates {
         val tokensByQuery = queries.map(ProcessedFoodSearchRanker::tokensOf).filter { it.isNotEmpty() }
-        if (tokensByQuery.isEmpty()) return emptyList()
+        if (tokensByQuery.isEmpty()) return RankedCandidates(emptyList(), emptyList())
         val tokens = tokensByQuery.flatten().distinct().take(MAX_SCAN_TOKENS)
         val rawTokens = queries.flatMap(ProcessedFoodSearchRanker::rawTokensOf).distinct().take(MAX_SCAN_TOKENS)
-        val candidates = candidatesFor(tokens, (tokens + rawTokens).distinct())
+        val lastMirror = products.findLastCompletedMirrorStartedAt()
+        val candidates = candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror)
         val best = linkedMapOf<Long, Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>()
         tokensByQuery.forEach { queryTokens ->
             ProcessedFoodSearchRanker.scored(candidates, queryTokens).forEach { scored ->
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
-        return best.values.sortedWith(ProcessedFoodSearchRanker.ORDER).take(limit).map { it.first }
+        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER).map { it.first }, queries.joinToString(" "), tokens, lastMirror)
+        return ranked.copy(products = ranked.products.take(limit))
     }
+
+    private fun featuredFirst(ranked: List<ProcessedFoodProduct>, text: String, tokens: List<String>, lastMirror: LocalDateTime?): RankedCandidates {
+        val featured = featuredCatalog.boostedProducts(text, tokens)
+        val boosted = if (featured.isEmpty()) {
+            emptyList()
+        } else {
+            val rows = products.findAllByNormalizedNameIn(featured.map { it.name }).filterNot { it.isDiscontinued(lastMirror) }
+            featured.mapNotNull { entry -> latestOf(rows.filter { it.normalizedName == entry.name && makerKeyOf(it) == entry.maker }) }
+        }
+        val boostedGroups = boosted.map(::groupKeyOf).toSet()
+        val rest = ranked.filterNot { groupKeyOf(it) in boostedGroups }.groupBy(::groupKeyOf).values.map { latestOf(it)!! }
+        return RankedCandidates(boosted + rest, boosted.map { it.reportNo })
+    }
+
+    private fun latestOf(rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? =
+        rows.maxWithOrNull(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id }))
+
+    private fun groupKeyOf(product: ProcessedFoodProduct): String = product.normalizedName + "|" + makerKeyOf(product)
+
+    private fun makerKeyOf(product: ProcessedFoodProduct): String = product.displayMaker()?.let(ProcessedFoodSnapshot::normalizeName).orEmpty()
 
     private fun available(product: ProcessedFoodProduct?): ProcessedFoodProduct {
         if (product == null) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
@@ -81,8 +106,8 @@ class ProcessedFoodService(
         return ProcessedFoodDetailResponse.of(product, reading, memberId?.let { memberService.getAvoidance(it) }, rating)
     }
 
-    private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>): List<ProcessedFoodProduct> {
-        val seenSince = products.findLastCompletedMirrorStartedAt()?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
+    private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?): List<ProcessedFoodProduct> {
+        val seenSince = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
         return (
             tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT) } +
                 makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT) }
@@ -96,3 +121,5 @@ class ProcessedFoodService(
         private val NO_BASELINE: LocalDateTime = LocalDateTime.of(1970, 1, 1, 0, 0)
     }
 }
+
+data class RankedCandidates(val products: List<ProcessedFoodProduct>, val boostedReportNos: List<String>)

@@ -37,7 +37,8 @@ class ProcessedFoodNameScanService(
     @Transactional
     fun scanName(memberId: Long, ocrText: String, language: String): ProcessedFoodNameScanResponse {
         memberService.getMember(memberId)
-        val candidates = processedFoodService.getNameScanCandidates(ProcessedFoodOcrText.queriesOf(ocrText), MAX_CANDIDATES)
+        val ranked = processedFoodService.getNameScanCandidates(ProcessedFoodOcrText.queriesOf(ocrText), MAX_CANDIDATES)
+        val candidates = ranked.products
         val analysisId = UUID.randomUUID()
         val now = LocalDateTime.now()
         val state = if (candidates.isEmpty()) ProcessedFoodNameScanState.NO_CANDIDATE else ProcessedFoodNameScanState.CANDIDATES
@@ -51,7 +52,7 @@ class ProcessedFoodNameScanService(
                 lifecycle = state.name,
                 initialLanguage = language,
                 fxState = FX_STATE,
-                requestDocument = mapOf("ocrText" to ocrText, "candidates" to candidates.map { it.reportNo }),
+                requestDocument = mapOf("ocrText" to ocrText, "candidates" to candidates.map { it.reportNo }, "boostedReportNos" to ranked.boostedReportNos),
                 limitsVersion = LIMITS_VERSION,
                 expiresAt = now.plus(CANDIDATES_TTL),
                 resultExpiresAt = now.plus(RESULT_TTL),
@@ -132,7 +133,7 @@ class ProcessedFoodNameScanService(
         private const val LIMITS_VERSION = "pfood-name-1"
         const val ENTITLEMENT_FREE = "FREE"
         const val ENTITLEMENT_UNLIMITED = "UNLIMITED"
-        private const val MAX_CANDIDATES = 5
+        private const val MAX_CANDIDATES = 30
         private val CANDIDATES_TTL: Duration = Duration.ofMinutes(30)
         val RESULT_TTL: Duration = Duration.ofDays(7)
         val KEY_TTL: Duration = Duration.ofDays(30)

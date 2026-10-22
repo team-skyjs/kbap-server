@@ -1,0 +1,27 @@
+{
+  "products": [
+    { "name": "빙그레바나나맛우유", "maker": "빙그레", "aliases": ["바나나맛", "바나나맛우유", "바나나우유", "bananamilk"], "priority": 1 }
+  ],
+  "makers": [
+    { "name": "빙그레", "aliases": ["빙그레", "binggrae"] },
+    { "name": "매일", "aliases": ["매일유업", "매일우유", "매일", "maeil"] },
+    { "name": "남양", "aliases": ["남양유업", "남양"] },
+    { "name": "서울우유", "aliases": ["서울우유", "서울f&b"] },
+    { "name": "동원", "aliases": ["동원f&b", "동원"] },
+    { "name": "롯데", "aliases": ["롯데칠성", "롯데웰푸드", "롯데제과", "롯데", "lotte"] },
+    { "name": "농심", "aliases": ["농심", "nongshim"] },
+    { "name": "오리온", "aliases": ["오리온", "orion"] },
+    { "name": "해태", "aliases": ["해태제과", "해태", "haitai"] },
+    { "name": "크라운", "aliases": ["크라운제과", "크라운", "crown"] },
+    { "name": "오뚜기", "aliases": ["오뚜기", "ottogi"] },
+    { "name": "삼양", "aliases": ["삼양식품", "삼양", "samyang"] },
+    { "name": "팔도", "aliases": ["팔도", "paldo"] },
+    { "name": "풀무원", "aliases": ["풀무원", "pulmuone"] },
+    { "name": "씨제이", "aliases": ["씨제이", "cj제일제당", "비비고"] },
+    { "name": "대상", "aliases": ["대상㈜", "청정원"] },
+    { "name": "동서", "aliases": ["동서식품", "맥심"] },
+    { "name": "코카콜라", "aliases": ["코카콜라", "cocacola"] },
+    { "name": "웅진", "aliases": ["웅진식품"] },
+    { "name": "광동", "aliases": ["광동제약"] }
+  ]
+}
