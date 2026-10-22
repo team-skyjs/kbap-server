@@ -145,6 +145,21 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
                     result.path("unmapped").size() shouldBe 0
                 }
             }
+            `when`("성분표 OCR 원재료 줄에 시설 문구가 붙어 있으면 — Codex P1(#459)") {
+                then("앞 원재료는 확정으로 읽어 밀 회피가 AVOID 다") {
+                    val result = post(
+                        "/api/processed-foods/scan/label",
+                        mapOf(
+                            "analysisId" to null,
+                            "clientRequestId" to UUID.randomUUID().toString(),
+                            "pages" to listOf(mapOf("ocrText" to "원재료명: 소맥분, 설탕, 본 제품은 땅콩을 사용한 제품과 같은 생산라인에서 생산합니다")),
+                            "lang" to "ko",
+                        ),
+                        member(86608L, "WHEAT"),
+                    )
+                    result.path("verdict").asText() shouldBe "AVOID"
+                }
+            }
             `when`("성분표가 혼입 문구뿐이면 — Codex P1") {
                 then("읽을 수 없음으로 거절하지 않고 같은 규칙으로 CAUTION 을 낸다") {
                     val result = post(

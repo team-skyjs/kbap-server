@@ -208,6 +208,17 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 }
             }
         }
+        `when`("원재료 칸에서 시설·라인 문구가 원재료 목록과 한 문장에 붙으면 — Codex P1·공부 #459") {
+            then("표지가 든 쉼표 조각만 혼입이고 앞 원재료는 확정이다") {
+                val glued = "소맥분(밀), 설탕, 땅콩과 같은 라인에서 생산"
+                ProcessedFoodJudge.judge(null, glued, avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                ProcessedFoodJudge.judge(null, glued, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                ProcessedFoodJudge.judge(null, "원재료명: 소맥분, 설탕, 본 제품은 땅콩을 사용한 제품과 같은 생산라인에서 생산합니다", avoiding(IngredientCode.WHEAT)).verdict shouldBe ProcessedFoodVerdict.AVOID
+            }
+            then("알레르기 칸의 시설 문장은 통째로 혼입이다") {
+                ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+            }
+        }
         `when`("확정 근거 없이 혼입 문장만 있고 내 회피와 겹치지 않으면 — Codex P1") {
             then("밀이 없다는 근거가 아니므로 SAFE 가 아니라 null 이다") {
                 ProcessedFoodJudge.judge("땅콩 혼입 가능", null, avoiding(IngredientCode.WHEAT)).verdict shouldBe null
