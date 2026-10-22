@@ -92,6 +92,14 @@ class ProcessedFoodListTest : BehaviorSpec() {
                     reportNos(list("?type=RAMEN")) shouldBe listOf("FT-2")
                 }
             }
+            `when`("대표 상품의 최신 행이 요청 유형과 다르면 — Codex P2(#458 vIaDf)") {
+                then("요청 유형의 행으로 대표 상품을 골라 카탈로그 우선순위를 지킨다") {
+                    seed("RM-1", "동네라면", "㈜동네식품", "유탕면류")
+                    seed("FR-RAMEN", "신라면", "㈜농심", "유탕면류", seenHoursAgo = 5)
+                    seed("FR-OTHER", "신라면", "㈜농심", "기타가공품", seenHoursAgo = 1)
+                    reportNos(list("?type=RAMEN")) shouldBe listOf("FR-RAMEN", "RM-1")
+                }
+            }
             `when`("커서로 넘기면") {
                 then("겹치거나 빠지지 않고 끝에서 hasNext 가 false 다") {
                     seedShelf()
