@@ -220,6 +220,18 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.MILK)).verdict shouldBe ProcessedFoodVerdict.CAUTION
                 ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.EGG)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
+            then("여는 말이 바로 앞 원재료와 한 조각에 붙어도 여는 말이 새 문장을 시작한다 — 공부 #459") {
+                mapOf(
+                    "소맥분, 설탕, 우유 본 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.MILK,
+                    "소맥분(밀) 본 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.WHEAT,
+                    "소맥분, 설탕, 우유 해당 제품은 땅콩을 사용한 제품과 같은 라인에서 생산합니다" to IngredientCode.MILK,
+                    "소맥분, 설탕, 우유 당 제품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.MILK,
+                    "소맥분, 설탕, 우유 본품은 땅콩을 사용한 제품과 같은 시설에서 제조합니다" to IngredientCode.MILK,
+                ).forEach { (raw, definite) ->
+                    ProcessedFoodJudge.judge(null, raw, avoiding(definite)).verdict shouldBe ProcessedFoodVerdict.AVOID
+                    ProcessedFoodJudge.judge(null, raw, avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
+                }
+            }
             then("알레르기 칸의 시설 문장은 통째로 혼입이다") {
                 ProcessedFoodJudge.judge("이 제품은 땅콩, 대두를 사용한 제품과 같은 시설에서 제조합니다", "소맥분, 설탕", avoiding(IngredientCode.PEANUT)).verdict shouldBe ProcessedFoodVerdict.CAUTION
             }
