@@ -25,9 +25,9 @@ data class ProcessedFoodSummaryResponse(
     val foodType: String?,
     @field:Schema(description = "제품 이미지 URL(HACCP http 원본은 https 로 바꿔 내려간다) — 없으면 null(플레이스홀더는 앱)", nullable = true)
     val imageUrl: String?,
-    @field:Schema(description = "리뷰 수 — 검색 결과에서만 채운다(없으면 0). 이름 스캔 후보는 집계하지 않아 null", example = "12", nullable = true)
+    @field:Schema(description = "리뷰 수 — 목록·검색·이름 스캔 후보에서 채운다(없으면 0)", example = "12", nullable = true)
     val reviewCount: Long? = null,
-    @field:Schema(description = "평균 별점 — 리뷰가 없거나 집계하지 않은 카드(이름 스캔 후보)는 null", example = "4.2", nullable = true)
+    @field:Schema(description = "평균 별점 — 리뷰가 없으면 null", example = "4.2", nullable = true)
     val avgRating: Double? = null,
     @field:Schema(description = "조회 회원의 내 판정(상세와 같은 규칙) — 비회원·회피 재료 0개·원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
     val verdict: ProcessedFoodVerdict? = null,
@@ -37,7 +37,7 @@ data class ProcessedFoodSummaryResponse(
     val nameKo: String = productName,
     @field:Schema(description = "유형 칩 — 어디에도 안 맞으면 null", nullable = true)
     val type: ProcessedFoodType? = ProcessedFoodType.of(foodType),
-    @field:Schema(description = "평점 — 목록·검색에서 채운다(리뷰 없으면 average null·count 0). 이름 스캔 후보는 집계하지 않아 null", nullable = true)
+    @field:Schema(description = "평점 — 목록·검색·이름 스캔 후보에서 채운다(리뷰 없으면 average null·count 0)", nullable = true)
     val rating: ProcessedFoodRatingResponse? = null,
 ) {
     companion object {

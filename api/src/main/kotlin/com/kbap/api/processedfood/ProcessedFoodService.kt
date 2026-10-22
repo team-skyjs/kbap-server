@@ -67,11 +67,16 @@ class ProcessedFoodService(
         return names.any { name -> featuredByName[name]?.any { foldsInto(row.normalizedName, row.displayMaker, it) } == true }
     }
 
-    private fun pageOf(page: List<ProcessedFoodProduct>, hasNext: Boolean, offset: Int, size: Int, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
-        val ratings = reviews.aggregateRatingsByProcessedFoodIds(page.map { it.id }).associateBy { it.processedFoodId }
+    @Transactional(readOnly = true)
+    fun getSummaries(products: List<ProcessedFoodProduct>, memberId: Long?): List<ProcessedFoodSummaryResponse> {
+        val ratings = reviews.aggregateRatingsByProcessedFoodIds(products.map { it.id }).associateBy { it.processedFoodId }
         val avoidance = memberId?.let { memberService.getAvoidance(it) }
+        return products.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id], avoidance) }
+    }
+
+    private fun pageOf(page: List<ProcessedFoodProduct>, hasNext: Boolean, offset: Int, size: Int, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
         return SearchPage(
-            items = page.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id], avoidance) },
+            items = getSummaries(page, memberId),
             hasNext = hasNext,
             nextCursor = if (hasNext) (offset + size).toString() else null,
         )
