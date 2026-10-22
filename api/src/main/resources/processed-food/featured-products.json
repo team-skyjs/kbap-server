@@ -42,19 +42,11 @@
         "허니버터칩",
         "허니버터",
         "honeybutterchip",
-        "honeybutter"
-      ],
-      "priority": 4
-    },
-    {
-      "name": "해태허니버터칩",
-      "maker": "해태",
-      "aliases": [
-        "허니버터칩",
-        "honeybutterchip",
+        "honeybutter",
+        "해태허니버터칩",
         "해태허니버터"
       ],
-      "priority": 5
+      "priority": 4
     },
     {
       "name": "초코파이",

@@ -80,23 +80,46 @@ class ProcessedFoodService(
         val boosted = if (featured.isEmpty()) {
             emptyList()
         } else {
-            val rows = products.findAllByNormalizedNameIn(featured.map { it.product.name }).filterNot { it.isDiscontinued(lastMirror) }
+            val rows = products.findAllByNormalizedNameIn(featured.flatMap { namesOf(it.product) }).filterNot { it.isDiscontinued(lastMirror) }
             featured.mapNotNull { boost ->
-                latestOf(rows.filter { it.normalizedName == boost.product.name })?.let { Triple(it, boost.matchLength, boost.product.maker) }
+                representativeOf(boost.product, rows)?.let { Triple(it, boost.matchLength, boost.product) }
                     ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
             }
         }
-        val boostedNames = boosted.flatMap { (product, _, maker) -> listOf(product.normalizedName.lowercase()) + withoutMaker(product.normalizedName, maker) }.toSet()
+        val boostedIds = boosted.map { it.first.id }.toSet()
         val rest = ranked.filterNot { (product, _) ->
-            product.normalizedName.lowercase() in boostedNames || boosted.any { (_, _, maker) -> withoutMaker(product.normalizedName, maker).any { it in boostedNames } }
+            product.id in boostedIds || boosted.any { (_, _, featuredProduct) -> foldsInto(product, featuredProduct) }
         }
             .groupBy { groupKeyOf(it.first) }.values
             .map { group -> latestOf(group.map { it.first })!! to group.first().second }
         val longestBoost = boosted.maxOfOrNull { it.second } ?: 0
+        val boostedNameKeys = boosted.flatMap { listOf(it.third.name, it.first.normalizedName) }.map { it.lowercase() }.toSet()
         val (exactAbove, below) = rest.partition {
-            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && it.first.normalizedName.length >= longestBoost
+            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && it.first.normalizedName.length >= longestBoost &&
+                it.first.normalizedName.lowercase() !in boostedNameKeys
         }
         return RankedCandidates(exactAbove.map { it.first } + boosted.map { it.first } + below.map { it.first }, boosted.map { it.first.reportNo })
+    }
+
+    private fun namesOf(product: ProcessedFoodFeaturedCatalog.FeaturedProduct): List<String> =
+        (listOf(product.name) + product.aliases).map(ProcessedFoodSnapshot::normalizeName).distinct()
+
+    private fun representativeOf(product: ProcessedFoodFeaturedCatalog.FeaturedProduct, rows: List<ProcessedFoodProduct>): ProcessedFoodProduct? {
+        val names = namesOf(product).map { it.lowercase() }.toSet()
+        val named = rows.filter { it.normalizedName.lowercase() in names }
+        val pool = named.filter { isMadeBy(it, product.maker) }.ifEmpty { named.filter { it.normalizedName.equals(product.name, ignoreCase = true) } }
+        return latestOf(pool.filter { it.normalizedName.equals(product.name, ignoreCase = true) }) ?: latestOf(pool)
+    }
+
+    private fun foldsInto(row: ProcessedFoodProduct, product: ProcessedFoodFeaturedCatalog.FeaturedProduct): Boolean {
+        if (!isMadeBy(row, product.maker) && row.displayMaker() != null) return false
+        val names = namesOf(product).map { it.lowercase() }.toSet()
+        return row.normalizedName.lowercase() in names || withoutMaker(row.normalizedName, product.maker).any { it in names }
+    }
+
+    private fun isMadeBy(row: ProcessedFoodProduct, maker: String): Boolean {
+        val key = makerKeyOf(row).lowercase()
+        return key.isNotEmpty() && featuredCatalog.makerAliases(maker).any { it in key }
     }
 
     private fun withoutMaker(name: String, maker: String): List<String> {
