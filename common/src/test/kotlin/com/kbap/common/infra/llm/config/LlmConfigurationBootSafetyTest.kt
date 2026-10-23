@@ -1,7 +1,9 @@
 package com.kbap.common.infra.llm.config
 
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import com.kbap.common.port.llm.TextEmbeddingClient
+import com.kbap.common.port.llm.TextTranslator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -87,6 +89,27 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
             then("어떤 프로퍼티가 비었는지 알려주며 부팅에 실패한다") {
                 missingKeyRunner.run { context ->
                     context.startupFailure.shouldNotBeNull()
+                }
+            }
+        }
+    }
+
+    given("공용 번역과 가공식품 전용 번역을 함께 켠 환경") {
+        val translationRunner = runner.withPropertyValues(
+            "kbap.llm.translation.enabled=true",
+            "kbap.llm.translation.api-key=dummy-key",
+            "kbap.llm.translation.model=gpt-5.6-luna",
+            "kbap.llm.processed-food-translation.enabled=true",
+            "kbap.llm.processed-food-translation.api-key=dummy-key",
+            "kbap.llm.processed-food-translation.model=gpt-5-nano",
+        )
+
+        `when`("LlmConfiguration 으로 컨텍스트를 로딩하면") {
+            then("공용 번역기는 한 개이고 가공식품 전용 번역기는 별도 계약으로 등록된다") {
+                translationRunner.run { context ->
+                    context.startupFailure.shouldBeNull()
+                    context.getBeanNamesForType(TextTranslator::class.java).size shouldBe 1
+                    context.getBeanNamesForType(ProcessedFoodTextTranslator::class.java).size shouldBe 1
                 }
             }
         }
