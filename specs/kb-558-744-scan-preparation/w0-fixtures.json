@@ -1,0 +1,97 @@
+{
+  "kind": "design-fixtures",
+  "executed": false,
+  "scope": "W0 additive assertions; existing 24 cases and D01-D15 remain authoritative",
+  "cases": [
+    {
+      "id": "W0-D03-success-after-cancel",
+      "source": "D03 / L1",
+      "given": "사진 A attempt1 결과와 usage1 확정 → 취소 확정 → 동일 A/attempt1 재전송; 처리기한 뒤/결과기한 전",
+      "expected": {
+        "http": 200,
+        "currentUnitResult": "저장한 A/attempt1 결과",
+        "usageRows": 1,
+        "additionalProviderCalls": 0,
+        "afterResultExpiry": "410; 추가 호출 0"
+      }
+    },
+    {
+      "id": "W0-D07-committed-receipt",
+      "source": "D07 / L1/L2",
+      "given": "현재 unit 결과·최초 usage COMMIT은 DB에 반영, ACK 유실; 새 writer TX에서 공통 잠금 후 current read",
+      "expected": {
+        "currentUnitResult": "같은 unit/attempt/revision의 확정 결과 복구",
+        "usageRows": 1,
+        "additionalProviderCalls": 0
+      }
+    },
+    {
+      "id": "W0-D07-other-unit-usage",
+      "source": "D07 / L1",
+      "given": "A 성공/usage1; B COMMIT 결과 불명확; 이전 TX와 직렬화한 current read에서 B 결과 없음",
+      "expected": {
+        "previousResult": "A 보존",
+        "currentUnitResult": "B 성공으로 복원하지 않음",
+        "usageRows": 1,
+        "additionalProviderCallsBeforeFencing": 0
+      }
+    },
+    {
+      "id": "W0-D07-pending-commit",
+      "source": "D07 / L2",
+      "given": "이전 COMMIT TX가 아직 실행 중; 새 연결의 일반 조회는 결과 없음; 복구 잠금 timeout 또는 DB 불가",
+      "expected": {
+        "state": "미확정 유지",
+        "releaseReservation": false,
+        "additionalProviderCalls": 0,
+        "absenceMeansRollback": false
+      }
+    },
+    {
+      "id": "W0-D07-result-without-usage",
+      "source": "D07 / L1",
+      "given": "최초 성공 receipt는 있지만 operation usage 없음",
+      "expected": {
+        "state": "정합성 오류",
+        "returnSuccess": false,
+        "repairCounterDuringGet": false
+      }
+    },
+    {
+      "id": "W0-D10-unlock-release",
+      "source": "D10 / L3",
+      "given": "정상 HELD claim 실행 중 리뷰/광고 혜택 획득 → 혜택 사유 예약 해제 → 다른 모드 admission → 두 작업 성공",
+      "expected": {
+        "fenceClaimOnlyForEntitlementRelease": false,
+        "usageRowsPerOperation": 1,
+        "scanCountDeltaPerOperation": 1,
+        "freeReservationRequiredWhileUnlimited": false
+      }
+    },
+    {
+      "id": "W0-D10-fenced-claim",
+      "source": "D10 / L3",
+      "given": "취소/만료/fence 확정 후 무제한 혜택 획득, 옛 claim 결과 도착",
+      "expected": {
+        "reviveClaim": false,
+        "acceptLateResult": false,
+        "additionalUsage": 0
+      }
+    },
+    {
+      "id": "W0-D11-admin-reset",
+      "source": "D11",
+      "decisionStatus": "pending_product_decision",
+      "owner": "예진/제품; 커맨드센터 결정 연결",
+      "given": [
+        "무제한 admission → 관리자 reset 확정 → 작업 완료",
+        "무제한 admission → 작업 완료 → 관리자 reset 확정"
+      ],
+      "expected": {
+        "inFlightEntitlementPolicy": null,
+        "runtimePass": false,
+        "knownResetInvariant": "현재 reset은 새 무료 횟수를 지급하지 않음"
+      }
+    }
+  ]
+}
