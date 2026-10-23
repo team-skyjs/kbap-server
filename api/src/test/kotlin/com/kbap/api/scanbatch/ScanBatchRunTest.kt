@@ -236,6 +236,47 @@ class ScanBatchRunTest : BehaviorSpec() {
                     settled(owner, batchId).path("photos")[0].path("state").asText() shouldBe "SUCCEEDED"
                 }
             }
+            `when`("RUNNING 사진의 실행 lease가 만료된 뒤 작업이 사라졌으면") {
+                then("주기 스윕이 사진을 다시 실행해 묶음을 완료한다") {
+                    val owner = member()
+                    val (only) = paths(owner, 1)
+                    vision.program(only, listOf(MenuBoardLine("냉면", "냉면", 8000, null)))
+                    batchSwitch.executionEnabled = false
+                    val batchId = create(owner, listOf(only))
+                    batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!.attemptNo shouldBe 1
+                    dataSource.connection.use { c -> c.createStatement().use {
+                        it.executeUpdate("UPDATE scan_operation SET created_at = created_at - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                        it.executeUpdate("UPDATE scan_operation_photo SET lease_until = NOW() - INTERVAL 1 SECOND WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
+                        it.executeUpdate("UPDATE scan_attempt SET started_at = NOW() - INTERVAL 3 MINUTE, deadline_at = NOW() - INTERVAL 1 SECOND, lease_until = NOW() - INTERVAL 1 SECOND WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
+                    } }
+                    batchSwitch.executionEnabled = true
+                    sweeper.sweep()
+                    val photo = eventually(15.seconds) {
+                        read(owner, batchId).path("photos")[0].also { it.path("state").asText() shouldBe "SUCCEEDED" }
+                    }
+                    photo.path("state").asText() shouldBe "SUCCEEDED"
+                    photo.path("attemptNo").asInt() shouldBe 2
+                    vision.calls.get() shouldBe 1
+                }
+            }
+            `when`("RUNNING 사진의 실행 lease가 아직 유효하면") {
+                then("주기 스윕이 중복 실행하지 않는다") {
+                    val owner = member()
+                    val (only) = paths(owner, 1)
+                    batchSwitch.executionEnabled = false
+                    val batchId = create(owner, listOf(only))
+                    batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!.attemptNo shouldBe 1
+                    dataSource.connection.use { c -> c.createStatement().use {
+                        it.executeUpdate("UPDATE scan_operation SET created_at = created_at - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                    } }
+                    batchSwitch.executionEnabled = true
+                    sweeper.sweep()
+                    val photo = read(owner, batchId).path("photos")[0]
+                    photo.path("state").asText() shouldBe "RUNNING"
+                    photo.path("attemptNo").asInt() shouldBe 1
+                    vision.calls.get() shouldBe 0
+                }
+            }
             `when`("일일 무차감 시도 상한에 걸린 회원의 사진을 실행하려 하면 — Codex P2(#440)") {
                 then("사진이 PENDING 에 남지 않고 FAILED(ATTEMPT_LIMIT)·재시도 불가로 끝난다") {
                     val owner = member()
