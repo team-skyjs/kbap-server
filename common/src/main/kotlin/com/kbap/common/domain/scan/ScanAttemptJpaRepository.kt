@@ -7,6 +7,8 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface ScanAttemptJpaRepository : JpaRepository<ScanAttempt, Long> {
+    fun findByPhotoRowIdAndAttemptNo(photoRowId: Long, attemptNo: Int): ScanAttempt?
+
     @Query(
         """
         select count(a) from ScanAttempt a

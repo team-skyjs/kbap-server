@@ -283,8 +283,22 @@ class ScanBatchService(
         val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return
         if (operation.lifecycle != ACTIVE) return
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return
-        if (photo.executionState != ScanPhotoState.PENDING && photo.executionState != ScanPhotoState.FAILED) return
+        if (!photo.isRunnableAt(LocalDateTime.now())) return
         photo.fail(reason)
+        releaseIfAllFailed(operation)
+    }
+
+    @Transactional
+    fun expireFinalAttempt(memberId: Long, batchId: UUID, selectionIndex: Int) {
+        val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return
+        if (operation.lifecycle != ACTIVE) return
+        val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return
+        val now = LocalDateTime.now()
+        if (photo.executionState != ScanPhotoState.RUNNING || photo.attemptNo < ScanOperationPhoto.MAX_ATTEMPTS || photo.leaseUntil?.isBefore(now) == false) return
+        attempts.findByPhotoRowIdAndAttemptNo(photo.id, photo.attemptNo)
+            ?.takeIf { it.state == ATTEMPT_RUNNING }
+            ?.finish(ATTEMPT_FAILED, ScanOperationPhoto.LEASE_EXPIRED, now)
+        photo.fail(ScanOperationPhoto.LEASE_EXPIRED)
         releaseIfAllFailed(operation)
     }
 
