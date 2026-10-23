@@ -1,5 +1,6 @@
 package com.kbap.common.domain.member
 
+import com.kbap.common.domain.member.dto.MemberCountryCount
 import com.kbap.common.domain.member.dto.NewMemberRow
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -15,6 +16,8 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface MemberJpaRepository : JpaRepository<Member, Long> {
+    fun existsByIdAndMemberStatus(id: Long, memberStatus: MemberStatus): Boolean
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Member m where m.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Member?
@@ -35,11 +38,11 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun releaseNamedLock(@Param("name") name: String): Int?
 
     @Query(
-        value = "SELECT * FROM member WHERE (:isBot IS NULL OR is_bot = :isBot) ORDER BY id DESC",
-        countQuery = "SELECT count(*) FROM member WHERE (:isBot IS NULL OR is_bot = :isBot)",
+        value = "SELECT * FROM member WHERE (:isBot IS NULL OR is_bot = :isBot) AND (:country IS NULL OR (:country = 'NONE' AND country_code IS NULL) OR country_code = :country) ORDER BY id DESC",
+        countQuery = "SELECT count(*) FROM member WHERE (:isBot IS NULL OR is_bot = :isBot) AND (:country IS NULL OR (:country = 'NONE' AND country_code IS NULL) OR country_code = :country)",
         nativeQuery = true,
     )
-    fun findPageAnyStatus(@Param("isBot") isBot: Boolean?, pageable: Pageable): Page<Member>
+    fun findPageAnyStatus(@Param("isBot") isBot: Boolean?, @Param("country") country: String?, pageable: Pageable): Page<Member>
 
     @Query(
         value = """
@@ -48,6 +51,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
                OR nickname LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
                OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
               AND (:isBot IS NULL OR is_bot = :isBot)
+              AND (:country IS NULL OR (:country = 'NONE' AND country_code IS NULL) OR country_code = :country)
             ORDER BY id DESC
         """,
         countQuery = """
@@ -56,6 +60,7 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
                OR nickname LIKE CONCAT('%', :keyword, '%') ESCAPE '\\'
                OR email LIKE CONCAT('%', :keyword, '%') ESCAPE '\\')
               AND (:isBot IS NULL OR is_bot = :isBot)
+              AND (:country IS NULL OR (:country = 'NONE' AND country_code IS NULL) OR country_code = :country)
         """,
         nativeQuery = true,
     )
@@ -63,8 +68,29 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         @Param("keyword") keyword: String,
         @Param("memberId") memberId: Long,
         @Param("isBot") isBot: Boolean?,
+        @Param("country") country: String?,
         pageable: Pageable,
     ): Page<Member>
+
+    @Query(
+        value = """
+            SELECT country_code AS countryCode, COUNT(*) AS count FROM member
+            WHERE (:isBot IS NULL OR is_bot = :isBot)
+            GROUP BY country_code
+            ORDER BY count DESC, country_code IS NULL, country_code
+        """,
+        nativeQuery = true,
+    )
+    fun countByCountryCodeAnyStatus(@Param("isBot") isBot: Boolean?): List<MemberCountryCount>
+
+    @Query(
+        value = "SELECT created_at FROM member WHERE created_at >= :since AND (:isBot IS NULL OR is_bot = :isBot)",
+        nativeQuery = true,
+    )
+    fun findCreatedAtsSinceAnyStatus(@Param("since") since: LocalDateTime, @Param("isBot") isBot: Boolean?): List<LocalDateTime>
+
+    @Query(value = "SELECT * FROM member WHERE id IN (:ids)", nativeQuery = true)
+    fun findAllAnyStatusByIdIn(@Param("ids") ids: Collection<Long>): List<Member>
 
     @Query(value = "SELECT * FROM member WHERE id = :id", nativeQuery = true)
     fun findAnyById(@Param("id") id: Long): Member?
@@ -93,6 +119,18 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
         """,
     )
     fun increaseScanCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(flushAutomatically = true)
+    @Query(
+        """
+        update Member m
+        set m.scanCount = m.scanCount + 1
+        where m.id = :memberId
+          and m.memberStatus = com.kbap.common.domain.member.model.MemberStatus.ACTIVE
+          and (m.scanUnlocked = true or m.scanCount < :limit)
+        """,
+    )
+    fun increaseScanCountWithinLimit(@Param("memberId") memberId: Long, @Param("limit") limit: Int): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(

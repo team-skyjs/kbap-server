@@ -35,7 +35,8 @@ class IngredientCodeCompatibilityTest : BehaviorSpec({
                     setOf("MILK", "GOAT_MILK", "BUTTER", "CHEESE", "GHEE")
                 IngredientCode.valueOf("FISH").impliedCodes.map { it.name }.toSet() shouldBe
                     setOf("MACKEREL", "SALMON", "TUNA", "COD", "ANCHOVY", "FISH_SAUCE", "DASHI")
-                IngredientCode.valueOf("SEAFOOD").impliedCodes shouldBe emptySet()
+                IngredientCode.valueOf("SEAFOOD").impliedCodes.map { it.name }.toSet() shouldContainAll
+                    setOf("FISH", "CRUSTACEAN", "MOLLUSK", "SHRIMP", "OYSTER_SAUCE")
             }
         }
     }

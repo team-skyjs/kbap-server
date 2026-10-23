@@ -110,7 +110,7 @@ class ReviewBotPhotoInventoryTest : BehaviorSpec() {
                 then("develop의 카운터 하한과 리뷰 삭제 동작을 유지한다") {
                     val normal = ordinary()
                     val food = food()
-                    val review = reviewService.createReview(normal.id, food.id, 5, null, null, "일반 리뷰입니다", null, null)
+                    val review = reviewService.createReview(normal.id, food.id, 5, null, null, "일반 회원이 쓴 리뷰입니다", null, null)
                     exec("UPDATE member SET review_count=0 WHERE id=${normal.id}")
                     reviewService.deleteReview(normal.id, review.reviewId)
                     reviews.findById(review.reviewId).isPresent shouldBe false

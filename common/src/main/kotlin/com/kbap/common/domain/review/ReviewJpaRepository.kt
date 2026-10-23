@@ -13,12 +13,31 @@ import java.time.LocalDateTime
 interface RatingAggregate {
     val average: Double?
     val reviewCount: Long
+    val servingSpeedAverage: Double?
+    val servingSpeedCount: Long
+    val staffKindnessAverage: Double?
+    val staffKindnessCount: Long
 }
 
 interface FoodRatingAggregate {
     val foodId: Long
     val average: Double?
     val reviewCount: Long
+}
+
+interface ProcessedFoodRatingAggregate {
+    val processedFoodId: Long
+    val average: Double?
+    val reviewCount: Long
+}
+
+interface ProcessedFoodReviewAxes {
+    val reviewCount: Long
+    val taste: Double?
+    val spicinessAverage: Double?
+    val spicinessCount: Long
+    val sweetnessAverage: Double?
+    val sweetnessCount: Long
 }
 
 interface TopRatedFoodAggregate {
@@ -30,6 +49,20 @@ interface TopRatedFoodAggregate {
 }
 
 interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
+    @Query(
+        value = """
+            SELECT r.* FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE r.status = 'ACTIVE' AND (:isBot IS NULL OR m.is_bot = :isBot)
+            ORDER BY r.id DESC
+        """,
+        countQuery = """
+            SELECT count(*) FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE r.status = 'ACTIVE' AND (:isBot IS NULL OR m.is_bot = :isBot)
+        """,
+        nativeQuery = true,
+    )
+    fun findPageByAuthorBot(@Param("isBot") isBot: Boolean?, pageable: Pageable): Page<Review>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Review r where r.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Review?
@@ -44,19 +77,62 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """
         select r from Review r
         where r.memberId = :memberId
+          and (:includeProcessed = true or r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD)
           and (:cursor is null or r.id < :cursor)
         order by r.id desc
         """,
     )
     fun findMemberReviewPage(
         @Param("memberId") memberId: Long,
+        @Param("includeProcessed") includeProcessed: Boolean,
         @Param("cursor") cursor: Long?,
         pageable: Pageable,
     ): List<Review>
 
     @Query(
         """
-        select avg(r.rating) as average, count(r) as reviewCount
+        select r from Review r
+        where r.processedFoodId = :processedFoodId
+          and r.memberId not in :excludedMemberIds
+          and (:cursor is null or r.id < :cursor)
+        order by r.id desc
+        """,
+    )
+    fun findProcessedFoodReviewPage(
+        @Param("processedFoodId") processedFoodId: Long,
+        @Param("excludedMemberIds") excludedMemberIds: List<Long>,
+        @Param("cursor") cursor: Long?,
+        pageable: Pageable,
+    ): List<Review>
+
+    @Query(
+        """
+        select r.processedFoodId as processedFoodId, avg(r.rating) as average, count(r) as reviewCount
+        from Review r
+        where r.processedFoodId in :processedFoodIds
+        group by r.processedFoodId
+        """,
+    )
+    fun aggregateRatingsByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: List<Long>): List<ProcessedFoodRatingAggregate>
+
+    @Query(
+        """
+        select count(r) as reviewCount, avg(r.rating) as taste,
+               avg(case when r.spicinessRating between 1 and 5 then r.spicinessRating end) as spicinessAverage,
+               count(case when r.spicinessRating between 1 and 5 then 1 end) as spicinessCount,
+               avg(case when r.sweetnessRating between 1 and 5 then r.sweetnessRating end) as sweetnessAverage,
+               count(case when r.sweetnessRating between 1 and 5 then 1 end) as sweetnessCount
+        from Review r
+        where r.processedFoodId = :processedFoodId
+        """,
+    )
+    fun aggregateAxesByProcessedFoodId(@Param("processedFoodId") processedFoodId: Long): ProcessedFoodReviewAxes
+
+    @Query(
+        """
+        select avg(r.rating) as average, count(r) as reviewCount,
+               avg(nullif(r.servingSpeedRating, 0)) as servingSpeedAverage, count(nullif(r.servingSpeedRating, 0)) as servingSpeedCount,
+               avg(nullif(r.staffKindnessRating, 0)) as staffKindnessAverage, count(nullif(r.staffKindnessRating, 0)) as staffKindnessCount
         from Review r
         where r.foodId = :foodId
           and (:countryCode is null or r.authorCountryCode = :countryCode)

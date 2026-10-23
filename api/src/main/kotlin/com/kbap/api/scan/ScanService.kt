@@ -17,6 +17,7 @@ import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
@@ -31,6 +32,7 @@ class ScanService(
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
     private val similarFoodService: SimilarFoodService,
+    private val memberService: MemberService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -105,8 +107,6 @@ class ScanService(
             )
         }
 
-        recordHistory(member.id, extracted, items)
-
         return ScanResult(items = items, degraded = false)
     }
 
@@ -152,19 +152,15 @@ class ScanService(
         )
     }
 
-    private fun recordHistory(
-        memberId: Long,
-        extracted: List<ExtractedMenu>,
-        items: List<ScanResult.ItemRiskResult>,
-    ) {
-        if (extracted.isEmpty()) return
-        val histories = extracted.mapIndexed { index, menu ->
-            ScanHistory.record(
-                memberId = memberId,
-                price = menu.priceKrw,
-                foodId = items[index].foodId,
-            )
-        }
-        scanHistoryRepository.saveAll(histories)
+    @Transactional
+    fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
+        if (items.isEmpty()) return
+        scanHistoryRepository.saveAll(items.map { ScanHistory.record(memberId = memberId, price = it.price, foodId = it.foodId) })
+    }
+
+    @Transactional
+    fun recordChargedScan(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
+        memberService.increaseScanCountWithinLimit(memberId)
+        recordHistory(memberId, items)
     }
 }

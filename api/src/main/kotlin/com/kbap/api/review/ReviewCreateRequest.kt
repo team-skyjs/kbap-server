@@ -1,5 +1,7 @@
 package com.kbap.api.review
 
+import java.util.Optional
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.kbap.common.domain.review.model.PlaceSource
 import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
@@ -37,7 +39,7 @@ data class ReviewCreateRequest(
     val staffKindness: Int? = null,
 
     @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
-    @field:Schema(description = "리뷰 본문(옵션, 최대 1000자)", example = "정말 맛있어요")
+    @field:Schema(description = "리뷰 본문(필수, 앞뒤 공백 제외 10~1000자 — 없음·10자 미만은 REVIEW-005)", example = "국물이 진하고 정말 맛있어요", requiredMode = Schema.RequiredMode.REQUIRED)
     val content: String? = null,
 
     @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")
@@ -68,7 +70,7 @@ data class ReviewUpdateRequest(
     val staffKindness: Int? = null,
 
     @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
-    @field:Schema(description = "리뷰 본문(생략 시 본문 제거)", example = "다시 먹어보니 더 맛있네요")
+    @field:Schema(description = "리뷰 본문(필수, 앞뒤 공백 제외 10~1000자 — 생략·10자 미만은 REVIEW-005)", example = "다시 먹어보니 더 맛있네요", requiredMode = Schema.RequiredMode.REQUIRED)
     val content: String? = null,
 
     @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")
@@ -78,7 +80,23 @@ data class ReviewUpdateRequest(
     @field:Valid
     @field:Schema(description = "위치 정보(생략 시 기존 위치 정보 제거)")
     val place: ReviewPlaceRequest? = null,
-)
+
+    @field:Schema(description = "맵기(1~5 정수) — 가공식품 리뷰만. 키를 빼면 기존 값 유지, null 이면 비움. 음식 리뷰에서는 무시", example = "3", type = "integer", nullable = true)
+    val spiciness: Optional<Int>? = null,
+
+    @field:Schema(description = "당도(1~5 정수) — 가공식품 리뷰만. 키를 빼면 기존 값 유지, null 이면 비움. 음식 리뷰에서는 무시", example = "2", type = "integer", nullable = true)
+    val sweetness: Optional<Int>? = null,
+) {
+    @get:JsonIgnore
+    @get:Schema(hidden = true)
+    @get:AssertTrue(message = "spiciness 는 1~5 여야 합니다")
+    val spicinessInRange: Boolean get() = spiciness?.orElse(null)?.let { it in Review.RATING_RANGE } ?: true
+
+    @get:JsonIgnore
+    @get:Schema(hidden = true)
+    @get:AssertTrue(message = "sweetness 는 1~5 여야 합니다")
+    val sweetnessInRange: Boolean get() = sweetness?.orElse(null)?.let { it in Review.RATING_RANGE } ?: true
+}
 
 @Schema(
     description = "리뷰에 함께 저장할 위치 정보. 세 형태 — ① 식당 검색(GET /api/places/nearby·search)에서 고른 항목 그대로(GOOGLE_PLACE), " +
@@ -135,3 +153,30 @@ data class ReviewPlaceRequest(
         else -> null
     }
 }
+
+@Schema(description = "가공식품 리뷰 작성 요청 — 식당 전용 값(서빙·친절 평점·위치)은 없다")
+data class ProcessedFoodReviewCreateRequest(
+    @field:NotNull(message = "rating 은 필수입니다")
+    @field:Min(1, message = "rating 은 1 이상이어야 합니다")
+    @field:Max(5, message = "rating 은 5 이하여야 합니다")
+    @field:Schema(description = "별점(1~5 정수)", example = "4", requiredMode = Schema.RequiredMode.REQUIRED)
+    val rating: Int?,
+
+    @field:Size(max = Review.MAX_CONTENT_LENGTH, message = "본문은 최대 1000자입니다")
+    @field:Schema(description = "리뷰 본문(필수, 앞뒤 공백 제외 10~1000자 — 없음·10자 미만은 REVIEW-005)", example = "바삭하고 짭짤해서 맛있어요", requiredMode = Schema.RequiredMode.REQUIRED)
+    val content: String? = null,
+
+    @field:Size(max = Review.MAX_IMAGE_COUNT, message = "사진은 최대 3장입니다")
+    @field:Schema(description = "업로드 완료된 리뷰 사진 경로(옵션, 최대 3장)")
+    val imagePaths: List<String>? = null,
+
+    @field:Min(1, message = "spiciness 는 1 이상이어야 합니다")
+    @field:Max(5, message = "spiciness 는 5 이하여야 합니다")
+    @field:Schema(description = "맵기(1~5 정수, 선택) — 가공식품 리뷰만. 생략하면 미입력(null)", example = "3", nullable = true)
+    val spiciness: Int? = null,
+
+    @field:Min(1, message = "sweetness 는 1 이상이어야 합니다")
+    @field:Max(5, message = "sweetness 는 5 이하여야 합니다")
+    @field:Schema(description = "당도(1~5 정수, 선택) — 가공식품 리뷰만. 생략하면 미입력(null)", example = "2", nullable = true)
+    val sweetness: Int? = null,
+)

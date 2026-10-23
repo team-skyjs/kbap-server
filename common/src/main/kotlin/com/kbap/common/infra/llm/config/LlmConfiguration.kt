@@ -1,7 +1,6 @@
 package com.kbap.common.infra.llm.config
 
 import com.kbap.common.port.llm.FoodImageBatchClient
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
 import com.kbap.common.port.llm.ReviewTextGenerator
 import com.kbap.common.port.llm.TextEmbeddingClient
 import com.kbap.common.port.llm.TextTranslator
@@ -30,7 +29,7 @@ class LlmConfiguration {
     fun menuBoardVisionExtractor(
         properties: LlmModelProperties,
         eventPublisher: ApplicationEventPublisher,
-    ): MenuBoardVisionExtractor {
+    ): OpenAiMenuBoardVisionExtractor {
         val props = properties.vision
         val chatModel = OpenAiChatModel.builder()
             .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))

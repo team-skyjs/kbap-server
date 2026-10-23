@@ -20,6 +20,7 @@ object HomeTestSeed {
             "DELETE FROM food_content_outbox",
         "DELETE FROM food_vector_outbox",
         "DELETE FROM food_image",
+        "DELETE FROM food_idol_video",
         "DELETE FROM food",
             "DELETE FROM member",
         ),
@@ -68,6 +69,23 @@ object HomeTestSeed {
         listOf(
             "INSERT INTO bookmark (member_id, food_id, status, created_at, updated_at) " +
                 "VALUES ($memberId, $foodId, 'ACTIVE', CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
+        ),
+    )
+
+    fun seedIdolVideo(
+        dataSource: DataSource,
+        foodId: Long,
+        hype: Int,
+        publishedMonth: String,
+        position: Int = 1,
+        platform: String = "YOUTUBE",
+        status: String = "ACTIVE",
+    ) = execute(
+        dataSource,
+        listOf(
+            "INSERT INTO food_idol_video (food_id, platform, video_url, published_month, hype, position, status, created_at, updated_at) " +
+                "VALUES ($foodId, '$platform', 'https://example.com/v/$foodId-$position', '$publishedMonth', $hype, $position, '$status', " +
+                "CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6))",
         ),
     )
 

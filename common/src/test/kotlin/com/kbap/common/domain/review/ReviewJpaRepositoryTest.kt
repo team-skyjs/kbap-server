@@ -200,14 +200,14 @@ class ReviewJpaRepositoryTest : BehaviorSpec() {
 
             `when`("cursor null 로 조회하면") {
                 then("본인 리뷰만 최신순으로 준다") {
-                    val result = reviewJpaRepository.findMemberReviewPage(memberId, null, page(21))
+                    val result = reviewJpaRepository.findMemberReviewPage(memberId, false, null, page(21))
                     result.map { it.id } shouldBe mine.map { it.id }.sortedDescending()
                 }
             }
             `when`("cursor 를 두 번째 최신 id 로 주면") {
                 then("그보다 오래된 리뷰만 준다") {
                     val cursor = mine[1].id
-                    val result = reviewJpaRepository.findMemberReviewPage(memberId, cursor, page(21))
+                    val result = reviewJpaRepository.findMemberReviewPage(memberId, false, cursor, page(21))
                     result.map { it.id } shouldBe listOf(mine[0].id)
                 }
             }

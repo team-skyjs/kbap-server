@@ -30,6 +30,8 @@ data class AdminMemberListItemResponse(
     @field:Schema(description = "리뷰 봇 계정 여부", example = "false")
     val isBot: Boolean,
     val createdAt: LocalDateTime,
+    @field:Schema(description = "국적 ISO2(미설정 null)", example = "KR", nullable = true)
+    val countryCode: String?,
 ) {
     companion object {
         fun from(member: Member): AdminMemberListItemResponse =
@@ -41,10 +43,17 @@ data class AdminMemberListItemResponse(
                 memberStatus = adminMemberStatusOf(member),
                 onboardingCompleted = member.onboardingCompleted,
                 isBot = member.isBot,
+                countryCode = member.countryCode,
                 createdAt = member.createdAt,
             )
     }
 }
+
+data class AdminMemberCountryCountResponse(
+    @field:Schema(description = "국적 ISO2(미설정 회원은 null 한 행)", example = "KR", nullable = true)
+    val countryCode: String?,
+    val count: Long,
+)
 
 data class AdminMemberDetailResponse(
     val id: Long,
@@ -107,7 +116,7 @@ data class AdminMemberReviewPageResponse(
 
 data class AdminMemberReviewItemResponse(
     val id: Long,
-    val foodId: Long,
+    val foodId: Long?,
     val foodName: String?,
     val rating: Int,
     val servingSpeedRating: Int,
@@ -115,19 +124,25 @@ data class AdminMemberReviewItemResponse(
     val content: String?,
     val imageUrls: List<String>,
     val createdAt: LocalDateTime,
+    val targetType: String,
+    val processedFoodId: Long?,
+    val targetName: String?,
 ) {
     companion object {
-        fun from(review: Review, foodNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
+        fun from(review: Review, foodNames: Map<Long, String>, productNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
             AdminMemberReviewItemResponse(
                 id = review.id,
                 foodId = review.foodId,
-                foodName = foodNames[review.foodId],
+                foodName = review.foodId?.let(foodNames::get),
                 rating = review.rating,
                 servingSpeedRating = review.servingSpeedRating,
                 staffKindnessRating = review.staffKindnessRating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt,
+                targetType = review.targetType.name,
+                processedFoodId = review.processedFoodId,
+                targetName = review.foodId?.let(foodNames::get) ?: review.processedFoodId?.let(productNames::get),
             )
     }
 }

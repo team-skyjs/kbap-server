@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -54,6 +55,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
     @Autowired private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
 
     private val seoul = ZoneId.of("Asia/Seoul")
+    private lateinit var today: LocalDate
     private val mapper = jacksonObjectMapper()
 
     init {
@@ -76,7 +78,8 @@ class ReviewBotPhotoTest : BehaviorSpec() {
         fun writer(min: Int = 1, max: Int = 1) = ReviewBotWriter(
             accountService, reviewRepository, foodRepository, ingredientRepository, reviewService, fakeGenerator, photos, priorityList, photoPool, min, max, Duration.ofMinutes(15),
         )
-        fun at(hour: Int, daysFromNow: Long = 0): ZonedDateTime = ZonedDateTime.now(seoul).plusDays(daysFromNow).withHour(hour).withMinute(0).withSecond(0).withNano(0)
+        fun at(hour: Int, daysFromNow: Long = 0): ZonedDateTime = today.plusDays(daysFromNow).atTime(hour, 0).atZone(seoul)
+        fun local(at: ZonedDateTime): LocalDateTime = at.withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
         fun insertBotReview(botId: Long, foodId: Long, createdAt: LocalDateTime) {
             dataSource.connection.use { c ->
                 c.prepareStatement("INSERT INTO food_review (member_id, food_id, rating, content, status, created_at, updated_at) VALUES (?, ?, 4, 'old bot review text', 'ACTIVE', ?, ?)")
@@ -90,6 +93,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
         fun maxReviewId(): Long = count("SELECT COALESCE(MAX(id), 0) FROM food_review")
 
         beforeEach {
+            today = LocalDate.now(seoul)
             TestTables.clearAll(dataSource)
             fakeGenerator.reset()
             storage.heads.clear()
@@ -305,7 +309,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     val plain = seedFood("봇대상음식1")
                     listOf("후라이드치킨", "비빔밥", "봇대상음식1").forEach { stubObjects(it, 3) }
                     syncPayload().path("registeredCount").asInt() shouldBe 9
-                    val yesterday = LocalDateTime.now().minusDays(1)
+                    val yesterday = local(at(22, daysFromNow = -1))
                     bots.take(2).forEach { insertBotReview(it.id, chicken.id, yesterday) }
                     bots.take(3).forEach { insertBotReview(it.id, bibimbap.id, yesterday) }
                     val seeded = maxReviewId()
@@ -368,7 +372,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     val chicken = seedFood("후라이드치킨")
                     listOf("후라이드치킨", "봇대상음식1").forEach { stubObjects(it, 3) }
                     syncPayload()
-                    val yesterday = LocalDateTime.now().minusDays(1)
+                    val yesterday = local(at(22, daysFromNow = -1))
                     bots.take(3).forEach { insertBotReview(it.id, chicken.id, yesterday) }
                     dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food_review SET status = 'DELETED' WHERE food_id = ${chicken.id}") } }
                     val seeded = maxReviewId()
@@ -379,13 +383,37 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                 }
             }
 
+            `when`("KST 자정 직후(UTC 로는 아직 전날) 쓴 봇 리뷰가 있으면 — 날짜 경계 플레이크 회귀") {
+                then("그날(KST) 리뷰로 세어 같은 날 다시 쓰지 않고, 자정 직전 리뷰는 전날로 세어 다시 쓴다") {
+                    val day = ZonedDateTime.of(2026, 3, 10, 0, 0, 0, 0, seoul)
+                    val bots = accountService.ensureBots(3).bots
+                    val chicken = seedFood("후라이드치킨")
+                    stubObjects("후라이드치킨", 3)
+                    syncPayload()
+
+                    insertBotReview(bots[0].id, chicken.id, local(day.plusMinutes(2)))
+                    var seeded = maxReviewId()
+                    writer().writeDue(day.withHour(22))
+                    botReviewFoodIds(seeded) shouldBe emptyList()
+
+                    TestTables.clearAll(dataSource)
+                    val bots2 = accountService.ensureBots(3).bots
+                    val chicken2 = seedFood("후라이드치킨")
+                    syncPayload(force = true)
+                    insertBotReview(bots2[0].id, chicken2.id, local(day.minusMinutes(2)))
+                    seeded = maxReviewId()
+                    writer().writeDue(day.withHour(22))
+                    botReviewFoodIds(seeded) shouldBe listOf(chicken2.id)
+                }
+            }
+
             `when`("오늘 쓴 봇 리뷰가 모더레이션으로 삭제됐으면") {
                 then("목록 음식이라도 같은 날 다시 쓰지 않는다 — 오늘 게이트는 상태 무관(후보 쿼리와 같은 기준)") {
                     val bots = accountService.ensureBots(3).bots
                     val chicken = seedFood("후라이드치킨")
                     stubObjects("후라이드치킨", 3)
                     syncPayload()
-                    insertBotReview(bots[0].id, chicken.id, LocalDateTime.now().minusMinutes(5))
+                    insertBotReview(bots[0].id, chicken.id, local(at(22).minusMinutes(5)))
                     dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food_review SET status = 'DELETED' WHERE food_id = ${chicken.id}") } }
                     val seeded = maxReviewId()
 
@@ -417,7 +445,7 @@ class ReviewBotPhotoTest : BehaviorSpec() {
                     stubObjects("후라이드치킨", 3)
                     syncPayload()
                     val suspended = bots.maxBy { it.id }
-                    insertBotReview(suspended.id, chicken.id, LocalDateTime.now().minusMinutes(5))
+                    insertBotReview(suspended.id, chicken.id, local(at(22).minusMinutes(5)))
                     dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE member SET member_status = 'SUSPENDED' WHERE id = ${suspended.id}") } }
                     val seeded = maxReviewId()
 

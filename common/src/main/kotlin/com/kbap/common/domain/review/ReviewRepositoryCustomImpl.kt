@@ -18,8 +18,9 @@ class ReviewRepositoryCustomImpl(
         excludedMemberIds: List<Long>,
         excludedReviewIds: List<Long>,
         limit: Int,
+        includeProcessed: Boolean,
     ): List<ReviewPageRow> {
-        val conditions = FEED_VISIBILITY.toMutableList()
+        val conditions = (EXCLUSIONS + targetVisibility(includeProcessed)).toMutableList()
         if (foodId != null) conditions += "r.foodId = :foodId"
         if (countryCode != null) conditions += "r.authorCountryCode = :countryCode"
         if (minRating != null) conditions += "r.rating >= :minRating"
@@ -28,7 +29,7 @@ class ReviewRepositoryCustomImpl(
         val metricExpr = when (sort) {
             ReviewSort.LATEST -> "r.id"
             ReviewSort.RATING -> "r.rating"
-            ReviewSort.FOOD_REVIEW_COUNT -> "(select count(r2) from Review r2 where r2.foodId = r.foodId)"
+            ReviewSort.FOOD_REVIEW_COUNT -> "(select count(r2) from Review r2 where r2.foodId = r.foodId or r2.processedFoodId = r.processedFoodId)"
             ReviewSort.HELPFUL -> "count(l)"
         }
         val metricComparator = if (descending) "<" else ">"
@@ -82,17 +83,21 @@ class ReviewRepositoryCustomImpl(
     }
 
     override fun existsFeedVisible(reviewId: Long, excludedMemberIds: List<Long>, excludedReviewIds: List<Long>): Boolean =
-        entityManager.createQuery("select count(r) from Review r where r.id = :reviewId and ${FEED_VISIBILITY.joinToString(" and ")}")
+        entityManager.createQuery("select count(r) from Review r where r.id = :reviewId and ${(EXCLUSIONS + targetVisibility(true)).joinToString(" and ")}")
             .setParameter("reviewId", reviewId)
             .setParameter("excludedMemberIds", excludedMemberIds)
             .setParameter("excludedReviewIds", excludedReviewIds)
             .singleResult.let { (it as Number).toLong() > 0 }
 
     private companion object {
-        val FEED_VISIBILITY = listOf(
+        val EXCLUSIONS = listOf(
             "r.memberId not in :excludedMemberIds",
             "r.id not in :excludedReviewIds",
-            "exists (select 1 from Food f where f.id = r.foodId)",
         )
+        const val FOOD_VISIBLE = "r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD and exists (select 1 from Food f where f.id = r.foodId)"
+        const val PROCESSED_FOOD_VISIBLE = "r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.PROCESSED_FOOD and exists (select 1 from ProcessedFoodProduct p where p.id = r.processedFoodId)"
+
+        fun targetVisibility(includeProcessed: Boolean): String =
+            if (includeProcessed) "(($FOOD_VISIBLE) or ($PROCESSED_FOOD_VISIBLE))" else "($FOOD_VISIBLE)"
     }
 }

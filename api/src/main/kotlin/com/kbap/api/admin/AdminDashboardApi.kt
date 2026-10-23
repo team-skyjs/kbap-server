@@ -56,4 +56,26 @@ interface AdminDashboardApi {
         @Max(30, message = "days 는 30 이하여야 합니다")
         days: Int,
     ): ResponseEntity<BaseResponse<AdminLlmCostReportResponse>>
+
+    @Operation(
+        summary = "일자별 가입 수",
+        description = """
+            최근 `days`일(기본 30, 1..90 — 벗어나면 400 COMMON-002)의 일자별 가입 회원 수를 **KST 날짜**로 센다.
+            오래된 순 `days`개, 가입이 없는 날은 0. 탈퇴·정지 회원도 가입 시점으로 센다. `isBot` 으로 봇만/사람만.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "400", description = "days 가 1..90 밖(COMMON-002)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun getDailySignups(
+        @Parameter(description = "조회 일수(1..90, 기본 30)", example = "30")
+        days: Int,
+        @Parameter(description = "true 면 봇만, false 면 사람만, 생략하면 전체", example = "false")
+        isBot: Boolean?,
+    ): ResponseEntity<BaseResponse<List<AdminDailyCountResponse>>>
 }

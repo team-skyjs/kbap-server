@@ -149,6 +149,13 @@ class MemberService(
         }
     }
 
+    @Transactional
+    fun increaseScanCountWithinLimit(memberId: Long) {
+        if (memberRepository.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) {
+            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
+        }
+    }
+
     @Transactional(readOnly = true)
     fun getAvoidance(memberId: Long?): Avoidance {
         if (memberId == null) return Avoidance.NONE
