@@ -36,7 +36,7 @@ import io.kotest.matchers.shouldBe
 class AvoidanceTest : BehaviorSpec({
     given("회피 함의 표") {
         `when`("표 전체를 보면") {
-            then("계획서 §5-2 의 단방향 쌍과 정확히 같다") {
+            then("기존 단방향 쌍과 새 묶음 코드의 함의를 포함한다") {
                 IngredientCode.entries.filter { it.impliedCodes.isNotEmpty() }.associateWith { it.impliedCodes } shouldBe mapOf(
                     MILK to setOf(GOAT_MILK, BUTTER, CHEESE, GHEE),
                     DAIRY to setOf(MILK, GOAT_MILK, BUTTER, CHEESE, GHEE),
@@ -48,6 +48,22 @@ class AvoidanceTest : BehaviorSpec({
                     PORK to setOf(LARD),
                     BEEF to setOf(TALLOW),
                     ALCOHOL to setOf(MIRIN, COOKING_WINE),
+                    IngredientCode.NUTS to setOf(
+                        IngredientCode.WALNUT, IngredientCode.PINE_NUT, IngredientCode.ALMOND,
+                        IngredientCode.CASHEW, IngredientCode.PISTACHIO, IngredientCode.HAZELNUT,
+                        IngredientCode.MACADAMIA, IngredientCode.PECAN, IngredientCode.BRAZIL_NUT,
+                        IngredientCode.CHESTNUT, IngredientCode.PEANUT,
+                    ),
+                    IngredientCode.CRUSTACEAN to setOf(SHRIMP, SALTED_SHRIMP, IngredientCode.CRAB, IngredientCode.CRAYFISH, IngredientCode.LOBSTER),
+                    IngredientCode.MOLLUSK to setOf(
+                        IngredientCode.SQUID, IngredientCode.OCTOPUS, IngredientCode.CLAM,
+                        IngredientCode.SHORT_NECK_CLAM, OYSTER, OYSTER_SAUCE, IngredientCode.ABALONE,
+                        IngredientCode.MUSSEL, IngredientCode.SCALLOP,
+                    ),
+                    IngredientCode.MEAT to setOf(
+                        BEEF, PORK, POULTRY, IngredientCode.LAMB, IngredientCode.MEAT_BROTH,
+                        LARD, TALLOW, CHICKEN, IngredientCode.GELATIN,
+                    ),
                 )
             }
 

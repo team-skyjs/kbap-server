@@ -52,6 +52,9 @@ class AuthControllerTest : BehaviorSpec() {
     private lateinit var adRewardRepository: com.kbap.common.domain.member.MemberAdRewardJpaRepository
 
     @Autowired
+    private lateinit var ingredientRepository: com.kbap.common.domain.ingredient.IngredientJpaRepository
+
+    @Autowired
     private lateinit var accountDeleter: FakeSocialAccountDeleter
 
     init {
@@ -581,7 +584,7 @@ class AuthControllerTest : BehaviorSpec() {
                             }
                         }
                     } as com.kbap.common.domain.member.MemberJpaRepository
-                    val service = com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "")
+                    val service = com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "", ingredientRepository)
 
                     val error = io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> {
                         service.findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, FakeSocialTokenVerifier.DEFAULT_SUB, null))
@@ -612,7 +615,7 @@ class AuthControllerTest : BehaviorSpec() {
                         }
                         result
                     } as com.kbap.common.domain.member.MemberJpaRepository
-                    return com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "")
+                    return com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "", ingredientRepository)
                 }
 
                 then("트랜잭션 밖이면 재조회가 그 커밋을 보고 기존 회원으로 로그인시킨다") {
