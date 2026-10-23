@@ -144,6 +144,22 @@ class AvoidanceTest : BehaviorSpec({
                     PORK to setOf(LARD),
                     BEEF to setOf(TALLOW),
                     ALCOHOL to setOf(MIRIN, COOKING_WINE),
+                    IngredientCode.NUTS to setOf(
+                        IngredientCode.WALNUT, IngredientCode.PINE_NUT, IngredientCode.ALMOND,
+                        IngredientCode.CASHEW, IngredientCode.PISTACHIO, IngredientCode.HAZELNUT,
+                        IngredientCode.MACADAMIA, IngredientCode.PECAN, IngredientCode.BRAZIL_NUT,
+                        IngredientCode.CHESTNUT, IngredientCode.PEANUT,
+                    ),
+                    IngredientCode.CRUSTACEAN to setOf(SHRIMP, SALTED_SHRIMP, IngredientCode.CRAB, IngredientCode.CRAYFISH, IngredientCode.LOBSTER),
+                    IngredientCode.MOLLUSK to setOf(
+                        IngredientCode.SQUID, IngredientCode.OCTOPUS, IngredientCode.CLAM,
+                        IngredientCode.SHORT_NECK_CLAM, OYSTER, OYSTER_SAUCE, IngredientCode.ABALONE,
+                        IngredientCode.MUSSEL, IngredientCode.SCALLOP,
+                    ),
+                    IngredientCode.MEAT to setOf(
+                        BEEF, PORK, POULTRY, IngredientCode.LAMB, IngredientCode.MEAT_BROTH,
+                        LARD, TALLOW, CHICKEN, IngredientCode.GELATIN,
+                    ),
                 )
                 before.filter { (code, implied) -> !code.impliedCodes.containsAll(implied) }.keys shouldBe emptySet()
             }
