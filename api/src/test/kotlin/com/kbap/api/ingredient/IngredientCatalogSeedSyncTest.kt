@@ -20,8 +20,7 @@ class IngredientCatalogSeedSyncTest : BehaviorSpec({
     given("성분 카탈로그 시드 SQL") {
         `when`("성분 코드 집합을 식별자 enum 과 비교하면") {
             then("IngredientCode.entries 의 name 집합과 정확히 일치한다(누락·초과 0)") {
-                seedCodes shouldContainExactlyInAnyOrder
-                    IngredientCode.entries.map { it.name }
+                seedCodes shouldContainExactlyInAnyOrder IngredientCode.entries.map { it.name }
             }
         }
 

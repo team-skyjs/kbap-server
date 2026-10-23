@@ -129,6 +129,19 @@ class MemberControllerTest : BehaviorSpec() {
             clearMembers()
         }
 
+        given("신규 묶음 코드가 적용된 회원") {
+            `when`("온보딩에 활성 카탈로그의 묶음 코드를 제출하면") {
+                then("동일 코드를 프로필에 저장한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                        status { isOk() }
+                    }
+                    val profile = getMyProfile(token).andReturn().response.contentAsString
+                    objectMapper.readTree(profile).path("payload").path("avoidanceSubstanceCodes").first().asText() shouldBe "NUTS"
+                }
+            }
+        }
+
         given("온보딩 미완료 회원") {
             `when`("유효한 온보딩 정보를 제출하면") {
                 then("200 으로 응답하고 프로필·온보딩 완료가 저장된다") {
@@ -311,6 +324,20 @@ class MemberControllerTest : BehaviorSpec() {
                 "avoidanceSubstanceCodes" to listOf("PEANUT"),
                 "countryCode" to "JP",
             )
+
+            `when`("활성 카탈로그의 새 묶음 코드를 제출하면") {
+                then("프로필의 회피 코드가 갱신된다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andReturn()
+
+                    updateProfile(token, updateBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                        status { isOk() }
+                    }
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("NUTS")
+                }
+            }
 
             `when`("온보딩을 완료한 회원이 유효한 값으로 수정하면") {
                 then("200 으로 응답하고 프로필이 갱신되며 온보딩 상태는 유지된다") {
