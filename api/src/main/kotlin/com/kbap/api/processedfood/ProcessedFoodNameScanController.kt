@@ -58,8 +58,13 @@ class ProcessedFoodNameScanController(
     override fun confirm(
         @AuthMemberId memberId: Long,
         @Valid @RequestBody request: ProcessedFoodNameConfirmRequest,
-    ): ResponseEntity<BaseResponse<ProcessedFoodNameConfirmResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(nameScanService.confirm(memberId, request.analysisId.orEmpty(), request.reportNo)))
+    ): ResponseEntity<BaseResponse<ProcessedFoodNameConfirmResponse>> {
+        val confirmation = nameScanService.confirm(memberId, request.analysisId.orEmpty(), request.reportNo)
+        val response = confirmation.response.let {
+            it.copy(product = it.product?.let { product -> translationService.localizeDetail(product, confirmation.language, member = true) })
+        }
+        return ResponseEntity.ok(BaseResponse.ok(response))
+    }
 
     private fun uuidOrInvalid(raw: String?): UUID =
         raw?.let { runCatching { UUID.fromString(it) }.getOrNull()?.takeIf { uuid -> uuid.toString() == it.lowercase() } } ?: throw BusinessException(ErrorCode.INVALID_REQUEST)

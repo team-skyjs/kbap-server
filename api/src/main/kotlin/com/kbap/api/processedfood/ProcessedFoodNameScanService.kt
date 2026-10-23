@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -63,14 +64,14 @@ class ProcessedFoodNameScanService(
     }
 
     @Transactional
-    fun confirm(memberId: Long, analysisId: String, reportNo: String?): ProcessedFoodNameConfirmResponse {
+    fun confirm(memberId: Long, analysisId: String, reportNo: String?): ProcessedFoodNameConfirmation {
         val key = runCatching { UUID.fromString(analysisId) }.getOrNull() ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
         val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(key)) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
         val now = LocalDateTime.now()
         val state = ProcessedFoodNameScanState.valueOf(operation.lifecycle)
         val deadline = if (state == ProcessedFoodNameScanState.CANDIDATES) operation.expiresAt else operation.resultExpiresAt
         if (now.isAfter(deadline)) throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
-        return when (state) {
+        val response = when (state) {
             ProcessedFoodNameScanState.CANDIDATES -> settle(operation, memberId, reportNo, now)
             ProcessedFoodNameScanState.CONFIRMED -> {
                 val selected = operation.requestDocument["selectedReportNo"] as String
@@ -82,6 +83,7 @@ class ProcessedFoodNameScanService(
                 else throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
             ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.LABEL_RESULT -> throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
         }
+        return ProcessedFoodNameConfirmation(response, LanguageCode.from(operation.initialLanguage))
     }
 
     private fun settle(operation: ScanOperation, memberId: Long, reportNo: String?, now: LocalDateTime): ProcessedFoodNameConfirmResponse {
