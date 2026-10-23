@@ -99,7 +99,11 @@ class ScanBatchRunner(
         } catch (e: Exception) {
             log.warn("스캔 묶음 사진 시도 시작 실패 — 잠시 뒤 다시 시도 batchId={} index={}", batchId, selectionIndex, e)
             return false
-        } ?: return true
+        } ?: run {
+            runCatching { batches.expireFinalAttempt(memberId, batchId, selectionIndex) }
+                .onFailure { log.warn("스캔 묶음 최종 시도 만료 기록 실패 batchId={} index={}", batchId, selectionIndex, it) }
+            return true
+        }
         extractAndRecord(claim)
         return true
     }

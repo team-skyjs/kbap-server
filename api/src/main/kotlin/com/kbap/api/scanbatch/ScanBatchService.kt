@@ -288,6 +288,20 @@ class ScanBatchService(
         releaseIfAllFailed(operation)
     }
 
+    @Transactional
+    fun expireFinalAttempt(memberId: Long, batchId: UUID, selectionIndex: Int) {
+        val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return
+        if (operation.lifecycle != ACTIVE) return
+        val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return
+        val now = LocalDateTime.now()
+        if (photo.executionState != ScanPhotoState.RUNNING || photo.attemptNo < ScanOperationPhoto.MAX_ATTEMPTS || photo.leaseUntil?.isBefore(now) == false) return
+        attempts.findByPhotoRowIdAndAttemptNo(photo.id, photo.attemptNo)
+            ?.takeIf { it.state == ATTEMPT_RUNNING }
+            ?.finish(ATTEMPT_FAILED, ScanOperationPhoto.LEASE_EXPIRED, now)
+        photo.fail(ScanOperationPhoto.LEASE_EXPIRED)
+        releaseIfAllFailed(operation)
+    }
+
     private fun fail(operation: ScanOperation, photo: ScanOperationPhoto, attempt: ScanAttempt, reason: String, now: LocalDateTime) {
         photo.fail(reason)
         attempt.finish(ATTEMPT_FAILED, reason, now)

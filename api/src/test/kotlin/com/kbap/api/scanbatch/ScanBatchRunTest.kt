@@ -85,6 +85,17 @@ class ScanBatchRunTest : BehaviorSpec() {
             ScanBatchRunner(batches, batchSwitch, vision, org.springframework.core.task.TaskExecutor { it.run() }, scheduler),
             batchSwitch,
         ).sweep()
+        fun expireLease(batchId: String) {
+            val now = java.time.LocalDateTime.now()
+            val createdAt = java.sql.Timestamp.valueOf(now.minusMinutes(1))
+            val startedAt = java.sql.Timestamp.valueOf(now.minusMinutes(3))
+            val expiredAt = java.sql.Timestamp.valueOf(now.minusSeconds(5))
+            dataSource.connection.use { c -> c.createStatement().use {
+                it.executeUpdate("UPDATE scan_operation SET created_at = '$createdAt' WHERE request_key = UUID_TO_BIN('$batchId', 0)")
+                it.executeUpdate("UPDATE scan_operation_photo SET lease_until = '$expiredAt' WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
+                it.executeUpdate("UPDATE scan_attempt SET started_at = '$startedAt', deadline_at = '$expiredAt', lease_until = '$expiredAt' WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
+            } }
+        }
 
         beforeEach {
             TestTables.clearAll(dataSource)
@@ -251,11 +262,7 @@ class ScanBatchRunTest : BehaviorSpec() {
                     batchSwitch.executionEnabled = false
                     val batchId = create(owner, listOf(only))
                     batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!.attemptNo shouldBe 1
-                    dataSource.connection.use { c -> c.createStatement().use {
-                        it.executeUpdate("UPDATE scan_operation SET created_at = created_at - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
-                        it.executeUpdate("UPDATE scan_operation_photo SET lease_until = NOW() - INTERVAL 1 SECOND WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
-                        it.executeUpdate("UPDATE scan_attempt SET started_at = NOW() - INTERVAL 3 MINUTE, deadline_at = NOW() - INTERVAL 1 SECOND, lease_until = NOW() - INTERVAL 1 SECOND WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
-                    } }
+                    expireLease(batchId)
                     batchSwitch.executionEnabled = true
                     sweepInline()
                     val photo = eventually(15.seconds) {
@@ -272,7 +279,8 @@ class ScanBatchRunTest : BehaviorSpec() {
                     val (only) = paths(owner, 1)
                     batchSwitch.executionEnabled = false
                     val batchId = create(owner, listOf(only))
-                    batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!.attemptNo shouldBe 1
+                    val claim = batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!
+                    claim.attemptNo shouldBe 1
                     dataSource.connection.use { c -> c.createStatement().use {
                         it.executeUpdate("UPDATE scan_operation SET created_at = created_at - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
                     } }
@@ -282,6 +290,10 @@ class ScanBatchRunTest : BehaviorSpec() {
                     photo.path("state").asText() shouldBe "RUNNING"
                     photo.path("attemptNo").asInt() shouldBe 1
                     vision.calls.get() shouldBe 0
+                    batches.recordSuccess(claim, listOf(MenuBoardLine("냉면", "냉면", 8000, null))) shouldBe true
+                    sweepInline()
+                    read(owner, batchId).path("photos")[0].path("state").asText() shouldBe "SUCCEEDED"
+                    scanCount(owner) shouldBe 1
                 }
             }
             `when`("만료된 RUNNING 사진이 일일 무차감 시도 한도에 걸리면") {
@@ -291,10 +303,8 @@ class ScanBatchRunTest : BehaviorSpec() {
                     batchSwitch.executionEnabled = false
                     val batchId = create(owner, listOf(only))
                     batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!.attemptNo shouldBe 1
+                    expireLease(batchId)
                     dataSource.connection.use { c -> c.createStatement().use {
-                        it.executeUpdate("UPDATE scan_operation SET created_at = created_at - INTERVAL 1 MINUTE WHERE request_key = UUID_TO_BIN('$batchId', 0)")
-                        it.executeUpdate("UPDATE scan_operation_photo SET lease_until = NOW() - INTERVAL 1 SECOND WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
-                        it.executeUpdate("UPDATE scan_attempt SET started_at = NOW() - INTERVAL 3 MINUTE, deadline_at = NOW() - INTERVAL 1 SECOND, lease_until = NOW() - INTERVAL 1 SECOND WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))")
                         it.executeUpdate("""INSERT INTO scan_attempt (operation_id, member_id, photo_row_id, unit_key, phase, target_manifest_revision, attempt_no, claim_token, reservation_epoch, state, started_at, deadline_at, lease_until)
                             SELECT a.operation_id, a.member_id, a.photo_row_id, CONCAT('seed:', n.n), a.phase, 1, 1, a.claim_token, 0, 'FAILED', a.started_at, a.deadline_at, a.lease_until
                             FROM scan_attempt a JOIN (WITH RECURSIVE s(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM s WHERE n < 29) SELECT n FROM s) n WHERE a.member_id = ${owner.id}""")
@@ -308,6 +318,33 @@ class ScanBatchRunTest : BehaviorSpec() {
                     photo.path("retryable").asBoolean() shouldBe false
                     photo.path("attemptNo").asInt() shouldBe 1
                     vision.calls.get() shouldBe 0
+                }
+            }
+            `when`("RUNNING 사진의 마지막 시도 lease가 만료되면") {
+                then("실패로 종결하고 미차감 묶음의 예약을 해제한다") {
+                    val owner = member()
+                    val (only) = paths(owner, 1)
+                    batchSwitch.executionEnabled = false
+                    val batchId = create(owner, listOf(only))
+                    repeat(2) { index ->
+                        batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!.attemptNo shouldBe index + 1
+                        expireLease(batchId)
+                    }
+                    val lateClaim = batches.startAttempt(owner.id, UUID.fromString(batchId), 0)!!
+                    lateClaim.attemptNo shouldBe 3
+                    expireLease(batchId)
+                    batchSwitch.executionEnabled = true
+                    sweepInline()
+                    val photo = read(owner, batchId).path("photos")[0]
+                    photo.path("state").asText() shouldBe "FAILED"
+                    photo.path("errorReason").asText() shouldBe "LEASE_EXPIRED"
+                    photo.path("retryable").asBoolean() shouldBe false
+                    photo.path("attemptNo").asInt() shouldBe 3
+                    sql("SELECT COUNT(*) FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0) AND reservation_state = 'RELEASED'") shouldBe 1
+                    sql("SELECT COUNT(*) FROM scan_attempt WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0)) AND attempt_no = 3 AND state = 'FAILED' AND call_slot_held = 0") shouldBe 1
+                    batches.recordSuccess(lateClaim, listOf(MenuBoardLine("냉면", "냉면", 8000, null))) shouldBe false
+                    scanCount(owner) shouldBe 0
+                    sql("SELECT COUNT(*) FROM scan_usage WHERE operation_id = (SELECT id FROM scan_operation WHERE request_key = UUID_TO_BIN('$batchId', 0))") shouldBe 0
                 }
             }
             `when`("일일 무차감 시도 상한에 걸린 회원의 사진을 실행하려 하면 — Codex P2(#440)") {
