@@ -283,7 +283,7 @@ class ScanBatchService(
         val operation = operations.findForUpdate(memberId, NAMESPACE, bytesOf(batchId)) ?: return
         if (operation.lifecycle != ACTIVE) return
         val photo = photos.findAllForUpdate(operation.id).singleOrNull { it.selectionIndex == selectionIndex } ?: return
-        if (photo.executionState != ScanPhotoState.PENDING && photo.executionState != ScanPhotoState.FAILED) return
+        if (!photo.isRunnableAt(LocalDateTime.now())) return
         photo.fail(reason)
         releaseIfAllFailed(operation)
     }
