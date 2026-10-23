@@ -1,0 +1,62 @@
+{
+  "observedAt": "2026-10-16T12:45:44.399475+09:00",
+  "base": "173426ec3b86c1d5003ddb958b7c9c8315bae8a9",
+  "contractSource": "/Users/yejinkim/dev/kfood/kbap-server/specs/kb-793-seoul-curation-contract/contract-review.md",
+  "contractSha256": "c0eb07d177508990dfeb3ead9eeda816bf115fe0595c43d5e2f7782bdf3822b4",
+  "migration": "V2026.10.15.22.16.07__create_seoul_curation_tables.sql",
+  "migrationSha256": "39aec57bd4689cce72c6bbd1fde3de149f8efbd68dd72e1e1a54dcdeab8572fb",
+  "openPrAudit": [
+    {
+      "pr": 407,
+      "files": [
+        {
+          "path": "common/src/main/kotlin/com/kbap/common/core/error/ErrorCode.kt",
+          "patch": "@@ -55,6 +55,7 @@ enum class ErrorCode(\n     FOOD_ADDITIONAL_IMAGE_IN_PROGRESS(\"FOOD-019\", 409, \"이 음식의 추가 이미지 생성이 이미 진행 중입니다\"),\n     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT(\"FOOD-020\", 409, \"같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다\"),\n     FOOD_CONTENT_DRAFT_NOT_FOUND(\"FOOD-021\", 404, \"검수 대기 중인 콘텐츠 초안이 없습니다\"),\n+    FOOD_LISTING_STALE(\"FOOD-022\", 409, \"음식 목록이 변경되었습니다. 첫 페이지부터 다시 조회해 주세요\"),\n \n     FEEDBACK_CONTENT_INVALID(\"FEEDBACK-001\", 400, \"문의 내용을 1자 이상 2000자 이하로 입력해 주세요\"),\n     FEEDBACK_IMAGE_NOT_VERIFIED(\"FEEDBACK-002\", 400, \"사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다\"),"
+        }
+      ],
+      "fileCount": 24,
+      "headAtObservation": "7b71fefb490b9f72bc1e17e9d5930b161801efd5"
+    },
+    {
+      "pr": 406,
+      "files": [],
+      "fileCount": 15,
+      "headAtObservation": "f61f8825c9f0a4d728373e8b2bfa10b4554f61fc"
+    },
+    {
+      "pr": 404,
+      "files": [
+        {
+          "path": "api/src/main/resources/db/migration/V2026.10.15.22.16.07__create_seoul_curation_tables.sql",
+          "patch": "@@ -0,0 +1,111 @@\n+-- KB-794: migration-only 선행 배포. 게시 콘텐츠 없이 고정 편집 대상만 준비한다.\n+CREATE TABLE curation_release (\n+    id BIGINT NOT NULL AUTO_INCREMENT,\n+    region_key VARCHAR(20) COLLATE utf8mb4_0900_bin NOT NULL,\n+    first_activated_at DATETIME(6) NULL,\n+    version BIGINT NOT NULL DEFAULT 0,\n+    status ENUM('ACTIVE', 'DELETED') NOT NULL DEFAULT 'ACTIVE',\n+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),\n+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),\n+    PRIMARY KEY (id),\n+    UNIQUE KEY uk_curation_release_region (region_key),\n+    CONSTRAINT ck_curation_release_region CHECK (region_key = 'SEOUL'),\n+    CONSTRAINT ck_curation_release_version CHECK (version >= 0)\n+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;\n+\n+CREATE TABLE curation_collection (\n+    id BIGINT NOT NULL AUTO_INCREMENT,\n+    release_id BIGINT NOT NULL,\n+    collection_key VARCHAR(20) COLLATE utf8mb4_0900_bin NOT NULL,\n+    draft_document JSON NOT NULL,\n+    published_document JSON NULL,\n+    version BIGINT NOT NULL DEFAULT 0,\n+    published_revision BIGINT NOT NULL DEFAULT 0,\n+    published_source_version BIGINT NULL,\n+    is_published BOOLEAN NOT NULL DEFAULT FALSE,\n+    published_at DATETIME(6) NULL,\n+    published_by BIGINT NULL,\n+    updated_by BIGINT NULL,\n+    unpublished_at DATETIME(6) NULL,\n+    unpublished_by BIGINT NULL,\n+    status ENUM('ACTIVE', 'DELETED') NOT NULL DEFAULT 'ACTIVE',\n+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),\n+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),\n+    PRIMARY KEY (id),\n+    UNIQUE KEY uk_curation_collection_release_key (release_id, collection_key),\n+    CONSTRAINT fk_curation_collection_release FOREIGN KEY (release_id) REFERENCES curation_release (id),\n+    CONSTRAINT fk_curation_collection_published_by FOREIGN KEY (published_by) REFERENCES admin_account (id),\n+    CONSTRAINT fk_curation_collection_updated_by FOREIGN KEY (updated_by) REFERENCES admin_account (id),\n+    CONSTRAINT fk_curation_collection_unpublished_by FOREIGN KEY (unpublished_by) REFERENCES admin_account (id),\n+    CONSTRAINT ck_curation_collection_key CHECK (collection_key IN ('sights', 'stations', 'restaurants')),\n+    CONSTRAINT ck_curation_collection_draft CHECK (JSON_TYPE(draft_document) = 'OBJECT'),\n+    CONSTRAINT ck_curation_collection_published CHECK (\n+        published_document IS NULL OR JSON_TYPE(published_document) = 'OBJECT'\n+    ),\n+    CONSTRAINT ck_curation_collection_versions CHECK (\n+        version >= 0 AND published_revision >= 0\n+        AND (published_source_version IS NULL OR published_source_version >= 0)\n+    ),\n+    CONSTRAINT ck_curation_collection_publication CHECK (\n+        is_published IN (0, 1)\n+        AND (is_published = 0 OR published_document IS NOT NULL)\n+    ),\n+    CONSTRAINT ck_curation_collection_snapshot CHECK (\n+        (published_document IS NULL AND published_revision = 0 AND published_source_version IS NULL\n+            AND published_at IS NULL AND published_by IS NULL)\n+        OR (published_document IS NOT NULL AND published_revision > 0 AND published_source_version IS NOT NULL\n+            AND published_at IS NOT NULL AND published_by IS NOT NULL)\n+    ),\n+    CONSTRAINT ck_curation_collection_unpublish_audit CHECK (\n+        (unpublished_at IS NULL AND unpublished_by IS NULL)\n+        OR (unpublished_at IS NOT NULL AND unpublished_by IS NOT NULL)\n+    )\n+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;\n+\n+CREATE TABLE curation_asset (\n+    id BIGINT NOT NULL AUTO_INCREMENT,\n+    collection_id BIGINT NOT NULL,\n+    issued_by_admin_id BIGINT NOT NULL,\n+    asset_state VARCHAR(20) COLLATE utf8mb4_0900_bin NOT NULL DEFAULT 'ISSUED',\n+    staging_key VARCHAR(512) COLLATE utf8mb4_0900_bin NOT NULL,\n+    final_key VARCHAR(512) COLLATE utf8mb4_0900_bin NULL,\n+    content_type VARCHAR(100) NOT NULL,\n+    size_bytes BIGINT NOT NULL,\n+    expires_at DATETIME(6) NOT NULL,\n+    complete_deadline DATETIME(6) NOT NULL,\n+    completed_at DATETIME(6) NULL,\n+    unreferenced_since DATETIME(6) NULL,\n+    source_fingerprint VARCHAR(255) COLLATE utf8mb4_0900_bin NULL,\n+    status ENUM('ACTIVE', 'DELETED') NOT NULL DEFAULT 'ACTIVE',\n+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),\n+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),\n+    PRIMARY KEY (id),\n+    UNIQUE KEY uk_curation_asset_staging_key (staging_key),\n+    UNIQUE KEY uk_curation_asset_final_key (final_key),\n+    KEY idx_curation_asset_expiry (status, asset_state, complete_deadline),\n+    KEY idx_curation_asset_unreferenced (status, asset_state, unreferenced_since),\n+    CONSTRAINT fk_curation_asset_collection FOREIGN KEY (collection_id) REFERENCES curation_collection (id),\n+    CONSTRAINT fk_curation_asset_admin FOREIGN KEY (issued_by_admin_id) REFERENCES admin_account (id),\n+    CONSTRAINT ck_curation_asset_state CHECK (\n+        asset_state IN ('ISSUED', 'READY', 'REJECTED', 'EXPIRED', 'DELETING', 'DELETED')\n+    ),\n+    CONSTRAINT ck_curation_asset_size CHECK (size_bytes > 0),\n+    CONSTRAINT ck_curation_asset_deadline CHECK (complete_deadline >= expires_at),\n+    CONSTRAINT ck_curation_asset_ready CHECK (\n+        asset_state <> 'READY' OR (final_key IS NOT NULL AND completed_at IS NOT NULL AND source_fingerprint IS NOT NULL)\n+    )\n+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;\n+\n+-- 최초 활성화와 10항목/10언어/권리 검증은 후속 게시 서비스의 원자적 트랜잭션이 담당한다.\n+INSERT INTO curation_release (region_key) VALUES ('SEOUL');\n+\n+INSERT INTO curation_collection (release_id, collection_key, draft_document)\n+SELECT r.id, k.collection_key,\n+       JSON_OBJECT('title', JSON_OBJECT(), 'description', JSON_OBJECT(), 'cover', NULL, 'items', JSON_ARRAY())\n+FROM curation_release r\n+CROSS JOIN (\n+    SELECT 'sights' AS collection_key\n+    UNION ALL SELECT 'stations'\n+    UNION ALL SELECT 'restaurants'\n+) k\n+WHERE r.region_key = 'SEOUL';"
+        }
+      ],
+      "fileCount": 9,
+      "headAtObservation": "f28ed3062eb37bab794044fa190fede57f1c226e"
+    },
+    {
+      "pr": 393,
+      "files": [],
+      "fileCount": 1,
+      "headAtObservation": "2796cbe0fc6b7f9921a4d32960627808c8de8355"
+    },
+    {
+      "pr": 367,
+      "files": [],
+      "fileCount": 9,
+      "headAtObservation": "03aff21b2854b3605f1ff4d6dfb351ee64da81b1"
+    },
+    {
+      "pr": 272,
+      "files": [],
+      "fileCount": 2,
+      "headAtObservation": "82d0cc625a8e929791efb6b7701a63ec21a22761"
+    },
+    {
+      "pr": 189,
+      "files": [],
+      "fileCount": 41,
+      "headAtObservation": "4cc077c2a5201f226cc3e0e2b7f3d184dae524c2"
+    }
+  ]
+}

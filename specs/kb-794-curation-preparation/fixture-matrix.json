@@ -1,0 +1,159 @@
+{
+  "kind": "scenario-design-only",
+  "executed": false,
+  "contentApproved": false,
+  "baseline": {
+    "collections": [
+      "sights",
+      "stations",
+      "restaurants"
+    ],
+    "itemsPerCollection": 10,
+    "localeSource": "approved-contract-reference.md",
+    "identities": "synthetic UUID",
+    "urls": "https://example.invalid/<collection>/<entry>",
+    "rights": "synthetic test assertions only; not real licensing evidence"
+  },
+  "cases": [
+    {
+      "id": "baseline",
+      "given": "3모음 각각10항목·10언어·READY·NONE·증빙완비",
+      "expected": "게시 검증 통과; 최초 전체 활성화 후 index3/detail10"
+    },
+    {
+      "id": "count",
+      "given": "9개/11개",
+      "expected": "게시400; 이전 snapshot 보존"
+    },
+    {
+      "id": "duplicates",
+      "given": "entryId/장소/외부URL 중복",
+      "expected": "오류 위치 반환; 게시 차단"
+    },
+    {
+      "id": "translation",
+      "given": "각 필수 필드·10언어별 누락/null/빈문자열/공백",
+      "expected": "validate=false; 게시400"
+    },
+    {
+      "id": "attribution",
+      "given": "cover/item 각각 TEXT/LINK/UNKNOWN/null/누락",
+      "expected": "ATTRIBUTION_UNSUPPORTED"
+    },
+    {
+      "id": "rights",
+      "given": "NONE이나 권리 증빙 없음",
+      "expected": "PHOTO_RIGHTS_MISSING"
+    },
+    {
+      "id": "url",
+      "given": "HTTP/host없음/userinfo/control/local·private IP literal",
+      "expected": "게시 거절; 서버 URL fetch 없음"
+    },
+    {
+      "id": "url-review",
+      "given": "HTTPS 형식만 유효하고 최종목적지 확인 없음",
+      "expected": "게시 거절"
+    },
+    {
+      "id": "review-invalidation",
+      "given": "확인 완료 후 사진/URL/콘텐츠 변경",
+      "expected": "해당 확인 기록 무효화; 재검토 전 게시 차단"
+    },
+    {
+      "id": "first-activation",
+      "given": "A/B게시→A내림→C게시→A재게시",
+      "expected": "마지막 단계 전 latch=false; 마지막 성공 TX에서 true"
+    },
+    {
+      "id": "unpublish",
+      "given": "최초 활성화 이후 A내림",
+      "expected": "index UNPUBLISHED; A404; B/C200; latch/snapshot 보존"
+    },
+    {
+      "id": "draft-isolation",
+      "given": "게시 이후 초안 변경/검증 실패",
+      "expected": "공개 snapshot과 final bytes 불변"
+    },
+    {
+      "id": "cas",
+      "given": "동일 expectedVersion 저장/게시/내림 경합",
+      "expected": "하나 성공; 패자409/currentVersion; 부분 게시 없음"
+    },
+    {
+      "id": "lost-response",
+      "given": "게시 성공 응답 유실",
+      "expected": "GET version/publishedSourceVersion 대조; 무조건 덮어쓰기 없음"
+    },
+    {
+      "id": "auth",
+      "given": "무토큰/만료/USER/비활성ADMIN",
+      "expected": "각401/401/403/403; 관리 작업 거절"
+    },
+    {
+      "id": "environment",
+      "given": "target 누락/형식오류/서버환경 불일치",
+      "expected": "400/400/409; DB 변경 없음"
+    },
+    {
+      "id": "upload-input",
+      "given": "MIME/10MiB 초과/다른 관리자·모음·환경",
+      "expected": "예약 또는 확정 거절; 회원 업로드 계약 유지"
+    },
+    {
+      "id": "upload-race",
+      "given": "HEAD 후 staging 변경/조건부copy 실패",
+      "expected": "변경된 bytes 채택 금지"
+    },
+    {
+      "id": "complete-retry",
+      "given": "동시complete/READY 재시도",
+      "expected": "채택된 final 동일; 패자 복사본만 미참조"
+    },
+    {
+      "id": "copy-db-failure",
+      "given": "copy 성공 후 DB CAS 실패",
+      "expected": "기존 READY/final 보존; 고아 객체 정리 대상"
+    },
+    {
+      "id": "deadline",
+      "given": "발급 만료+1일 고정 deadline 직전/후 CAS",
+      "expected": "deadline 이후 확정 금지; 재시도로 deadline 연장 없음"
+    },
+    {
+      "id": "locale-fallback",
+      "given": "미지원lang 또는 게시번역 손상",
+      "expected": "미지원→en; 손상시 전체모음/카드그룹en; fallback 표시"
+    },
+    {
+      "id": "missing-en",
+      "given": "fallback 대상 en도 손상",
+      "expected": "503; UNPUBLISHED 정상응답으로 위장 금지"
+    },
+    {
+      "id": "public-fields",
+      "given": "내부 증빙/adminId/staging/draft 포함 저장본",
+      "expected": "공개 DTO allowlist 외 유출0"
+    },
+    {
+      "id": "cleanup",
+      "given": "내려간 published snapshot이 asset 참조",
+      "expected": "정리 제외; 미참조7일과 lock 재검증 후만 DELETING"
+    },
+    {
+      "id": "cleanup-race",
+      "given": "DELETING 자산 첨부/게시/complete",
+      "expected": "거절; 참조된 final 삭제 없음"
+    },
+    {
+      "id": "nearby",
+      "given": "stations nearby1/4개, 다른모음[]",
+      "expected": "stations 게시 거절; 다른모음 빈목록 허용"
+    },
+    {
+      "id": "draft-limits",
+      "given": "불완전0/9/11개와 50초과/1MiB초과",
+      "expected": "불완전초안 저장 허용; 상한 초과 거절"
+    }
+  ]
+}
