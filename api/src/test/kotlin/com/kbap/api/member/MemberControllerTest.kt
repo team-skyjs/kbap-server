@@ -37,6 +37,23 @@ class MemberControllerTest : BehaviorSpec() {
 
         fun clearMembers() = TestTables.clearAll(dataSource)
 
+        fun <T> withInactiveIngredient(code: String, block: () -> T): T {
+            fun setStatus(status: String): Int = dataSource.connection.use { connection ->
+                connection.prepareStatement("UPDATE ingredients SET status = ? WHERE code = ?").use { statement ->
+                    statement.setString(1, status)
+                    statement.setString(2, code)
+                    statement.executeUpdate()
+                }
+            }
+
+            setStatus("DELETED") shouldBe 1
+            try {
+                return block()
+            } finally {
+                setStatus("ACTIVE") shouldBe 1
+            }
+        }
+
         fun loginAccessToken(): String {
             val response = mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
@@ -138,6 +155,25 @@ class MemberControllerTest : BehaviorSpec() {
                     }
                     val profile = getMyProfile(token).andReturn().response.contentAsString
                     objectMapper.readTree(profile).path("payload").path("avoidanceSubstanceCodes").first().asText() shouldBe "NUTS"
+                }
+            }
+        }
+
+        given("새 묶음 코드가 비활성 카탈로그에 있는 회원") {
+            `when`("온보딩에 해당 코드를 제출하면") {
+                then("MEMBER-005로 거절하고 회원 상태를 유지한다") {
+                    val token = loginAccessToken()
+                    val previousCodes = memberColumn("google-sub-fixed", "avoidance_substance_codes")
+
+                    withInactiveIngredient("NUTS") {
+                        submitOnboarding(token, validBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("MEMBER-005") }
+                        }
+                    }
+
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
+                    memberColumn("google-sub-fixed", "avoidance_substance_codes") shouldBe previousCodes
                 }
             }
         }
@@ -336,6 +372,23 @@ class MemberControllerTest : BehaviorSpec() {
 
                     val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
                     payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("NUTS")
+                }
+            }
+
+            `when`("비활성 카탈로그의 새 묶음 코드를 제출하면") {
+                then("MEMBER-005로 거절하고 기존 회피 코드를 유지한다") {
+                    val token = loginAccessToken()
+                    submitOnboarding(token, validBody()).andReturn()
+
+                    withInactiveIngredient("NUTS") {
+                        updateProfile(token, updateBody() + ("avoidanceSubstanceCodes" to listOf("NUTS"))).andExpect {
+                            status { isBadRequest() }
+                            jsonPath("$.code") { value("MEMBER-005") }
+                        }
+                    }
+
+                    val payload = objectMapper.readTree(getMyProfile(token).andReturn().response.contentAsString).path("payload")
+                    payload.path("avoidanceSubstanceCodes").map { it.asText() }.toSet() shouldBe setOf("EGG", "MILK")
                 }
             }
 
