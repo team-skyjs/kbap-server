@@ -53,6 +53,10 @@ data class AdminMemberCountryCountResponse(
     @field:Schema(description = "국적 ISO2(미설정 회원은 null 한 행)", example = "KR", nullable = true)
     val countryCode: String?,
     val count: Long,
+    @field:Schema(description = "한국 시간 오늘 가입자 수")
+    val todayCount: Long = 0,
+    @field:Schema(description = "집계 기준 한국 날짜 YYYY-MM-DD")
+    val todayDate: String = "",
 )
 
 data class AdminMemberDetailResponse(
