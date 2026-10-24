@@ -164,7 +164,7 @@ class AdminMemberQueryService(
     }
 
     @Transactional(readOnly = true)
-    fun getScanPhotos(memberId: Long, page: Int): AdminScanPhotoPage {
+    fun getScanPhotoPage(memberId: Long, page: Int): AdminScanPhotoPage {
         requireMemberExists(memberId)
         val result = orderRepository.findMemberScanPhotos(memberId, PageRequest.of(page - 1, 24))
         return AdminScanPhotoPage(
