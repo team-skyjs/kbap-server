@@ -57,6 +57,11 @@ class AdminMemberController(
             BaseResponse.ok(adminMemberQueryService.getMemberReviewPage(id, page.coerceAtLeast(1))),
         )
 
+    @GetMapping("/{id}/scan-photos")
+    @io.swagger.v3.oas.annotations.Operation(summary = "회원 스캔 사진 갤러리", description = "ADMIN 전용. 단일·다중 스캔 저장 사진을 경로로 중복 제거해 최신순 24개씩 조회한다.")
+    fun getScanPhotos(@PathVariable id: Long, @RequestParam(defaultValue = "1") page: Int): ResponseEntity<BaseResponse<AdminScanPhotoPage>> =
+        ResponseEntity.ok(BaseResponse.ok(adminMemberQueryService.getScanPhotoPage(id, page.coerceAtLeast(1))))
+
     @GetMapping("/{id}/scans")
     override fun getMemberScanPage(
         @PathVariable id: Long,
