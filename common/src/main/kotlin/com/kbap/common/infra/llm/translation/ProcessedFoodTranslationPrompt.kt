@@ -15,7 +15,7 @@ object ProcessedFoodTranslationPrompt {
     fun parse(output: String, source: String, target: LanguageCode): TranslatedText {
         check(output.isNotBlank()) { "가공식품 번역문이 비어 있다" }
         check(output.lines().size == source.lines().size) { "가공식품 번역문의 줄 수가 원문과 다르다" }
-        check(numbersOf(output, decimalComma = target in DECIMAL_COMMA) == numbersOf(source, decimalComma = false)) {
+        check(sameNumbers(output, source, target)) {
             "가공식품 번역문의 숫자가 원문과 다르다"
         }
         check(UNIT.findAll(output).map { it.value.lowercase() }.toList() == UNIT.findAll(source).map { it.value.lowercase() }.toList()) {
@@ -25,14 +25,20 @@ object ProcessedFoodTranslationPrompt {
         return TranslatedText(output, null)
     }
 
-    private fun numbersOf(text: String, decimalComma: Boolean): List<String> = NUMBER.findAll(text).map { token ->
-        val number = token.value
+    private fun sameNumbers(output: String, source: String, target: LanguageCode): Boolean {
+        val translated = NUMBER.findAll(output).map { it.value }.toList()
+        val original = NUMBER.findAll(source).map { it.value }.toList()
+        return translated.size == original.size && translated.zip(original).all { (out, src) ->
+            out == src || canonical(out, decimalComma = target in DECIMAL_COMMA) == canonical(src, decimalComma = false)
+        }
+    }
+
+    private fun canonical(number: String, decimalComma: Boolean): String =
         if (decimalComma) {
             if (THOUSANDS_DOT.matches(number)) number.replace(".", "") else number.replace(',', '.')
         } else {
             if (THOUSANDS_COMMA.matches(number)) number.replace(",", "") else number
         }
-    }.toList()
 
     private val DECIMAL_COMMA = setOf(LanguageCode.ES, LanguageCode.RU, LanguageCode.VI, LanguageCode.ID)
     private val THOUSANDS_DOT = Regex("\\d{1,3}(?:\\.\\d{3})+")
