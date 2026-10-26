@@ -29,6 +29,13 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                 ProcessedFoodTranslationPrompt.parse("per 100 g", "100g당").text shouldBe "per 100 g"
             }
         }
+        `when`("소수점을 쉼표로 쓰는 언어(es·ru·vi·id)로 번역하면 — 공부 #465") {
+            then("1,5 와 1.5 는 같은 숫자로 보고, 다른 숫자는 계속 거절한다") {
+                ProcessedFoodTranslationPrompt.parse("azúcar 1,5 g", "설탕 1.5 g").text shouldBe "azúcar 1,5 g"
+                ProcessedFoodTranslationPrompt.parse("sugar 1.5 g", "설탕 1,5 g").text shouldBe "sugar 1.5 g"
+                shouldThrow<IllegalStateException> { ProcessedFoodTranslationPrompt.parse("azúcar 2,5 g", "설탕 1,5 g") }
+            }
+        }
         `when`("실제 단위가 같으면") {
             then("라틴 확장 문자 낱말과 섞여도 통과한다") {
                 ProcessedFoodTranslationPrompt.parse("lạc rang 5 ml, gạo 100g", "볶은 땅콩 5 ml, 쌀 100g").text shouldBe "lạc rang 5 ml, gạo 100g"
