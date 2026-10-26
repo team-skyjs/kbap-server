@@ -58,7 +58,7 @@ class OpenAiTextTranslator(
         val outputText = response.result?.output?.text.orEmpty()
         return when (format) {
             Format.SOURCE_LANGUAGE_HEADER -> split(outputText, text, marker)
-            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.parse(outputText, text)
+            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.parse(outputText, text, target)
         }
     }
 

@@ -12,10 +12,10 @@ object ProcessedFoodTranslationPrompt {
             "Do not invent, remove, or change allergen or health facts. Do not convert units. " +
             "Keep ASCII unit symbols exactly: 50 g must remain 50 g, never 50 г or 50 กรัม."
 
-    fun parse(output: String, source: String): TranslatedText {
+    fun parse(output: String, source: String, target: LanguageCode): TranslatedText {
         check(output.isNotBlank()) { "가공식품 번역문이 비어 있다" }
         check(output.lines().size == source.lines().size) { "가공식품 번역문의 줄 수가 원문과 다르다" }
-        check(numbersOf(output) == numbersOf(source)) {
+        check(numbersOf(output, decimalComma = target in DECIMAL_COMMA) == numbersOf(source, decimalComma = false)) {
             "가공식품 번역문의 숫자가 원문과 다르다"
         }
         check(UNIT.findAll(output).map { it.value.lowercase() }.toList() == UNIT.findAll(source).map { it.value.lowercase() }.toList()) {
@@ -25,8 +25,18 @@ object ProcessedFoodTranslationPrompt {
         return TranslatedText(output, null)
     }
 
-    private fun numbersOf(text: String): List<String> = NUMBER.findAll(text).map { it.value.replace(',', '.') }.toList()
+    private fun numbersOf(text: String, decimalComma: Boolean): List<String> = NUMBER.findAll(text).map { token ->
+        val number = token.value
+        if (decimalComma) {
+            if (THOUSANDS_DOT.matches(number)) number.replace(".", "") else number.replace(',', '.')
+        } else {
+            if (THOUSANDS_COMMA.matches(number)) number.replace(",", "") else number
+        }
+    }.toList()
 
+    private val DECIMAL_COMMA = setOf(LanguageCode.ES, LanguageCode.RU, LanguageCode.VI, LanguageCode.ID)
+    private val THOUSANDS_DOT = Regex("\\d{1,3}(?:\\.\\d{3})+")
+    private val THOUSANDS_COMMA = Regex("\\d{1,3}(?:,\\d{3})+")
     private val NUMBER = Regex("\\d+(?:[.,]\\d+)?")
     private val UNIT = Regex("(?i)(?<!\\p{IsLatin})(?:kcal|mg|kg|ml|g|l)(?!\\p{IsLatin})")
     private val HEADER = Regex("(?i)(?:LANG[-_][A-Za-z0-9_-]+|(?:ko|en|ja|zh-Hans|zh-Hant|vi|id|th|ru|es)(?:[-_][A-Za-z0-9_-]+)?)(?:\\s+(?:ko|en|ja|zh-Hans|zh-Hant|vi|id|th|ru|es))?")
