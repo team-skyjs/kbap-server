@@ -26,6 +26,6 @@ object ProcessedFoodTranslationPrompt {
     }
 
     private val NUMBER = Regex("\\d+(?:[.,]\\d+)?")
-    private val UNIT = Regex("(?i)(?<![A-Za-z])(?:kcal|mg|kg|ml|g|l)(?![A-Za-z])")
+    private val UNIT = Regex("(?i)(?<!\\p{IsLatin})(?:kcal|mg|kg|ml|g|l)(?!\\p{IsLatin})")
     private val HEADER = Regex("(?i)(?:LANG[-_][A-Za-z0-9_-]+|(?:ko|en|ja|zh-Hans|zh-Hant|vi|id|th|ru|es)(?:[-_][A-Za-z0-9_-]+)?)(?:\\s+(?:ko|en|ja|zh-Hans|zh-Hant|vi|id|th|ru|es))?")
 }
