@@ -43,6 +43,10 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                 ProcessedFoodTranslationPrompt.parse("сахар 1,5 g", "설탕 1.5 g", LanguageCode.RU).text shouldBe "сахар 1,5 g"
                 shouldThrow<IllegalStateException> { ProcessedFoodTranslationPrompt.parse("azúcar 2,5 g", "설탕 1.5 g", LanguageCode.ES) }
             }
+            then("프롬프트대로 원문 숫자 표기를 그대로 둔 번역(1,000 mg)도 통과한다 — Codex P2(#465 vfwr_)") {
+                ProcessedFoodTranslationPrompt.parse("sodio 1,000 mg", "나트륨 1,000 mg", LanguageCode.ES).text shouldBe "sodio 1,000 mg"
+                ProcessedFoodTranslationPrompt.parse("đường 1.5 g", "설탕 1.5 g", LanguageCode.VI).text shouldBe "đường 1.5 g"
+            }
             then("원문 천 단위 1,000 을 그 언어의 천 단위 1.000 으로 쓴 번역은 통과한다") {
                 ProcessedFoodTranslationPrompt.parse("sodio 1.000 mg", "나트륨 1,000 mg", LanguageCode.ES).text shouldBe "sodio 1.000 mg"
             }
