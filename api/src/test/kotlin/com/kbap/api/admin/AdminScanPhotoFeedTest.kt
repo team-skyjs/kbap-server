@@ -134,10 +134,10 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                 }
             }
             `when`("같은 createdAt 사진이 페이지 경계에 걸치면") {
-                then("커서로 끝까지 넘겨도 중복·누락이 없다") {
+                then("커서로 끝까지 넘겨도 중복·누락이 없다 — 페이지 경계가 ORDER 행에서도 BATCH 행에서도 생긴다") {
                     val alice = member("tie")
                     repeat(30) { single(alice.id, "scan/tie-o-$it.jpg") }
-                    batch(alice.id, *Array(10) { "scan/tie-b-$it.jpg" })
+                    batch(alice.id, *Array(30) { "scan/tie-b-$it.jpg" })
                     execute("UPDATE orders SET created_at = '2026-10-27 12:00:00.000000'")
                     execute("UPDATE scan_operation_photo SET created_at = '2026-10-27 12:00:00.000000'")
 
@@ -145,8 +145,8 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                     first.path("items").size() shouldBe 24
                     first.path("hasNext").asBoolean() shouldBe true
                     val items = all("?")
-                    items.size shouldBe 40
-                    items.map { it.path("imageUrl").asText() }.toSet().size shouldBe 40
+                    items.size shouldBe 60
+                    items.map { it.path("imageUrl").asText() }.toSet().size shouldBe 60
                 }
             }
             `when`("USER 가 부르면") {
