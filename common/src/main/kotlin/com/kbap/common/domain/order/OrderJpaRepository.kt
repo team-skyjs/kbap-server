@@ -33,7 +33,7 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
             (SELECT 'ORDER' AS kind, o.id AS rowId, o.id AS sourceId, o.image_path AS path, o.created_at AS createdAt, o.member_id AS memberId,
                 m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
                 CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM orders o JOIN member m ON m.id = o.member_id
+            FROM orders o STRAIGHT_JOIN member m ON m.id = o.member_id
             WHERE o.status = 'ACTIVE' AND o.image_path IS NOT NULL AND o.image_path <> ''
               AND NOT EXISTS (SELECT 1 FROM order_photo op WHERE op.order_id = o.id)
               AND m.is_bot = :isBot AND (:memberId IS NULL OR o.member_id = :memberId)
@@ -42,7 +42,7 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
             (SELECT 'BATCH' AS kind, p.id AS rowId, p.operation_id AS sourceId, p.object_key AS path, p.created_at AS createdAt, so.member_id AS memberId,
                 m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
                 CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM scan_operation_photo p JOIN scan_operation so ON so.id = p.operation_id JOIN member m ON m.id = so.member_id
+            FROM scan_operation_photo p STRAIGHT_JOIN scan_operation so ON so.id = p.operation_id STRAIGHT_JOIN member m ON m.id = so.member_id
             WHERE p.status = 'ACTIVE' AND so.status = 'ACTIVE'
               AND m.is_bot = :isBot AND (:memberId IS NULL OR so.member_id = :memberId)
             ORDER BY p.created_at DESC, p.id DESC LIMIT :limit)
@@ -55,7 +55,7 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
             (SELECT 'ORDER' AS kind, o.id AS rowId, o.id AS sourceId, o.image_path AS path, o.created_at AS createdAt, o.member_id AS memberId,
                 m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
                 CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM orders o JOIN member m ON m.id = o.member_id
+            FROM orders o STRAIGHT_JOIN member m ON m.id = o.member_id
             WHERE o.status = 'ACTIVE' AND o.image_path IS NOT NULL AND o.image_path <> ''
               AND NOT EXISTS (SELECT 1 FROM order_photo op WHERE op.order_id = o.id)
               AND m.is_bot = :isBot AND (:memberId IS NULL OR o.member_id = :memberId)
@@ -65,7 +65,7 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
             (SELECT 'BATCH' AS kind, p.id AS rowId, p.operation_id AS sourceId, p.object_key AS path, p.created_at AS createdAt, so.member_id AS memberId,
                 m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
                 CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM scan_operation_photo p JOIN scan_operation so ON so.id = p.operation_id JOIN member m ON m.id = so.member_id
+            FROM scan_operation_photo p STRAIGHT_JOIN scan_operation so ON so.id = p.operation_id STRAIGHT_JOIN member m ON m.id = so.member_id
             WHERE p.status = 'ACTIVE' AND so.status = 'ACTIVE'
               AND m.is_bot = :isBot AND (:memberId IS NULL OR so.member_id = :memberId)
               AND (p.created_at < :cursorAt OR (p.created_at = :cursorAt AND (:cursorKind = 'ORDER' OR p.id < :cursorId)))
