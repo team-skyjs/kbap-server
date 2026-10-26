@@ -20,6 +20,8 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Duration
@@ -220,8 +222,8 @@ class ProcessedFoodFreeHourTest : BehaviorSpec() {
                     profileFreeUntil(token).isNull shouldBe true
                 }
             }
-            `when`("창을 연 차감 트랜잭션이 커밋되기 전이거나 롤백되면 — 공부 #472(afterCommit)") {
-                then("커밋 전에는 창이 보이지 않고, 롤백되면 창이 생기지 않으며, 커밋된 뒤에만 창이 보인다") {
+            `when`("창을 연 차감 트랜잭션이 커밋되기 전이거나 롤백되면 — 공부 #472(beforeCommit + 비교 삭제)") {
+                then("커밋 전에는 같은 회원의 다른 요청이 창을 볼 수 없고, 롤백되면 창이 생기지 않으며, 커밋된 뒤에만 창이 보인다") {
                     member(87606L)
                     at(0)
                     val transactions = TransactionTemplate(transactionManager)
@@ -230,6 +232,20 @@ class ProcessedFoodFreeHourTest : BehaviorSpec() {
                             freeHour.open(87606L)
                             freeHour.freeUntil(87606L) shouldBe null
                             throw IllegalStateException("커밋 직전 실패")
+                        }
+                    }.isFailure shouldBe true
+                    freeHour.freeUntil(87606L) shouldBe null
+
+                    runCatching {
+                        transactions.executeWithoutResult {
+                            freeHour.open(87606L)
+                            TransactionSynchronizationManager.registerSynchronization(
+                                object : TransactionSynchronization {
+                                    override fun beforeCommit(readOnly: Boolean) {
+                                        throw IllegalStateException("창을 쓴 뒤 커밋 실패")
+                                    }
+                                },
+                            )
                         }
                     }.isFailure shouldBe true
                     freeHour.freeUntil(87606L) shouldBe null
