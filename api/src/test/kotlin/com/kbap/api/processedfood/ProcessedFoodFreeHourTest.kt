@@ -187,6 +187,36 @@ class ProcessedFoodFreeHourTest : BehaviorSpec() {
                     scanCountOf(87604L) shouldBe 1L
                 }
             }
+            `when`("남은 횟수 0 회원이 창 없이 확정을 여러 건 동시에 보내면 — 보안 검토(창을 연 차감이 한도 초과로 롤백되는 경합)") {
+                then("한도 초과로 실패한 차감은 창을 열지 않아 모두 SCAN-004 이고 무료로 통과하는 요청이 없다") {
+                    val token = member(87605L, scanCount = Member.FREE_SCAN_LIMIT)
+                    at(0)
+                    val analysisIds = (1..6).map { post("/api/processed-foods/scan/name", mapOf("ocrText" to "새우깡"), token).path("payload").path("analysisId").asText() }
+                    val ready = CountDownLatch(analysisIds.size)
+                    val go = CountDownLatch(1)
+                    val pool = Executors.newFixedThreadPool(analysisIds.size)
+                    val statuses = analysisIds.map { id ->
+                        pool.submit<Int> {
+                            ready.countDown()
+                            go.await()
+                            mockMvc.post("/api/processed-foods/scan/confirm") {
+                                header("X-API-Version", "3.2")
+                                header("Authorization", "Bearer $token")
+                                contentType = MediaType.APPLICATION_JSON
+                                content = mapper.writeValueAsString(mapOf("analysisId" to id, "reportNo" to "FH-1"))
+                            }.andReturn().response.status
+                        }
+                    }
+                    ready.await()
+                    go.countDown()
+                    val codes = statuses.map { it.get() }
+                    pool.shutdown()
+
+                    codes.toSet() shouldBe setOf(403)
+                    scanCountOf(87605L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
+                    profileFreeUntil(token).isNull shouldBe true
+                }
+            }
             `when`("api-docs 를 보면") {
                 then("확정·성분표 분석·내 정보 응답에 freeUntil 이 있다") {
                     val schemas = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8)).path("components").path("schemas")
