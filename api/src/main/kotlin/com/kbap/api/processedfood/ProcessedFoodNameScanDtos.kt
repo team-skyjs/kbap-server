@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import com.kbap.common.domain.LanguageCode
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -47,3 +48,5 @@ data class ProcessedFoodNameConfirmResponse(
     @field:Schema(description = "확정 품목 상세(가공식품 상세와 같은 응답). REJECTED 면 null", nullable = true)
     val product: ProcessedFoodDetailResponse?,
 )
+
+data class ProcessedFoodNameConfirmation(val response: ProcessedFoodNameConfirmResponse, val language: LanguageCode)
