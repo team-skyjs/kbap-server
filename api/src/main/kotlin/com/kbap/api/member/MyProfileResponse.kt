@@ -1,5 +1,6 @@
 package com.kbap.api.member
 
+import java.time.Instant
 import io.swagger.v3.oas.annotations.media.Schema
 
 data class MyProfileResponse(
@@ -28,6 +29,8 @@ data class MyProfileResponse(
     val adRewardsForUnlock: Int,
     @field:Schema(description = "해제까지 남은 광고 적립 수. scanUnlocked=true(리뷰로 해제된 경우 포함)면 항상 0 — 앱은 이 값이 0 이면 n/3 카드를 그리지 않는다", example = "2")
     val adRewardRemainingForUnlock: Int,
+    @field:Schema(description = "가공식품 1시간 무료 창이 끝나는 시각(ISO) — 앱이 카메라 진입 때 읽는다. 차감된 가공식품 스캔 성공부터 고정 60분, 창 안의 가공식품 스캔은 차감 0·남은 횟수 0 이어도 통과(메뉴판 스캔은 대상 아님). 창이 없으면 null", example = "2026-10-27T04:00:00Z", nullable = true)
+    val freeUntil: Instant? = null,
 ) {
     data class RankingSummary(
         val tier: String,

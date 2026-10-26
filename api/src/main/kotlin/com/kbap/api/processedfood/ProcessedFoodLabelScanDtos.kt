@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import java.time.Instant
 import com.kbap.common.domain.ingredient.label.IngredientLabelSource
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import io.swagger.v3.oas.annotations.media.Schema
@@ -60,6 +61,8 @@ data class ProcessedFoodLabelScanResponse(
     val mayContainMatches: List<ProcessedFoodVerdictMatch>,
     val unclearIngredients: List<String>,
     val majorAllergens: List<IngredientCode>,
+    @field:Schema(description = "가공식품 1시간 무료 창이 끝나는 시각(ISO) — 차감된 가공식품 스캔 성공부터 고정 60분, 창 안의 가공식품 스캔은 차감 0(charged=false)·남은 횟수 0 이어도 통과. 창이 없으면 null", example = "2026-10-27T04:00:00Z", nullable = true)
+    val freeUntil: Instant? = null,
 )
 
 @Schema(description = "함유 가능 표기 재료")
