@@ -1,6 +1,7 @@
 package com.kbap.api.scanbatch
 
 import com.kbap.common.domain.scan.ScanOperationPhotoJpaRepository
+import com.kbap.common.domain.scan.model.ScanOperationPhoto
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
@@ -21,7 +22,7 @@ class ScanBatchSweeper(
     fun sweep() {
         if (!batchSwitch.enabled || !batchSwitch.executionEnabled) return
         val now = LocalDateTime.now()
-        photos.findStalePending(ScanBatchService.NAMESPACE, now, now.minus(STALE_AFTER), PageRequest.of(0, MAX_PHOTOS_PER_SWEEP))
+        photos.findStaleRunnable(ScanBatchService.NAMESPACE, now, now.minus(STALE_AFTER), ScanOperationPhoto.MAX_ATTEMPTS, PageRequest.of(0, MAX_PHOTOS_PER_SWEEP))
             .groupBy { it.memberId to ScanBatchService.uuidOf(it.requestKey) }
             .forEach { (key, rows) -> runner.dispatch(key.first, key.second, rows.map { it.selectionIndex }) }
     }

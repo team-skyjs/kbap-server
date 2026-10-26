@@ -53,6 +53,16 @@ class IngredientCatalogQueryTest : BehaviorSpec() {
                     )
                 }
             }
+
+            `when`("후속 Flyway가 넣을 새 회피 코드 여섯 개가 저장되면") {
+                then("기존 카탈로그 조회가 전부 읽는다") {
+                    substanceJpaRepository.deleteAll()
+                    val codes = listOf("NUTS", "CRUSTACEAN", "MOLLUSK", "MEAT", "MEAT_BROTH", "LAMB")
+                    codes.forEach { saveSubstance(IngredientCode.valueOf(it), it) }
+
+                    substanceJpaRepository.findAll().map { it.code.name } shouldContainExactlyInAnyOrder codes
+                }
+            }
         }
     }
 }

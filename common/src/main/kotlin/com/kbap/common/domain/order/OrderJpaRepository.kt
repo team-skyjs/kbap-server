@@ -11,6 +11,23 @@ import org.springframework.data.repository.query.Param
 import java.time.LocalDateTime
 
 interface OrderJpaRepository : JpaRepository<Order, Long> {
+    @Query(value = """
+        SELECT photos.path AS path, MAX(photos.created_at) AS createdAt FROM (
+            SELECT image_path AS path, created_at FROM orders WHERE member_id = :memberId AND status = 'ACTIVE' AND image_path IS NOT NULL AND image_path <> ''
+            UNION ALL
+            SELECT p.object_key AS path, p.created_at FROM scan_operation_photo p
+            JOIN scan_operation o ON o.id = p.operation_id WHERE o.member_id = :memberId AND o.status = 'ACTIVE' AND p.status = 'ACTIVE'
+        ) photos GROUP BY photos.path ORDER BY createdAt DESC, photos.path
+    """, countQuery = """
+        SELECT COUNT(*) FROM (
+            SELECT image_path AS path FROM orders WHERE member_id = :memberId AND status = 'ACTIVE' AND image_path IS NOT NULL AND image_path <> ''
+            UNION
+            SELECT p.object_key AS path FROM scan_operation_photo p
+            JOIN scan_operation o ON o.id = p.operation_id WHERE o.member_id = :memberId AND o.status = 'ACTIVE' AND p.status = 'ACTIVE'
+        ) photos
+    """, nativeQuery = true)
+    fun findMemberScanPhotos(@Param("memberId") memberId: Long, pageable: Pageable): Page<MemberScanPhoto>
+
     fun existsByImagePath(imagePath: String): Boolean
 
     @Modifying
@@ -70,4 +87,9 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
         @Param("afterId") afterId: Long,
         limit: Limit,
     ): List<Order>
+}
+
+interface MemberScanPhoto {
+    val path: String
+    val createdAt: LocalDateTime
 }
