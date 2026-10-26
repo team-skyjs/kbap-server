@@ -84,6 +84,21 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun countByCountryCodeAnyStatus(@Param("isBot") isBot: Boolean?): List<MemberCountryCount>
 
     @Query(
+        value = """
+            SELECT country_code AS countryCode, COUNT(*) AS count,
+                SUM(CASE WHEN created_at >= :since AND created_at < :until THEN 1 ELSE 0 END) AS todayCount
+            FROM member WHERE (:isBot IS NULL OR is_bot = :isBot)
+            GROUP BY country_code ORDER BY count DESC, country_code IS NULL, country_code
+        """,
+        nativeQuery = true,
+    )
+    fun countCountriesWithToday(
+        @Param("isBot") isBot: Boolean?,
+        @Param("since") since: LocalDateTime,
+        @Param("until") until: LocalDateTime,
+    ): List<com.kbap.common.domain.member.dto.MemberCountryTodayCount>
+
+    @Query(
         value = "SELECT created_at FROM member WHERE created_at >= :since AND (:isBot IS NULL OR is_bot = :isBot)",
         nativeQuery = true,
     )

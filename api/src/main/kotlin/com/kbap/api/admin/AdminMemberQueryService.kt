@@ -63,8 +63,14 @@ class AdminMemberQueryService(
     }
 
     @Transactional(readOnly = true)
-    fun getCountryCounts(isBot: Boolean?): List<AdminMemberCountryCountResponse> =
-        memberRepository.countByCountryCodeAnyStatus(isBot).map { AdminMemberCountryCountResponse(it.countryCode, it.count) }
+    fun getCountryCounts(isBot: Boolean?): List<AdminMemberCountryCountResponse> {
+        val today = LocalDate.now(SEOUL)
+        val since = today.atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        val until = today.plusDays(1).atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        return memberRepository.countCountriesWithToday(isBot, since, until).map {
+            AdminMemberCountryCountResponse(it.countryCode, it.count, it.todayCount, today.toString())
+        }
+    }
 
     @Transactional(readOnly = true)
     fun getDailySignups(days: Int, isBot: Boolean?): List<AdminDailyCountResponse> {
@@ -154,6 +160,16 @@ class AdminMemberQueryService(
             totalCount = result.totalElements,
             hasPrev = page > 1,
             hasNext = page < result.totalPages,
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getScanPhotoPage(memberId: Long, page: Int): AdminScanPhotoPage {
+        requireMemberExists(memberId)
+        val result = orderRepository.findMemberScanPhotos(memberId, PageRequest.of(page - 1, 24))
+        return AdminScanPhotoPage(
+            result.content.map { AdminScanPhoto(ImageUrls.resolve(imagePublicBaseUrl, it.path), it.createdAt) },
+            page, result.totalPages, result.totalElements, result.hasNext(),
         )
     }
 
@@ -275,3 +291,6 @@ data class AdminMemberDetailView(
         }
     }
 }
+
+data class AdminScanPhoto(val imageUrl: String?, val createdAt: LocalDateTime)
+data class AdminScanPhotoPage(val items: List<AdminScanPhoto>, val page: Int, val totalPages: Int, val totalCount: Long, val hasNext: Boolean)

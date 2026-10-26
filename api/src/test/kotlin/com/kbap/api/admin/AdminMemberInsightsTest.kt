@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.delete
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -36,6 +37,11 @@ class AdminMemberInsightsTest : BehaviorSpec() {
     @Autowired private lateinit var reviewJpaRepository: ReviewJpaRepository
     @Autowired private lateinit var tokenIssuer: TokenIssuer
     @Autowired private lateinit var dataSource: DataSource
+
+    @Autowired private lateinit var orders: com.kbap.common.domain.order.OrderJpaRepository
+    @Autowired private lateinit var operations: com.kbap.common.domain.scan.ScanOperationJpaRepository
+    @Autowired private lateinit var uploads: com.kbap.common.domain.image.UploadedImageJpaRepository
+    @Autowired private lateinit var photos: com.kbap.common.domain.scan.ScanOperationPhotoJpaRepository
 
     init {
         val seoul = ZoneId.of("Asia/Seoul")
@@ -62,6 +68,78 @@ class AdminMemberInsightsTest : BehaviorSpec() {
 
         beforeContainer { TestTables.clearAll(dataSource) }
         afterSpec { TestTables.clearAll(dataSource) }
+
+        given("KB-875 오늘 국가별 집계와 관리자 삭제") {
+            `when`("관리자 통계·리뷰·스캔 사진 API를 호출하면") {
+                then("KST 자정 전후와 봇을 구분한다") {
+                    val today = LocalDate.now(seoul)
+                    val old = saveMember("old", "KR")
+                    val current = saveMember("current", "KR")
+                    saveMember("bot-today", "KR", true)
+                    createdAtKst(old.id, today.minusDays(1), LocalTime.of(23, 59, 59))
+                    createdAtKst(current.id, today, LocalTime.MIDNIGHT)
+                    getJson("/api/admin/members/country-counts?isBot=false").andExpect {
+                        jsonPath("$.payload[0].count") { value(2) }
+                        jsonPath("$.payload[0].todayCount") { value(1) }
+                        jsonPath("$.payload[0].todayDate") { value(today.toString()) }
+                    }
+                }
+                then("관리자 삭제는 목록에서 제거하며 반복 요청으로 집계를 다시 차감하지 않는다") {
+                    val member = saveMember("review-author")
+                    val food = foodJpaRepository.save(Food(koreanName = "김치", description = "김치"))
+                    val review = reviewJpaRepository.save(Review(memberId = member.id, foodId = food.id, rating = 5))
+                    execute("UPDATE member SET review_count = 1, unique_reviewed_food_count = 1 WHERE id = ${member.id}")
+                    execute("UPDATE food SET review_count = 1 WHERE id = ${food.id}")
+                    mockMvc.delete("/api/admin/reviews/${review.id}") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
+                    }.andExpect { status { isOk() } }
+                    getJson("/api/admin/reviews").andExpect { jsonPath("$.payload.totalCount") { value(0) } }
+                    mockMvc.delete("/api/admin/reviews/${review.id}") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
+                    }.andExpect { status { isBadRequest() } }
+                    dataSource.connection.use { connection ->
+                        connection.createStatement().use { statement ->
+                            statement.executeQuery("SELECT review_count FROM member WHERE id = ${member.id}").use { rs ->
+                                rs.next()
+                                rs.getInt(1) shouldBe 0
+                            }
+                        }
+                    }
+                }
+                then("스캔 갤러리는 회원별로 격리하고 단일·다중 중복을 제거해 페이지 조회한다") {
+                    val member = saveMember("gallery")
+                    val other = saveMember("other-gallery")
+                    orders.save(com.kbap.common.domain.order.model.Order(memberId = member.id, imagePath = "images/shared.jpg"))
+                    orders.save(com.kbap.common.domain.order.model.Order(memberId = other.id, imagePath = "images/private.jpg"))
+                    val expiry = java.time.LocalDateTime.now().plusDays(1)
+                    val operation = operations.save(com.kbap.common.domain.scan.model.ScanOperation(memberId = member.id, expiresAt = expiry, resultExpiresAt = expiry, keyRetireAfter = expiry))
+                    val upload = uploads.save(com.kbap.common.domain.image.model.UploadedImage(memberId = member.id, path = "images/shared.jpg", contentType = "image/jpeg", sizeBytes = 1))
+                    photos.save(com.kbap.common.domain.scan.model.ScanOperationPhoto(operationId = operation.id, objectKey = "images/shared.jpg", byteSize = 1, uploadedImageId = upload.id))
+                    repeat(24) { index ->
+                        orders.save(com.kbap.common.domain.order.model.Order(memberId = member.id, imagePath = "images/scan-$index.jpg"))
+                    }
+                    getJson("/api/admin/members/${member.id}/scan-photos?page=1").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.totalCount") { value(25) }
+                        jsonPath("$.payload.items.length()") { value(24) }
+                        jsonPath("$.payload.hasNext") { value(true) }
+                    }
+                    getJson("/api/admin/members/${member.id}/scan-photos?page=2").andExpect {
+                        jsonPath("$.payload.items.length()") { value(1) }
+                        jsonPath("$.payload.hasNext") { value(false) }
+                    }
+                    getJson("/api/admin/members/${member.id}/scan-photos", MemberRole.USER).andExpect { status { isForbidden() } }
+                }
+                then("USER 삭제는 거부하고 없는 리뷰의 ADMIN 삭제는 오류를 반환한다") {
+                    mockMvc.delete("/api/admin/reviews/999999") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.USER)}")
+                    }.andExpect { status { isForbidden() } }
+                    mockMvc.delete("/api/admin/reviews/999999") {
+                        header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
+                    }.andExpect { status { isBadRequest() } }
+                }
+            }
+        }
 
         given("어드민 회원 목록 국적 필터 — GET /api/admin/members?country=") {
             `when`("국적이 섞인 회원을 국적·NONE·봇·검색어로 조합해 거르면") {
