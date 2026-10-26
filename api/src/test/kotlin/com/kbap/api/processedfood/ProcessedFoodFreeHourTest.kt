@@ -19,6 +19,8 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -38,6 +40,7 @@ class ProcessedFoodFreeHourTest : BehaviorSpec() {
     @Autowired private lateinit var redis: StringRedisTemplate
     @Autowired private lateinit var freeHour: ProcessedFoodFreeHour
     @Autowired private lateinit var vision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var transactionManager: PlatformTransactionManager
 
     private val mapper = jacksonObjectMapper()
     private val start = Instant.parse("2026-10-27T03:00:00Z")
@@ -215,6 +218,27 @@ class ProcessedFoodFreeHourTest : BehaviorSpec() {
                     codes.toSet() shouldBe setOf(403)
                     scanCountOf(87605L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
                     profileFreeUntil(token).isNull shouldBe true
+                }
+            }
+            `when`("창을 연 차감 트랜잭션이 커밋되기 전이거나 롤백되면 — 공부 #472(afterCommit)") {
+                then("커밋 전에는 창이 보이지 않고, 롤백되면 창이 생기지 않으며, 커밋된 뒤에만 창이 보인다") {
+                    member(87606L)
+                    at(0)
+                    val transactions = TransactionTemplate(transactionManager)
+                    runCatching {
+                        transactions.executeWithoutResult {
+                            freeHour.open(87606L)
+                            freeHour.freeUntil(87606L) shouldBe null
+                            throw IllegalStateException("커밋 직전 실패")
+                        }
+                    }.isFailure shouldBe true
+                    freeHour.freeUntil(87606L) shouldBe null
+
+                    transactions.executeWithoutResult {
+                        freeHour.open(87606L)
+                        freeHour.freeUntil(87606L) shouldBe null
+                    }
+                    freeHour.freeUntil(87606L) shouldBe Instant.parse("2026-10-27T04:00:00Z")
                 }
             }
             `when`("api-docs 를 보면") {
