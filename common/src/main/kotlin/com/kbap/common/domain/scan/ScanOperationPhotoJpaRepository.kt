@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-interface StalePendingPhoto {
+interface StaleRunnablePhoto {
     val memberId: Long
     val requestKey: ByteArray
     val selectionIndex: Int
@@ -20,16 +20,19 @@ interface ScanOperationPhotoJpaRepository : JpaRepository<ScanOperationPhoto, Lo
         from ScanOperationPhoto p, ScanOperation o
         where o.id = p.operationId and o.keyNamespace = :namespace and o.lifecycle = 'ACTIVE'
           and o.expiresAt > :now and o.createdAt < :createdBefore
-          and p.executionState = com.kbap.common.domain.scan.model.ScanPhotoState.PENDING
+          and ((p.executionState = com.kbap.common.domain.scan.model.ScanPhotoState.PENDING and p.attemptNo < :maxAttempts)
+               or (p.executionState = com.kbap.common.domain.scan.model.ScanPhotoState.RUNNING
+                   and (p.leaseUntil is null or p.leaseUntil < :now)))
         order by o.id, p.selectionIndex
         """,
     )
-    fun findStalePending(
+    fun findStaleRunnable(
         @Param("namespace") namespace: String,
         @Param("now") now: java.time.LocalDateTime,
         @Param("createdBefore") createdBefore: java.time.LocalDateTime,
+        @Param("maxAttempts") maxAttempts: Int,
         pageable: org.springframework.data.domain.Pageable,
-    ): List<StalePendingPhoto>
+    ): List<StaleRunnablePhoto>
 
     fun findByOperationIdOrderBySelectionIndex(operationId: Long): List<ScanOperationPhoto>
 
