@@ -92,9 +92,10 @@ class ProcessedFoodNameScanService(
             return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.REJECTED, false, null, freeHour.freeUntil(memberId))
         }
         val detail = processedFoodService.getProcessedFoodDetailByReportNo(reportNo, memberId)
+        members.findByIdForUpdate(memberId)
         val member = memberService.getMember(memberId)
-        val window = freeHour.claim(memberId)
-        val charged = window?.opened != false
+        val liveUntil = freeHour.freeUntil(memberId)
+        val charged = liveUntil == null
         if (charged) reserveQuota(memberId, analysisId, member)
         val offered = operation.requestDocument["candidates"] as? List<*> ?: emptyList<Any>()
         operation.requestDocument = operation.requestDocument + mapOf("selectedReportNo" to reportNo, "selectedOutsideCandidates" to (reportNo !in offered))
@@ -104,7 +105,8 @@ class ProcessedFoodNameScanService(
         if (charged && members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) {
             throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         }
-        return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, charged, detail, window?.freeUntil)
+        val freeUntil = if (charged) freeHour.open(memberId) else liveUntil
+        return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, charged, detail, freeUntil)
     }
 
     private fun reserveQuota(memberId: Long, analysisId: String, member: Member) {

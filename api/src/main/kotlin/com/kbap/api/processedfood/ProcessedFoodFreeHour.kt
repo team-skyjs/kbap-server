@@ -16,28 +16,24 @@ class ProcessedFoodFreeHour(private val redis: StringRedisTemplate) {
 
     var clock: Clock = Clock.systemDefaultZone()
 
-    data class Window(val freeUntil: Instant, val opened: Boolean)
-
-    fun claim(memberId: Long): Window? {
-        val now = clock.millis()
-        val until = now + WINDOW.toMillis()
-        val result = runCatching {
-            redis.execute(CLAIM, listOf(keyOf(memberId)), now.toString(), until.toString(), (WINDOW + CLEANUP_SLACK).toMillis().toString())
-        }.onFailure { log.warn("가공식품 무료 창을 확인하지 못해 평소대로 차감합니다 memberId={}", memberId, it) }.getOrNull() ?: return null
-        val window = if (result > 0) Window(Instant.ofEpochMilli(result), opened = true) else Window(Instant.ofEpochMilli(-result), opened = false)
-        if (window.opened && TransactionSynchronizationManager.isSynchronizationActive()) {
+    fun open(memberId: Long): Instant? {
+        val until = clock.millis() + WINDOW.toMillis()
+        runCatching { redis.opsForValue().set(keyOf(memberId), until.toString(), WINDOW + CLEANUP_SLACK) }
+            .onFailure { log.warn("가공식품 무료 창을 열지 못했습니다(차감은 됨) memberId={}", memberId, it) }
+            .getOrNull() ?: return null
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                 object : TransactionSynchronization {
                     override fun afterCompletion(status: Int) {
                         if (status != TransactionSynchronization.STATUS_COMMITTED) {
-                            runCatching { redis.execute(DELETE_IF_SAME, listOf(keyOf(memberId)), result.toString()) }
-                                .onFailure { log.warn("차감이 롤백된 가공식품 무료 창을 지우지 못했습니다 memberId={}", memberId, it) }
+                            runCatching { redis.execute(DELETE_IF_SAME, listOf(keyOf(memberId)), until.toString()) }
+                                .onFailure { log.warn("롤백된 차감의 가공식품 무료 창을 지우지 못했습니다 memberId={}", memberId, it) }
                         }
                     }
                 },
             )
         }
-        return window
+        return Instant.ofEpochMilli(until)
     }
 
     fun freeUntil(memberId: Long): Instant? = runCatching {
@@ -49,15 +45,6 @@ class ProcessedFoodFreeHour(private val redis: StringRedisTemplate) {
     companion object {
         val WINDOW: Duration = Duration.ofMinutes(60)
         private val CLEANUP_SLACK: Duration = Duration.ofMinutes(5)
-        private val CLAIM = DefaultRedisScript(
-            """
-            local current = tonumber(redis.call('GET', KEYS[1]))
-            if current and current > tonumber(ARGV[1]) then return -current end
-            redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
-            return tonumber(ARGV[2])
-            """.trimIndent(),
-            Long::class.java,
-        )
         private val DELETE_IF_SAME = DefaultRedisScript(
             "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
             Long::class.java,

@@ -76,9 +76,12 @@ class ProcessedFoodLabelScanService(
                 keyRetireAfter = now.plus(ProcessedFoodNameScanService.KEY_TTL),
             ),
         )
-        val window = if (target.usageRecordedAt == null) freeHour.claim(memberId) else null
-        val charged = target.usageRecordedAt == null && window?.opened != false
-        if (target.usageRecordedAt == null) record(memberId, key, target, member, now, charged)
+        val needsUsage = target.usageRecordedAt == null
+        if (needsUsage && analysisId != null) members.findByIdForUpdate(memberId)
+        val liveUntil = if (needsUsage) freeHour.freeUntil(memberId) else null
+        val charged = needsUsage && liveUntil == null
+        if (needsUsage) record(memberId, key, target, member, now, charged)
+        val freeUntil = if (charged) freeHour.open(memberId) else liveUntil ?: freeHour.freeUntil(memberId)
         val previous = target.requestDocument["label"] as? Map<*, *>
         val firstSucceededAt = previous?.get("firstSucceededAt") as? String ?: now.toString()
         val recallCount = if (previous == null) 0 else (previous["recallCount"] as? Number)?.toInt()?.plus(1) ?: 1
@@ -86,7 +89,7 @@ class ProcessedFoodLabelScanService(
         target.requestDocument = target.requestDocument + mapOf(
             "label" to mapOf("rawText" to text.rawText, "pageCount" to pages.size, "firstSucceededAt" to firstSucceededAt, "recallCount" to recallCount),
         )
-        return responseOf(memberId, key, text, reading, charged, window?.freeUntil ?: freeHour.freeUntil(memberId))
+        return responseOf(memberId, key, text, reading, charged, freeUntil)
     }
 
     private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean, freeUntil: Instant?): ProcessedFoodLabelScanResponse {
