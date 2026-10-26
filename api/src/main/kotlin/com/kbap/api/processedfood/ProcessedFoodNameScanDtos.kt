@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import java.time.Instant
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -46,4 +47,6 @@ data class ProcessedFoodNameConfirmResponse(
     val charged: Boolean,
     @field:Schema(description = "확정 품목 상세(가공식품 상세와 같은 응답). REJECTED 면 null", nullable = true)
     val product: ProcessedFoodDetailResponse?,
+    @field:Schema(description = "가공식품 1시간 무료 창이 끝나는 시각(ISO) — 차감된 가공식품 스캔 성공부터 고정 60분, 창 안의 가공식품 스캔은 차감 0(charged=false)·남은 횟수 0 이어도 통과. 창이 없으면 null", example = "2026-10-27T04:00:00Z", nullable = true)
+    val freeUntil: Instant? = null,
 )

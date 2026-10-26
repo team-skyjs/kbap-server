@@ -31,6 +31,7 @@ class ProcessedFoodNameScanService(
     private val memberService: MemberService,
     private val members: MemberJpaRepository,
     private val reservationStore: ScanReservationStore,
+    private val freeHour: ProcessedFoodFreeHour,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,10 +76,10 @@ class ProcessedFoodNameScanService(
             ProcessedFoodNameScanState.CONFIRMED -> {
                 val selected = operation.requestDocument["selectedReportNo"] as String
                 if (reportNo != selected) throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
-                ProcessedFoodNameConfirmResponse(analysisId, state, false, processedFoodService.getConfirmedProcessedFoodDetail(selected, memberId))
+                ProcessedFoodNameConfirmResponse(analysisId, state, false, processedFoodService.getConfirmedProcessedFoodDetail(selected, memberId), freeHour.freeUntil(memberId))
             }
             ProcessedFoodNameScanState.REJECTED ->
-                if (reportNo == null) ProcessedFoodNameConfirmResponse(analysisId, state, false, null)
+                if (reportNo == null) ProcessedFoodNameConfirmResponse(analysisId, state, false, null, freeHour.freeUntil(memberId))
                 else throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
             ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.LABEL_RESULT -> throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
         }
@@ -88,20 +89,22 @@ class ProcessedFoodNameScanService(
         val analysisId = uuidOf(operation.requestKey).toString()
         if (reportNo == null) {
             operation.lifecycle = ProcessedFoodNameScanState.REJECTED.name
-            return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.REJECTED, false, null)
+            return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.REJECTED, false, null, freeHour.freeUntil(memberId))
         }
         val detail = processedFoodService.getProcessedFoodDetailByReportNo(reportNo, memberId)
         val member = memberService.getMember(memberId)
-        reserveQuota(memberId, analysisId, member)
+        val window = freeHour.claim(memberId)
+        val charged = window?.opened != false
+        if (charged) reserveQuota(memberId, analysisId, member)
         val offered = operation.requestDocument["candidates"] as? List<*> ?: emptyList<Any>()
         operation.requestDocument = operation.requestDocument + mapOf("selectedReportNo" to reportNo, "selectedOutsideCandidates" to (reportNo !in offered))
         operation.usageRecordedAt = now
         operation.lifecycle = ProcessedFoodNameScanState.CONFIRMED.name
-        usages.save(ScanUsage(operation.id, now, if (member.scanUnlocked) ENTITLEMENT_UNLIMITED else ENTITLEMENT_FREE))
-        if (members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) {
+        usages.save(ScanUsage(operation.id, now, entitlementOf(member, charged)))
+        if (charged && members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) {
             throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         }
-        return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, true, detail)
+        return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, charged, detail, window?.freeUntil)
     }
 
     private fun reserveQuota(memberId: Long, analysisId: String, member: Member) {
@@ -133,6 +136,13 @@ class ProcessedFoodNameScanService(
         private const val LIMITS_VERSION = "pfood-name-1"
         const val ENTITLEMENT_FREE = "FREE"
         const val ENTITLEMENT_UNLIMITED = "UNLIMITED"
+        const val ENTITLEMENT_FREE_HOUR = "FREE_HOUR"
+
+        fun entitlementOf(member: Member, charged: Boolean): String = when {
+            !charged -> ENTITLEMENT_FREE_HOUR
+            member.scanUnlocked -> ENTITLEMENT_UNLIMITED
+            else -> ENTITLEMENT_FREE
+        }
         private const val MAX_CANDIDATES = 30
         private val CANDIDATES_TTL: Duration = Duration.ofMinutes(30)
         val RESULT_TTL: Duration = Duration.ofDays(7)
