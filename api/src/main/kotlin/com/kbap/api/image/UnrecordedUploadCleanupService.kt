@@ -218,7 +218,7 @@ class UnrecordedUploadCleanupService(
         fun uploadPrefixes(keyPrefix: String): Map<UploadPurpose, String> {
             val prefix = keyPrefix.trim('/')
             return UploadPurpose.entries.associateWith { purpose ->
-                (if (prefix.isEmpty()) "" else "$prefix/") + "images/${purpose.prefix}/"
+                (if (prefix.isEmpty()) "" else "$prefix/") + purpose.segment
             }
         }
     }

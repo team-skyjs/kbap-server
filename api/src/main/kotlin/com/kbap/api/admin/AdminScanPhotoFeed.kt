@@ -11,7 +11,7 @@ data class AdminScanPhotoFeed(
     val hasNext: Boolean,
 )
 
-@Schema(description = "스캔 사진 한 장 — 출처 행 단위(같은 사진이 두 묶음에 쓰이면 2건)")
+@Schema(description = "스캔 사진 한 장 — 스캔 업로드 기록(uploaded_image) 한 행당 1건")
 data class AdminScanPhotoFeedItem(
     @field:Schema(description = "사진 URL", nullable = true)
     val imageUrl: String?,
@@ -24,10 +24,10 @@ data class AdminScanPhotoFeedItem(
     val isBot: Boolean,
     @field:Schema(description = "ACTIVE·SUSPENDED·DELETED(탈퇴)", example = "ACTIVE")
     val memberStatus: String,
-    @field:Schema(description = "ORDER: 단일 스캔(주문) · BATCH: 여러 장 묶음 스캔(묶음 주문의 대표 사진 포함)")
+    @field:Schema(description = "ORDER: 주문 카드로 저장된 사진(묶음 주문의 대표 사진 포함) · BATCH: 여러 장 묶음 스캔에만 쓰인 사진 · SCAN_ONLY: 스캔만 하고 카드는 저장하지 않은 사진")
     val kind: ScanPhotoKind,
-    @field:Schema(description = "ORDER 면 주문 id, BATCH 면 스캔 묶음(scan_operation) id")
-    val sourceId: Long,
+    @field:Schema(description = "ORDER 면 주문 id, BATCH 면 스캔 묶음(scan_operation) id, SCAN_ONLY 면 null", nullable = true)
+    val sourceId: Long?,
 )
 
-enum class ScanPhotoKind { ORDER, BATCH }
+enum class ScanPhotoKind { ORDER, BATCH, SCAN_ONLY }
