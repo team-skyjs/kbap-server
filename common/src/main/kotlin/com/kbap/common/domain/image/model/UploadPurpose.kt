@@ -9,6 +9,8 @@ enum class UploadPurpose(val prefix: String) {
     ORDER_ITEM("orders"),
     ;
 
+    val segment: String get() = "images/$prefix/"
+
     companion object {
         fun from(value: String): UploadPurpose? = entries.firstOrNull { it.name == value }
     }
