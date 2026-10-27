@@ -6,7 +6,7 @@ import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.ContentTranslation
 import com.kbap.common.domain.translation.model.TranslationTargetType
-import com.kbap.common.port.llm.TextTranslator
+import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @Service
 class ProcessedFoodTranslationService(
     private val translations: ContentTranslationJpaRepository,
-    private val translatorProvider: ObjectProvider<TextTranslator>,
+    private val translatorProvider: ObjectProvider<ProcessedFoodTextTranslator>,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
     private val processedFoodService: ProcessedFoodService,
     private val redis: StringRedisTemplate,
