@@ -17,6 +17,7 @@ import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
@@ -30,6 +31,8 @@ class ScanService(
     private val visionExtractor: MenuBoardVisionExtractor,
     private val scanHistoryRepository: ScanHistoryJpaRepository,
     private val ingredientRepository: IngredientJpaRepository,
+    private val similarFoodService: SimilarFoodService,
+    private val memberService: MemberService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -39,6 +42,7 @@ class ScanService(
         ocrItems: List<OcrItem>,
         lang: LanguageCode,
         requireDetectedMenu: Boolean,
+        substituteSimilar: Boolean,
     ): ScanResult {
         val extracted = try {
             visionExtractor.extract(imagePath, ocrItems)
@@ -69,7 +73,13 @@ class ScanService(
             throw BusinessException(ErrorCode.MENU_BOARD_NOT_DETECTED)
         }
 
-        val foodsByMatchKey = resolveFoods(extracted)
+        val resolved = resolveFoods(extracted)
+        val foodsByMatchKey = resolved.foods
+        val similarByMatchKey = if (substituteSimilar) {
+            similarFoodService.resolveSimilarFoods(resolved.registeredNames).mapKeys { (name, _) -> KoreanMenuNameNormalizer.matchKey(name) }
+        } else {
+            emptyMap()
+        }
         val avoidance = member.profile.avoidance()
         val orderedAvoidedCodes = avoidance.chosen.sortedBy { it.ordinal }
         val avoidedCodes = avoidance.codeNames
@@ -78,7 +88,8 @@ class ScanService(
         val usedIdxes = mutableSetOf<Int>()
 
         val items = extracted.map { menu ->
-            val food = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
+            val similar = similarByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
+            val food = similar ?: foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
             ScanResult.ItemRiskResult(
@@ -91,10 +102,10 @@ class ScanService(
                 price = menu.priceKrw,
                 imageRef = foodService.resolveImageUrlOrDefault(food.takeIf { matched }),
                 avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
+                substituted = similar != null,
+                originalScannedName = menu.koreanName.takeIf { similar != null },
             )
         }
-
-        recordHistory(member.id, extracted, items)
 
         return ScanResult(items = items, degraded = false)
     }
@@ -125,30 +136,31 @@ class ScanService(
         }
     }
 
-    private fun resolveFoods(extracted: List<ExtractedMenu>): Map<String, Food> {
+    private data class ResolvedFoods(val foods: Map<String, Food>, val registeredNames: List<String>)
+
+    private fun resolveFoods(extracted: List<ExtractedMenu>): ResolvedFoods {
         val displayNamesByMatchKey = extracted
             .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) to it.koreanName }
             .filter { (matchKey, _) -> matchKey.isNotBlank() }
             .distinctBy { (matchKey, _) -> matchKey }
             .toMap()
         val known = foodService.getFoodsByKoreanNames(displayNamesByMatchKey.keys)
-        val registered = foodService.createIncomplete(displayNamesByMatchKey - known.keys)
-        return known + registered
+        val newlyRegistered = displayNamesByMatchKey - known.keys
+        return ResolvedFoods(
+            foods = known + foodService.createIncomplete(newlyRegistered),
+            registeredNames = newlyRegistered.values.toList(),
+        )
     }
 
-    private fun recordHistory(
-        memberId: Long,
-        extracted: List<ExtractedMenu>,
-        items: List<ScanResult.ItemRiskResult>,
-    ) {
-        if (extracted.isEmpty()) return
-        val histories = extracted.mapIndexed { index, menu ->
-            ScanHistory.record(
-                memberId = memberId,
-                price = menu.priceKrw,
-                foodId = items[index].foodId,
-            )
-        }
-        scanHistoryRepository.saveAll(histories)
+    @Transactional
+    fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
+        if (items.isEmpty()) return
+        scanHistoryRepository.saveAll(items.map { ScanHistory.record(memberId = memberId, price = it.price, foodId = it.foodId) })
+    }
+
+    @Transactional
+    fun recordChargedScan(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
+        memberService.increaseScanCountWithinLimit(memberId)
+        recordHistory(memberId, items)
     }
 }

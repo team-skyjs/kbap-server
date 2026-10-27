@@ -21,11 +21,21 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
 
+    @Autowired
+    private lateinit var dataSource: javax.sql.DataSource
+
     init {
         val objectMapper = jacksonObjectMapper()
 
-        fun accessToken(memberId: Long = 42L): String =
-            tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        fun accessToken(memberId: Long = 42L): String {
+            dataSource.connection.use { c ->
+                c.prepareStatement(
+                    "INSERT INTO member (id, provider, provider_uid, member_status, onboarding_completed, status, created_at, updated_at) " +
+                        "VALUES (?, 'GOOGLE', ?, 'ACTIVE', 1, 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
+                ).use { ps -> ps.setLong(1, memberId); ps.setString(2, "upload-url-$memberId"); ps.executeUpdate() }
+            }
+            return tokenIssuer.issueAccessToken(memberId, MemberRole.USER)
+        }
 
         fun body(purpose: String? = "MENU_SCAN", contentType: String? = "image/jpeg", contentLength: Long? = 384512L): String {
             val map = buildMap {
@@ -62,6 +72,18 @@ class ImageUploadUrlControllerTest : BehaviorSpec() {
                         content = body()
                     }.andExpect {
                         status { isUnauthorized() }
+                    }
+                }
+            }
+
+            `when`("게스트가 설치 id 헤더 없이 feedback 용도로 발급을 요청하면") {
+                then("400 COMMON-002 — 게스트 소유자 키를 만들 설치 id 가 없다") {
+                    mockMvc.post("/api/images/upload-url") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = body(purpose = "FEEDBACK", contentType = "image/webp")
+                    }.andExpect {
+                        status { isBadRequest() }
+                        jsonPath("$.code") { value("COMMON-002") }
                     }
                 }
             }

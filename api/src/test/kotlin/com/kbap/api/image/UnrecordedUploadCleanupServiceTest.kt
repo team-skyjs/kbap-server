@@ -111,6 +111,20 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 "VALUES ($memberId, '$path', 'image/webp', 1, '$status', NOW(6), NOW(6))",
         )
 
+        given("미등록 봇 경로의 정리 방지") {
+            `when`("일반 목적 prefix 안에 보호 경로 별칭이 있으면") {
+                then("dry-run 후보와 실제 삭제에서 제외한다") {
+                    reset()
+                    val protected = "local/images/review/../../images/review-bot/key/1.webp"
+                    stored(protected)
+                    stored("local/images/review/normal.webp")
+                    service(dryRun = true).cleanup().counts.values.sumOf { it.stale } shouldBe 1
+                    service().cleanup().deletedCount shouldBe 1
+                    storage.deleted shouldContainExactlyInAnyOrder listOf("local/images/review/normal.webp")
+                }
+            }
+        }
+
         given("행 없는 업로드 오브젝트 정리") {
             `when`("업로드 접두 아래에 행 없는 오래된 오브젝트, 행 없는 새 오브젝트, 행 있는 오브젝트, 소프트 삭제된 행의 오브젝트가 섞여 있으면") {
                 then("행 없이 보존 기간을 지난 것만 지운다 — 행이 있으면(DELETED 포함) 이 잡의 몫이 아니다") {
@@ -435,7 +449,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                             return PresignedUpload("https://s3/$key", emptyMap(), "https://cdn.test/$key", key, Instant.EPOCH)
                         }
                     }
-                    val presign = PresignedUploadService(properties(keyPrefix = "dev"), port, GuestUploadQuota { it.orEmpty() })
+                    val presign = PresignedUploadService(properties(keyPrefix = "dev"), port, GuestUploadQuota { requireNotNull(it) })
                     val prefixes = UnrecordedUploadCleanupService.uploadPrefixes("dev")
 
                     UploadPurpose.entries.forEach { purpose ->

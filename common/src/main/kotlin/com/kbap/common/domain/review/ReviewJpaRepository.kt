@@ -13,6 +13,10 @@ import java.time.LocalDateTime
 interface RatingAggregate {
     val average: Double?
     val reviewCount: Long
+    val servingSpeedAverage: Double?
+    val servingSpeedCount: Long
+    val staffKindnessAverage: Double?
+    val staffKindnessCount: Long
 }
 
 interface FoodRatingAggregate {
@@ -21,7 +25,44 @@ interface FoodRatingAggregate {
     val reviewCount: Long
 }
 
+interface ProcessedFoodRatingAggregate {
+    val processedFoodId: Long
+    val average: Double?
+    val reviewCount: Long
+}
+
+interface ProcessedFoodReviewAxes {
+    val reviewCount: Long
+    val taste: Double?
+    val spicinessAverage: Double?
+    val spicinessCount: Long
+    val sweetnessAverage: Double?
+    val sweetnessCount: Long
+}
+
+interface TopRatedFoodAggregate {
+    val foodId: Long
+    val reviewCount: Long
+    val taste: Double
+    val servingSpeed: Double?
+    val staffKindness: Double?
+}
+
 interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCustom {
+    @Query(
+        value = """
+            SELECT r.* FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE r.status = 'ACTIVE' AND (:isBot IS NULL OR m.is_bot = :isBot)
+            ORDER BY r.id DESC
+        """,
+        countQuery = """
+            SELECT count(*) FROM food_review r JOIN member m ON m.id = r.member_id
+            WHERE r.status = 'ACTIVE' AND (:isBot IS NULL OR m.is_bot = :isBot)
+        """,
+        nativeQuery = true,
+    )
+    fun findPageByAuthorBot(@Param("isBot") isBot: Boolean?, pageable: Pageable): Page<Review>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Review r where r.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Review?
@@ -36,19 +77,62 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """
         select r from Review r
         where r.memberId = :memberId
+          and (:includeProcessed = true or r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD)
           and (:cursor is null or r.id < :cursor)
         order by r.id desc
         """,
     )
     fun findMemberReviewPage(
         @Param("memberId") memberId: Long,
+        @Param("includeProcessed") includeProcessed: Boolean,
         @Param("cursor") cursor: Long?,
         pageable: Pageable,
     ): List<Review>
 
     @Query(
         """
-        select avg(r.rating) as average, count(r) as reviewCount
+        select r from Review r
+        where r.processedFoodId = :processedFoodId
+          and r.memberId not in :excludedMemberIds
+          and (:cursor is null or r.id < :cursor)
+        order by r.id desc
+        """,
+    )
+    fun findProcessedFoodReviewPage(
+        @Param("processedFoodId") processedFoodId: Long,
+        @Param("excludedMemberIds") excludedMemberIds: List<Long>,
+        @Param("cursor") cursor: Long?,
+        pageable: Pageable,
+    ): List<Review>
+
+    @Query(
+        """
+        select r.processedFoodId as processedFoodId, avg(r.rating) as average, count(r) as reviewCount
+        from Review r
+        where r.processedFoodId in :processedFoodIds
+        group by r.processedFoodId
+        """,
+    )
+    fun aggregateRatingsByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: List<Long>): List<ProcessedFoodRatingAggregate>
+
+    @Query(
+        """
+        select count(r) as reviewCount, avg(r.rating) as taste,
+               avg(case when r.spicinessRating between 1 and 5 then r.spicinessRating end) as spicinessAverage,
+               count(case when r.spicinessRating between 1 and 5 then 1 end) as spicinessCount,
+               avg(case when r.sweetnessRating between 1 and 5 then r.sweetnessRating end) as sweetnessAverage,
+               count(case when r.sweetnessRating between 1 and 5 then 1 end) as sweetnessCount
+        from Review r
+        where r.processedFoodId = :processedFoodId
+        """,
+    )
+    fun aggregateAxesByProcessedFoodId(@Param("processedFoodId") processedFoodId: Long): ProcessedFoodReviewAxes
+
+    @Query(
+        """
+        select avg(r.rating) as average, count(r) as reviewCount,
+               avg(nullif(r.servingSpeedRating, 0)) as servingSpeedAverage, count(nullif(r.servingSpeedRating, 0)) as servingSpeedCount,
+               avg(nullif(r.staffKindnessRating, 0)) as staffKindnessAverage, count(nullif(r.staffKindnessRating, 0)) as staffKindnessCount
         from Review r
         where r.foodId = :foodId
           and (:countryCode is null or r.authorCountryCode = :countryCode)
@@ -68,6 +152,26 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """,
     )
     fun aggregateRatingsByFoodIds(@Param("foodIds") foodIds: List<Long>): List<FoodRatingAggregate>
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT t.foodId, t.reviewCount, t.taste, t.servingSpeed, t.staffKindness FROM (
+              SELECT r.food_id AS foodId, COUNT(*) AS reviewCount, AVG(r.rating) AS taste,
+                     AVG(NULLIF(r.serving_speed_rating, 0)) AS servingSpeed,
+                     AVG(NULLIF(r.staff_kindness_rating, 0)) AS staffKindness
+              FROM food_review r JOIN food f ON f.id = r.food_id
+              WHERE r.status = 'ACTIVE' AND f.status = 'ACTIVE' AND f.content_status = 'READY'
+              GROUP BY r.food_id
+            ) t
+            ORDER BY t.reviewCount DESC,
+              (t.taste + COALESCE(t.servingSpeed, 0) + COALESCE(t.staffKindness, 0))
+                / (1 + (t.servingSpeed IS NOT NULL) + (t.staffKindness IS NOT NULL)) DESC,
+              t.foodId DESC
+            LIMIT :size
+        """,
+    )
+    fun findTopRatedFoods(@Param("size") size: Int): List<TopRatedFoodAggregate>
 
     fun countByMemberIdAndFoodId(memberId: Long, foodId: Long): Long
 
@@ -110,6 +214,34 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """,
     )
     fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT r.food_id AS foodId, COUNT(*) AS botReviewCount, COALESCE(SUM(r.created_at >= :since), 0) AS todayCount
+            FROM food_review r
+            WHERE r.member_id IN (:botIds) AND r.food_id IN (:foodIds)
+            GROUP BY r.food_id
+        """,
+    )
+    fun countBotReviewsByFoodIds(
+        @Param("foodIds") foodIds: Collection<Long>,
+        @Param("botIds") botIds: Collection<Long>,
+        @Param("since") since: LocalDateTime,
+    ): List<FoodBotReviewCount>
+
+    fun findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId: Long, memberIds: Collection<Long>): Review?
+
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT r.id AS id, CAST(r.image_refs AS CHAR) AS imageRefs FROM food_review r
+            WHERE r.status = 'ACTIVE' AND r.member_id IN (:memberIds) AND r.image_refs IS NOT NULL
+              AND JSON_OVERLAPS(r.image_refs, CAST(:pathsJson AS JSON))
+            ORDER BY r.id
+        """,
+    )
+    fun findActiveRefsReferencingAny(@Param("memberIds") memberIds: Collection<Long>, @Param("pathsJson") pathsJson: String): List<ReviewImageRefsRow>
 
     @Query(
         nativeQuery = true,

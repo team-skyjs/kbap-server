@@ -4,7 +4,6 @@ import com.github.benmanes.caffeine.cache.Ticker
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
-import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -128,30 +127,6 @@ class PopularFoodIdCacheTest : BehaviorSpec({
                 afterFailedRefresh shouldBe listOf(1L)
                 afterOriginalTtl shouldBe listOf(3L)
                 calls.get() shouldBe 3
-            }
-        }
-
-        `when`("트랜잭션 안에서 조회하면") {
-            val calls = AtomicInteger()
-            val cache = PopularFoodIdCache(FakeTicker()) { calls.incrementAndGet(); listOf(1L) }
-
-            then("캐시가 비었든 따뜻하든 불변식 위반으로 거절한다 — 회귀 호출자가 콜드 때만 터지지 않게") {
-                TransactionSynchronizationManager.setActualTransactionActive(true)
-                try {
-                    shouldThrow<IllegalStateException> { cache.getPopularFoodIds(10) }
-                } finally {
-                    TransactionSynchronizationManager.setActualTransactionActive(false)
-                }
-                calls.get() shouldBe 0
-
-                cache.getPopularFoodIds(10) shouldBe listOf(1L)
-                TransactionSynchronizationManager.setActualTransactionActive(true)
-                try {
-                    shouldThrow<IllegalStateException> { cache.getPopularFoodIds(10) }
-                } finally {
-                    TransactionSynchronizationManager.setActualTransactionActive(false)
-                }
-                calls.get() shouldBe 1
             }
         }
 

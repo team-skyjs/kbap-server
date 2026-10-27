@@ -4,6 +4,8 @@ import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -14,8 +16,8 @@ class Review(
     @Column(name = "member_id", nullable = false)
     val memberId: Long,
 
-    @Column(name = "food_id", nullable = false)
-    val foodId: Long,
+    @Column(name = "food_id")
+    val foodId: Long?,
 
     @Column(nullable = false, columnDefinition = "TINYINT")
     var rating: Int,
@@ -25,6 +27,12 @@ class Review(
 
     @Column(name = "staff_kindness_rating", nullable = false, columnDefinition = "TINYINT")
     var staffKindnessRating: Int = 0,
+
+    @Column(name = "spiciness_rating", columnDefinition = "TINYINT")
+    var spicinessRating: Int? = null,
+
+    @Column(name = "sweetness_rating", columnDefinition = "TINYINT")
+    var sweetnessRating: Int? = null,
 
     @Column(length = MAX_CONTENT_LENGTH)
     var content: String? = null,
@@ -41,28 +49,42 @@ class Review(
 
     @Embedded
     var place: ReviewPlace? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_type", nullable = false, columnDefinition = "ENUM('FOOD','PROCESSED_FOOD')")
+    val targetType: ReviewTargetType = ReviewTargetType.FOOD,
+
+    @Column(name = "processed_food_id")
+    val processedFoodId: Long? = null,
 ) : BaseEntity() {
     @jakarta.persistence.Version
     @Column(name = "version", nullable = false, columnDefinition = "bigint not null default 0")
     var version: Long = 0
 
     init {
+        require((targetType == ReviewTargetType.FOOD) == (foodId != null) && (targetType == ReviewTargetType.PROCESSED_FOOD) == (processedFoodId != null)) { "리뷰 대상은 타입별로 정확히 하나여야 합니다: $targetType" }
         requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
+        requireTasteAxes(spicinessRating, sweetnessRating)
     }
 
     fun update(
         rating: Int,
         servingSpeedRating: Int,
         staffKindnessRating: Int,
+        spicinessRating: Int? = null,
+        sweetnessRating: Int? = null,
         content: String?,
         language: String?,
         imageRefs: List<String>?,
         place: ReviewPlace?,
     ) {
         requireValid(rating, servingSpeedRating, staffKindnessRating, content, imageRefs)
+        requireTasteAxes(spicinessRating, sweetnessRating)
         this.rating = rating
         this.servingSpeedRating = servingSpeedRating
         this.staffKindnessRating = staffKindnessRating
+        this.spicinessRating = spicinessRating
+        this.sweetnessRating = sweetnessRating
         this.content = content
         this.language = language
         this.imageRefs = imageRefs
@@ -70,6 +92,12 @@ class Review(
     }
 
     fun isOwnedBy(memberId: Long): Boolean = this.memberId == memberId
+
+    private fun requireTasteAxes(spicinessRating: Int?, sweetnessRating: Int?) {
+        require(spicinessRating == null || spicinessRating in RATING_RANGE) { "spicinessRating 은 1~5 또는 null 이어야 합니다: $spicinessRating" }
+        require(sweetnessRating == null || sweetnessRating in RATING_RANGE) { "sweetnessRating 은 1~5 또는 null 이어야 합니다: $sweetnessRating" }
+        require(targetType == ReviewTargetType.PROCESSED_FOOD || (spicinessRating == null && sweetnessRating == null)) { "맵기·당도는 가공식품 리뷰에만 있습니다" }
+    }
 
     private fun requireValid(
         rating: Int,
@@ -86,8 +114,33 @@ class Review(
     }
 
     companion object {
+        fun forProcessedFood(
+            memberId: Long,
+            processedFoodId: Long,
+            rating: Int,
+            content: String?,
+            language: String?,
+            imageRefs: List<String>?,
+            authorCountryCode: String?,
+            spicinessRating: Int? = null,
+            sweetnessRating: Int? = null,
+        ): Review = Review(
+            memberId = memberId,
+            foodId = null,
+            rating = rating,
+            spicinessRating = spicinessRating,
+            sweetnessRating = sweetnessRating,
+            content = content,
+            language = language,
+            imageRefs = imageRefs,
+            authorCountryCode = authorCountryCode,
+            targetType = ReviewTargetType.PROCESSED_FOOD,
+            processedFoodId = processedFoodId,
+        )
+
         val RATING_RANGE = 1..5
         val EXTRA_RATING_RANGE = 0..5
+        const val MIN_CONTENT_LENGTH = 10
         const val MAX_CONTENT_LENGTH = 1000
         const val MAX_IMAGE_COUNT = 3
     }

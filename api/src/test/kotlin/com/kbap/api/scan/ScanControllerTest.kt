@@ -3,6 +3,7 @@ package com.kbap.api.scan
 import com.kbap.api.IntegrationTest
 import com.kbap.api.PoolProbe
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.domain.ingredient.AvoidanceGroupMatrix
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.domain.member.model.MemberRole
@@ -956,6 +957,27 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 3
                 }
             }
+            `when`("v2 스캔 인식 중에 다른 경로가 마지막 무료 1회를 먼저 확정하면 — KB-831") {
+                then("결과를 내기 전 조건부 증가가 0행이라 403 SCAN-004, 횟수는 한도를 넘지 않고 스캔 이력도 남지 않는다") {
+                    val memberId = 8310L
+                    val path = "scan/8310/menu.jpg"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    seedReadyFood("경합김치찌개")
+                    vision.program(path, listOf(ExtractedMenu("경합김치찌개", "경합김치찌개", 9000, matchedIdx = null)))
+                    vision.duringExtract = { setScanCount(memberId, 3) }
+                    try {
+                        v2Scan(memberId, path).andExpect {
+                            status { isForbidden() }
+                            jsonPath("$.code") { value("SCAN-004") }
+                        }
+                    } finally {
+                        vision.duringExtract = {}
+                    }
+                    scanCountOf(memberId) shouldBe 3
+                    scanHistoryCount(memberId) shouldBe 0
+                }
+            }
             `when`("무료 3회를 소진한 미해금 회원이 v1 로 스캔하면") {
                 then("v1 은 크레딧 제한 밖이라 정상 스캔되고 카운트만 누적된다") {
                     val memberId = 642L
@@ -1103,7 +1125,7 @@ class ScanControllerTest : BehaviorSpec() {
                         mockMvc.post("/api/reviews") {
                             header("Authorization", "Bearer ${accessToken(memberId)}")
                             contentType = MediaType.APPLICATION_JSON
-                            content = mapper.writeValueAsString(mapOf("foodId" to foodIdOf("정책해금찌개"), "rating" to 5))
+                            content = mapper.writeValueAsString(mapOf("foodId" to foodIdOf("정책해금찌개"), "rating" to 5, "content" to "정말 맛있게 먹었어요"))
                         }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
                     ).path("payload").path("reviewId").asLong()
 
@@ -1461,6 +1483,84 @@ class ScanControllerTest : BehaviorSpec() {
                         jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
                         jsonPath("$.payload.results[0].avoidances[0].riskLevel") { value("CAUTION") }
                     }
+                }
+            }
+
+            `when`("해산물(카테고리)만 회피하는 회원이 새우 음식을 스캔하면 — R-100") {
+                then("하위 재료 함의로 해산물 항목이 겹침이 된다") {
+                    val memberId = 691L
+                    val path = "scan/691/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SEAFOOD")
+                    seedReadyFood("해산물함의찌개")
+                    setFoodIngredients("해산물함의찌개", """[{"code":"SHRIMP","inclusion_percent":80}]""")
+                    vision.program(path, listOf(ExtractedMenu("해산물찌개", "해산물함의찌개", 8000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].avoidances.length()") { value(1) }
+                        jsonPath("$.payload.results[0].avoidances[0].code") { value("SEAFOOD") }
+                        jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
+                    }
+                }
+            }
+
+            `when`("유제품(카테고리)만 회피하는 회원이 치즈 음식을 스캔하면 — R-100") {
+                then("치즈가 걸려 유제품 항목이 겹침이 된다") {
+                    val memberId = 692L
+                    val path = "scan/692/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "DAIRY")
+                    seedReadyFood("유제품함의떡볶이")
+                    setFoodIngredients("유제품함의떡볶이", """[{"code":"CHEESE","inclusion_percent":80}]""")
+                    vision.program(path, listOf(ExtractedMenu("치즈떡볶이", "유제품함의떡볶이", 8000, matchedIdx = null)))
+
+                    v2Scan(memberId, path).andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.results[0].avoidances[0].code") { value("DAIRY") }
+                        jsonPath("$.payload.results[0].avoidances[0].overlapped") { value(true) }
+                    }
+                }
+            }
+
+            `when`("묶음(견과류·갑각류·연체류·육류)만 회피하는 회원이 하위 재료 음식을 스캔하면 — KB-842") {
+                then("하위 재료 음식마다 그 묶음 항목이 겹침이 된다") {
+                    AvoidanceGroupMatrix.rows.groupBy { it.group }.entries.forEachIndexed { index, (group, members) ->
+                        val memberId = 6420L + index
+                        val path = "scan/$memberId/menu.jpg"
+                        seedVerifiedImage(memberId, path)
+                        setMemberAvoidances(memberId, group.name)
+                        val names = members.map { "${it.labelTerm}묶음찌개" }
+                        names.zip(members).forEach { (name, row) ->
+                            seedReadyFood(name)
+                            setFoodIngredients(name, """[{"code":"${row.member.name}","inclusion_percent":80}]""")
+                        }
+                        vision.program(path, names.map { ExtractedMenu(it, it, 8000, matchedIdx = null) })
+
+                        val results = mapper.readTree(
+                            v2Scan(memberId, path).andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                        ).path("payload").path("results")
+                        members.indices.filterNot { i ->
+                            results[i].path("avoidances").any { it.path("code").asText() == group.name && it.path("overlapped").asBoolean() }
+                        }.map { "${group.name}→${members[it].member.name}" } shouldBe emptyList()
+                    }
+                }
+            }
+
+            `when`("해산물만 회피하는 회원이 갑각류·연체류로 태깅된 음식을 스캔하면 — 공부 막음") {
+                then("두 음식 모두 해산물 겹침") {
+                    val memberId = 6430L
+                    val path = "scan/6430/menu.jpg"
+                    seedVerifiedImage(memberId, path)
+                    setMemberAvoidances(memberId, "SEAFOOD")
+                    listOf("갑각류묶음찌개" to "CRUSTACEAN", "연체류묶음볶음" to "MOLLUSK").forEach { (name, code) ->
+                        seedReadyFood(name)
+                        setFoodIngredients(name, """[{"code":"$code","inclusion_percent":80}]""")
+                    }
+                    vision.program(path, listOf("갑각류묶음찌개", "연체류묶음볶음").map { ExtractedMenu(it, it, 8000, matchedIdx = null) })
+                    val results = mapper.readTree(v2Scan(memberId, path).andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8))
+                        .path("payload").path("results")
+                    (0..1).map { i -> results[i].path("avoidances").any { it.path("code").asText() == "SEAFOOD" && it.path("overlapped").asBoolean() } } shouldBe listOf(true, true)
                 }
             }
 

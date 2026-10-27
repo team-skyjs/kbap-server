@@ -1,7 +1,7 @@
 package com.kbap.common.infra.llm.config
 
 import com.kbap.common.port.llm.FoodImageBatchClient
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import com.kbap.common.port.llm.ReviewTextGenerator
 import com.kbap.common.port.llm.TextEmbeddingClient
 import com.kbap.common.port.llm.TextTranslator
@@ -30,7 +30,7 @@ class LlmConfiguration {
     fun menuBoardVisionExtractor(
         properties: LlmModelProperties,
         eventPublisher: ApplicationEventPublisher,
-    ): MenuBoardVisionExtractor {
+    ): OpenAiMenuBoardVisionExtractor {
         val props = properties.vision
         val chatModel = OpenAiChatModel.builder()
             .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
@@ -96,6 +96,31 @@ class LlmConfiguration {
             configuredModelName = props.model.orEmpty(),
             eventPublisher = eventPublisher,
         )
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.processed-food-translation", name = ["enabled"], havingValue = "true")
+    fun processedFoodTextTranslator(
+        properties: LlmModelProperties,
+        eventPublisher: ApplicationEventPublisher,
+    ): ProcessedFoodTextTranslator {
+        val props = properties.processedFoodTranslation
+        val chatModel = OpenAiChatModel.builder()
+            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
+            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
+            .build()
+        val delegate = OpenAiTextTranslator(
+            chatModel = chatModel,
+            pricing = LlmPricing(
+                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+                usdToKrw = properties.usdToKrw,
+            ),
+            configuredModelName = props.model.orEmpty(),
+            eventPublisher = eventPublisher,
+            format = OpenAiTextTranslator.Format.PROCESSED_FOOD,
+        )
+        return ProcessedFoodTextTranslator(delegate::translate)
     }
 
     @Bean

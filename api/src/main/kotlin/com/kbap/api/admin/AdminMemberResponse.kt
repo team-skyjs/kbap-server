@@ -27,7 +27,11 @@ data class AdminMemberListItemResponse(
     val provider: SocialProvider,
     val memberStatus: String,
     val onboardingCompleted: Boolean,
+    @field:Schema(description = "리뷰 봇 계정 여부", example = "false")
+    val isBot: Boolean,
     val createdAt: LocalDateTime,
+    @field:Schema(description = "국적 ISO2(미설정 null)", example = "KR", nullable = true)
+    val countryCode: String?,
 ) {
     companion object {
         fun from(member: Member): AdminMemberListItemResponse =
@@ -38,10 +42,22 @@ data class AdminMemberListItemResponse(
                 provider = member.provider,
                 memberStatus = adminMemberStatusOf(member),
                 onboardingCompleted = member.onboardingCompleted,
+                isBot = member.isBot,
+                countryCode = member.countryCode,
                 createdAt = member.createdAt,
             )
     }
 }
+
+data class AdminMemberCountryCountResponse(
+    @field:Schema(description = "국적 ISO2(미설정 회원은 null 한 행)", example = "KR", nullable = true)
+    val countryCode: String?,
+    val count: Long,
+    @field:Schema(description = "한국 시간 오늘 가입자 수")
+    val todayCount: Long = 0,
+    @field:Schema(description = "집계 기준 한국 날짜 YYYY-MM-DD")
+    val todayDate: String = "",
+)
 
 data class AdminMemberDetailResponse(
     val id: Long,
@@ -56,13 +72,17 @@ data class AdminMemberDetailResponse(
     val countryCode: String?,
     val rankingTier: String,
     val scanCount: Int,
+    val scanUnlocked: Boolean,
+    val adRewardCount: Long,
+    @field:Schema(description = "리뷰 봇 계정 여부", example = "false")
+    val isBot: Boolean,
     val reviewCount: Int,
     val orderCount: Long,
     val sanctions: List<String>,
     val createdAt: LocalDateTime,
 ) {
     companion object {
-        fun from(member: Member, orderCount: Long, imagePublicBaseUrl: String): AdminMemberDetailResponse {
+        fun from(member: Member, orderCount: Long, adRewardCount: Long, imagePublicBaseUrl: String): AdminMemberDetailResponse {
             val profile = member.profile
             return AdminMemberDetailResponse(
                 id = member.id,
@@ -77,6 +97,9 @@ data class AdminMemberDetailResponse(
                 countryCode = profile.countryCode?.name,
                 rankingTier = member.ranking.tier.name,
                 scanCount = member.scanCount,
+                scanUnlocked = member.scanUnlocked,
+                adRewardCount = adRewardCount,
+                isBot = member.isBot,
                 reviewCount = member.reviewCount,
                 orderCount = orderCount,
                 sanctions = emptyList(),
@@ -97,7 +120,7 @@ data class AdminMemberReviewPageResponse(
 
 data class AdminMemberReviewItemResponse(
     val id: Long,
-    val foodId: Long,
+    val foodId: Long?,
     val foodName: String?,
     val rating: Int,
     val servingSpeedRating: Int,
@@ -105,19 +128,25 @@ data class AdminMemberReviewItemResponse(
     val content: String?,
     val imageUrls: List<String>,
     val createdAt: LocalDateTime,
+    val targetType: String,
+    val processedFoodId: Long?,
+    val targetName: String?,
 ) {
     companion object {
-        fun from(review: Review, foodNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
+        fun from(review: Review, foodNames: Map<Long, String>, productNames: Map<Long, String>, imagePublicBaseUrl: String): AdminMemberReviewItemResponse =
             AdminMemberReviewItemResponse(
                 id = review.id,
                 foodId = review.foodId,
-                foodName = foodNames[review.foodId],
+                foodName = review.foodId?.let(foodNames::get),
                 rating = review.rating,
                 servingSpeedRating = review.servingSpeedRating,
                 staffKindnessRating = review.staffKindnessRating,
                 content = review.content,
                 imageUrls = review.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
                 createdAt = review.createdAt,
+                targetType = review.targetType.name,
+                processedFoodId = review.processedFoodId,
+                targetName = review.foodId?.let(foodNames::get) ?: review.processedFoodId?.let(productNames::get),
             )
     }
 }
@@ -252,3 +281,15 @@ private const val WITHDRAWN_MEMBER_STATUS = "WITHDRAWN"
 
 private fun adminMemberStatusOf(member: Member): String =
     if (member.isDeleted()) WITHDRAWN_MEMBER_STATUS else member.memberStatus.name
+
+@Schema(description = "스캔 무제한 해제 취소 결과")
+data class AdminScanUnlockResetResponse(
+    @field:Schema(description = "무제한 해제 여부 — 취소 뒤 항상 false", example = "false")
+    val scanUnlocked: Boolean,
+    @field:Schema(description = "남은 광고 적립 수 — 취소 뒤 항상 0", example = "0")
+    val adRewardCount: Int,
+    @field:Schema(description = "스캔 수(무료 한도보다 작았으면 한도로 올린다)", example = "3")
+    val scanCount: Int,
+    @field:Schema(description = "남은 무료 스캔 수", example = "0")
+    val scanRemaining: Int,
+)

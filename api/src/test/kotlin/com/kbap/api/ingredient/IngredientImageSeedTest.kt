@@ -30,7 +30,7 @@ class IngredientImageSeedTest : BehaviorSpec() {
                     ingredientRepository.count() shouldBe IngredientCode.entries.size.toLong()
                 }
 
-                then("모든 재료에 코드 규칙대로 이미지 경로가 적재되어 있다") {
+                then("모든 재료에 코드 규칙대로 이미지 경로가 적재되어 있다(KB-842 6코드 포함 — 비어 있는 코드 0)") {
                     ingredientRepository.findAll().forEach { ingredient ->
                         ingredient.imagePath shouldBe "images/webp/ingredients-cut/${ingredient.code.name.lowercase()}.webp"
                     }

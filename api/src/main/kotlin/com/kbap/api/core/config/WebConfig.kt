@@ -3,11 +3,14 @@ package com.kbap.api.core.config
 import com.kbap.api.admin.AdminAuthorizationInterceptor
 import com.kbap.api.admin.AdminPageAuthInterceptor
 import com.kbap.api.core.ApiHeaders
+import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.auth.AuthMemberIdArgumentResolver
 import com.kbap.api.core.auth.AuthMemberIdOrNullArgumentResolver
 import com.kbap.api.core.auth.JwtAuthenticationFilter
 import com.kbap.api.core.logging.RequestLoggingFilter
+import com.kbap.common.domain.member.MemberJpaRepository
+import com.kbap.common.domain.member.model.MemberStatus
 import com.kbap.common.port.auth.TokenParser
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
@@ -26,10 +29,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 @Configuration
 class WebConfig(
     private val tokenParser: TokenParser,
+    private val memberRepository: MemberJpaRepository,
 ) : WebMvcConfigurer {
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
         configurer.useRequestHeader(ApiHeaders.API_VERSION)
             .useVersionResolver(exemptPathVersionResolver())
+            .addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR, ApiVersions.HOME_TOP_RATED, ApiVersions.SCAN_SUBSTITUTION, ApiVersions.FOOD_NAME_SORT, ApiVersions.PROCESSED_FOOD, ApiVersions.SCAN_BATCH)
             .setVersionRequired(true)
     }
 
@@ -51,7 +56,7 @@ class WebConfig(
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(AuthMemberIdArgumentResolver())
-        resolvers.add(AuthMemberIdOrNullArgumentResolver(tokenParser))
+        resolvers.add(AuthMemberIdOrNullArgumentResolver(tokenParser, ::isActiveMember))
     }
 
     override fun addInterceptors(registry: InterceptorRegistry) {
@@ -100,6 +105,11 @@ class WebConfig(
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/community/posts/\\d+$")),
                     JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/reviews/\\d+$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/foods/selected$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/processed-foods$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/processed-foods/\\d+$")),
+                    JwtAuthenticationFilter.GuestExemption("GET", Regex("^${ApiPaths.API}/processed-foods/\\d+/reviews$")),
                     JwtAuthenticationFilter.GuestExemption(
                         "POST",
                         Regex("^${ApiPaths.API}/reports$"),
@@ -136,6 +146,8 @@ class WebConfig(
                         parseTokenIfPresent = true,
                     ),
                 ),
+                isActiveMember = ::isActiveMember,
+                activeMemberCheckExempt = Regex("^${ApiPaths.ADMIN}/.*"),
             ),
         ).apply {
             addUrlPatterns(
@@ -143,8 +155,11 @@ class WebConfig(
                 "${ApiPaths.API}/notifications",
                 "${ApiPaths.API}/notifications/*",
                 "${ApiPaths.API}/foods/scanned",
+                "${ApiPaths.API}/foods/selected",
                 "${ApiPaths.API}/scans",
                 "${ApiPaths.API}/scans/*",
+                "${ApiPaths.API}/processed-foods",
+                "${ApiPaths.API}/processed-foods/*",
                 "${ApiPaths.API}/bookmarks",
                 "${ApiPaths.API}/bookmarks/*",
                 "${ApiPaths.API}/reviews",
@@ -165,6 +180,9 @@ class WebConfig(
                 "${ApiPaths.ADMIN}/*",
             )
         }
+
+    private fun isActiveMember(memberId: Long): Boolean =
+        memberRepository.existsByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)
 
     companion object {
         const val ADMIN_LOGIN_PATH = "${ApiPaths.ADMIN}/auth/login"

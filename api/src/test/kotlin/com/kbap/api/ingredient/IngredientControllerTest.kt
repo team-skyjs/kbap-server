@@ -3,7 +3,6 @@ package com.kbap.api.ingredient
 import com.kbap.api.IntegrationTest
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.kbap.common.domain.ingredient.model.IngredientCode
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -44,7 +43,7 @@ class IngredientControllerTest : BehaviorSpec() {
                     }.andReturn().response.getContentAsString(Charsets.UTF_8)
 
                     val ingredients = mapper.readTree(json).path("payload").path("ingredients")
-                    ingredients.size() shouldBe IngredientCode.entries.size
+                    ingredients.size() shouldBe IngredientTestSeed.allCodes(dataSource).size
                     val first = ingredients.first()
                     first.path("code").asText() shouldBe "EGG"
                     first.path("name").asText() shouldBe "계란"
@@ -123,7 +122,7 @@ class IngredientControllerTest : BehaviorSpec() {
                     diets.size() shouldBe 15
                     diets.first().path("code").asText() shouldBe "VEGAN"
                     diets.first().path("name").asText() shouldBe "비건"
-                    diets.first().path("ingredients").size() shouldBe 41
+                    diets.first().path("ingredients").size() shouldBe 43
 
                     val glutenFree = diets.first { it.path("code").asText() == "GLUTEN_FREE" }
                     glutenFree.path("ingredients").map { it.path("name").asText() } shouldBe

@@ -15,6 +15,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.kbap.common.domain.ingredient.IngredientJpaRepository
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.repository.findByIdOrNull
@@ -30,11 +31,13 @@ class MemberService(
     private val adRewardRepository: MemberAdRewardJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     @Value("\${kbap.storage.key-prefix:}") private val storageKeyPrefix: String,
+    private val ingredientRepository: IngredientJpaRepository,
 ) {
     @Transactional
     fun completeOnboarding(input: MemberProfileInput) {
         val member = getMember(input.memberId)
         verifyProfileUploadCompleted(member, input.profileImageUrl)
+        verifyNewCodesAvailable(input.avoidanceSubstanceCodes)
         member.completeOnboarding(
             nickname = input.nickname ?: OnboardingProfileDefaults.randomNickname(),
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
@@ -50,6 +53,7 @@ class MemberService(
     fun updateProfile(input: ProfileUpdateInput) {
         val member = getMember(input.memberId)
         verifyProfileUploadCompleted(member, input.profileImageUrl)
+        verifyNewCodesAvailable(input.avoidanceSubstanceCodes)
         member.updateProfile(
             nickname = input.nickname,
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
@@ -67,6 +71,16 @@ class MemberService(
         if (ProfileImagePaths.isDefault(path)) return
         if (!uploadedImageService.ownsAllImages(member.id, listOf(path), UploadPurpose.PROFILE_IMAGE)) {
             throw BusinessException(ErrorCode.INVALID_PROFILE_IMAGE_URL)
+        }
+    }
+
+    private fun verifyNewCodesAvailable(requested: List<String>?) {
+        val newCodes = requested.orEmpty().filterTo(mutableSetOf()) { it in NEW_CODE_NAMES }
+        if (newCodes.isEmpty()) return
+        val available = ingredientRepository.findByCodeIn(newCodes.map(IngredientCode::valueOf).toSet())
+            .mapTo(mutableSetOf()) { it.code.name }
+        if (available != newCodes) {
+            throw BusinessException(ErrorCode.INVALID_AVOIDANCE_SUBSTANCE_CODE)
         }
     }
 
@@ -136,30 +150,9 @@ class MemberService(
     }
 
     @Transactional
-    fun increaseReviewCount(memberId: Long) {
-        if (memberRepository.increaseReviewCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
-    @Transactional
-    fun decreaseReviewCount(memberId: Long) {
-        if (memberRepository.decreaseReviewCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
-    @Transactional
-    fun increaseUniqueReviewedFoodCount(memberId: Long) {
-        if (memberRepository.increaseUniqueReviewedFoodCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        }
-    }
-
-    @Transactional
-    fun decreaseUniqueReviewedFoodCount(memberId: Long) {
-        if (memberRepository.decreaseUniqueReviewedFoodCount(memberId) == 0) {
-            throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+    fun increaseScanCountWithinLimit(memberId: Long) {
+        if (memberRepository.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) {
+            throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         }
     }
 
@@ -173,4 +166,8 @@ class MemberService(
     @Transactional(readOnly = true)
     fun getMember(memberId: Long): Member =
         getMemberOrNull(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+
+    private companion object {
+        val NEW_CODE_NAMES = setOf("NUTS", "CRUSTACEAN", "MOLLUSK", "MEAT", "MEAT_BROTH", "LAMB")
+    }
 }

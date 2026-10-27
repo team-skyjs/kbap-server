@@ -2,7 +2,9 @@ package com.kbap.api.admin
 
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.member.model.CountryCode
 import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.member.MemberAdRewardJpaRepository
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
@@ -10,6 +12,7 @@ import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.order.OrderItemJpaRepository
 import com.kbap.common.domain.order.OrderJpaRepository
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.util.ImageUrls
 import com.kbap.common.util.LikeWildcards
@@ -19,6 +22,8 @@ import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.LocalDate
 
 @Service
 class AdminMemberQueryService(
@@ -28,17 +33,22 @@ class AdminMemberQueryService(
     private val orderRepository: OrderJpaRepository,
     private val orderItemRepository: OrderItemJpaRepository,
     private val foodRepository: FoodJpaRepository,
+    private val adRewardRepository: MemberAdRewardJpaRepository,
+    private val processedFoods: ProcessedFoodProductJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
-    fun searchMemberPage(page: Int, query: String? = null): AdminMemberListResponse {
+    fun searchMemberPage(page: Int, query: String? = null, isBot: Boolean? = null, country: String? = null): AdminMemberListResponse {
         val keyword = query?.trim()?.takeIf { it.isNotEmpty() }
+        val countryFilter = countryFilterOf(country)
         val pageable = PageRequest.of(page - 1, PAGE_SIZE)
         val result = when (keyword) {
-            null -> memberRepository.findPageAnyStatus(pageable)
+            null -> memberRepository.findPageAnyStatus(isBot, countryFilter, pageable)
             else -> memberRepository.searchPageAnyStatusByKeyword(
                 LikeWildcards.escape(keyword),
                 keyword.toLongOrNull() ?: NO_MEMBER_ID,
+                isBot,
+                countryFilter,
                 pageable,
             )
         }
@@ -53,19 +63,64 @@ class AdminMemberQueryService(
     }
 
     @Transactional(readOnly = true)
+    fun getCountryCounts(isBot: Boolean?): List<AdminMemberCountryCountResponse> {
+        val today = LocalDate.now(SEOUL)
+        val since = today.atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        val until = today.plusDays(1).atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        return memberRepository.countCountriesWithToday(isBot, since, until).map {
+            AdminMemberCountryCountResponse(it.countryCode, it.count, it.todayCount, today.toString())
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun getDailySignups(days: Int, isBot: Boolean?): List<AdminDailyCountResponse> {
+        if (days !in SIGNUP_DAYS_RANGE) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val today = LocalDate.now(SEOUL)
+        val from = today.minusDays(days - 1L)
+        val since = from.atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        val counts = memberRepository.findCreatedAtsSinceAnyStatus(since, isBot)
+            .groupingBy { it.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL).toLocalDate() }
+            .eachCount()
+        return (0 until days).map { from.plusDays(it.toLong()) }.map { AdminDailyCountResponse(it, counts[it]?.toLong() ?: 0L) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getReviewPage(page: Int, isBot: Boolean?): AdminReviewPageResponse {
+        val result = reviewRepository.findPageByAuthorBot(isBot, PageRequest.of(page - 1, ACTIVITY_PAGE_SIZE))
+        val authors = memberRepository.findAllAnyStatusByIdIn(result.content.map { it.memberId }.distinct().ifEmpty { listOf(NO_MEMBER_ID) }).associateBy { it.id }
+        val foodNames = foodNamesOf(result.content.mapNotNull { it.foodId })
+        val productNames = processedFoods.findAllById(result.content.mapNotNull { it.processedFoodId }.distinct()).associateBy({ it.id }, { it.productName })
+        return AdminReviewPageResponse(
+            items = result.content.map { AdminReviewItemResponse.from(it, authors[it.memberId], foodNames, productNames, imagePublicBaseUrl) },
+            page = page,
+            totalPages = result.totalPages,
+            totalCount = result.totalElements,
+            hasPrev = page > 1,
+            hasNext = page < result.totalPages,
+        )
+    }
+
+    private fun countryFilterOf(country: String?): String? {
+        val value = country?.trim()?.uppercase()?.takeIf { it.isNotEmpty() } ?: return null
+        if (value != NO_COUNTRY && CountryCode.from(value) == null) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        return value
+    }
+
+    @Transactional(readOnly = true)
     fun getMemberDetail(id: Long): AdminMemberDetailResponse {
         val member = memberRepository.findAnyById(id)
             ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
-        return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), imagePublicBaseUrl)
+        return AdminMemberDetailResponse.from(member, orderRepository.countByMemberId(id), adRewardRepository.countByMemberId(id), imagePublicBaseUrl)
     }
 
     @Transactional(readOnly = true)
     fun getMemberReviewPage(memberId: Long, page: Int): AdminMemberReviewPageResponse {
         requireMemberExists(memberId)
         val result = reviewRepository.findByMemberId(memberId, activityPageable(page))
-        val foodNames = foodNamesOf(result.content.map { it.foodId })
+        val foodNames = foodNamesOf(result.content.mapNotNull { it.foodId })
+        val productNames = processedFoods.findAllById(result.content.mapNotNull { it.processedFoodId }.distinct()).associateBy({ it.id }, { it.productName })
         return AdminMemberReviewPageResponse(
-            items = result.content.map { AdminMemberReviewItemResponse.from(it, foodNames, imagePublicBaseUrl) },
+            items = result.content.map { AdminMemberReviewItemResponse.from(it, foodNames, productNames, imagePublicBaseUrl) },
             page = page,
             totalPages = result.totalPages,
             totalCount = result.totalElements,
@@ -108,6 +163,16 @@ class AdminMemberQueryService(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun getScanPhotoPage(memberId: Long, page: Int): AdminScanPhotoPage {
+        requireMemberExists(memberId)
+        val result = orderRepository.findMemberScanPhotos(memberId, PageRequest.of(page - 1, 24))
+        return AdminScanPhotoPage(
+            result.content.map { AdminScanPhoto(ImageUrls.resolve(imagePublicBaseUrl, it.path), it.createdAt) },
+            page, result.totalPages, result.totalElements, result.hasNext(),
+        )
+    }
+
     private fun requireMemberExists(memberId: Long) {
         // existsById 는 @SQLRestriction(ACTIVE) 탓에 탈퇴 회원을 '없음'으로 오판한다 — 전 상태 조회가 맞다.
         memberRepository.findAnyById(memberId) ?: throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
@@ -145,6 +210,12 @@ class AdminMemberQueryService(
         const val ACTIVITY_PAGE_SIZE = 20
 
         private const val NO_MEMBER_ID = -1L
+
+        private const val NO_COUNTRY = "NONE"
+
+        private val SIGNUP_DAYS_RANGE = 1..90
+
+        private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
     }
 }
 
@@ -220,3 +291,6 @@ data class AdminMemberDetailView(
         }
     }
 }
+
+data class AdminScanPhoto(val imageUrl: String?, val createdAt: LocalDateTime)
+data class AdminScanPhotoPage(val items: List<AdminScanPhoto>, val page: Int, val totalPages: Int, val totalCount: Long, val hasNext: Boolean)

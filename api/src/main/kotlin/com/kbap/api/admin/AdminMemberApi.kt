@@ -1,6 +1,8 @@
 package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -19,6 +21,8 @@ interface AdminMemberApi {
             `memberStatus` 는 ACTIVE·SUSPENDED·WITHDRAWN(탈퇴) 중 하나다.
 
             - `q` 를 주면 닉네임·이메일 부분 일치로 검색하고, 숫자면 멤버 id 일치도 함께 매칭한다.
+            - 각 항목의 `isBot` 은 리뷰 봇 계정 여부다. `isBot` 파라미터로 봇만/사람만 거를 수 있다.
+            - 각 항목의 `countryCode` 는 국적(ISO 3166-1 alpha-2, 미설정 null). `country` 파라미터로 거른다 — ISO2 정확 일치(대소문자 무시), `NONE` 은 미설정만, 형식 오류는 400(COMMON-002). q·isBot 과 AND.
             - 페이지 크기는 서버 고정(20)이며, 응답에 전체 건수(`totalCount`)를 포함한다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008) 으로 거절된다.
         """,
@@ -35,12 +39,67 @@ interface AdminMemberApi {
         page: Int,
         @Parameter(description = "닉네임·이메일 부분 일치 검색어(숫자면 멤버 id 일치도 매칭)", example = "김밥")
         q: String?,
+        @Parameter(description = "true 면 봇 계정만, false 면 사람 계정만, 생략하면 전체(q 와 함께 쓰면 둘 다 만족하는 건)", example = "false")
+        isBot: Boolean?,
+        @Parameter(description = "국적 ISO2(예: KR) 정확 일치, NONE 이면 국적 미설정 회원만, 생략하면 전체", example = "KR")
+        country: String?,
     ): ResponseEntity<BaseResponse<AdminMemberListResponse>>
+
+    @Operation(
+        summary = "국적별 회원 수",
+        description = """
+            회원 수를 국적별로 센다 — 목록과 같은 범위(탈퇴·정지 포함 전 상태). 국적 미설정은 `countryCode` null 한 행.
+            건수 내림차순(같으면 국적 코드 순). `isBot` 으로 봇만/사람만. 회원 페이지·대시보드 공용.
+            - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    fun getCountryCounts(
+        @Parameter(description = "true 면 봇만, false 면 사람만, 생략하면 전체", example = "false")
+        isBot: Boolean?,
+    ): ResponseEntity<BaseResponse<List<AdminMemberCountryCountResponse>>>
+
+    @Operation(
+        summary = "회원 스캔 무제한 해제 취소",
+        description = """
+            회원의 스캔 무제한 해제(리뷰 작성·광고 3회)를 되돌린다(재시험용 QA 도구). 한 트랜잭션에서 그 회원의 광고 적립
+            이력(`member_ad_reward`)을 소프트 삭제(적립 수 0)한 뒤 회원 행을 잠가 `scan_unlocked=false` 로 바꾼다 — 적립 경로와
+            같은 잠금 순서. 스캔 수가 무료 한도(3)보다 작으면 한도로 올려 리셋 직후 바로 제한 상태가 되게 하고, 크면 그대로 둔다.
+            스캔 이력은 그대로. 지운 적립의 rewardKey 는 다시 신고해도 400(COMMON-002)이다.
+            같은 회원에 다시 호출해도 같은 결과(멱등). 봇 계정은 400 COMMON-002, 없는·탈퇴 회원은 400 MEMBER-003.
+            응답 `{scanUnlocked, adRewardCount, scanCount, scanRemaining}`. 관리자 상세(`GET /api/admin/members/{id}`)의
+            `scanUnlocked`·`adRewardCount`·`scanCount` 로 버튼 노출을 정한다(KB-762).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "취소 성공(또는 이미 취소된 상태)"),
+            ApiResponse(responseCode = "400", description = "봇 계정(COMMON-002)·없는/탈퇴 회원(MEMBER-003)"),
+            ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
+            ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ],
+    )
+    @ApiErrors(
+        ErrorCode.INVALID_REQUEST,
+        ErrorCode.MEMBER_NOT_FOUND,
+        ErrorCode.ADMIN_FORBIDDEN,
+    )
+    fun resetScanUnlock(
+        @Parameter(description = "대상 회원 id", example = "42")
+        id: Long,
+        adminAccountId: Long,
+    ): ResponseEntity<BaseResponse<AdminScanUnlockResetResponse>>
 
     @Operation(
         summary = "멤버 상세 조회",
         description = """
-            멤버 1건의 프로필·회피 설정 요약·활동 수(스캔·리뷰·주문)·제재 이력 자리를 반환한다.
+            멤버 1건의 프로필·회피 설정 요약·활동 수(스캔·리뷰·주문)·스캔 무제한 해제 여부(`scanUnlocked`)·광고 적립 수(`adRewardCount`)·제재 이력 자리를 반환한다.
 
             - `sanctions` 는 정지 모델 도입 전이라 항상 빈 배열이다 — 구조는 후속 확정.
             - 없는 id 는 400(MEMBER-003).

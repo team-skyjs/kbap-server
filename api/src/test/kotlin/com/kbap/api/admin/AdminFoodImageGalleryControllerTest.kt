@@ -117,6 +117,14 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                 ).use { ps -> ps.setLong(1, foodId); ps.executeUpdate() }
             }
 
+        fun markDeleted(imageId: Long): Unit =
+            dataSource.connection.use { c ->
+                c.prepareStatement("UPDATE food_image SET status = 'DELETED' WHERE id = ?").use { ps ->
+                    ps.setLong(1, imageId)
+                    ps.executeUpdate()
+                }
+            }
+
         fun detail(foodId: Long): ResultActionsDsl =
             mockMvc.get("/api/admin/foods/$foodId") { header("Authorization", "Bearer ${adminToken()}") }
 
@@ -346,6 +354,24 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("비대표 사진 하나를 DB 에서 DELETED 로 바꾸면") {
+                then("어드민 갤러리와 사용자 상세 갤러리에서 모두 빠진다") {
+                    val food = saveFood("삭제갤러리음식", "images/webp/keep.webp")
+                    saveImage(food.id, "images/webp/keep.webp", isPrimary = true, sortOrder = 0)
+                    val removed = saveImage(food.id, "images/webp/gone.webp", isPrimary = false, sortOrder = 1)
+                    markDeleted(removed.id)
+
+                    val items = payloadOf(gallery(food.id)).path("items")
+                    items.size() shouldBe 1
+                    items[0].path("imageKey").asText() shouldBe "images/webp/keep.webp"
+                    mockMvc.get("/api/foods/${food.id}?lang=ko").andExpect {
+                        status { isOk() }
+                        jsonPath("$.payload.images.length()") { value(1) }
+                        jsonPath("$.payload.images[0].url") { value("https://cdn.test/images/webp/keep.webp") }
+                    }
+                }
+            }
+
             `when`("이미지가 없는 음식을 조회하면") {
                 then("items 는 빈 배열이다") {
                     val food = saveFood("이미지없음", null)
@@ -415,6 +441,32 @@ class AdminFoodImageGalleryControllerTest : BehaviorSpec() {
                     payload.path("items")[0].path("isPrimary").asBoolean() shouldBe true
 
                     foodRepository.findById(food.id).orElseThrow().imageRef shouldBe "images/webp/new.webp"
+                }
+            }
+
+            `when`("DB 에서 DELETED 된 대표가 남은 음식에 다른 사진을 대표로 지정하면") {
+                then("대표 유니크에 막히지 않고 바뀐다") {
+                    val food = saveFood("삭제대표음식", "images/webp/dead.webp")
+                    val dead = saveImage(food.id, "images/webp/dead.webp", isPrimary = true, sortOrder = 0)
+                    val next = saveImage(food.id, "images/webp/alive.webp", isPrimary = false, sortOrder = 1)
+                    markDeleted(dead.id)
+
+                    val payload = payloadOf(setPrimary(food.id, next.id, food.version).andExpect { status { isOk() } })
+                    payload.path("items").size() shouldBe 1
+                    payload.path("items")[0].path("imageKey").asText() shouldBe "images/webp/alive.webp"
+                    foodRepository.findById(food.id).orElseThrow().imageRef shouldBe "images/webp/alive.webp"
+                }
+            }
+
+            `when`("DELETED 사진을 대표로 지정하면") {
+                then("없는 사진으로 보고 404 이며 대표는 그대로다") {
+                    val food = saveFood("삭제사진지정음식", "images/webp/p.webp")
+                    saveImage(food.id, "images/webp/p.webp", isPrimary = true, sortOrder = 0)
+                    val gone = saveImage(food.id, "images/webp/gone.webp", isPrimary = false, sortOrder = 1)
+                    markDeleted(gone.id)
+
+                    setPrimary(food.id, gone.id, food.version).andExpect { status { isNotFound() } }
+                    foodRepository.findById(food.id).orElseThrow().imageRef shouldBe "images/webp/p.webp"
                 }
             }
 

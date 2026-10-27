@@ -1,0 +1,38 @@
+{
+  "base": "b740af199472735b1870fa028ce9966f6613941f",
+  "build": "SUCCESS",
+  "duration": "4m7s",
+  "testExecution": {
+    "api": "executed",
+    "common": "FROM-CACHE",
+    "batch": "FROM-CACHE"
+  },
+  "modules": {
+    "api": {
+      "tests": 2045,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    "common": {
+      "tests": 642,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "batch": {
+      "tests": 93,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "http": {
+    "count": 29,
+    "passed": 29,
+    "foodViewLog": 0,
+    "scanHistory": 0,
+    "runtime": "isolated main-backport bootJar with MySQL8.4/Redis",
+    "prodDeployed": false
+  }
+}

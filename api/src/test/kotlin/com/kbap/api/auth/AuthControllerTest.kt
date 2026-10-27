@@ -32,6 +32,10 @@ class AuthControllerTest : BehaviorSpec() {
     @Autowired
     private lateinit var dataSource: DataSource
 
+
+    @Autowired
+    private lateinit var redisTemplate: org.springframework.data.redis.core.StringRedisTemplate
+
     @Autowired
     private lateinit var memberRepository: com.kbap.common.domain.member.MemberJpaRepository
 
@@ -46,6 +50,9 @@ class AuthControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var adRewardRepository: com.kbap.common.domain.member.MemberAdRewardJpaRepository
+
+    @Autowired
+    private lateinit var ingredientRepository: com.kbap.common.domain.ingredient.IngredientJpaRepository
 
     @Autowired
     private lateinit var accountDeleter: FakeSocialAccountDeleter
@@ -84,6 +91,9 @@ class AuthControllerTest : BehaviorSpec() {
 
         fun bodyToken(response: MockHttpServletResponse, field: String): String =
             objectMapper.readTree(response.contentAsString).path("payload").path(field).asText()
+
+        fun jtiOf(token: String): String =
+            objectMapper.readTree(java.util.Base64.getUrlDecoder().decode(token.split(".")[1])).path("jti").asText()
 
         fun refresh(refreshToken: String?) =
             mockMvc.post("/api/auth/refresh") {
@@ -266,12 +276,30 @@ class AuthControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("재발급 후 이전 refresh 토큰을 다시 쓰면") {
-                then("401 로 거절된다(rotation 으로 폐기됨)") {
+            `when`("재발급 직후 응답을 못 받은 앱이 같은 refresh 토큰을 다시 보내면(유예 창 안)") {
+                then("200 이고 처음 재발급과 같은 refresh 토큰을 다시 내준다 — 그 토큰으로 다음 재발급도 된다") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+                    val first = bodyToken(refresh(oldRefresh).andReturn().response, "refreshToken")
+
+                    val retry = refresh(oldRefresh).andReturn().response
+
+                    retry.status shouldBe 200
+                    bodyToken(retry, "refreshToken") shouldBe first
+                    bodyToken(retry, "accessToken").isNotBlank() shouldBe true
+                    refresh(first).andReturn().response.status shouldBe 200
+                }
+            }
+
+            `when`("유예 창이 지난 뒤 이전 refresh 토큰을 다시 쓰면") {
+                then("401 AUTH-005 로 거절된다(rotation 으로 폐기됨)") {
                     val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
                     refresh(oldRefresh).andReturn()
+                    redisTemplate.delete("auth:refresh:${jtiOf(oldRefresh)}")
 
-                    refresh(oldRefresh).andReturn().response.status shouldBe 401
+                    val response = refresh(oldRefresh).andReturn().response
+
+                    response.status shouldBe 401
+                    objectMapper.readTree(response.contentAsString).path("code").asText() shouldBe "AUTH-005"
                 }
             }
         }
@@ -340,6 +368,18 @@ class AuthControllerTest : BehaviorSpec() {
                     logout(refreshToken).andReturn().response.status shouldBe 200
 
                     refresh(refreshToken).andReturn().response.status shouldBe 401
+                }
+            }
+
+            `when`("재발급 직후(유예 창 안) 옛 refresh 토큰으로 로그아웃하면") {
+                then("후속 세션까지 폐기된다 — 후속 refresh 토큰으로 재발급하면 401") {
+                    val oldRefresh = bodyToken(login().andReturn().response, "refreshToken")
+                    val successor = bodyToken(refresh(oldRefresh).andReturn().response, "refreshToken")
+
+                    logout(oldRefresh).andReturn().response.status shouldBe 200
+
+                    refresh(successor).andReturn().response.status shouldBe 401
+                    refresh(oldRefresh).andReturn().response.status shouldBe 401
                 }
             }
 
@@ -544,7 +584,7 @@ class AuthControllerTest : BehaviorSpec() {
                             }
                         }
                     } as com.kbap.common.domain.member.MemberJpaRepository
-                    val service = com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "")
+                    val service = com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "", ingredientRepository)
 
                     val error = io.kotest.assertions.throwables.shouldThrow<com.kbap.common.core.error.BusinessException> {
                         service.findOrSignUp(com.kbap.common.domain.member.model.SocialIdentity(SocialProvider.GOOGLE, FakeSocialTokenVerifier.DEFAULT_SUB, null))
@@ -575,7 +615,7 @@ class AuthControllerTest : BehaviorSpec() {
                         }
                         result
                     } as com.kbap.common.domain.member.MemberJpaRepository
-                    return com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "")
+                    return com.kbap.api.member.MemberService(racing, uploadedImageService, orderRepository, adRewardRepository, "", "", ingredientRepository)
                 }
 
                 then("트랜잭션 밖이면 재조회가 그 커밋을 보고 기존 회원으로 로그인시킨다") {
@@ -626,7 +666,7 @@ class AuthControllerTest : BehaviorSpec() {
 
         given("탈퇴 후 같은 소셜 계정 재가입") {
             `when`("탈퇴 직후 같은 소셜 계정으로 다시 로그인하면") {
-                then("신규 회원으로 가입되고 이전 프로필을 승계하지 않는다") {
+                then("신규 회원으로 가입되고 이전 프로필을 승계하지 않으며, 새 토큰의 첫 회원 API 는 200 이다 — 탈퇴 회원 토큰이 다시 발급돼 MEMBER-003 이 반복되지 않는다") {
                     val token = loginAccessToken()
                     submitOnboarding(token, validBody()).andReturn()
                     val previousId = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
@@ -640,6 +680,7 @@ class AuthControllerTest : BehaviorSpec() {
                     (newId != previousId) shouldBe true
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "onboarding_completed") shouldBe "0"
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "nickname") shouldBe null
+                    getMyProfile(bodyToken(response, "accessToken")).andReturn().response.status shouldBe 200
                 }
             }
 

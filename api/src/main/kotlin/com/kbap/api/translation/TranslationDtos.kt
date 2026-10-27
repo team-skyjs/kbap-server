@@ -5,11 +5,16 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Positive
 
+@Schema(description = "번역 요청 대상 종류 — 공개 계약은 REVIEW 만. 가공식품 번역은 서버 내부 전용")
+enum class TranslationRequestTarget(val targetType: TranslationTargetType) {
+    REVIEW(TranslationTargetType.REVIEW),
+}
+
 @Schema(description = "번역 요청 — 대상 종류 + id")
 data class TranslationRequest(
     @field:NotNull(message = "targetType 은 필수입니다")
     @field:Schema(description = "번역할 글의 종류. 지금은 REVIEW(리뷰 본문)만", example = "REVIEW")
-    val targetType: TranslationTargetType?,
+    val targetType: TranslationRequestTarget?,
 
     @field:NotNull(message = "targetId 는 필수입니다")
     @field:Positive(message = "targetId 는 1 이상이어야 합니다")

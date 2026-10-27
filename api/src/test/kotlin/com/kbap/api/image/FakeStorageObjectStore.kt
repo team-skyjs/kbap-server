@@ -10,6 +10,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     val heads: MutableMap<String, StorageObjectMetadata> = java.util.concurrent.ConcurrentHashMap()
     val deleted: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
     val headCalls: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
+    val fullListingStarts: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
     @Volatile var headDelayMillis: Long = 0
     @Volatile var failDeletes: Boolean = false
     val failDeletePaths: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
@@ -21,6 +22,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     }
 
     override fun list(prefix: String, afterPath: String?, limit: Int): List<com.kbap.common.port.storage.StoredObject> {
+        if (afterPath == null) fullListingStarts.add(prefix)
         val page = heads.keys.filter { it.startsWith(prefix) && (afterPath == null || it > afterPath) }.sorted().take(limit)
             .map { com.kbap.common.port.storage.StoredObject(it, lastModified[it] ?: java.time.Instant.now()) }
         return page

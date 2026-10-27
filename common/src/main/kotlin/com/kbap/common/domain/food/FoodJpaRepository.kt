@@ -1,6 +1,7 @@
 package com.kbap.common.domain.food
 
 import com.kbap.common.domain.DailyCount
+import com.kbap.common.domain.food.dto.FoodListingName
 import com.kbap.common.domain.food.dto.FoodSearchName
 import com.kbap.common.domain.food.dto.FoodStatusCount
 import com.kbap.common.domain.food.dto.HumanReviewCount
@@ -18,6 +19,16 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
+    @Query(
+        """
+        select new com.kbap.common.domain.food.dto.FoodListingName(f.id, f.koreanName, f.displayName, f.nameTranslations, f.updatedAt)
+        from Food f
+        where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
+        order by f.id
+        """,
+    )
+    fun findListingNames(): List<FoodListingName>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select f from Food f where f.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Food?
@@ -291,7 +302,7 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun increaseReviewCount(@Param("foodId") foodId: Long): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId")
+    @Query("update Food f set f.reviewCount = f.reviewCount - 1 where f.id = :foodId and f.reviewCount > 0")
     fun decreaseReviewCount(@Param("foodId") foodId: Long): Int
 
     companion object {

@@ -1,0 +1,1230 @@
+{
+  "products": [
+    {
+      "name": "빙그레바나나맛우유",
+      "maker": "빙그레",
+      "aliases": [
+        "바나나맛우유",
+        "바나나맛",
+        "bananamilk",
+        "bananaflavoredmilk",
+        "단지우유"
+      ],
+      "priority": 1
+    },
+    {
+      "name": "신라면",
+      "maker": "농심",
+      "aliases": [
+        "신라면",
+        "shinramyun",
+        "辛라면",
+        "辛"
+      ],
+      "priority": 2
+    },
+    {
+      "name": "불닭볶음면",
+      "maker": "삼양",
+      "aliases": [
+        "불닭볶음면",
+        "불닭",
+        "buldak",
+        "hotchickenflavorramen",
+        "buldakbokkeummyeon"
+      ],
+      "priority": 3
+    },
+    {
+      "name": "허니버터칩",
+      "maker": "해태",
+      "aliases": [
+        "허니버터칩",
+        "허니버터",
+        "honeybutterchip",
+        "honeybutter",
+        "해태허니버터칩",
+        "해태허니버터"
+      ],
+      "priority": 4
+    },
+    {
+      "name": "초코파이",
+      "maker": "오리온",
+      "aliases": [
+        "초코파이",
+        "chocopie",
+        "orionchocopie",
+        "情"
+      ],
+      "priority": 6
+    },
+    {
+      "name": "빼빼로",
+      "maker": "롯데",
+      "aliases": [
+        "빼빼로",
+        "pepero",
+        "lottepepero"
+      ],
+      "priority": 7
+    },
+    {
+      "name": "까르보불닭볶음면",
+      "maker": "삼양",
+      "aliases": [
+        "까르보불닭",
+        "까르보",
+        "carbobuldak",
+        "carbonarabuldak"
+      ],
+      "priority": 8
+    },
+    {
+      "name": "새우깡",
+      "maker": "농심",
+      "aliases": [
+        "새우깡",
+        "shrimpcracker",
+        "saewookkang",
+        "shrimpflavoredcracker"
+      ],
+      "priority": 9
+    },
+    {
+      "name": "올리브짜파게티",
+      "maker": "농심",
+      "aliases": [
+        "짜파게티",
+        "chapagetti",
+        "chapaghetti",
+        "짜파"
+      ],
+      "priority": 10
+    },
+    {
+      "name": "얼큰한너구리",
+      "maker": "농심",
+      "aliases": [
+        "너구리",
+        "neoguri",
+        "spicyseafood"
+      ],
+      "priority": 11
+    },
+    {
+      "name": "치즈불닭볶음면",
+      "maker": "삼양",
+      "aliases": [
+        "치즈불닭",
+        "cheesebuldak",
+        "cheese불닭"
+      ],
+      "priority": 12
+    },
+    {
+      "name": "꼬북칩콘스프맛",
+      "maker": "오리온",
+      "aliases": [
+        "꼬북칩",
+        "turtlechips",
+        "kkobukchip",
+        "콘스프맛",
+        "cornsoup"
+      ],
+      "priority": 13
+    },
+    {
+      "name": "바나나킥",
+      "maker": "농심",
+      "aliases": [
+        "바나나킥",
+        "bananakick",
+        "nongshimbananakick"
+      ],
+      "priority": 14
+    },
+    {
+      "name": "마이쮸포도",
+      "maker": "크라운",
+      "aliases": [
+        "마이쮸",
+        "mychew",
+        "마이쮸포도"
+      ],
+      "priority": 15
+    },
+    {
+      "name": "마이쮸딸기",
+      "maker": "크라운",
+      "aliases": [
+        "마이쮸",
+        "mychew",
+        "마이쮸딸기"
+      ],
+      "priority": 16
+    },
+    {
+      "name": "빙그레딸기맛우유",
+      "maker": "빙그레",
+      "aliases": [
+        "딸기맛우유",
+        "strawberrymilk",
+        "strawberryflavoredmilk",
+        "딸기맛"
+      ],
+      "priority": 17
+    },
+    {
+      "name": "빙그레메론맛우유",
+      "maker": "빙그레",
+      "aliases": [
+        "메론맛우유",
+        "melonmilk",
+        "melonflavoredmilk",
+        "메론맛"
+      ],
+      "priority": 18
+    },
+    {
+      "name": "컵불닭볶음면",
+      "maker": "삼양",
+      "aliases": [
+        "컵불닭",
+        "buldakcup",
+        "불닭컵"
+      ],
+      "priority": 19
+    },
+    {
+      "name": "신라면컵",
+      "maker": "농심",
+      "aliases": [
+        "신라면컵",
+        "shinramyuncup",
+        "shincup"
+      ],
+      "priority": 20
+    },
+    {
+      "name": "신라면큰사발",
+      "maker": "농심",
+      "aliases": [
+        "신라면큰사발",
+        "shinramyunbigbowl",
+        "신라면큰"
+      ],
+      "priority": 21
+    },
+    {
+      "name": "신라면BLACK",
+      "maker": "농심",
+      "aliases": [
+        "신라면black",
+        "shinramyunblack",
+        "신라면블랙"
+      ],
+      "priority": 22
+    },
+    {
+      "name": "홈런볼초코",
+      "maker": "해태",
+      "aliases": [
+        "홈런볼",
+        "homerunball",
+        "홈런볼초코"
+      ],
+      "priority": 23
+    },
+    {
+      "name": "비타500",
+      "maker": "광동",
+      "aliases": [
+        "비타500",
+        "vita500",
+        "vita"
+      ],
+      "priority": 24
+    },
+    {
+      "name": "밀키스",
+      "maker": "롯데칠성",
+      "aliases": [
+        "밀키스",
+        "milkis",
+        "milkissoda"
+      ],
+      "priority": 25
+    },
+    {
+      "name": "맥심모카골드마일드커피믹스",
+      "maker": "동서",
+      "aliases": [
+        "모카골드",
+        "맥심",
+        "maxim",
+        "mochagold",
+        "커피믹스",
+        "coffeemix"
+      ],
+      "priority": 26
+    },
+    {
+      "name": "오징어땅콩",
+      "maker": "오리온",
+      "aliases": [
+        "오징어땅콩",
+        "squidpeanut",
+        "땅콩볼"
+      ],
+      "priority": 27
+    },
+    {
+      "name": "몽쉘크림케이크",
+      "maker": "롯데",
+      "aliases": [
+        "몽쉘",
+        "montshell",
+        "몽쉘크림"
+      ],
+      "priority": 28
+    },
+    {
+      "name": "칸쵸",
+      "maker": "롯데",
+      "aliases": [
+        "칸쵸",
+        "kancho",
+        "kanchoo"
+      ],
+      "priority": 29
+    },
+    {
+      "name": "꿀꽈배기",
+      "maker": "농심",
+      "aliases": [
+        "꿀꽈배기",
+        "꽈배기",
+        "honeytwist",
+        "kkulkwabaegi"
+      ],
+      "priority": 30
+    },
+    {
+      "name": "야쿠르트라이트",
+      "maker": "hy",
+      "aliases": [
+        "야쿠르트",
+        "yakult",
+        "야쿠르트라이트"
+      ],
+      "priority": 31
+    },
+    {
+      "name": "포카칩",
+      "maker": "오리온",
+      "aliases": [
+        "포카칩",
+        "pocachip",
+        "포카"
+      ],
+      "priority": 32
+    },
+    {
+      "name": "진라면매운맛",
+      "maker": "오뚜기",
+      "aliases": [
+        "진라면",
+        "jinramen",
+        "진라면매운맛",
+        "jinramyun"
+      ],
+      "priority": 33
+    },
+    {
+      "name": "진라면순한맛",
+      "maker": "오뚜기",
+      "aliases": [
+        "진라면",
+        "jinramen",
+        "진라면순한맛",
+        "jinramyun"
+      ],
+      "priority": 34
+    },
+    {
+      "name": "육개장사발면",
+      "maker": "농심",
+      "aliases": [
+        "육개장사발면",
+        "사발면",
+        "yukgaejang"
+      ],
+      "priority": 35
+    },
+    {
+      "name": "튀김우동큰사발",
+      "maker": "농심",
+      "aliases": [
+        "튀김우동",
+        "tempuraudon",
+        "튀김우동큰"
+      ],
+      "priority": 36
+    },
+    {
+      "name": "왕뚜껑",
+      "maker": "팔도",
+      "aliases": [
+        "왕뚜껑",
+        "wangttukkeong",
+        "kingcup"
+      ],
+      "priority": 37
+    },
+    {
+      "name": "도시락",
+      "maker": "팔도",
+      "aliases": [
+        "도시락",
+        "dosirac",
+        "dosirak"
+      ],
+      "priority": 38
+    },
+    {
+      "name": "삼양라면",
+      "maker": "삼양",
+      "aliases": [
+        "삼양라면",
+        "samyangramen",
+        "samyang"
+      ],
+      "priority": 39
+    },
+    {
+      "name": "안성탕면",
+      "maker": "농심",
+      "aliases": [
+        "안성탕면",
+        "ansungtangmyun",
+        "ansungtangmyeon"
+      ],
+      "priority": 40
+    },
+    {
+      "name": "짜왕",
+      "maker": "농심",
+      "aliases": [
+        "짜왕",
+        "jjawang",
+        "짜왕큰"
+      ],
+      "priority": 41
+    },
+    {
+      "name": "진짬뽕",
+      "maker": "오뚜기",
+      "aliases": [
+        "진짬뽕",
+        "jinjjambbong",
+        "jinjjamppong"
+      ],
+      "priority": 42
+    },
+    {
+      "name": "열라면",
+      "maker": "오뚜기",
+      "aliases": [
+        "열라면",
+        "yeulramen",
+        "yeolramyun"
+      ],
+      "priority": 43
+    },
+    {
+      "name": "참깨라면",
+      "maker": "오뚜기",
+      "aliases": [
+        "참깨라면",
+        "sesameramen",
+        "chamkkae"
+      ],
+      "priority": 44
+    },
+    {
+      "name": "오징어짬뽕",
+      "maker": "농심",
+      "aliases": [
+        "오징어짬뽕",
+        "squidjjambbong",
+        "ojingeojjamppong"
+      ],
+      "priority": 45
+    },
+    {
+      "name": "순창고추장팔도비빔면",
+      "maker": "팔도",
+      "aliases": [
+        "팔도비빔면",
+        "비빔면"
+      ],
+      "priority": 46
+    },
+    {
+      "name": "팔도비빔면컵",
+      "maker": "팔도",
+      "aliases": [
+        "팔도비빔면컵",
+        "비빔면컵"
+      ],
+      "priority": 47
+    },
+    {
+      "name": "불닭볶음탕면",
+      "maker": "삼양",
+      "aliases": [
+        "불닭볶음탕면",
+        "볶음탕면",
+        "buldakstew"
+      ],
+      "priority": 48
+    },
+    {
+      "name": "메로나",
+      "maker": "빙그레",
+      "aliases": [
+        "메로나",
+        "melona",
+        "melonbar"
+      ],
+      "priority": 49
+    },
+    {
+      "name": "감자깡",
+      "maker": "농심",
+      "aliases": [
+        "감자깡",
+        "potatokkang",
+        "gamjakkang"
+      ],
+      "priority": 50
+    },
+    {
+      "name": "고구마깡",
+      "maker": "농심",
+      "aliases": [
+        "고구마깡",
+        "sweetpotatosnack",
+        "gogumakkang"
+      ],
+      "priority": 51
+    },
+    {
+      "name": "양파링ORIGINAL",
+      "maker": "농심",
+      "aliases": [
+        "양파링",
+        "onionring",
+        "onionrings"
+      ],
+      "priority": 52
+    },
+    {
+      "name": "꽃게랑",
+      "maker": "빙그레",
+      "aliases": [
+        "꽃게랑",
+        "kkotgerang",
+        "crabsnack"
+      ],
+      "priority": 53
+    },
+    {
+      "name": "해태맛동산",
+      "maker": "해태",
+      "aliases": [
+        "맛동산",
+        "matdongsan",
+        "해태맛동"
+      ],
+      "priority": 54
+    },
+    {
+      "name": "꼬깔콘고소한맛",
+      "maker": "롯데",
+      "aliases": [
+        "꼬깔콘",
+        "kkokkalcorn",
+        "꼬깔콘고소한맛"
+      ],
+      "priority": 55
+    },
+    {
+      "name": "포스틱",
+      "maker": "농심",
+      "aliases": [
+        "포스틱",
+        "postick",
+        "potatostick"
+      ],
+      "priority": 56
+    },
+    {
+      "name": "고래밥볶음양념맛",
+      "maker": "오리온",
+      "aliases": [
+        "고래밥",
+        "gorebab",
+        "whalesnack"
+      ],
+      "priority": 57
+    },
+    {
+      "name": "초코송이",
+      "maker": "오리온",
+      "aliases": [
+        "초코송이",
+        "chocosongi",
+        "chocomushroom"
+      ],
+      "priority": 58
+    },
+    {
+      "name": "다이제",
+      "maker": "오리온",
+      "aliases": [
+        "다이제",
+        "diget",
+        "digestive"
+      ],
+      "priority": 59
+    },
+    {
+      "name": "칙촉",
+      "maker": "롯데",
+      "aliases": [
+        "칙촉",
+        "chicchoc",
+        "chikchok"
+      ],
+      "priority": 60
+    },
+    {
+      "name": "마가렛트",
+      "maker": "롯데",
+      "aliases": [
+        "마가렛트",
+        "margaret",
+        "lottemargaret"
+      ],
+      "priority": 61
+    },
+    {
+      "name": "카스타드",
+      "maker": "롯데",
+      "aliases": [
+        "카스타드",
+        "custard",
+        "lottecustard"
+      ],
+      "priority": 62
+    },
+    {
+      "name": "오예스",
+      "maker": "해태",
+      "aliases": [
+        "오예스",
+        "ohyes",
+        "오예"
+      ],
+      "priority": 63
+    },
+    {
+      "name": "에이스",
+      "maker": "해태",
+      "aliases": [
+        "에이스",
+        "acecracker",
+        "haitaiace"
+      ],
+      "priority": 64
+    },
+    {
+      "name": "참크래커",
+      "maker": "크라운",
+      "aliases": [
+        "참크래커",
+        "chamcracker",
+        "crowncracker"
+      ],
+      "priority": 65
+    },
+    {
+      "name": "버터와플",
+      "maker": "크라운",
+      "aliases": [
+        "버터와플",
+        "butterwaffle",
+        "crownbutterwaffle"
+      ],
+      "priority": 66
+    },
+    {
+      "name": "빠다코코낫",
+      "maker": "롯데",
+      "aliases": [
+        "빠다코코낫",
+        "buttercoconut",
+        "빠다코코넛"
+      ],
+      "priority": 67
+    },
+    {
+      "name": "후렌치파이딸기",
+      "maker": "해태",
+      "aliases": [
+        "후렌치파이",
+        "frenchpie",
+        "후렌치파이딸"
+      ],
+      "priority": 68
+    },
+    {
+      "name": "빈츠",
+      "maker": "롯데",
+      "aliases": [
+        "빈츠",
+        "vinch",
+        "lottevinch"
+      ],
+      "priority": 69
+    },
+    {
+      "name": "가나밀크",
+      "maker": "롯데",
+      "aliases": [
+        "가나밀크",
+        "ghana",
+        "ghanamilk",
+        "가나초콜릿"
+      ],
+      "priority": 70
+    },
+    {
+      "name": "크런키",
+      "maker": "롯데",
+      "aliases": [
+        "크런키",
+        "crunky",
+        "crunkychocolate"
+      ],
+      "priority": 71
+    },
+    {
+      "name": "자유시간",
+      "maker": "해태",
+      "aliases": [
+        "자유시간",
+        "freetime",
+        "jayusigan"
+      ],
+      "priority": 72
+    },
+    {
+      "name": "핫브레이크",
+      "maker": "오리온",
+      "aliases": [
+        "핫브레이크",
+        "hotbreak",
+        "핫브"
+      ],
+      "priority": 73
+    },
+    {
+      "name": "새콤달콤딸기",
+      "maker": "크라운",
+      "aliases": [
+        "새콤달콤",
+        "saekomdalkom",
+        "새콤달콤딸기"
+      ],
+      "priority": 74
+    },
+    {
+      "name": "왕꿈틀이",
+      "maker": "오리온",
+      "aliases": [
+        "왕꿈틀이",
+        "꿈틀이",
+        "wangkkumteuri"
+      ],
+      "priority": 75
+    },
+    {
+      "name": "자일리톨오리지날",
+      "maker": "롯데",
+      "aliases": [
+        "자일리톨",
+        "xylitol",
+        "자일리톨오리지날"
+      ],
+      "priority": 76
+    },
+    {
+      "name": "죠리퐁",
+      "maker": "크라운",
+      "aliases": [
+        "죠리퐁",
+        "jolipong",
+        "joripong"
+      ],
+      "priority": 77
+    },
+    {
+      "name": "사또밥",
+      "maker": "삼양",
+      "aliases": [
+        "사또밥",
+        "sattobap",
+        "satto"
+      ],
+      "priority": 78
+    },
+    {
+      "name": "예감",
+      "maker": "오리온",
+      "aliases": [
+        "예감",
+        "yegam",
+        "orionyegam"
+      ],
+      "priority": 79
+    },
+    {
+      "name": "포테토칩",
+      "maker": "농심",
+      "aliases": [
+        "포테토칩",
+        "potatochip",
+        "nongshimpotatochip"
+      ],
+      "priority": 80
+    },
+    {
+      "name": "리얼브라우니",
+      "maker": "오리온",
+      "aliases": [
+        "리얼브라우니",
+        "브라우니",
+        "realbrownie",
+        "marketo"
+      ],
+      "priority": 81
+    },
+    {
+      "name": "해태아이비",
+      "maker": "해태",
+      "aliases": [
+        "아이비",
+        "해태아이비",
+        "haitaiivy"
+      ],
+      "priority": 82
+    },
+    {
+      "name": "포카리스웨트",
+      "maker": "동아오츠카",
+      "aliases": [
+        "포카리스웨트",
+        "포카리",
+        "pocarisweat",
+        "pocari"
+      ],
+      "priority": 83
+    },
+    {
+      "name": "해태갈아만든배",
+      "maker": "해태",
+      "aliases": [
+        "갈아만든배",
+        "갈배",
+        "crushedpear"
+      ],
+      "priority": 84
+    },
+    {
+      "name": "비락식혜",
+      "maker": "팔도",
+      "aliases": [
+        "식혜",
+        "비락식혜",
+        "sikhye",
+        "vilac"
+      ],
+      "priority": 85
+    },
+    {
+      "name": "아침햇살",
+      "maker": "웅진",
+      "aliases": [
+        "아침햇살",
+        "morningrice",
+        "achimhaessal"
+      ],
+      "priority": 86
+    },
+    {
+      "name": "칠성사이다",
+      "maker": "롯데칠성",
+      "aliases": [
+        "칠성사이다",
+        "chilsungcider",
+        "chilsung"
+      ],
+      "priority": 87
+    },
+    {
+      "name": "맥콜",
+      "maker": "일화",
+      "aliases": [
+        "맥콜",
+        "mccol",
+        "mccoll"
+      ],
+      "priority": 88
+    },
+    {
+      "name": "맥심카누라떼",
+      "maker": "동서",
+      "aliases": [
+        "카누라떼",
+        "카누",
+        "kanu",
+        "kanulatte"
+      ],
+      "priority": 89
+    },
+    {
+      "name": "초코에몽",
+      "maker": "남양",
+      "aliases": [
+        "초코에몽",
+        "chocoemong",
+        "에몽"
+      ],
+      "priority": 90
+    },
+    {
+      "name": "투게더",
+      "maker": "빙그레",
+      "aliases": [
+        "투게더",
+        "together",
+        "bingraetogether"
+      ],
+      "priority": 91
+    },
+    {
+      "name": "참붕어싸만코",
+      "maker": "빙그레",
+      "aliases": [
+        "싸만코",
+        "붕어싸만코",
+        "samanco"
+      ],
+      "priority": 92
+    },
+    {
+      "name": "바밤바",
+      "maker": "해태",
+      "aliases": [
+        "바밤바",
+        "babamba",
+        "bambam"
+      ],
+      "priority": 93
+    },
+    {
+      "name": "빠삐코",
+      "maker": "롯데",
+      "aliases": [
+        "빠삐코",
+        "papico",
+        "papicoice"
+      ],
+      "priority": 94
+    },
+    {
+      "name": "지도표성경김",
+      "maker": "성경식품",
+      "aliases": [
+        "성경김",
+        "지도표",
+        "seaweed",
+        "seasonedlaver"
+      ],
+      "priority": 95
+    },
+    {
+      "name": "양반더바삭한양반김",
+      "maker": "동원",
+      "aliases": [
+        "양반김",
+        "yangban",
+        "seasonedseaweed"
+      ],
+      "priority": 96
+    },
+    {
+      "name": "비비고김스낵",
+      "maker": "CJ",
+      "aliases": [
+        "비비고김스낵",
+        "김스낵",
+        "bibigo",
+        "seaweedsnack"
+      ],
+      "priority": 97
+    },
+    {
+      "name": "해찬들알찬고추장그린",
+      "maker": "CJ",
+      "aliases": [
+        "해찬들",
+        "알찬고추장",
+        "haechandle",
+        "gochujang"
+      ],
+      "priority": 98
+    },
+    {
+      "name": "청정원태양초고추장",
+      "maker": "대상",
+      "aliases": [
+        "태양초고추장",
+        "chungjungone",
+        "gochujang"
+      ],
+      "priority": 99
+    },
+    {
+      "name": "햇반",
+      "maker": "CJ",
+      "aliases": [
+        "햇반",
+        "hetbahn",
+        "cookedrice"
+      ],
+      "priority": 100
+    },
+    {
+      "name": "스팸클래식",
+      "maker": "CJ",
+      "aliases": [
+        "스팸",
+        "spam",
+        "스팸클래식"
+      ],
+      "priority": 101
+    },
+    {
+      "name": "아몬드빼빼로",
+      "maker": "롯데",
+      "aliases": [
+        "아몬드빼빼로",
+        "almondpepero",
+        "아몬드빼"
+      ],
+      "priority": 102
+    }
+  ],
+  "makers": [
+    {
+      "name": "빙그레",
+      "aliases": [
+        "빙그레",
+        "binggrae"
+      ]
+    },
+    {
+      "name": "농심",
+      "aliases": [
+        "농심",
+        "nongshim"
+      ]
+    },
+    {
+      "name": "삼양",
+      "aliases": [
+        "삼양식품",
+        "삼양",
+        "samyang"
+      ]
+    },
+    {
+      "name": "해태",
+      "aliases": [
+        "해태제과",
+        "해태",
+        "haitai"
+      ]
+    },
+    {
+      "name": "오리온",
+      "aliases": [
+        "오리온",
+        "orion"
+      ]
+    },
+    {
+      "name": "롯데",
+      "aliases": [
+        "롯데웰푸드",
+        "롯데제과",
+        "롯데",
+        "lotte"
+      ]
+    },
+    {
+      "name": "롯데칠성",
+      "aliases": [
+        "롯데칠성음료",
+        "롯데칠성"
+      ]
+    },
+    {
+      "name": "크라운",
+      "aliases": [
+        "크라운제과",
+        "크라운",
+        "crown"
+      ]
+    },
+    {
+      "name": "광동",
+      "aliases": [
+        "광동제약",
+        "광동"
+      ]
+    },
+    {
+      "name": "동서",
+      "aliases": [
+        "동서식품"
+      ]
+    },
+    {
+      "name": "hy",
+      "aliases": [
+        "한국야쿠르트",
+        "에치와이"
+      ]
+    },
+    {
+      "name": "오뚜기",
+      "aliases": [
+        "오뚜기",
+        "ottogi"
+      ]
+    },
+    {
+      "name": "팔도",
+      "aliases": [
+        "팔도",
+        "paldo"
+      ]
+    },
+    {
+      "name": "동아오츠카",
+      "aliases": [
+        "동아오츠카"
+      ]
+    },
+    {
+      "name": "웅진",
+      "aliases": [
+        "웅진식품",
+        "웅진"
+      ]
+    },
+    {
+      "name": "일화",
+      "aliases": [
+        "일화"
+      ]
+    },
+    {
+      "name": "남양",
+      "aliases": [
+        "남양유업",
+        "남양"
+      ]
+    },
+    {
+      "name": "성경식품",
+      "aliases": [
+        "성경식품",
+        "성경김"
+      ]
+    },
+    {
+      "name": "동원",
+      "aliases": [
+        "동원f&b",
+        "동원"
+      ]
+    },
+    {
+      "name": "CJ",
+      "aliases": [
+        "cj제일제당",
+        "씨제이",
+        "비비고",
+        "햇반"
+      ]
+    },
+    {
+      "name": "대상",
+      "aliases": [
+        "청정원"
+      ]
+    },
+    {
+      "name": "매일",
+      "aliases": [
+        "매일유업",
+        "매일우유",
+        "매일",
+        "maeil"
+      ]
+    },
+    {
+      "name": "서울우유",
+      "aliases": [
+        "서울우유"
+      ]
+    },
+    {
+      "name": "풀무원",
+      "aliases": [
+        "풀무원",
+        "pulmuone"
+      ]
+    },
+    {
+      "name": "코카콜라",
+      "aliases": [
+        "코카콜라",
+        "cocacola"
+      ]
+    },
+    {
+      "name": "정식품",
+      "aliases": [
+        "정식품",
+        "베지밀"
+      ]
+    }
+  ]
+}

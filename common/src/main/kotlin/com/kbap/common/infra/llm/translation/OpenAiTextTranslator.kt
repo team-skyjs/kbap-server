@@ -21,13 +21,20 @@ class OpenAiTextTranslator(
     private val pricing: LlmPricing,
     private val configuredModelName: String,
     private val eventPublisher: ApplicationEventPublisher,
+    private val format: Format = Format.SOURCE_LANGUAGE_HEADER,
     private val newMarker: () -> String = { "LANG-" + UUID.randomUUID().toString().take(8) },
 ) : TextTranslator {
+    enum class Format { SOURCE_LANGUAGE_HEADER, PROCESSED_FOOD }
+
     override fun translate(text: String, target: LanguageCode): TranslatedText {
         val options = (chatModel.defaultOptions as? OpenAiChatOptions)?.mutate() ?: OpenAiChatOptions.builder()
         options.maxCompletionTokens(maxOutputTokens(text))
         val marker = newMarker()
-        val response = chatModel.call(Prompt(listOf(SystemMessage(TranslationPrompt.system(target, marker)), UserMessage(text)), options.build()))
+        val systemPrompt = when (format) {
+            Format.SOURCE_LANGUAGE_HEADER -> TranslationPrompt.system(target, marker)
+            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.system(target)
+        }
+        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), UserMessage(text)), options.build()))
         val usage = response.metadata.usage
         val input = (usage.promptTokens ?: 0).toLong()
         val output = (usage.completionTokens ?: 0).toLong()
@@ -48,7 +55,11 @@ class OpenAiTextTranslator(
         check(finishReason.equals(FINISHED, ignoreCase = true)) {
             "번역이 끝까지 생성됐다는 표식이 없다(finishReason=${finishReason?.lowercase()}) — 잘렸거나 확인할 수 없는 번역은 쓰지 않는다"
         }
-        return split(response.result?.output?.text.orEmpty(), text, marker)
+        val outputText = response.result?.output?.text.orEmpty()
+        return when (format) {
+            Format.SOURCE_LANGUAGE_HEADER -> split(outputText, text, marker)
+            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.parse(outputText, text, target)
+        }
     }
 
     private fun split(output: String, source: String, marker: String): TranslatedText {

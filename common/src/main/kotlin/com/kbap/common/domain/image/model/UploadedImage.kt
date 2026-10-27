@@ -31,5 +31,6 @@ class UploadedImage(
 
     companion object {
         const val MAX_INSTALLATION_ID_LENGTH = 36
+        const val REVIEW_BOT_SEGMENT = "images/review-bot/"
     }
 }

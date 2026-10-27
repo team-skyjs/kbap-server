@@ -98,6 +98,10 @@ kbap:
     reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}
     # 스캔 티켓(발급형 자격 증명)의 유효 시간 — 발급~스캔 호출 사이(사진 촬영·업로드)를 감당할 만큼.
     ticket-ttl-seconds: ${SCAN_TICKET_TTL_SECONDS:300}
+    # 여러 장 스캔 묶음(KB-744, 3.3). 앱 KB-745 배포 전까지 꺼 둔다 — 꺼져 있으면 묶음 생성은 404 SCAN-010.
+    batch-enabled: ${SCAN_BATCH_ENABLED:false}
+    # 묶음 사진 인식 실행(유료 비전 호출) 스위치 — 끄면 묶음은 만들어지되 사진이 PENDING 으로 남는다(비용 긴급 차단용).
+    batch-execution-enabled: ${SCAN_BATCH_EXECUTION_ENABLED:true}
   auth:
     firebase:
       # 서비스 계정 키를 주는 방법은 두 가지이며 json 이 우선한다.
@@ -121,6 +125,8 @@ kbap:
     # language 가 비어 있는 리뷰만 판별해 그 컬럼만 쓴다. 여러 태스크가 동시에 돌아도 같은 값이다. 끄려면 false.
     language-backfill:
       enabled: ${REVIEW_LANGUAGE_BACKFILL_ENABLED:true}
+    # 가공식품 리뷰 쓰기(KB-810 ①-b). 앱 2차 OTA 뒤 켠다 — 꺼져 있으면 작성은 403 PFOOD-005, 읽기는 그대로.
+    processed-food-write-enabled: ${PROCESSED_FOOD_REVIEW_WRITE_ENABLED:false}
   translation:
     max-concurrent-engine-calls: ${TRANSLATION_MAX_CONCURRENT:4}
   llm:
@@ -169,6 +175,16 @@ kbap:
       pricing:
         input-usd-per-million-tokens: 0.2
         output-usd-per-million-tokens: 1.2
+    processed-food-translation:
+      enabled: true
+      api-key: ${OPENAI_API_KEY:}
+      model: ${PROCESSED_FOOD_TRANSLATION_MODEL:gpt-5-nano}
+      reasoning-effort: minimal
+      max-retries: 0
+      timeout: 12s
+      pricing:
+        input-usd-per-million-tokens: 0.05
+        output-usd-per-million-tokens: 0.4
     # 음식 이미지 배치 생성(KB-226): OpenAI Batch API 일괄 제출 + 3시간 주기(하루 8회) 폴링 회수. 빈 조립은 무조건이고
     # 키 검증은 첫 호출 시점 — 키 없이는 관리자 제출·회수만 실패하고 부팅은 성공한다.
     # pricing 은 Batch 단가(동기 대비 50% 할인가)를 넣는다 — 회수 시 장당 llm_call_cost 1행 기록.
@@ -225,6 +241,7 @@ kbap:
     reward-unit-ids: ${ADS_REWARD_UNIT_IDS:ca-app-pub-3940256099942544/5224354917,ca-app-pub-3940256099942544/1712485313}
   review-bot:
     enabled: ${REVIEW_BOT_ENABLED:false}
+    photo-sync-enabled: ${REVIEW_BOT_PHOTO_SYNC_ENABLED:false}
     min-per-day: ${REVIEW_BOT_MIN_PER_DAY:8}
     max-per-day: ${REVIEW_BOT_MAX_PER_DAY:12}
     # 틱 하나의 시간 예산. 넘기면 남은 후보를 버리고 멈춘다(다음 틱이 누적 목표로 메운다). ShedLock lockAtMostFor(20분)보다 짧아야
