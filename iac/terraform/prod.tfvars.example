@@ -36,7 +36,9 @@ blocked_path_patterns = ["*actuator*", "*swagger*", "*api-docs*"]
 # Langfuse(관리자 페이지 LLM 지표 프록시용). 키는 SSM /kbap/<env>/LANGFUSE_PUBLIC_KEY · LANGFUSE_SECRET_KEY (SecureString), host 만 평문.
 # ADS_REWARD_UNIT_IDS(KB-740): 보상형 광고 적립 API 가 받는 AdMob 보상형 단위 허용 목록(쉼표 구분, 비밀 아님 — 앱 바이너리에 들어가는 값).
 #   prod 실단위 scan_unlock_rewarded Android·iOS(spec admob-ids-2026-10-12.md). dev 는 넣지 않는다(yml 기본 = Google 데모 단위).
-#   2026-10-13 예진이 live taskdef(kbap-prod-ecs-api:12)에 수동 등록한 값을 IaC 로 수렴 — 빠지면 다음 apply 가 되돌린다.
+#   2026-10-13 예진이 live taskdef 에 수동 등록한 값을 IaC 에 기록한다. api 태스크 정의는 ignore_changes = [container_definitions] 라
+#   일반 apply 로는 반영도 되돌림도 없다 — IaC 리비전에 넣으려면 apply -replace=module.ecs_environment.aws_ecs_task_definition.api(README 절차).
+#   그 전까지 live 값은 deploy-prod 가 직전 리비전을 복제해 유지한다(2026-10-27 기준 kbap-prod-ecs-api:13).
 api_extra_env = {
   LANGFUSE_HOST       = "https://cloud.langfuse.com"
   ADS_REWARD_UNIT_IDS = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
