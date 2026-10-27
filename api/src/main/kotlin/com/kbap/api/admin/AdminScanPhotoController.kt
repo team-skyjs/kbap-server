@@ -17,7 +17,8 @@ class AdminScanPhotoController(
     override fun getScanPhotoFeed(
         @RequestParam(defaultValue = "false") isBot: Boolean,
         @RequestParam(required = false) memberId: Long?,
+        @RequestParam(required = false) excludeMemberIds: List<Long>?,
         @RequestParam(required = false) cursor: String?,
     ): ResponseEntity<BaseResponse<AdminScanPhotoFeed>> =
-        ResponseEntity.ok(BaseResponse.ok(feedService.getScanPhotoFeed(isBot, memberId, cursor)))
+        ResponseEntity.ok(BaseResponse.ok(feedService.getScanPhotoFeed(isBot, memberId, excludeMemberIds.orEmpty(), cursor)))
 }

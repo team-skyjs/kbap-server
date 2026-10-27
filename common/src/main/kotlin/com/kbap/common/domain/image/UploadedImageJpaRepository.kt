@@ -77,6 +77,27 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     @Query(nativeQuery = true, value = "select count(*) from (select :path as object_path) u where not ($UNREFERENCED)")
     fun countReferencesTo(@Param("path") path: String): Long
 
+    @Query(nativeQuery = true, value = """
+        SELECT u.id AS rowId, u.object_path AS path, u.created_at AS createdAt, u.member_id AS memberId,
+            m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
+            CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus,
+            (SELECT o.id FROM orders o WHERE o.image_path = u.object_path AND o.status = 'ACTIVE') AS orderId,
+            (SELECT p.operation_id FROM scan_operation_photo p WHERE p.uploaded_image_id = u.id AND p.status = 'ACTIVE'
+                ORDER BY p.operation_id LIMIT 1) AS operationId
+        FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id
+        WHERE u.status = 'ACTIVE' AND locate(:segment, u.object_path) > 0 AND u.id < :beforeId
+          AND m.is_bot = :isBot AND (:memberId IS NULL OR u.member_id = :memberId) AND u.member_id NOT IN (:excludedMemberIds)
+        ORDER BY u.id DESC LIMIT :limit
+    """)
+    fun findScanPhotoFeed(
+        @Param("segment") segment: String,
+        @Param("isBot") isBot: Boolean,
+        @Param("memberId") memberId: Long?,
+        @Param("excludedMemberIds") excludedMemberIds: Collection<Long>,
+        @Param("beforeId") beforeId: Long,
+        @Param("limit") limit: Int,
+    ): List<ScanPhotoFeedRow>
+
     companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/")
 
@@ -105,4 +126,17 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
         const val ORPHAN =
             "u.status = 'ACTIVE' and u.created_at < :before and $CLEANUP_PURPOSE and $UNREFERENCED"
     }
+}
+
+interface ScanPhotoFeedRow {
+    val rowId: Long
+    val path: String
+    val createdAt: LocalDateTime
+    val memberId: Long
+    val nickname: String?
+    val countryCode: String?
+    val bot: Boolean
+    val memberStatus: String
+    val orderId: Long?
+    val operationId: Long?
 }

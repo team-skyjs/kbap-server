@@ -18,7 +18,7 @@ class UploadedImageService(
     ): Boolean {
         if (paths.isNullOrEmpty()) return true
         if (memberId == null && installationId == null) return false
-        val segment = "images/${purpose.prefix}/"
+        val segment = purpose.segment
         val ownedPaths = uploadedImageRepository.findByPathInForUpdate(paths)
             .filter { image ->
                 image.path.contains(segment) &&

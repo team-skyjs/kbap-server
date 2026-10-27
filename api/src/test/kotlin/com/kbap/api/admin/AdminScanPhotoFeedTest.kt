@@ -52,16 +52,18 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
             execute("UPDATE member SET country_code = ${country?.let { "'$it'" } ?: "NULL"}, is_bot = ${if (bot) 1 else 0} WHERE id = ${saved.id}")
             return saved
         }
-        fun single(memberId: Long, path: String): Order = orders.save(Order(memberId = memberId, imagePath = path))
+        fun upload(memberId: Long, path: String): UploadedImage =
+            uploads.save(UploadedImage(memberId = memberId, path = "dev/images/scans/2026/10/$path", contentType = "image/jpeg", sizeBytes = 1))
+        fun single(memberId: Long, path: String): Order = orders.save(Order(memberId = memberId, imagePath = upload(memberId, path).path))
         fun batch(memberId: Long, vararg paths: String, withOrder: Boolean = false): Pair<ScanOperation, List<ScanOperationPhoto>> {
             val expiry = LocalDateTime.now().plusDays(1)
             val operation = operations.save(ScanOperation(memberId = memberId, requestKey = UUID.randomUUID().toString().toByteArray().copyOf(16), expiresAt = expiry, resultExpiresAt = expiry, keyRetireAfter = expiry))
             val saved = paths.mapIndexed { index, path ->
-                val upload = uploads.save(UploadedImage(memberId = memberId, path = path, contentType = "image/jpeg", sizeBytes = 1))
-                photos.save(ScanOperationPhoto(operationId = operation.id, objectKey = path, byteSize = 1, uploadedImageId = upload.id, selectionIndex = index, photoId = UUID.randomUUID().toString().toByteArray().copyOf(16)))
+                val upload = upload(memberId, path)
+                photos.save(ScanOperationPhoto(operationId = operation.id, objectKey = upload.path, byteSize = 1, uploadedImageId = upload.id, selectionIndex = index, photoId = UUID.randomUUID().toString().toByteArray().copyOf(16)))
             }
             if (withOrder) {
-                val order = orders.save(Order(memberId = memberId, imagePath = paths.first()))
+                val order = orders.save(Order(memberId = memberId, imagePath = saved.first().objectKey))
                 orderPhotos.saveAll(saved.map { OrderPhoto(order.id, it.id, it.selectionIndex, it.objectKey) })
             }
             return operation to saved
@@ -86,21 +88,27 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
         beforeEach { TestTables.clearAll(dataSource) }
         afterSpec { TestTables.clearAll(dataSource) }
 
-        given("어드민 전체 스캔 사진 피드 — GET /api/admin/scan-photos (KB-879)") {
-            `when`("단일 스캔·묶음 스캔·묶음 주문·봇·탈퇴 회원 사진이 섞여 있으면") {
-                then("봇은 기본 제외, 묶음 주문의 대표 사진은 BATCH 로만(출처 행 단위), 항목에 회원 정보·kind·sourceId 가 실린다") {
+        given("어드민 전체 스캔 사진 피드 — GET /api/admin/scan-photos (KB-888 업로드 기록 소스)") {
+            `when`("단일 스캔·묶음 스캔·묶음 주문·카드 미저장 스캔·봇·탈퇴 회원·다른 용도 업로드가 섞여 있으면") {
+                then("스캔 업로드 한 장당 1건 — 주문 사진은 ORDER, 묶음만이면 BATCH, 카드 미저장은 SCAN_ONLY, 봇·다른 용도·삭제 업로드는 빠진다") {
                     val alice = member("alice")
                     val gone = member("gone", country = null)
                     val bot = member("bot", bot = true)
-                    val single = single(alice.id, "scan/a-single.jpg")
-                    val (operation, _) = batch(alice.id, "scan/a-batch-1.jpg", "scan/a-batch-2.jpg", withOrder = true)
-                    single(gone.id, "scan/gone.jpg")
+                    val single = single(alice.id, "a-single.jpg")
+                    val (operation, _) = batch(alice.id, "a-batch-1.jpg", "a-batch-2.jpg", withOrder = true)
+                    val batchOrder = orders.findAll().single { it.imagePath!!.endsWith("a-batch-1.jpg") }
+                    upload(alice.id, "a-scan-only.jpg")
+                    upload(alice.id, "a-removed.jpg").also { execute("UPDATE uploaded_image SET status = 'DELETED' WHERE id = ${it.id}") }
+                    uploads.save(UploadedImage(memberId = alice.id, path = "dev/images/review/2026/10/a-review.jpg", contentType = "image/jpeg", sizeBytes = 1))
+                    single(gone.id, "gone.jpg")
                     execute("UPDATE member SET status = 'DELETED' WHERE id = ${gone.id}")
-                    single(bot.id, "scan/bot.jpg")
+                    single(bot.id, "bot.jpg")
 
                     val items = all("?")
-                    items.map { it.path("imageUrl").asText().substringAfterLast('/') }.toSet() shouldBe setOf("a-single.jpg", "a-batch-1.jpg", "a-batch-2.jpg", "gone.jpg")
-                    val first = items.single { it.path("imageUrl").asText().endsWith("a-single.jpg") }
+                    val byFile = items.associateBy { it.path("imageUrl").asText().substringAfterLast('/') }
+                    items.size shouldBe byFile.size
+                    byFile.keys shouldBe setOf("a-single.jpg", "a-batch-1.jpg", "a-batch-2.jpg", "a-scan-only.jpg", "gone.jpg")
+                    val first = byFile.getValue("a-single.jpg")
                     first.path("kind").asText() shouldBe "ORDER"
                     first.path("sourceId").asLong() shouldBe single.id
                     first.path("memberId").asLong() shouldBe alice.id
@@ -108,38 +116,53 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                     first.path("countryCode").asText() shouldBe "KR"
                     first.path("isBot").asBoolean() shouldBe false
                     first.path("memberStatus").asText() shouldBe "ACTIVE"
-                    items.filter { it.path("kind").asText() == "BATCH" }.map { it.path("sourceId").asLong() }.toSet() shouldBe setOf(operation.id)
-                    items.single { it.path("imageUrl").asText().endsWith("gone.jpg") }.path("memberStatus").asText() shouldBe "DELETED"
+                    byFile.getValue("a-batch-1.jpg").path("kind").asText() shouldBe "ORDER"
+                    byFile.getValue("a-batch-1.jpg").path("sourceId").asLong() shouldBe batchOrder.id
+                    byFile.getValue("a-batch-2.jpg").path("kind").asText() shouldBe "BATCH"
+                    byFile.getValue("a-batch-2.jpg").path("sourceId").asLong() shouldBe operation.id
+                    byFile.getValue("a-scan-only.jpg").path("kind").asText() shouldBe "SCAN_ONLY"
+                    byFile.getValue("a-scan-only.jpg").path("sourceId").isNull shouldBe true
+                    byFile.getValue("gone.jpg").path("memberStatus").asText() shouldBe "DELETED"
                 }
-                then("봇 제외 + 봇만 = 두 출처의 활성 행 수 합이고, memberId 로 한 회원만 거른다") {
+                then("봇 제외 + 봇만 = 스캔 용도 ACTIVE 업로드 행 수이고, memberId 로 한 회원만 거른다") {
                     val alice = member("alice2")
                     val bob = member("bob2")
                     val bot = member("bot2", bot = true)
-                    single(alice.id, "scan/x1.jpg")
-                    single(bob.id, "scan/x2.jpg")
-                    single(bot.id, "scan/x3.jpg")
-                    batch(alice.id, "scan/x4.jpg", "scan/x5.jpg", withOrder = true)
-                    batch(bot.id, "scan/x6.jpg")
-                    val activeRows = dataSource.connection.use { c ->
+                    single(alice.id, "x1.jpg")
+                    single(bob.id, "x2.jpg")
+                    single(bot.id, "x3.jpg")
+                    batch(alice.id, "x4.jpg", "x5.jpg", withOrder = true)
+                    batch(bot.id, "x6.jpg")
+                    upload(bob.id, "x7.jpg")
+                    val scanUploads = dataSource.connection.use { c ->
                         c.createStatement().use { s ->
-                            s.executeQuery(
-                                "SELECT (SELECT COUNT(*) FROM orders o WHERE o.status = 'ACTIVE' AND o.image_path <> '' AND NOT EXISTS (SELECT 1 FROM order_photo p WHERE p.order_id = o.id)) + (SELECT COUNT(*) FROM scan_operation_photo WHERE status = 'ACTIVE')",
-                            ).use { rs -> rs.next(); rs.getLong(1) }
+                            s.executeQuery("SELECT COUNT(*) FROM uploaded_image WHERE status = 'ACTIVE' AND object_path LIKE '%/images/scans/%'")
+                                .use { rs -> rs.next(); rs.getLong(1) }
                         }
                     }
 
-                    (all("?").size + all("?isBot=true").size).toLong() shouldBe activeRows
+                    (all("?").size + all("?isBot=true").size).toLong() shouldBe scanUploads
                     all("?memberId=${alice.id}").map { it.path("memberId").asLong() }.toSet() shouldBe setOf(alice.id)
                     all("?memberId=${alice.id}").size shouldBe 3
                 }
+                then("excludeMemberIds 로 준 회원들의 사진은 0건이다") {
+                    val keep = member("keep")
+                    val drop1 = member("drop1")
+                    val drop2 = member("drop2")
+                    single(keep.id, "k1.jpg")
+                    upload(drop1.id, "d1.jpg")
+                    batch(drop2.id, "d2.jpg")
+
+                    all("?excludeMemberIds=${drop1.id},${drop2.id}").map { it.path("memberId").asLong() }.toSet() shouldBe setOf(keep.id)
+                }
             }
             `when`("같은 createdAt 사진이 페이지 경계에 걸치면") {
-                then("커서로 끝까지 넘겨도 중복·누락이 없다 — 페이지 경계가 ORDER 행에서도 BATCH 행에서도 생긴다") {
+                then("커서로 끝까지 넘겨도 중복·누락이 없다") {
                     val alice = member("tie")
-                    repeat(30) { single(alice.id, "scan/tie-o-$it.jpg") }
-                    batch(alice.id, *Array(30) { "scan/tie-b-$it.jpg" })
-                    execute("UPDATE orders SET created_at = '2026-10-27 12:00:00.000000'")
-                    execute("UPDATE scan_operation_photo SET created_at = '2026-10-27 12:00:00.000000'")
+                    repeat(20) { single(alice.id, "tie-o-$it.jpg") }
+                    batch(alice.id, *Array(10) { "tie-b-$it.jpg" })
+                    repeat(30) { upload(alice.id, "tie-s-$it.jpg") }
+                    execute("UPDATE uploaded_image SET created_at = '2026-10-27 12:00:00.000000'")
 
                     val first = feed("?")
                     first.path("items").size() shouldBe 24
@@ -148,6 +171,9 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                     items.size shouldBe 60
                     items.map { it.path("imageUrl").asText() }.toSet().size shouldBe 60
                 }
+            }
+            `when`("해석할 수 없는 커서를 주면") {
+                then("400") { feed("?cursor=not-a-cursor", expected = 400) }
             }
             `when`("USER 가 부르면") {
                 then("403") { feed("?", MemberRole.USER, expected = 403) }
@@ -160,6 +186,8 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                     schemas.path("AdminScanPhotoFeed").path("properties").fieldNames().asSequence().toSet() shouldBe setOf("items", "nextCursor", "hasNext")
                     schemas.path("AdminScanPhotoFeedItem").path("properties").fieldNames().asSequence().toSet() shouldBe
                         setOf("imageUrl", "createdAt", "memberId", "nickname", "countryCode", "isBot", "memberStatus", "kind", "sourceId")
+                    schemas.path("AdminScanPhotoFeedItem").path("properties").path("kind").path("enum").map { it.asText() } shouldBe
+                        listOf("ORDER", "BATCH", "SCAN_ONLY")
                 }
             }
         }

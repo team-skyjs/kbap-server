@@ -28,59 +28,6 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
     """, nativeQuery = true)
     fun findMemberScanPhotos(@Param("memberId") memberId: Long, pageable: Pageable): Page<MemberScanPhoto>
 
-    @Query(nativeQuery = true, value = """
-        SELECT * FROM (
-            (SELECT 'ORDER' AS kind, o.id AS rowId, o.id AS sourceId, o.image_path AS path, o.created_at AS createdAt, o.member_id AS memberId,
-                m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
-                CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM orders o STRAIGHT_JOIN member m ON m.id = o.member_id
-            WHERE o.status = 'ACTIVE' AND o.image_path IS NOT NULL AND o.image_path <> ''
-              AND NOT EXISTS (SELECT 1 FROM order_photo op WHERE op.order_id = o.id)
-              AND m.is_bot = :isBot AND (:memberId IS NULL OR o.member_id = :memberId)
-            ORDER BY o.created_at DESC, o.id DESC LIMIT :limit)
-            UNION ALL
-            (SELECT 'BATCH' AS kind, p.id AS rowId, p.operation_id AS sourceId, p.object_key AS path, p.created_at AS createdAt, so.member_id AS memberId,
-                m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
-                CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM scan_operation_photo p STRAIGHT_JOIN scan_operation so ON so.id = p.operation_id STRAIGHT_JOIN member m ON m.id = so.member_id
-            WHERE p.status = 'ACTIVE' AND so.status = 'ACTIVE'
-              AND m.is_bot = :isBot AND (:memberId IS NULL OR so.member_id = :memberId)
-            ORDER BY p.created_at DESC, p.id DESC LIMIT :limit)
-        ) feed ORDER BY createdAt DESC, kind DESC, rowId DESC LIMIT :limit
-    """)
-    fun findScanPhotoFeed(@Param("isBot") isBot: Boolean, @Param("memberId") memberId: Long?, @Param("limit") limit: Int): List<ScanPhotoFeedRow>
-
-    @Query(nativeQuery = true, value = """
-        SELECT * FROM (
-            (SELECT 'ORDER' AS kind, o.id AS rowId, o.id AS sourceId, o.image_path AS path, o.created_at AS createdAt, o.member_id AS memberId,
-                m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
-                CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM orders o STRAIGHT_JOIN member m ON m.id = o.member_id
-            WHERE o.status = 'ACTIVE' AND o.image_path IS NOT NULL AND o.image_path <> ''
-              AND NOT EXISTS (SELECT 1 FROM order_photo op WHERE op.order_id = o.id)
-              AND m.is_bot = :isBot AND (:memberId IS NULL OR o.member_id = :memberId)
-              AND (o.created_at < :cursorAt OR (o.created_at = :cursorAt AND :cursorKind = 'ORDER' AND o.id < :cursorId))
-            ORDER BY o.created_at DESC, o.id DESC LIMIT :limit)
-            UNION ALL
-            (SELECT 'BATCH' AS kind, p.id AS rowId, p.operation_id AS sourceId, p.object_key AS path, p.created_at AS createdAt, so.member_id AS memberId,
-                m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
-                CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus
-            FROM scan_operation_photo p STRAIGHT_JOIN scan_operation so ON so.id = p.operation_id STRAIGHT_JOIN member m ON m.id = so.member_id
-            WHERE p.status = 'ACTIVE' AND so.status = 'ACTIVE'
-              AND m.is_bot = :isBot AND (:memberId IS NULL OR so.member_id = :memberId)
-              AND (p.created_at < :cursorAt OR (p.created_at = :cursorAt AND (:cursorKind = 'ORDER' OR p.id < :cursorId)))
-            ORDER BY p.created_at DESC, p.id DESC LIMIT :limit)
-        ) feed ORDER BY createdAt DESC, kind DESC, rowId DESC LIMIT :limit
-    """)
-    fun findScanPhotoFeedAfter(
-        @Param("isBot") isBot: Boolean,
-        @Param("memberId") memberId: Long?,
-        @Param("cursorAt") cursorAt: LocalDateTime,
-        @Param("cursorKind") cursorKind: String,
-        @Param("cursorId") cursorId: Long,
-        @Param("limit") limit: Int,
-    ): List<ScanPhotoFeedRow>
-
     fun existsByImagePath(imagePath: String): Boolean
 
     @Modifying
@@ -140,19 +87,6 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
         @Param("afterId") afterId: Long,
         limit: Limit,
     ): List<Order>
-}
-
-interface ScanPhotoFeedRow {
-    val kind: String
-    val rowId: Long
-    val sourceId: Long
-    val path: String
-    val createdAt: LocalDateTime
-    val memberId: Long
-    val nickname: String?
-    val countryCode: String?
-    val bot: Number
-    val memberStatus: String
 }
 
 interface MemberScanPhoto {
