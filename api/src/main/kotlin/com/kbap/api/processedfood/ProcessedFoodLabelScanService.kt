@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import java.time.Instant
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
@@ -30,6 +31,7 @@ class ProcessedFoodLabelScanService(
     private val memberService: MemberService,
     private val members: MemberJpaRepository,
     private val reservationStore: ScanReservationStore,
+    private val freeHour: ProcessedFoodFreeHour,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -47,7 +49,7 @@ class ProcessedFoodLabelScanService(
             operations.findForUpdate(memberId, NAMESPACE, ProcessedFoodNameScanService.bytesOf(key))?.let { replayed ->
                 if (!now.isBefore(replayed.resultExpiresAt)) throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
                 if (!replayed.manifestHash.contentEquals(manifestHash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
-                return responseOf(memberId, key, text, reading, charged = false)
+                return responseOf(memberId, key, text, reading, charged = false, freeHour.freeUntil(memberId))
             }
         }
         val hangulTokens = unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 }
@@ -74,8 +76,12 @@ class ProcessedFoodLabelScanService(
                 keyRetireAfter = now.plus(ProcessedFoodNameScanService.KEY_TTL),
             ),
         )
-        val charged = target.usageRecordedAt == null
-        if (charged) charge(memberId, key, target, member, now)
+        val needsUsage = target.usageRecordedAt == null
+        if (needsUsage && analysisId != null) members.findByIdForUpdate(memberId)
+        val liveUntil = if (needsUsage) freeHour.freeUntil(memberId) else null
+        val charged = needsUsage && liveUntil == null
+        if (needsUsage) record(memberId, key, target, member, now, charged)
+        val freeUntil = if (charged) freeHour.open(memberId) else liveUntil ?: freeHour.freeUntil(memberId)
         val previous = target.requestDocument["label"] as? Map<*, *>
         val firstSucceededAt = previous?.get("firstSucceededAt") as? String ?: now.toString()
         val recallCount = if (previous == null) 0 else (previous["recallCount"] as? Number)?.toInt()?.plus(1) ?: 1
@@ -83,10 +89,10 @@ class ProcessedFoodLabelScanService(
         target.requestDocument = target.requestDocument + mapOf(
             "label" to mapOf("rawText" to text.rawText, "pageCount" to pages.size, "firstSucceededAt" to firstSucceededAt, "recallCount" to recallCount),
         )
-        return responseOf(memberId, key, text, reading, charged)
+        return responseOf(memberId, key, text, reading, charged, freeUntil)
     }
 
-    private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean): ProcessedFoodLabelScanResponse {
+    private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean, freeUntil: Instant?): ProcessedFoodLabelScanResponse {
         val mayContain = text.mayContain?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
         val avoidance = memberService.getAvoidance(memberId)
         val judgement = ProcessedFoodJudge.judge(reading, mayContain, withoutHeadings(text.rawMaterials).ifBlank { null }, avoidance)
@@ -105,6 +111,7 @@ class ProcessedFoodLabelScanService(
             mayContainMatches = judgement.mayContainMatches,
             unclearIngredients = judgement.unclearIngredients,
             majorAllergens = judgement.majorAllergens,
+            freeUntil = freeUntil,
         )
     }
 
@@ -127,7 +134,12 @@ class ProcessedFoodLabelScanService(
         return operation
     }
 
-    private fun charge(memberId: Long, key: UUID, operation: ScanOperation, member: Member, now: LocalDateTime) {
+    private fun record(memberId: Long, key: UUID, operation: ScanOperation, member: Member, now: LocalDateTime, charged: Boolean) {
+        if (!charged) {
+            operation.usageRecordedAt = now
+            usages.save(ScanUsage(operation.id, now, ProcessedFoodNameScanService.entitlementOf(member, charged = false)))
+            return
+        }
         val reservationId = RESERVATION_PREFIX + key
         when (reservationStore.reserve(memberId, reservationId, member.scanCount, member.scanLimit())) {
             ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
@@ -142,7 +154,7 @@ class ProcessedFoodLabelScanService(
             )
         }
         operation.usageRecordedAt = now
-        usages.save(ScanUsage(operation.id, now, if (member.scanUnlocked) ProcessedFoodNameScanService.ENTITLEMENT_UNLIMITED else ProcessedFoodNameScanService.ENTITLEMENT_FREE))
+        usages.save(ScanUsage(operation.id, now, ProcessedFoodNameScanService.entitlementOf(member, charged = true)))
         if (members.increaseScanCountWithinLimit(memberId, Member.FREE_SCAN_LIMIT) == 0) throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
     }
 

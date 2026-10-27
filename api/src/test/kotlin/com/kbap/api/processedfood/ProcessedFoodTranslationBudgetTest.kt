@@ -3,7 +3,7 @@ package com.kbap.api.processedfood
 import com.kbap.api.translation.FakeTextTranslator
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
-import com.kbap.common.port.llm.TextTranslator
+import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import org.mockito.ArgumentMatchers.any
@@ -21,7 +21,7 @@ class ProcessedFoodTranslationBudgetTest : BehaviorSpec({
             then("엔진을 부르지 않고 원문을 둔다") {
                 val translator = FakeTextTranslator()
                 @Suppress("UNCHECKED_CAST")
-                val provider = mock(ObjectProvider::class.java) as ObjectProvider<TextTranslator>
+                val provider = mock(ObjectProvider::class.java) as ObjectProvider<ProcessedFoodTextTranslator>
                 `when`(provider.getIfAvailable()).thenReturn(translator)
                 val redis = mock(StringRedisTemplate::class.java)
                 `when`(redis.opsForValue()).thenThrow(RedisConnectionFailureException("down"))

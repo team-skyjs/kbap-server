@@ -199,7 +199,7 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                 }
             }
             `when`("무료 1회 남은 회원이 서로 다른 분석 두 개를 동시에 확정하면 — 한도 우회 방지(보안 리뷰)") {
-                then("하나만 차감되고 다른 하나는 403 SCAN-004 — 횟수는 한도를 넘지 않는다") {
+                then("하나만 차감되고 다른 하나는 그 차감이 연 무료 창(KB-876) 안이라 차감 0 — 횟수는 한도를 넘지 않는다") {
                     val token = member(81210L, scanCount = Member.FREE_SCAN_LIMIT - 1)
                     val ids = (1..2).map { scanName(token, "새우깡").path("payload").path("analysisId").asText() }
                     val pool = Executors.newFixedThreadPool(2)
@@ -218,9 +218,9 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     start.countDown()
                     val codes = statuses.map { it.get(30, TimeUnit.SECONDS) }
                     pool.shutdown()
-                    codes shouldContainExactlyInAnyOrder listOf(200, 403)
+                    codes shouldContainExactlyInAnyOrder listOf(200, 200)
                     scanCountOf(81210L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
-                    ids.sumOf { usageRowsOf(it) } shouldBe 1
+                    ids.sumOf { usageRowsOf(it) } shouldBe 2
                 }
             }
             `when`("남은 1회를 메뉴판 스캔 V2 가 예약 중일 때 이름 확정을 하면 — 공부 ①(같은 예약 저장소)") {

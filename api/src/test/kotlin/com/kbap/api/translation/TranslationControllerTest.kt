@@ -699,6 +699,10 @@ class TranslationControllerTest : BehaviorSpec() {
                         ?: docs.path("components").path("schemas").path(targetType.path("\$ref").asText().substringAfterLast('/')).path("enum")
                     enumValues.map { it.asText() } shouldBe listOf("REVIEW")
                 }
+                then("이름 스캔 확정 응답 스키마 설명이 공개 응답 클래스에 그대로 있다 — Codex P3(#463 vQJaT)") {
+                    val docs = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
+                    docs.path("components").path("schemas").path("ProcessedFoodNameConfirmResponse").path("description").asText() shouldBe "가공식품 이름 스캔 확정 결과"
+                }
                 then("번역 경로와 503 TRANSLATION-001 이 실려 있다") {
                     val operation = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
                         .path("paths").path("/api/translations").path("post")

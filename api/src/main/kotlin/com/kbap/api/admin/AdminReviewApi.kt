@@ -12,6 +12,9 @@ import org.springframework.http.ResponseEntity
 @Tag(name = "관리자 리뷰", description = "관리자 전용 — 전체 회원 리뷰 목록 API")
 @SecurityRequirement(name = "bearerAuth")
 interface AdminReviewApi {
+    @Operation(summary = "관리자 리뷰 삭제", description = "ADMIN 전용. 리뷰를 소프트 삭제하고 기존 모더레이션 규칙에 따라 회원·음식 집계와 랭킹을 갱신한다. 삭제/없는 리뷰는 REVIEW_NOT_FOUND.")
+    fun deleteReview(id: Long, adminId: Long): ResponseEntity<BaseResponse<Unit>>
+
     @Operation(
         summary = "전체 리뷰 목록",
         description = """

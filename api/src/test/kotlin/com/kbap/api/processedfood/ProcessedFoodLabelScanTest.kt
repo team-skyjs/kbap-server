@@ -277,7 +277,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                 }
             }
             `when`("같은 회원의 새 분석 두 건이 동시에 오면(더블탭) — 공부") {
-                then("교착(500) 없이 둘 다 끝나고 차감은 성공한 수만큼이다") {
+                then("교착(500) 없이 둘 다 끝나고, 차감은 무료 창(KB-876)을 연 첫 성공 1회뿐이다") {
                     val token = member(88314L)
                     repeat(3) {
                         val start = java.util.concurrent.CountDownLatch(1)
@@ -287,10 +287,10 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                             content = mapper.writeValueAsString(mapOf("clientRequestId" to UUID.randomUUID().toString(), "pages" to listOf(mapOf("ocrText" to "원재료명: 감자, 식물성유지, 정제소금")), "lang" to "ko"))
                         }.andReturn().response.status } }
                         start.countDown()
-                        futures.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }.all { it == 200 || it == 403 } shouldBe true
+                        futures.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }.all { it == 200 } shouldBe true
                         pool.shutdown()
                     }
-                    scanCountOf(88314L) shouldBe 3
+                    scanCountOf(88314L) shouldBe 1
                 }
             }
             `when`("검출이 하나라도 있으면") {

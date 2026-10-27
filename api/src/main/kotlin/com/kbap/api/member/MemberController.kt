@@ -1,5 +1,6 @@
 package com.kbap.api.member
 
+import com.kbap.api.processedfood.ProcessedFoodFreeHour
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 class MemberController(
     private val memberService: MemberService,
     private val adRewardService: AdRewardService,
+    private val freeHour: ProcessedFoodFreeHour,
 ) : MemberApi {
     @PostMapping("/me/onboarding", version = "1.0")
     override fun completeOnboarding(
@@ -41,7 +43,7 @@ class MemberController(
         @AuthMemberId memberId: Long,
     ): ResponseEntity<BaseResponse<MyProfileResponse>> {
         val result = memberService.getMyProfile(memberId)
-        return ResponseEntity.ok(BaseResponse.ok(MyProfileResponse.from(result)))
+        return ResponseEntity.ok(BaseResponse.ok(MyProfileResponse.from(result).copy(freeUntil = freeHour.freeUntil(memberId))))
     }
 
     @GetMapping("/me/ranking")

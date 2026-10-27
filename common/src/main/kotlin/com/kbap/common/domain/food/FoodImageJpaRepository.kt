@@ -19,7 +19,10 @@ interface FoodImageJpaRepository : JpaRepository<FoodImage, Long> {
     }
 
     @Modifying(flushAutomatically = true)
-    @Query("update FoodImage fi set fi.isPrimary = false where fi.foodId = :foodId and fi.isPrimary = true")
+    @Query(
+        value = "UPDATE food_image SET is_primary = 0 WHERE food_id = :foodId AND is_primary = 1",
+        nativeQuery = true,
+    )
     fun demotePrimaryByFoodId(@Param("foodId") foodId: Long): Int
 
     fun findByFoodIdAndImageKey(foodId: Long, imageKey: String): FoodImage?
