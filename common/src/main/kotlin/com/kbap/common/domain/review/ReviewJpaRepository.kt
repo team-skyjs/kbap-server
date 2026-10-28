@@ -92,14 +92,14 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
     @Query(
         """
         select r from Review r
-        where r.processedFoodId = :processedFoodId
+        where r.processedFoodId in :processedFoodIds
           and r.memberId not in :excludedMemberIds
           and (:cursor is null or r.id < :cursor)
         order by r.id desc
         """,
     )
     fun findProcessedFoodReviewPage(
-        @Param("processedFoodId") processedFoodId: Long,
+        @Param("processedFoodIds") processedFoodIds: Collection<Long>,
         @Param("excludedMemberIds") excludedMemberIds: List<Long>,
         @Param("cursor") cursor: Long?,
         pageable: Pageable,
@@ -123,10 +123,10 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
                avg(case when r.sweetnessRating between 1 and 5 then r.sweetnessRating end) as sweetnessAverage,
                count(case when r.sweetnessRating between 1 and 5 then 1 end) as sweetnessCount
         from Review r
-        where r.processedFoodId = :processedFoodId
+        where r.processedFoodId in :processedFoodIds
         """,
     )
-    fun aggregateAxesByProcessedFoodId(@Param("processedFoodId") processedFoodId: Long): ProcessedFoodReviewAxes
+    fun aggregateAxesByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: Collection<Long>): ProcessedFoodReviewAxes
 
     @Query(
         """

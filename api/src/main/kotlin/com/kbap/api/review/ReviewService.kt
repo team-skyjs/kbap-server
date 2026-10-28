@@ -26,6 +26,7 @@ import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.domain.review.model.ReviewTargetType
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.api.processedfood.ProcessedFoodCandidateIndex
 import com.kbap.api.processedfood.ProcessedFoodService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
@@ -52,6 +53,7 @@ class ReviewService(
     private val languageDetector: ReviewLanguageDetector,
     private val processedFoods: ProcessedFoodProductJpaRepository,
     private val processedFoodService: ProcessedFoodService,
+    private val processedFoodGroups: ProcessedFoodCandidateIndex,
     private val processedFoodReviewSwitch: ProcessedFoodReviewSwitch,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -98,7 +100,7 @@ class ReviewService(
     fun getProcessedFoodReviewPage(viewerMemberId: Long?, processedFoodId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> {
         if (!processedFoods.existsById(processedFoodId)) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
         val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
-        return toPage(reviewRepository.findProcessedFoodReviewPage(processedFoodId, excluded, cursor, PageRequest.of(0, PAGE_SIZE + 1)), viewerMemberId, lang)
+        return toPage(reviewRepository.findProcessedFoodReviewPage(processedFoodGroups.groupMemberIds(processedFoodId), excluded, cursor, PageRequest.of(0, PAGE_SIZE + 1)), viewerMemberId, lang)
     }
 
     @Transactional

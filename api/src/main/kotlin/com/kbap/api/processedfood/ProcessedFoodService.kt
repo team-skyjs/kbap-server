@@ -7,6 +7,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
+import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import com.kbap.common.domain.review.ReviewJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -68,9 +69,10 @@ class ProcessedFoodService(
 
     @Transactional(readOnly = true)
     fun getSummaries(products: List<ProcessedFoodProduct>, memberId: Long?): List<ProcessedFoodSummaryResponse> {
-        val ratings = reviews.aggregateRatingsByProcessedFoodIds(products.map { it.id }).associateBy { it.processedFoodId }
+        val members = candidateIndex.groupMemberIds(products.map { it.id })
+        val ratings = reviews.aggregateRatingsByProcessedFoodIds(members.values.flatten().distinct()).associateBy { it.processedFoodId }
         val avoidance = memberId?.let { memberService.getAvoidance(it) }
-        return products.map { ProcessedFoodSummaryResponse.withReviews(it, ratings[it.id], avoidance) }
+        return products.map { ProcessedFoodSummaryResponse.withReviews(it, GroupRating.of(it.id, members.getValue(it.id).mapNotNull(ratings::get)), avoidance) }
     }
 
     private fun pageOf(page: List<ProcessedFoodProduct>, hasNext: Boolean, offset: Int, size: Int, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
@@ -194,7 +196,7 @@ class ProcessedFoodService(
     }
 
     private fun detailOf(product: ProcessedFoodProduct, memberId: Long?): ProcessedFoodDetailResponse {
-        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodId(product.id))
+        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodIds(candidateIndex.groupMemberIds(product.id)))
     }
 
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?, type: ProcessedFoodType? = null): List<ProcessedFoodProduct> {
@@ -210,6 +212,16 @@ class ProcessedFoodService(
         private const val MAX_OFFSET = 10_000
         private const val MAX_SCAN_TOKENS = 10
         private val NO_BASELINE: LocalDateTime = LocalDateTime.of(1970, 1, 1, 0, 0)
+    }
+}
+
+private data class GroupRating(override val processedFoodId: Long, override val average: Double?, override val reviewCount: Long) : ProcessedFoodRatingAggregate {
+    companion object {
+        fun of(id: Long, members: List<ProcessedFoodRatingAggregate>): GroupRating? {
+            val count = members.sumOf { it.reviewCount }
+            if (count == 0L) return null
+            return GroupRating(id, members.sumOf { (it.average ?: 0.0) * it.reviewCount } / count, count)
+        }
     }
 }
 
