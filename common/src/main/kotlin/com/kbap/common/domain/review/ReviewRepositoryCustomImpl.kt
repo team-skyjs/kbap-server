@@ -94,7 +94,7 @@ class ReviewRepositoryCustomImpl(
         if (ids.isEmpty()) return emptyList()
         val cursorCondition = if (cursor == null) "" else " AND id < :cursor"
         val branches = ids.indices.joinToString(" UNION ALL ") { i ->
-            "(SELECT * FROM food_review WHERE processed_food_id = :member$i AND status = 'ACTIVE'" +
+            "(SELECT * FROM food_review FORCE INDEX (idx_food_review_processed_food_recent) WHERE processed_food_id = :member$i AND status = 'ACTIVE'" +
                 " AND member_id NOT IN (:excludedMemberIds)$cursorCondition ORDER BY id DESC LIMIT :limit)"
         }
         val query = entityManager.createNativeQuery("SELECT * FROM ($branches) r ORDER BY r.id DESC LIMIT :limit", Review::class.java)
