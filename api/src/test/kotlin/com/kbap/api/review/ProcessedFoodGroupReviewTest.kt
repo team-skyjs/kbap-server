@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.api.block.MemberBlockService
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberRole
@@ -32,6 +33,7 @@ class ProcessedFoodGroupReviewTest : BehaviorSpec() {
     @Autowired private lateinit var members: MemberJpaRepository
     @Autowired private lateinit var writeSwitch: ProcessedFoodReviewSwitch
     @Autowired private lateinit var entityManagerFactory: EntityManagerFactory
+    @Autowired private lateinit var blocks: MemberBlockService
 
     private val mapper = jacksonObjectMapper()
 
@@ -57,8 +59,14 @@ class ProcessedFoodGroupReviewTest : BehaviorSpec() {
                 content = mapper.writeValueAsString(mapOf("rating" to rating, "content" to "바삭하고 짭짤해서 맛있어요", "spiciness" to spiciness))
             }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         ).path("payload").path("reviewId").asLong()
-        fun get(path: String): JsonNode = json(
-            mvc.get(path) { header("X-API-Version", "3.2") }
+        fun authorOf(reviewId: Long): Long = dataSource.connection.use { c ->
+            c.createStatement().use { st -> st.executeQuery("SELECT member_id FROM food_review WHERE id = $reviewId").use { rs -> rs.next(); rs.getLong(1) } }
+        }
+        fun get(path: String, viewer: Member? = null): JsonNode = json(
+            mvc.get(path) {
+                header("X-API-Version", "3.2")
+                viewer?.let { header("Authorization", "Bearer ${tokens.issueAccessToken(it.id, MemberRole.USER)}") }
+            }
                 .andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         ).path("payload")
         fun search(name: String): List<JsonNode> = get("/api/processed-foods?query=$name").path("items").toList()
@@ -111,6 +119,21 @@ class ProcessedFoodGroupReviewTest : BehaviorSpec() {
 
                     get("/api/processed-foods/$representative/reviews?lang=en").path("items").map { it.path("reviewId").asLong() } shouldBe ids.reversed()
                     get("/api/processed-foods/$representative/reviews?lang=en&cursor=${ids[2]}").path("items").map { it.path("reviewId").asLong() } shouldBe ids.take(2).reversed()
+                }
+            }
+            `when`("묶인 행의 리뷰가 삭제됐거나 보는 회원이 작성자를 차단했으면") {
+                then("리뷰 목록에서 빠진다") {
+                    val older = product("숨김묶음과자", seenDaysAgo = 3)
+                    val representative = product("숨김묶음과자")
+                    val deleted = write(older, 5)
+                    val kept = write(representative, 4)
+                    val blocked = write(older, 3)
+                    sql("UPDATE food_review SET status = 'DELETED' WHERE id = $deleted")
+                    val viewer = member("gr-viewer")
+                    blocks.block(viewer.id, authorOf(blocked))
+
+                    get("/api/processed-foods/$representative/reviews?lang=en", viewer).path("items").map { it.path("reviewId").asLong() } shouldBe listOf(kept)
+                    get("/api/processed-foods/$representative/reviews?lang=en").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(blocked, kept)
                 }
             }
             `when`("목록 24건이 모두 묶음이면") {

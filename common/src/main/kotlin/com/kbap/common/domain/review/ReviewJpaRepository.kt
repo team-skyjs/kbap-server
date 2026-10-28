@@ -91,22 +91,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
 
     @Query(
         """
-        select r from Review r
-        where r.processedFoodId in :processedFoodIds
-          and r.memberId not in :excludedMemberIds
-          and (:cursor is null or r.id < :cursor)
-        order by r.id desc
-        """,
-    )
-    fun findProcessedFoodReviewPage(
-        @Param("processedFoodIds") processedFoodIds: Collection<Long>,
-        @Param("excludedMemberIds") excludedMemberIds: List<Long>,
-        @Param("cursor") cursor: Long?,
-        pageable: Pageable,
-    ): List<Review>
-
-    @Query(
-        """
         select r.processedFoodId as processedFoodId, avg(r.rating) as average, count(r) as reviewCount
         from Review r
         where r.processedFoodId in :processedFoodIds

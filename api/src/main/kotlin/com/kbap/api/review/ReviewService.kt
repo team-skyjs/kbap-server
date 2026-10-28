@@ -100,7 +100,7 @@ class ReviewService(
     fun getProcessedFoodReviewPage(viewerMemberId: Long?, processedFoodId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> {
         if (!processedFoods.existsById(processedFoodId)) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
         val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
-        return toPage(reviewRepository.findProcessedFoodReviewPage(processedFoodGroups.groupMemberIds(processedFoodId), excluded, cursor, PageRequest.of(0, PAGE_SIZE + 1)), viewerMemberId, lang)
+        return toPage(reviewRepository.findProcessedFoodReviewPage(processedFoodGroups.groupMemberIds(processedFoodId), excluded, cursor, PAGE_SIZE + 1), viewerMemberId, lang)
     }
 
     @Transactional
