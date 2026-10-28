@@ -6,8 +6,8 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 
 | 항목 | 값 |
 |---|---|
-| 컨테이너 인스턴스 | t3.medium × 3 — api 2대(AZ 분산) + batch 1대. ECS 인스턴스 속성 `workload=api|batch` 로 배치 분리 |
-| api 태스크 | bridge 모드·동적 호스트 포트, 512 cpu / 1536 MiB, desired 2, `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=70` |
+| 컨테이너 인스턴스 | t3.medium — prod 는 api 1대 + batch 1대, dev 는 api 1대(배치 없음). 2026-10-28 비용 축소 전엔 api 2대(AZ 분산). ECS 인스턴스 속성 `workload=api|batch` 로 배치 분리 |
+| api 태스크 | bridge 모드·동적 호스트 포트, 512 cpu / 1536 MiB, desired 1, `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=70` |
 | batch 태스크 | 단일 태스크, 잡 트리거 HTTP 는 배치 인스턴스 8080 고정(클러스터 내부만) |
 | 배포 | **CodeDeploy 블루/그린 카나리** — 20% 트래픽 15분 → 100% → 구버전 15분 유지 후 종료. 5xx 알람 시 자동 롤백 |
 | 진입 | ALB(80→443 리다이렉트, `*.kbap.site` ACM) + Route53 alias `<subdomain>.kbap.site` |
@@ -189,7 +189,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 ## 알아둘 것
 
 - **NAT 게이트웨이가 없다** — 인스턴스는 퍼블릭 서브넷 + 퍼블릭 IP 로 ECR·SSM 에 나간다. 인바운드는 ALB 보안그룹에서만 열려 있다.
-- 인스턴스 사이징: 평상시 **api 인스턴스당 컨테이너 1개**(desired 2 / 인스턴스 2대 spread). 카나리 진행 중(최대 30분)에만 구버전 1 + 신버전 1 로 **인스턴스당 2개**가 잠깐 공존한다. t3.medium(4 GiB)에 `ECS_RESERVED_MEMORY=256` → 태스크 가용 ≈ 3.6 GiB 라 1536 × 2 = 3072 MiB 까지는 들어가지만, **태스크 메모리를 더 올리면 카나리 중 신버전이 배치되지 못해 배포가 멈춘다**.
+- 인스턴스 사이징: 평상시 **api 인스턴스 1대에 컨테이너 1개**(desired 1). 카나리 진행 중(최대 30분)에만 구버전 1 + 신버전 1 로 **인스턴스당 2개**가 잠깐 공존한다. t3.medium(4 GiB)에 `ECS_RESERVED_MEMORY=256` → 태스크 가용 ≈ 3.6 GiB 라 1536 × 2 = 3072 MiB 까지는 들어가지만, **태스크 메모리를 더 올리면 카나리 중 신버전이 배치되지 못해 배포가 멈춘다**.
 - 시크릿 4 KB 초과(Firebase JSON 이 큰 경우)는 SSM Advanced tier 로 파라미터를 바꾼다.
 - **batch 헬스체크 이후 구 이미지(actuator 없음) 재배포는 실패한다** — 새 리비전이 `/actuator/health/readiness` 를 치므로 서킷브레이커가 롤백한다. 되돌려야 하면 `batch.tf` 의 `healthCheck` 를 지우고 `-replace` 로 리비전을 먼저 갱신한다.
 - **`/actuator/**`(prometheus·health)는 api 서비스 포트(8080)에 그대로 열려 있고 앱은 접근 제어를 하지 않는다.** 공개 차단은 ALB 리스너 규칙으로 후속 처리한다 — `/actuator/*` 차단 목록은 `//actuator/…`·`/%61ctuator/…` 처럼 ALB(raw 경로 매칭)와 Tomcat(정규화·디코딩 후 라우팅)이 다르게 보는 경로를 놓치므로 **`/api/*` 만 forward 하는 허용 목록**으로 만든다. ALB 헬스체크는 리스너 규칙을 거치지 않아 `/actuator/health/readiness` 는 계속 통과한다(specs/kb-380 research R-3).

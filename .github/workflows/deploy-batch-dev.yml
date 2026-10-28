@@ -1,16 +1,9 @@
 name: Deploy batch dev
 
-# develop 머지 시 배치 관련 경로에 변경이 있으면 dev ECS batch 서비스를 롤링 교체한다.
-# batch 는 상시 1대(단일 인스턴스) — min 0/max 100 롤링이라 구 태스크 종료 → 신 태스크 기동 순.
-# gradle 빌드 설정(buildSrc·카탈로그)만 바뀐 경우는 잡히지 않으므로 필요 시 수동 실행(workflow_dispatch)한다.
+# dev 배치는 2026-10-28 비용 축소로 상시 0(인스턴스 0·desired 0) — develop 머지 자동 배포를 끄고 수동 실행만 남긴다.
+# 다시 띄우려면 dev.tfvars 의 batch_instance_count·batch_desired_count 를 1 로 올려 apply 한 뒤 이 워크플로를 수동 실행한다.
+# 실행 시 min 0/max 100 롤링이라 구 태스크 종료 → 신 태스크 기동 순.
 on:
-  push:
-    branches: [ "develop" ]
-    paths:
-      - "batch/**"
-      - "common/**"
-      - "Dockerfile.batch"
-      - ".github/workflows/deploy-batch-dev.yml"
   workflow_dispatch:
     inputs:
       image_tag:
