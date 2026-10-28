@@ -24,4 +24,6 @@ interface ReviewRepositoryCustom {
     ): List<ReviewPageRow>
 
     fun existsFeedVisible(reviewId: Long, excludedMemberIds: List<Long>, excludedReviewIds: List<Long>): Boolean
+
+    fun findProcessedFoodReviewPage(processedFoodIds: Collection<Long>, excludedMemberIds: List<Long>, cursor: Long?, limit: Int): List<Review>
 }

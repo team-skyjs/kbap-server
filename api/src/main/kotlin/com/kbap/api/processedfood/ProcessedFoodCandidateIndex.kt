@@ -48,6 +48,13 @@ class ProcessedFoodCandidateIndex(
             .sortedBy { it.id }
             .map { ListedRow(it.id, it.normalizedName, it.displayMaker, it.groupKey) }
 
+    fun groupMemberIds(id: Long): List<Long> = groupMemberIds(listOf(id)).getValue(id)
+
+    fun groupMemberIds(ids: Collection<Long>): Map<Long, List<Long>> {
+        val membersById = fresh().membersById
+        return ids.associateWith { membersById[it] ?: listOf(it) }
+    }
+
     private fun fresh(): Snapshot {
         val current = snapshot
         val now = System.nanoTime()
@@ -71,7 +78,8 @@ class ProcessedFoodCandidateIndex(
     private fun load(fingerprint: String?): Snapshot {
         val entries = products.findCandidateRows().map(::entryOf)
         log.info("가공식품 후보 색인 적재 rows={} chars={}", entries.size, entries.sumOf { it.name.length + it.makers.sumOf(String::length) })
-        return Snapshot(entries, fingerprint, System.nanoTime())
+        val membersById = entries.groupBy({ it.groupKey }, { it.id }).values.flatMap { ids -> ids.map { it to ids } }.toMap()
+        return Snapshot(entries, membersById, fingerprint, System.nanoTime())
     }
 
     private fun entryOf(row: ProcessedFoodCandidateRow): Entry {
@@ -106,7 +114,7 @@ class ProcessedFoodCandidateIndex(
 
     data class ListedRow(val id: Long, val normalizedName: String, val displayMaker: String?, val groupKey: String)
 
-    private data class Snapshot(val entries: List<Entry>, val fingerprint: String?, val checkedAt: Long)
+    private data class Snapshot(val entries: List<Entry>, val membersById: Map<Long, List<Long>>, val fingerprint: String?, val checkedAt: Long)
 
     private companion object {
         val MAKER_NOISE = Regex("""[ ()\[\]·・,._-]""")
