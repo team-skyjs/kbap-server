@@ -13,7 +13,12 @@ redis_host              = "kbap-devstg-redis-0001-001.kbap-devstg-redis.fu1mox.a
 rds_security_group_id   = "sg-00be0b3653aa0b87f"
 redis_security_group_id = "sg-0de1e4bfcad5ec753"
 
-# 기본값: t3.medium × (api 2 + batch 1), api 태스크 2, 로그 7일, 카나리 20% · 15분, 구버전 유지 15분
+# 비용 축소(2026-10-28): api 인스턴스·태스크 1 — 카나리 중에만 인스턴스당 2 태스크(512 cpu / 1536 MiB 유지 전제).
+# dev 배치는 띄우지 않는다(음식 콘텐츠 적재는 prod 배치가 담당). 로그 7일, 카나리 20% 는 기본값.
+api_instance_count   = 1
+api_desired_count    = 1
+batch_instance_count = 0
+batch_desired_count  = 0
 
 api_execute_command_enabled          = true
 performance_artifact_retention_days = 7

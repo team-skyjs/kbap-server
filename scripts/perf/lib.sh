@@ -180,9 +180,9 @@ running_task_ids() {
   done < <(printf '%s\n' "$task_arns" | tr '\t' '\n')
 }
 
-require_two_tasks() {
-  if [[ $# -ne 2 ]]; then
-    echo "error: expected exactly two running tasks, found $#" >&2
+require_tasks() {
+  if [[ $# -lt 1 ]]; then
+    echo "error: expected at least one running task, found none" >&2
     return 3
   fi
 }
@@ -200,7 +200,7 @@ resolve_task_ids() {
     task_ids=("$@")
   fi
 
-  require_two_tasks "${task_ids[@]}" || return $?
+  require_tasks "${task_ids[@]}" || return $?
   if [[ "${task_ids[0]}" == "${task_ids[1]}" ]]; then
     echo "error: ECS task IDs must be distinct" >&2
     return 2
