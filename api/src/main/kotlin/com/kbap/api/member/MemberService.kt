@@ -39,12 +39,12 @@ class MemberService(
         verifyProfileUploadCompleted(member, input.profileImageUrl)
         verifyNewCodesAvailable(input.avoidanceSubstanceCodes)
         member.completeOnboarding(
-            nickname = input.nickname ?: OnboardingProfileDefaults.randomNickname(),
+            nickname = input.nickname ?: member.nickname ?: OnboardingProfileDefaults.randomNickname(),
             avoidanceSubstanceCodes = input.avoidanceSubstanceCodes,
             dietCategories = input.dietCategories,
             spicinessPreference = input.spicinessPreference,
             countryCode = input.countryCode,
-            profileImageUrl = input.profileImageUrl ?: OnboardingProfileDefaults.randomProfileImagePath(),
+            profileImageUrl = input.profileImageUrl ?: member.profileImageUrl ?: OnboardingProfileDefaults.randomProfileImagePath(),
             profileImageKeyPrefix = storageKeyPrefix,
         )
     }

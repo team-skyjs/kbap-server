@@ -201,6 +201,8 @@ class Member(
                 provider = identity.provider,
                 providerUid = identity.providerUserId,
                 email = identity.email,
+                nickname = OnboardingProfileDefaults.randomNickname(),
+                profileImageUrl = OnboardingProfileDefaults.randomProfileImagePath(),
             )
 
         const val REVIEW_BOT_PROVIDER_UID_PREFIX: String = "review-bot:"
