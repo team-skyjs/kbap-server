@@ -42,7 +42,12 @@ class FoodIngredientRetroService(
     private val redis: StringRedisTemplate,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.food.ingredient-retro.estimated-krw-per-call:0.3}") private val estimatedKrwPerCall: Double,
+    @Value("\${kbap.food.ingredient-retro.min-percent:30}") private val minPercent: Int,
 ) {
+    init {
+        require(minPercent in 1..100) { "kbap.food.ingredient-retro.min-percent 는 1~100 이어야 한다: $minPercent" }
+    }
+
     private val log = LoggerFactory.getLogger(javaClass)
     private val mapper = jacksonObjectMapper()
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
@@ -61,7 +66,7 @@ class FoodIngredientRetroService(
         val jobId = UUID.randomUUID().toString()
         val lockKey = LOCK_PREFIX + codes.joinToString(",") { it.name }
         if (redis.opsForValue().setIfAbsent(lockKey, jobId, LOCK_TTL) != true) throw BusinessException(ErrorCode.FOOD_INGREDIENT_RETRO_IN_PROGRESS)
-        val job = FoodIngredientRetroJob(jobId = jobId, codes = codes.map { it.name }, dryRun = dryRun, rejudge = rejudge, status = FoodIngredientRetroJob.Status.RUNNING, startedAt = Instant.now().toString())
+        val job = FoodIngredientRetroJob(jobId = jobId, codes = codes.map { it.name }, dryRun = dryRun, rejudge = rejudge, thresholdPercent = minPercent, status = FoodIngredientRetroJob.Status.RUNNING, startedAt = Instant.now().toString())
         save(job)
         running.incrementAndGet()
         activeLocks[jobId] = lockKey
@@ -156,7 +161,7 @@ class FoodIngredientRetroService(
             return update { it.copy(calledCount = it.calledCount + 1, failedFoodIds = it.failedFoodIds + foodId) }
         }
         val percents = asked.filter { it in decisions.byCode }.associateWith { code ->
-            decisions.byCode.getValue(code).probability.takeIf { it >= MIN_PROBABILITY }?.let { (it * 100).roundToInt().coerceIn(1, 100) }
+            (decisions.byCode.getValue(code).probability * 100).roundToInt().takeIf { it >= minPercent }
         }
         val result = try {
             if (!rejudge && percents.values.all { it == null }) {
@@ -237,7 +242,6 @@ class FoodIngredientRetroService(
 
     companion object {
         const val CONCURRENCY = 5
-        const val MIN_PROBABILITY = 0.01
         private const val JOB_QUEUE = 10
         private const val LOCK_PREFIX = "ingredient-retro:lock:"
         private const val JOB_PREFIX = "ingredient-retro:job:"

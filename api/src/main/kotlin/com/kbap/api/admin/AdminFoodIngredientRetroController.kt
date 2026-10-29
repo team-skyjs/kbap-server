@@ -22,7 +22,7 @@ class AdminFoodIngredientRetroController(
         @Valid @RequestBody request: FoodIngredientRetroRequest,
     ): ResponseEntity<BaseResponse<FoodIngredientRetroStartResponse>> {
         val job = retroService.startRetro(request.codes!!, request.dryRun!!, request.rejudge ?: false, request.foodIds)
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(BaseResponse.ok(FoodIngredientRetroStartResponse(job.jobId)))
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(BaseResponse.ok(FoodIngredientRetroStartResponse(job.jobId, job.thresholdPercent)))
     }
 
     @GetMapping("/{jobId}")
