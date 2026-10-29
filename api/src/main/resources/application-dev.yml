@@ -46,6 +46,12 @@ kbap:
   scan:
     # 여러 장 스캔(KB-744) QA 가 dev 에서 묶음을 돌릴 수 있게 dev 만 기본 ON. 운영·기본은 false 유지.
     batch-enabled: ${SCAN_BATCH_ENABLED:true}
+  processed-food:
+    name-scan:
+      # 이름 스캔 Haiku 그림자 판별(KB-893) — dev 만 ON. 키는 SDK 기본 환경변수 ANTHROPIC_API_KEY(없으면 호출 0).
+      # 기본값: 모델 claude-haiku-5-5·타임아웃 3s·일일 상한 2,000원(1회 추정 0.8원)·단가 입력 $0.10/M·출력 $0.50/M.
+      decision:
+        enabled: ${PROCESSED_FOOD_NAME_DECISION_ENABLED:true}
   storage:
     # 실 S3 버킷·공개(CDN) 베이스. bucket 이 있어야 실 발급 어댑터가 조립된다(KB-145).
     bucket: ${STORAGE_BUCKET}

@@ -427,13 +427,13 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
 
         given("대상 접두 목록") {
             `when`("환경 접두와 업로드 용도로 목록을 만들면") {
-                then("업로드 6용도 접두만 있고, 카탈로그·기본 이미지 접두는 없다") {
+                then("업로드 7용도 접두만 있고, 카탈로그·기본 이미지 접두는 없다") {
                     val prefixes = UnrecordedUploadCleanupService.uploadPrefixes("dev")
 
                     prefixes.keys shouldContainExactlyInAnyOrder UploadPurpose.entries
                     prefixes.values shouldContainExactlyInAnyOrder listOf(
                         "dev/images/scans/", "dev/images/review/", "dev/images/profile/",
-                        "dev/images/community/", "dev/images/feedback/", "dev/images/orders/",
+                        "dev/images/community/", "dev/images/feedback/", "dev/images/orders/", "dev/images/packaged-scans/",
                     )
                     prefixes.values.none { it.contains("images/webp/") || it.contains("images/default/") } shouldBe true
                     UnrecordedUploadCleanupService.uploadPrefixes("").values.first() shouldBe "images/scans/"

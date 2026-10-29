@@ -1,9 +1,11 @@
 package com.kbap.api.processedfood
 
 import com.kbap.common.domain.LanguageCode
+import com.kbap.api.image.UploadedImageService
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.processedfood.model.ProcessedFoodOcrText
@@ -33,11 +35,13 @@ class ProcessedFoodNameScanService(
     private val members: MemberJpaRepository,
     private val reservationStore: ScanReservationStore,
     private val freeHour: ProcessedFoodFreeHour,
+    private val decisions: ProcessedFoodNameDecisionService,
+    private val uploadedImages: UploadedImageService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
-    fun scanName(memberId: Long, ocrText: String, language: String): ProcessedFoodNameScanResponse {
+    fun scanName(memberId: Long, ocrText: String, language: String, imagePath: String? = null): ProcessedFoodNameScanResponse {
         memberService.getMember(memberId)
         val ranked = processedFoodService.getNameScanCandidates(ProcessedFoodOcrText.queriesOf(ocrText), MAX_CANDIDATES)
         val candidates = ranked.products
@@ -61,6 +65,14 @@ class ProcessedFoodNameScanService(
                 keyRetireAfter = now.plus(KEY_TTL),
             ),
         )
+        if (imagePath != null && candidates.isNotEmpty() && decisions.isEnabled()) {
+            val segment = UploadPurpose.PACKAGED_SCAN.segment
+            when {
+                segment !in imagePath -> decisions.recordSkipped(operation.id, "purpose")
+                !uploadedImages.areAllOwnedByAnyOf(listOf(imagePath), segment, setOf(memberId)) -> decisions.recordSkipped(operation.id, "image")
+                else -> decisions.requestAfterCommit(operation.id, imagePath, candidates)
+            }
+        }
         return ProcessedFoodNameScanResponse(analysisId.toString(), state, processedFoodService.getSummaries(candidates, memberId), operation.expiresAt)
     }
 
