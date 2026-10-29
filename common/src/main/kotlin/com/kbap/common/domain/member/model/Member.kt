@@ -11,10 +11,12 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import org.hibernate.annotations.DynamicUpdate
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
+@DynamicUpdate
 @Table(
     name = "member",
     uniqueConstraints = [UniqueConstraint(name = "uk_member_provider_uid", columnNames = ["provider", "provider_uid"])],
