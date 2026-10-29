@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.kbap.common.port.llm.NameCandidate
 import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
+import com.kbap.common.port.llm.NameDecisionUnparsable
+import com.kbap.common.port.llm.NameDecisionUsage
 import com.sun.net.httpserver.HttpServer
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -122,7 +124,17 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
         `when`("모델이 거절하면") {
             then("거절 예외를 던진다") {
                 serve("refusal", "") { baseUrl, _ ->
-                    shouldThrow<NameDecisionRefused> { decider(baseUrl).decide("https://cdn.test/a.jpg", listOf(NameCandidate("새우깡", null))) }
+                    val e = shouldThrow<NameDecisionRefused> { decider(baseUrl).decide("https://cdn.test/a.jpg", listOf(NameCandidate("새우깡", null))) }
+                    e.usage shouldBe NameDecisionUsage("claude-haiku-5-5", 1960, 42)
+                }
+            }
+        }
+
+        `when`("토큰 상한에 잘려 JSON 이 깨지면") {
+            then("해석 실패 예외에 사용량을 실어 던진다") {
+                serve("max_tokens", """{"choice":1,"confid""") { baseUrl, _ ->
+                    val e = shouldThrow<NameDecisionUnparsable> { decider(baseUrl).decide("https://cdn.test/a.jpg", listOf(NameCandidate("새우깡", null))) }
+                    e.usage shouldBe NameDecisionUsage("claude-haiku-5-5", 1960, 42)
                 }
             }
         }

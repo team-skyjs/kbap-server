@@ -4,8 +4,11 @@ import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.port.llm.NameCandidate
+import com.kbap.common.port.llm.NameDecisionFailure
 import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
+import com.kbap.common.port.llm.NameDecisionUnparsable
+import com.kbap.common.port.llm.NameDecisionUsage
 import com.kbap.common.port.llm.ProcessedFoodNameDecider
 import com.kbap.common.util.ImageUrls
 import org.slf4j.LoggerFactory
@@ -112,19 +115,7 @@ class ProcessedFoodNameDecisionService(
         val started = System.nanoTime()
         return try {
             val decision = decider.decide(imageUrl, offered.map { it.candidate })
-            val costUsd = decision.inputTokens * inputUsdPerToken + decision.outputTokens * outputUsdPerToken
-            val costKrw = BigDecimal.valueOf(costUsd * usdToKrw).setScale(2, RoundingMode.HALF_UP)
-            runCatching {
-                eventPublisher.publishEvent(
-                    LlmCallCostIncurred(
-                        modelName = decision.model,
-                        inputTokens = decision.inputTokens,
-                        outputTokens = decision.outputTokens,
-                        costUsd = BigDecimal.valueOf(costUsd).setScale(6, RoundingMode.HALF_UP),
-                        costKrw = costKrw,
-                    ),
-                )
-            }.onFailure { log.warn("이름 스캔 판별 비용 이벤트 발행 실패", it) }
+            val cost = recordCost(NameDecisionUsage(decision.model, decision.inputTokens, decision.outputTokens))
             val chosen = decision.choice?.let { offered.getOrNull(it - 1) }
             val outside = decision.choice != null && chosen == null
             mapOf(
@@ -133,14 +124,32 @@ class ProcessedFoodNameDecisionService(
                 "confidence" to decision.confidence,
                 "readName" to decision.readName,
                 "latencyMs" to elapsedMillis(started),
-                "costKrw" to costKrw.toDouble(),
                 "at" to at,
-            ).let { if (outside) it - "choice" + ("error" to "outside") else it }
+            ).plus(cost).let { if (outside) it - "choice" + ("error" to "outside") else it }
         } catch (e: Exception) {
             val reason = reasonOf(e)
             log.warn("가공식품 이름 스캔 판별 실패 — 응답에는 영향 없음, reason={}", reason, e)
-            mapOf("model" to model, "latencyMs" to elapsedMillis(started), "at" to at, "error" to reason)
+            val usage = (e as? NameDecisionFailure)?.usage
+            mapOf("model" to (usage?.model ?: model), "latencyMs" to elapsedMillis(started), "at" to at, "error" to reason) +
+                usage?.let(::recordCost).orEmpty()
         }
+    }
+
+    private fun recordCost(usage: NameDecisionUsage): Map<String, Any?> {
+        val costUsd = usage.inputTokens * inputUsdPerToken + usage.outputTokens * outputUsdPerToken
+        val costKrw = BigDecimal.valueOf(costUsd * usdToKrw).setScale(2, RoundingMode.HALF_UP)
+        runCatching {
+            eventPublisher.publishEvent(
+                LlmCallCostIncurred(
+                    modelName = usage.model,
+                    inputTokens = usage.inputTokens,
+                    outputTokens = usage.outputTokens,
+                    costUsd = BigDecimal.valueOf(costUsd).setScale(6, RoundingMode.HALF_UP),
+                    costKrw = costKrw,
+                ),
+            )
+        }.onFailure { log.warn("이름 스캔 판별 비용 이벤트 발행 실패", it) }
+        return mapOf("inputTokens" to usage.inputTokens, "outputTokens" to usage.outputTokens, "costKrw" to costKrw.toDouble())
     }
 
     private fun store(operationId: Long, decision: Map<String, Any?>) {
@@ -175,6 +184,7 @@ class ProcessedFoodNameDecisionService(
         fun reasonOf(e: Throwable): String = when {
             e is NameDecisionRefused -> "refusal"
             e is NameDecisionImageUnavailable -> "image"
+            e is NameDecisionUnparsable -> "parse"
             generateSequence(e) { it.cause }.any { it is InterruptedIOException || it is TimeoutException } -> "timeout"
             else -> "error"
         }

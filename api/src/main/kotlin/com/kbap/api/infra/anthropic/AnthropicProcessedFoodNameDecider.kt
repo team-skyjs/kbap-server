@@ -15,6 +15,8 @@ import com.kbap.common.port.llm.NameCandidate
 import com.kbap.common.port.llm.NameDecision
 import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
+import com.kbap.common.port.llm.NameDecisionUnparsable
+import com.kbap.common.port.llm.NameDecisionUsage
 import com.kbap.common.port.llm.ProcessedFoodNameDecider
 
 class AnthropicProcessedFoodNameDecider(
@@ -80,10 +82,15 @@ class AnthropicProcessedFoodNameDecider(
             candidates.mapIndexed { i, c -> "${i + 1}\t${c.name}\t${c.maker.orEmpty()}" }.joinToString("\n")
 
         fun parse(message: Message): NameDecision {
-            if (message.stopReason().orElse(null) == StopReason.REFUSAL) throw NameDecisionRefused()
-            val text = message.content().firstNotNullOfOrNull { it.text().orElse(null)?.text() }
-                ?: error("판별 응답에 text 블록이 없다(stop_reason=${message.stopReason().orElse(null)})")
-            return parseJson(text, message.model().asString(), message.usage().inputTokens(), message.usage().outputTokens())
+            val usage = NameDecisionUsage(message.model().asString(), message.usage().inputTokens(), message.usage().outputTokens())
+            if (message.stopReason().orElse(null) == StopReason.REFUSAL) throw NameDecisionRefused(usage)
+            return try {
+                val text = message.content().firstNotNullOfOrNull { it.text().orElse(null)?.text() }
+                    ?: error("판별 응답에 text 블록이 없다(stop_reason=${message.stopReason().orElse(null)})")
+                parseJson(text, usage.model, usage.inputTokens, usage.outputTokens)
+            } catch (e: Exception) {
+                throw NameDecisionUnparsable(usage, e)
+            }
         }
 
         fun parseJson(text: String, model: String, inputTokens: Long, outputTokens: Long): NameDecision {

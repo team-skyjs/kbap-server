@@ -11,6 +11,7 @@ import com.kbap.common.port.llm.NameCandidate
 import com.kbap.common.port.llm.NameDecision
 import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
+import com.kbap.common.port.llm.NameDecisionUsage
 import com.kbap.common.port.llm.ProcessedFoodNameDecider
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -168,6 +169,26 @@ class ProcessedFoodNameDecisionTest : BehaviorSpec() {
                         if (row == null) Thread.sleep(50)
                     }
                     row shouldBe "claude-haiku-5-5/2000/40/1"
+                }
+            }
+
+            `when`("모델이 토큰을 쓰고 거절하면") {
+                then("llm_call_cost 1행과 함께 error=refusal·토큰·비용을 남긴다") {
+                    execute("DELETE FROM llm_call_cost")
+                    fake.behavior = { throw NameDecisionRefused(NameDecisionUsage("claude-haiku-5-5", 2000, 40)) }
+
+                    val decision = decisionOf(scanAndSettle(ownPath).path("analysisId").asText())!!
+
+                    decision.path("error").asText() shouldBe "refusal"
+                    decision.path("inputTokens").asLong() shouldBe 2000
+                    decision.path("outputTokens").asLong() shouldBe 40
+                    decision.path("costKrw").asDouble() shouldBe (0.33 plusOrMinus 0.005)
+                    var row: String? = null
+                    repeat(100) {
+                        row = row ?: string("SELECT CONCAT(COUNT(*), '/', MAX(model_name), '/', MAX(input_tokens)) FROM llm_call_cost HAVING COUNT(*) > 0")
+                        if (row == null) Thread.sleep(50)
+                    }
+                    row shouldBe "1/claude-haiku-5-5/2000"
                 }
             }
 
