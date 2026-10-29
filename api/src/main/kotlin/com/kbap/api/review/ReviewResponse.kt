@@ -185,7 +185,7 @@ data class ReviewProcessedFoodResponse(
 ) {
     companion object {
         fun from(product: ProcessedFoodProduct) = ReviewProcessedFoodResponse(
-            product.id, product.reportNo, product.productName, product.displayMaker(), ProcessedFoodProduct.secureImageUrl(product.imageUrl),
+            product.id, product.reportNo, product.productName, product.displayMaker(), product.displayImageUrl(),
         )
     }
 }

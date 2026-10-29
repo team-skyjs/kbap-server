@@ -140,4 +140,5 @@ enum class ErrorCode(
     PROCESSED_FOOD_REVIEW_CLOSED("PFOOD-005", 403, "가공식품 리뷰는 아직 열리지 않았습니다"),
     PROCESSED_FOOD_LABEL_NOT_READ("PFOOD-006", 400, "성분표를 읽지 못했어요. 원재료명이 잘 보이게 다시 찍어 주세요"),
     PROCESSED_FOOD_LABEL_NOT_ALLOWED("PFOOD-007", 409, "이 분석에는 성분표를 이어 붙일 수 없습니다"),
+    PROCESSED_FOOD_CUTOUT_NOT_UPLOADED("PFOOD-008", 400, "누끼 이미지 업로드를 확인하지 못했습니다"),
 }

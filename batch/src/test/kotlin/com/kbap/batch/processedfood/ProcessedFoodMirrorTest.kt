@@ -175,6 +175,34 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
                 }
             }
 
+            `when`("누끼 이미지가 붙은 행의 원본 이미지·원재료가 바뀌어 갱신되면 — KB-911") {
+                then("image_url 은 새 원본으로 덮이고 cutout_image_url 은 그대로다") {
+                    val source = FakeSource(mapOf("유탕면" to ramen))
+                    val job = mirror(source, FakeLookup(emptyMap()), listOf("유탕면"))
+                    job.mirror()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.test/cut.png?v=1' WHERE report_no = '2012051205516'") } }
+                    source.catalog = mapOf("유탕면" to ramen.map { if (it.reportNo == "2012051205516") it.copy(rawMaterials = "밀가루, 팜유", imageUrl = "http://img/new.jpg") else it })
+
+                    job.mirror().changed shouldBe 1
+
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE report_no = '2012051205516' AND image_url = 'http://img/new.jpg' AND cutout_image_url = 'https://cdn.test/cut.png?v=1'") shouldBe 1
+                }
+            }
+
+            `when`("미러가 행을 읽어 둔 사이 어드민이 누끼를 저장하고 미러가 그 행을 고쳐 쓰면 — KB-911") {
+                then("미러 쓰기는 바뀐 컬럼만 써서 방금 저장된 cutout_image_url 을 지우지 않는다") {
+                    mirror(FakeSource(mapOf("유탕면" to ramen)), FakeLookup(emptyMap()), listOf("유탕면")).mirror()
+
+                    TransactionTemplate(transactionManager).executeWithoutResult {
+                        val row = repository.findAll().single { it.reportNo == "2001054954178" }
+                        dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.test/race.png?v=1' WHERE report_no = '2001054954178'") } }
+                        row.supplementMaker("농심", java.time.LocalDateTime.now(clock))
+                    }
+
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE report_no = '2001054954178' AND cutout_image_url = 'https://cdn.test/race.png?v=1'") shouldBe 1
+                }
+            }
+
             `when`("제조사가 '알수없음' 인 행이 있으면") {
                 then("그 행만 영양DB 로 한 번씩 보완하고, 다음 실행에선 다시 조회하지 않는다(값이 없던 행 포함)") {
                     val lookup = FakeLookup(mapOf("2001054954178" to "㈜농심", "2001054954113" to null))

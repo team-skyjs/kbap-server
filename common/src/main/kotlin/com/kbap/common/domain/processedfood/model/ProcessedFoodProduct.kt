@@ -5,10 +5,12 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import org.hibernate.annotations.DynamicUpdate
 import java.time.Duration
 import java.time.LocalDateTime
 
 @Entity
+@DynamicUpdate
 @Table(
     name = "processed_food_product",
     uniqueConstraints = [UniqueConstraint(name = "uq_processed_food_product_report_no", columnNames = ["report_no"])],
@@ -77,6 +79,11 @@ class ProcessedFoodProduct(
     @Column(name = "last_seen_at", nullable = false)
     var lastSeenAt: LocalDateTime = LocalDateTime.MIN,
 ) : BaseEntity() {
+    @Column(name = "cutout_image_url", length = URL_LENGTH)
+    var cutoutImageUrl: String? = null
+
+    fun displayImageUrl(): String? = secureImageUrl(cutoutImageUrl ?: imageUrl)
+
     fun promoteToHaccp(snapshot: ProcessedFoodSnapshot, seenAt: LocalDateTime) {
         require(source == SOURCE_C002) { "C002 행만 HACCP 로 승격할 수 있습니다" }
         require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 승격할 수 없습니다" }
