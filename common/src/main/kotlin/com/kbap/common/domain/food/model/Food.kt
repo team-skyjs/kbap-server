@@ -171,13 +171,6 @@ class Food(
         contentStatus = if (imageRef.isNullOrBlank()) FoodContentStatus.PENDING_IMAGE else FoodContentStatus.PENDING_REVIEW
     }
 
-    fun addIngredients(additions: List<FoodIngredient>) {
-        val current = ingredients.orEmpty()
-        val missing = additions.filter { addition -> current.none { it.code == addition.code } }
-        if (missing.isEmpty()) return
-        replaceIngredients(current + missing)
-    }
-
     fun replaceIngredients(ingredients: List<FoodIngredient>?) {
         val kept = storableIngredients(ingredients)
         this.ingredients = kept

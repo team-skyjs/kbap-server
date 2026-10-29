@@ -12,6 +12,7 @@ import com.kbap.common.domain.food.model.FoodIngredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.port.llm.IngredientDecider
 import com.kbap.common.port.llm.IngredientDecisionFood
+import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Value
@@ -23,6 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
@@ -48,29 +50,34 @@ class FoodIngredientRetroService(
     private val running = AtomicInteger()
     private val coordinator = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue(JOB_QUEUE)) { Thread(it, "ingredient-retro").apply { isDaemon = true } }
     private val workers = Executors.newFixedThreadPool(CONCURRENCY) { Thread(it, "ingredient-retro-call").apply { isDaemon = true } }
+    private val activeLocks = ConcurrentHashMap<String, String>()
+    @Volatile private var stopping = false
 
     var decider: IngredientDecider? = deciderProvider.getIfAvailable()
 
-    fun startRetro(codeNames: List<String>, dryRun: Boolean, foodIds: List<Long>?): FoodIngredientRetroJob {
+    fun startRetro(codeNames: List<String>, dryRun: Boolean, rejudge: Boolean, foodIds: List<Long>?): FoodIngredientRetroJob {
         val codes = codeNames.map { name -> IngredientCode.entries.firstOrNull { it.name == name } ?: throw BusinessException(ErrorCode.FOOD_UNKNOWN_INGREDIENT) }.distinct().sortedBy { it.name }
         if (codes.isEmpty()) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val jobId = UUID.randomUUID().toString()
         val lockKey = LOCK_PREFIX + codes.joinToString(",") { it.name }
         if (redis.opsForValue().setIfAbsent(lockKey, jobId, LOCK_TTL) != true) throw BusinessException(ErrorCode.FOOD_INGREDIENT_RETRO_IN_PROGRESS)
-        val job = FoodIngredientRetroJob(jobId = jobId, codes = codes.map { it.name }, dryRun = dryRun, status = FoodIngredientRetroJob.Status.RUNNING, startedAt = Instant.now().toString())
+        val job = FoodIngredientRetroJob(jobId = jobId, codes = codes.map { it.name }, dryRun = dryRun, rejudge = rejudge, status = FoodIngredientRetroJob.Status.RUNNING, startedAt = Instant.now().toString())
         save(job)
         running.incrementAndGet()
+        activeLocks[jobId] = lockKey
         try {
             coordinator.execute {
                 try {
                     run(job, codes, foodIds)
                 } finally {
                     runCatching { redis.execute(DELETE_IF_OWNER, listOf(lockKey), jobId) }
+                    activeLocks.remove(jobId)
                     running.decrementAndGet()
                 }
             }
         } catch (e: RejectedExecutionException) {
             running.decrementAndGet()
+            activeLocks.remove(jobId)
             redis.execute(DELETE_IF_OWNER, listOf(lockKey), jobId)
             throw BusinessException(ErrorCode.FOOD_INGREDIENT_RETRO_IN_PROGRESS)
         }
@@ -80,6 +87,24 @@ class FoodIngredientRetroService(
     fun getRetroJob(jobId: String): FoodIngredientRetroJob =
         redis.opsForValue().get(JOB_PREFIX + jobId)?.let { mapper.readValue<FoodIngredientRetroJob>(it) }
             ?: throw BusinessException(ErrorCode.FOOD_INGREDIENT_RETRO_JOB_NOT_FOUND)
+
+    @PreDestroy
+    fun stopRunningJobs() {
+        stopping = true
+        val active = activeLocks.toMap()
+        coordinator.shutdownNow()
+        workers.shutdownNow()
+        coordinator.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)
+        active.forEach { (jobId, lockKey) ->
+            runCatching {
+                redis.opsForValue().get(JOB_PREFIX + jobId)?.let { mapper.readValue<FoodIngredientRetroJob>(it) }
+                    ?.takeIf { it.status == FoodIngredientRetroJob.Status.RUNNING }
+                    ?.let { write(it.copy(status = FoodIngredientRetroJob.Status.FAILED, finishedAt = Instant.now().toString())) }
+                redis.execute(DELETE_IF_OWNER, listOf(lockKey), jobId)
+            }.onFailure { log.warn("재료 소급 판정 종료 정리 실패 jobId={}", jobId, it) }
+        }
+        log.info("재료 소급 판정 종료 — 진행 중이던 작업 {}건을 FAILED 로 닫고 잠금을 풀었다", active.size)
+    }
 
     fun awaitIdle() {
         val deadline = System.nanoTime() + IDLE_WAIT_NANOS
@@ -99,7 +124,7 @@ class FoodIngredientRetroService(
             val tasks = ids.map { id ->
                 Callable {
                     try {
-                        process(id, codes, job.dryRun, ::update)
+                        process(id, codes, job.dryRun, job.rejudge, ::update)
                     } catch (e: Exception) {
                         log.warn("재료 소급 판정 음식 처리 실패 — 건너뛰고 재실행으로 보강 foodId={}", id, e)
                         update { it.copy(failedFoodIds = it.failedFoodIds + id) }
@@ -115,40 +140,45 @@ class FoodIngredientRetroService(
         }
     }
 
-    private fun process(foodId: Long, codes: List<IngredientCode>, dryRun: Boolean, update: ((FoodIngredientRetroJob) -> FoodIngredientRetroJob) -> Unit) {
+    private fun process(foodId: Long, codes: List<IngredientCode>, dryRun: Boolean, rejudge: Boolean, update: ((FoodIngredientRetroJob) -> FoodIngredientRetroJob) -> Unit) {
         val loaded = readTransaction.execute { foods.findById(foodId).orElse(null) }?.takeIf { it.isReady() } ?: return
         if (!isAssessed(loaded)) return update { it.copy(skippedUnassessedFoodIds = it.skippedUnassessedFoodIds + foodId) }
         val food = snapshotOf(loaded)
-        val missing = codes.filter { code -> code.name !in food.currentCodes && !isJudged(code, foodId) }
-        if (missing.isEmpty()) return
+        val asked = if (rejudge) codes else codes.filter { code -> code.name !in food.currentCodes && !isJudged(code, foodId, loaded.version) }
+        if (asked.isEmpty()) return
         update { it.copy(targetCount = it.targetCount + 1, estimatedCostKrw = it.estimatedCostKrw + estimatedKrwPerCall) }
         if (dryRun) return
         val decider = decider ?: return update { it.copy(failedFoodIds = it.failedFoodIds + foodId) }
         val decisions = try {
-            decider.decide(food, missing)
+            decider.decide(food, asked)
         } catch (e: Exception) {
             log.warn("재료 소급 판정 실패 — 건너뛰고 재실행으로 보강 foodId={}", foodId, e)
             return update { it.copy(calledCount = it.calledCount + 1, failedFoodIds = it.failedFoodIds + foodId) }
         }
-        val additions = missing.mapNotNull { code ->
-            decisions.byCode[code]?.probability?.takeIf { it >= MIN_PROBABILITY }?.let { FoodIngredient(code.name, (it * 100).roundToInt().coerceIn(1, 100)) }
+        val percents = asked.filter { it in decisions.byCode }.associateWith { code ->
+            decisions.byCode.getValue(code).probability.takeIf { it >= MIN_PROBABILITY }?.let { (it * 100).roundToInt().coerceIn(1, 100) }
         }
-        val outcome = try {
-            if (additions.isEmpty()) Outcome.NONE else writeTransaction.execute { apply(foodId, additions) } ?: Outcome.NONE
+        val result = try {
+            if (!rejudge && percents.values.all { it == null }) {
+                Result(Outcome.NONE, loaded.version)
+            } else {
+                writeTransaction.execute { apply(foodId, loaded.version, percents, rejudge) } ?: Result(Outcome.FAILED)
+            }
         } catch (e: Exception) {
             log.warn("재료 소급 판정 반영 실패 — 판정 기록을 남기지 않아 재실행 때 다시 부른다 foodId={}", foodId, e)
-            Outcome.FAILED
+            Result(Outcome.FAILED)
         }
-        if (outcome != Outcome.FAILED) missing.filter { it in decisions.byCode }.forEach { markJudged(it, foodId) }
+        if (result.outcome == Outcome.CHANGED || result.outcome == Outcome.NONE) percents.keys.forEach { markJudged(it, foodId, result.version!!) }
         update { current ->
             current.copy(
                 calledCount = current.calledCount + 1,
                 costKrw = current.costKrw + decisions.costKrw,
-                addedFoodCount = current.addedFoodCount + if (outcome == Outcome.ADDED) 1 else 0,
-                addedCodeCount = current.addedCodeCount + if (outcome == Outcome.ADDED) additions.size else 0,
-                skippedCapFoodIds = if (outcome == Outcome.CAP) current.skippedCapFoodIds + foodId else current.skippedCapFoodIds,
-                skippedUnassessedFoodIds = if (outcome == Outcome.UNASSESSED) current.skippedUnassessedFoodIds + foodId else current.skippedUnassessedFoodIds,
-                failedFoodIds = if (outcome == Outcome.FAILED) current.failedFoodIds + foodId else current.failedFoodIds,
+                addedFoodCount = current.addedFoodCount + if (result.added > 0) 1 else 0,
+                addedCodeCount = current.addedCodeCount + result.added,
+                removedCodeCount = current.removedCodeCount + result.removed,
+                skippedCapFoodIds = if (result.outcome == Outcome.CAP) current.skippedCapFoodIds + foodId else current.skippedCapFoodIds,
+                skippedUnassessedFoodIds = if (result.outcome == Outcome.UNASSESSED) current.skippedUnassessedFoodIds + foodId else current.skippedUnassessedFoodIds,
+                failedFoodIds = if (result.outcome == Outcome.FAILED || result.outcome == Outcome.STALE) current.failedFoodIds + foodId else current.failedFoodIds,
                 probabilityBuckets = decisions.byCode.entries.fold(current.probabilityBuckets) { buckets, (code, presence) ->
                     val byBucket = buckets[code.name].orEmpty()
                     val bucket = bucketOf(presence.probability)
@@ -158,18 +188,26 @@ class FoodIngredientRetroService(
         }
     }
 
-    private enum class Outcome { ADDED, CAP, UNASSESSED, FAILED, NONE }
+    private enum class Outcome { CHANGED, NONE, CAP, UNASSESSED, NOT_READY, STALE, FAILED }
 
-    private fun apply(foodId: Long, additions: List<FoodIngredient>): Outcome {
-        val food = foods.findByIdForUpdate(foodId)?.takeIf { it.isReady() } ?: return Outcome.NONE
-        if (!isAssessed(food)) return Outcome.UNASSESSED
+    private data class Result(val outcome: Outcome, val version: Long? = null, val added: Int = 0, val removed: Int = 0)
+
+    private fun apply(foodId: Long, judgedVersion: Long, percents: Map<IngredientCode, Int?>, rejudge: Boolean): Result {
+        val food = foods.findByIdForUpdate(foodId)?.takeIf { it.isReady() } ?: return Result(Outcome.NOT_READY)
+        if (food.version != judgedVersion) return Result(Outcome.STALE)
+        if (!isAssessed(food)) return Result(Outcome.UNASSESSED)
         val current = food.ingredients.orEmpty()
-        val fresh = additions.filter { addition -> current.none { it.code == addition.code } }
-        if (fresh.isEmpty()) return Outcome.NONE
-        if (current.size + fresh.size > Food.MAX_INGREDIENTS) return Outcome.CAP
-        food.addIngredients(fresh)
+        val decided = percents.mapKeys { it.key.name }.filter { (code, percent) -> rejudge || (percent != null && current.none { it.code == code }) }
+        val next = current.mapNotNull { existing -> if (existing.code in decided) decided[existing.code]?.let { FoodIngredient(existing.code, it) } else existing } +
+            decided.filter { (code, percent) -> percent != null && current.none { it.code == code } }.map { (code, percent) -> FoodIngredient(code, percent!!) }
+        if (next == current) return Result(Outcome.NONE, food.version)
+        if (next.size > Food.MAX_INGREDIENTS) return Result(Outcome.CAP)
+        food.replaceIngredients(next)
         foodIngredients.replace(food.id, food.ingredients)
-        return Outcome.ADDED
+        foods.flush()
+        val before = current.map { it.code }.toSet()
+        val after = next.map { it.code }.toSet()
+        return Result(Outcome.CHANGED, food.version, added = (after - before).size, removed = (before - after).size)
     }
 
     private fun isAssessed(food: Food): Boolean = food.ingredientsAssessed && food.ingredients != null
@@ -181,14 +219,19 @@ class FoodIngredientRetroService(
         currentCodes = food.ingredients.orEmpty().map { it.code },
     )
 
-    private fun isJudged(code: IngredientCode, foodId: Long): Boolean = redis.opsForSet().isMember(JUDGED_PREFIX + code.name, foodId.toString()) == true
+    private fun isJudged(code: IngredientCode, foodId: Long, version: Long): Boolean =
+        redis.opsForHash<String, String>().get(JUDGED_PREFIX + code.name, foodId.toString()) == version.toString()
 
-    private fun markJudged(code: IngredientCode, foodId: Long) {
-        runCatching { redis.opsForSet().add(JUDGED_PREFIX + code.name, foodId.toString()) }
+    private fun markJudged(code: IngredientCode, foodId: Long, version: Long) {
+        runCatching { redis.opsForHash<String, String>().put(JUDGED_PREFIX + code.name, foodId.toString(), version.toString()) }
             .onFailure { log.warn("재료 소급 판정 기록 실패 — 다음 실행에서 다시 부른다 foodId={} code={}", foodId, code, it) }
     }
 
     private fun save(job: FoodIngredientRetroJob) {
+        if (!stopping) write(job)
+    }
+
+    private fun write(job: FoodIngredientRetroJob) {
         redis.opsForValue().set(JOB_PREFIX + job.jobId, mapper.writeValueAsString(job), JOB_TTL)
     }
 
@@ -198,11 +241,12 @@ class FoodIngredientRetroService(
         private const val JOB_QUEUE = 10
         private const val LOCK_PREFIX = "ingredient-retro:lock:"
         private const val JOB_PREFIX = "ingredient-retro:job:"
-        private const val JUDGED_PREFIX = "ingredient-retro:judged:"
+        private const val JUDGED_PREFIX = "ingredient-retro:judged-version:"
         private val LOCK_TTL = Duration.ofHours(6)
         private val JOB_TTL = Duration.ofDays(7)
         private const val IDLE_WAIT_NANOS = 30_000_000_000L
         private const val IDLE_POLL_MILLIS = 50L
+        private const val SHUTDOWN_WAIT_SECONDS = 5L
         private val DELETE_IF_OWNER = DefaultRedisScript(
             "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
             Long::class.java,
