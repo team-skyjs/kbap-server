@@ -481,13 +481,13 @@ class IngredientLabelReaderTest : BehaviorSpec({
         }
         `when`("유래가 다르거나 '없음'을 뜻하는 복합어면") {
             then("옥수수 글루텐은 밀이 아니라 옥수수다") {
-                listOf("콘글루텐", "옥수수글루텐").forEach { term ->
+                listOf("콘글루텐", "옥수수글루텐", "옥수수 글루텐", "콘 글루텐").forEach { term ->
                     withClue(term) { codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.CORN) }
                 }
             }
 
             then("코드를 붙이지 않는다 — 글루텐프리·유부초밥 소스·케찹 향신료·메추리알 모양·실크 펩타이드·우지방·돈지 쇼트닝 프리") {
-                listOf("글루텐프리 쌀중화면", "유부초밥박사소스골드", "유부조미액베이스", "케찹스파이스믹스", "케찹향신료", "메추리알모양후레이크", "실크랩펩타이드", "우지방", "돈지쇼트닝프리").forEach { term ->
+                listOf("글루텐프리 쌀중화면", "글루텐 프리 쌀중화면", "유부초밥박사소스골드", "유부조미액베이스", "케찹스파이스믹스", "케찹향신료", "메추리알모양후레이크", "실크랩펩타이드", "우지방", "돈지쇼트닝프리").forEach { term ->
                     withClue(term) { codes(IngredientLabelReader.read(null, term)) shouldBe emptySet() }
                 }
             }
