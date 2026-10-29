@@ -33,6 +33,9 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query("select f from Food f where f.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): Food?
 
+    @Query("select f.id from Food f where f.contentStatus = :contentStatus order by f.id")
+    fun findIdsByContentStatus(@Param("contentStatus") contentStatus: FoodContentStatus): List<Long>
+
     @Query(
         value = "SELECT * FROM food WHERE status = 'DELETED' ORDER BY updated_at DESC, id DESC",
         countQuery = "SELECT count(*) FROM food WHERE status = 'DELETED'",
