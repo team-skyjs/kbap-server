@@ -201,6 +201,10 @@ class Food(
     fun ingredientsByProbability(): List<FoodIngredient> =
         ingredients.orEmpty().sortedByDescending { it.inclusionPercent }
 
+    fun rename(refinedDisplayName: String?) {
+        refinedDisplayName?.trim()?.takeIf { it.isNotEmpty() && it.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH }?.let { displayName = it }
+    }
+
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady() || ingredients == null) return RiskLevel.UNKNOWN
         return RiskLevel.aggregate(overlappedIngredients(avoidedCodes).map { it.riskLevel() })

@@ -27,6 +27,14 @@ class ProcessedFoodVerdictTest : BehaviorSpec({
                 judgement.mayContainMatches.shouldBeEmpty()
             }
         }
+        `when`("원재료에 고수가 있고 고수 회피 회원이 보면 — KB-895") {
+            then("AVOID 이고 걸린 회피 재료는 고수다") {
+                val judgement = ProcessedFoodJudge.judge(null, "쌀국수(쌀:태국산), 정제수, 고수, 라임즙", avoiding(IngredientCode.valueOf("CORIANDER")))
+
+                judgement.verdict shouldBe ProcessedFoodVerdict.AVOID
+                judgement.avoidMatches.map { it.code } shouldBe listOf(IngredientCode.valueOf("CORIANDER"))
+            }
+        }
         `when`("땅콩이 혼입 가능 표기에만 있고 땅콩 회피 회원이 보면") {
             then("CAUTION 이고 근거로 혼입 가능 문구를 준다 — 원재료 검출로 세지 않는다") {
                 val judgement = ProcessedFoodJudge.judge(crackerAllergens, crackerRaw, avoiding(IngredientCode.PEANUT))

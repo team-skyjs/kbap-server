@@ -20,6 +20,19 @@ class FoodOverallRiskTest : BehaviorSpec({
         ),
     )
 
+    given("고수(CORIANDER) 성분 음식 — KB-895") {
+        `when`("적재 성분에 고수가 있고 고수 회피 회원이 보면") {
+            then("저장 가능한 성분이고 종합 위험도는 DANGER 다") {
+                val ingredients = listOf(FoodIngredient(code = "CORIANDER", inclusionPercent = 90))
+                val pho = Food(koreanName = "쌀국수", description = "고수를 올린 쌀국수", spiciness = 1, ingredients = Food.storableIngredients(ingredients))
+                val avoidance = com.kbap.common.domain.ingredient.model.Avoidance(setOf(com.kbap.common.domain.ingredient.model.IngredientCode.valueOf("CORIANDER")))
+
+                pho.overallRisk(avoidance.codeNames) shouldBe RiskLevel.DANGER
+                avoidance.codeNames shouldBe setOf("CORIANDER")
+            }
+        }
+    }
+
     given("사용자 회피 성분과 음식 성분의 교집합으로 종합 위험도를 판정한다") {
         `when`("회피 성분이 확률 100 인 성분(SOY)과 겹치면") {
             then("DANGER 다") {

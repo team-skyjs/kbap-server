@@ -446,4 +446,19 @@ class IngredientLabelReaderTest : BehaviorSpec({
             }
         }
     }
+
+    given("KB-895 고수 원문") {
+        `when`("고수 용어가 나오면") {
+            then("고수·코리앤더·실란트로·향채를 고수로 읽는다") {
+                listOf("고수", "코리앤더", "실란트로", "향채", "고수잎", "코리앤더분말", "실란트로잎").forEach { term ->
+                    codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.valueOf("CORIANDER"))
+                }
+            }
+        }
+        `when`("고수가 다른 낱말 안에 들어 있으면") {
+            then("고수분·향채소는 고수가 아니다") {
+                (IngredientCode.valueOf("CORIANDER") in codes(IngredientLabelReader.read(null, "고수분, 향채소"))) shouldBe false
+            }
+        }
+    }
 })

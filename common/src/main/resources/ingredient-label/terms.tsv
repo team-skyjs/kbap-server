@@ -228,6 +228,11 @@
 파	SCALLION	exact
 대파	SCALLION	contains
 쪽파	SCALLION	contains
+고수	CORIANDER	exact
+고수잎	CORIANDER	contains
+코리앤더	CORIANDER	contains
+실란트로	CORIANDER	contains
+향채	CORIANDER	exact
 건파	SCALLION	exact
 실파	SCALLION	exact
 부추	CHIVE	contains
