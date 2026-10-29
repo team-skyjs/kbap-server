@@ -126,6 +126,40 @@ class AdminFoodContentIngestControllerTest : BehaviorSpec() {
 
         afterSpec { dataSource.connection.use { c -> c.createStatement().use { it.execute("DELETE FROM food_content_draft") } } }
 
+        given("정제 이름(displayName) 적재 — KB-895") {
+            `when`("공개 전 음식에 정제 이름이 오면") {
+                then("displayName 만 바뀌고 koreanName 은 그대로다") {
+                    val food = saveFood("고수쌀국수원문", FoodContentStatus.PENDING_IMAGE, null)
+
+                    ingest(passedBody(food.id) + ("displayName" to "  고수 쌀국수  ")).andExpect { status { isOk() } }
+
+                    reloaded(food.id).displayName shouldBe "고수 쌀국수"
+                    reloaded(food.id).koreanName shouldBe food.koreanName
+                }
+            }
+            `when`("정제 이름이 비어 있거나 없으면") {
+                then("displayName 을 그대로 둔다") {
+                    val blank = saveFood("빈정제이름", FoodContentStatus.PENDING_IMAGE, null)
+                    val absent = saveFood("정제이름없음", FoodContentStatus.PENDING_IMAGE, null)
+
+                    ingest(passedBody(blank.id) + ("displayName" to "   ")).andExpect { status { isOk() } }
+                    ingest(passedBody(absent.id)).andExpect { status { isOk() } }
+
+                    reloaded(blank.id).displayName shouldBe blank.displayName
+                    reloaded(absent.id).displayName shouldBe absent.displayName
+                }
+            }
+            `when`("공개된(READY) 음식의 재수집 결과에 정제 이름이 오면") {
+                then("초안 검토 전이라 공개 이름을 바꾸지 않는다") {
+                    val food = saveFood("공개음식원문", FoodContentStatus.READY, "images/webp/food/ready.webp")
+
+                    ingest(passedBody(food.id) + ("displayName" to "공개 음식")).andExpect { status { isOk() } }
+
+                    reloaded(food.id).displayName shouldBe food.displayName
+                }
+            }
+        }
+
         given("포기한 요청의 결과 적재") {
             `when`("dead_at 이 찍힌 요청의 콜백이 뒤늦게 도착하면") {
                 then("200 으로 받되 내용은 반영하지 않는다 — 막기만 하면 컨슈머가 영원히 재시도한다") {

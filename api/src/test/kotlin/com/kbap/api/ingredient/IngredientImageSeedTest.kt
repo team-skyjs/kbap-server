@@ -30,9 +30,11 @@ class IngredientImageSeedTest : BehaviorSpec() {
                     ingredientRepository.count() shouldBe IngredientCode.entries.size.toLong()
                 }
 
-                then("모든 재료에 코드 규칙대로 이미지 경로가 적재되어 있다(KB-842 6코드 포함 — 비어 있는 코드 0)") {
+                then("자산 대기 코드(KB-895 고수)를 뺀 모든 재료에 코드 규칙대로 이미지 경로가 적재되어 있고, 자산 대기 코드는 비어 있다") {
+                    val awaitingAsset = setOf("CORIANDER")
                     ingredientRepository.findAll().forEach { ingredient ->
-                        ingredient.imagePath shouldBe "images/webp/ingredients-cut/${ingredient.code.name.lowercase()}.webp"
+                        ingredient.imagePath shouldBe
+                            if (ingredient.code.name in awaitingAsset) null else "images/webp/ingredients-cut/${ingredient.code.name.lowercase()}.webp"
                     }
                 }
             }

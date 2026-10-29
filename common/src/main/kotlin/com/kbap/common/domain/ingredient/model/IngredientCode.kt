@@ -84,6 +84,7 @@ enum class IngredientCode(val label: String) {
     CHIVE("부추"),
     WILD_CHIVE("달래"),
     ASAFOETIDA("흥거"),
+    CORIANDER("고수"),
     ALCOHOL("알코올"),
     MIRIN("미림"),
     COOKING_WINE("맛술"),

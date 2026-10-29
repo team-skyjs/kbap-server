@@ -41,6 +41,7 @@ class AdminFoodContentIngestService(
         nameTranslations: Map<String, String>,
         descriptionTranslations: Map<String, String>,
         ingredients: List<FoodIngredient>,
+        displayName: String? = null,
     ) {
         val food = lockFoodAndCompleteOutbox(outboxId, foodId) ?: return
         val storable = Food.storableIngredients(ingredients)
@@ -63,6 +64,7 @@ class AdminFoodContentIngestService(
             )
             return
         }
+        food.rename(displayName)
         val regenerating = imageBatchItemRepository.findFoodIdsInRegeneration(listOf(foodId)).isNotEmpty()
         applyContent(food, description, longDescription, spiciness, nameTranslations, descriptionTranslations, ingredients, regenerating)
     }
