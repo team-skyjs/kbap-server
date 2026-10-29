@@ -56,6 +56,8 @@ enum class ErrorCode(
     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
     FOOD_CONTENT_DRAFT_NOT_FOUND("FOOD-021", 404, "검수 대기 중인 콘텐츠 초안이 없습니다"),
     FOOD_LISTING_STALE("FOOD-022", 409, "음식 목록이 변경되었습니다. 첫 페이지부터 다시 조회해 주세요"),
+    FOOD_INGREDIENT_RETRO_IN_PROGRESS("FOOD-023", 409, "같은 재료 코드의 소급 판정이 이미 진행 중입니다"),
+    FOOD_INGREDIENT_RETRO_JOB_NOT_FOUND("FOOD-024", 404, "소급 판정 작업을 찾을 수 없거나 기록이 만료되었습니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),

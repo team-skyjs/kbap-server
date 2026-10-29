@@ -12,6 +12,7 @@ data class LlmModelProperties(
     val review: VisionProps = VisionProps(),
     val translation: VisionProps = VisionProps(),
     val processedFoodTranslation: VisionProps = VisionProps(),
+    val ingredientDecision: VisionProps = VisionProps(),
 ) {
     data class EmbeddingProps(
         val enabled: Boolean = false,

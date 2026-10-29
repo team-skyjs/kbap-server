@@ -185,6 +185,18 @@ kbap:
       pricing:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.4
+    # 새 재료 소급 판정(KB-896) — 어드민 소급 API 가 READY 음식마다 1회 호출(코드 목록 → 코드별 포함 여부·확률 구조화 출력).
+    # 가공식품 번역과 같은 저가 계열. 타임아웃은 음식당 10초, 재시도 없음(실패는 건너뛰고 재실행으로 보강 — 멱등).
+    ingredient-decision:
+      enabled: true
+      api-key: ${OPENAI_API_KEY:}
+      model: ${INGREDIENT_DECISION_MODEL:gpt-5-nano}
+      reasoning-effort: minimal
+      max-retries: 0
+      timeout: 10s
+      pricing:
+        input-usd-per-million-tokens: 0.05
+        output-usd-per-million-tokens: 0.4
     # 음식 이미지 배치 생성(KB-226): OpenAI Batch API 일괄 제출 + 3시간 주기(하루 8회) 폴링 회수. 빈 조립은 무조건이고
     # 키 검증은 첫 호출 시점 — 키 없이는 관리자 제출·회수만 실패하고 부팅은 성공한다.
     # pricing 은 Batch 단가(동기 대비 50% 할인가)를 넣는다 — 회수 시 장당 llm_call_cost 1행 기록.
