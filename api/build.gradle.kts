@@ -7,6 +7,7 @@ dependencies {
     "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
+    "implementation"(libs.anthropic.java)
     "implementation"(libs.lingua)
     "implementation"(libs.jjwt.api)
     "runtimeOnly"(libs.jjwt.impl)

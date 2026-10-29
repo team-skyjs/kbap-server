@@ -38,7 +38,7 @@ class PresignedUploadService(
     }
 
     companion object {
-        private val ISSUED_KEY = Regex("""^images/([a-z]+)/\d{4}/\d{2}/(\d+|g[0-9a-f]{12})_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{2,5}$""")
+        private val ISSUED_KEY = Regex("""^images/([a-z-]+)/\d{4}/\d{2}/(\d+|g[0-9a-f]{12})_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{2,5}$""")
 
         fun ownerKeyOf(memberId: Long?, validatedInstallationId: String?): String =
             memberId?.toString() ?: guestOwnerKey(checkNotNull(validatedInstallationId))

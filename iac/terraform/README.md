@@ -39,7 +39,7 @@ terraform apply -var-file=dev.tfvars
 **apply 전에** 시크릿을 SSM 에 등록해 둔다(없으면 태스크가 기동 못 함). 이미 등록돼 있으면 건너뛴다:
 
 ```bash
-for k in DB_PASSWORD JWT_SECRET OPENAI_API_KEY GOOGLE_PLACES_API_KEY; do
+for k in DB_PASSWORD JWT_SECRET OPENAI_API_KEY GOOGLE_PLACES_API_KEY ANTHROPIC_API_KEY; do
   aws ssm put-parameter --profile kbap-infra --name /kbap/dev/$k --type SecureString --overwrite --value '...'
 done
 aws ssm put-parameter --profile kbap-infra --name /kbap/dev/FIREBASE_CREDENTIALS_JSON \
