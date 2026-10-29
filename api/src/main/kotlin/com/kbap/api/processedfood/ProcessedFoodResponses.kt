@@ -45,7 +45,7 @@ data class ProcessedFoodSummaryResponse(
     companion object {
         fun from(product: ProcessedFoodProduct, avoidance: Avoidance? = null) =
             ProcessedFoodSummaryResponse(
-                product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl),
+                product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, product.displayImageUrl(),
                 verdict = avoidance?.let { ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, it).verdict },
             )
 
@@ -180,7 +180,7 @@ data class ProcessedFoodDetailResponse(
                 unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
-                image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
+                image = product.displayImageUrl()?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
                 reviewSummary = ProcessedFoodReviewSummaryResponse.of(axes),
                 verdict = judgement.verdict,
                 avoidMatches = judgement.avoidMatches,
