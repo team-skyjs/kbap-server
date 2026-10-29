@@ -9,6 +9,7 @@ import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.NameCandidate
 import com.kbap.common.port.llm.NameDecision
+import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
 import com.kbap.common.port.llm.ProcessedFoodNameDecider
 import io.kotest.core.spec.style.BehaviorSpec
@@ -43,7 +44,7 @@ class ProcessedFoodNameDecisionTest : BehaviorSpec() {
 
     private class FakeDecider : ProcessedFoodNameDecider {
         val calls = mutableListOf<Pair<String, List<NameCandidate>>>()
-        var behavior: () -> NameDecision = { NameDecision(0, 0.92, "새우깡", "claude-haiku-5-5", 2000, 40) }
+        var behavior: () -> NameDecision = { NameDecision(1, 0.92, "새우깡", "claude-haiku-5-5", 2000, 40) }
 
         override fun decide(imageUrl: String, candidates: List<NameCandidate>): NameDecision {
             synchronized(calls) { calls += imageUrl to candidates }
@@ -106,7 +107,7 @@ class ProcessedFoodNameDecisionTest : BehaviorSpec() {
         }
         beforeEach {
             fake.calls.clear()
-            fake.behavior = { NameDecision(0, 0.92, "새우깡", "claude-haiku-5-5", 2000, 40) }
+            fake.behavior = { NameDecision(1, 0.92, "새우깡", "claude-haiku-5-5", 2000, 40) }
         }
         afterSpec {
             decisions.decider = null
@@ -167,6 +168,19 @@ class ProcessedFoodNameDecisionTest : BehaviorSpec() {
                         if (row == null) Thread.sleep(50)
                     }
                     row shouldBe "claude-haiku-5-5/2000/40/1"
+                }
+            }
+
+            `when`("모델이 후보 순번 범위 밖을 답하면") {
+                then("choice 없이 error=outside 와 읽은 이름·비용을 남긴다") {
+                    fake.behavior = { NameDecision(21, 0.8, "새우깡", "claude-haiku-5-5", 2000, 40) }
+
+                    val decision = decisionOf(scanAndSettle(ownPath).path("analysisId").asText())!!
+
+                    decision.path("error").asText() shouldBe "outside"
+                    decision.has("choice") shouldBe false
+                    decision.path("readName").asText() shouldBe "새우깡"
+                    decision.path("costKrw").asDouble() shouldBe (0.33 plusOrMinus 0.005)
                 }
             }
 
@@ -245,6 +259,7 @@ class ProcessedFoodNameDecisionTest : BehaviorSpec() {
             listOf(
                 "타임아웃" to ({ throw RuntimeException(SocketTimeoutException("timeout")) } to "timeout"),
                 "거절(refusal)" to ({ throw NameDecisionRefused() } to "refusal"),
+                "사진을 못 가져옴(CDN 404)" to ({ throw NameDecisionImageUnavailable(RuntimeException("404")) } to "image"),
                 "그 밖의 실패" to ({ throw IllegalStateException("boom") } to "error"),
             ).forEach { (label, case) ->
                 val (behavior, reason) = case

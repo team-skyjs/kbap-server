@@ -3,6 +3,7 @@ package com.kbap.api.infra.anthropic
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.kbap.common.port.llm.NameCandidate
+import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
 import com.sun.net.httpserver.HttpServer
 import io.kotest.assertions.throwables.shouldThrow
@@ -21,13 +22,13 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
     }
 
     given("구조화 출력 해석") {
-        fun parse(json: String) = AnthropicProcessedFoodNameDecider.parseJson(json, 3, "claude-haiku-5-5", 1500, 30)
+        fun parse(json: String) = AnthropicProcessedFoodNameDecider.parseJson(json, "claude-haiku-5-5", 1500, 30)
 
         `when`("후보 id 를 고르면") {
-            then("0부터 센 후보 위치·확신도·읽은 이름·토큰을 돌려준다") {
+            then("모델이 답한 순번·확신도·읽은 이름·토큰을 돌려준다") {
                 val decision = parse("""{"choice":2,"confidence":0.81,"readName":" 새우깡 "}""")
 
-                decision.choiceIndex shouldBe 1
+                decision.choice shouldBe 2
                 decision.confidence shouldBe 0.81
                 decision.readName shouldBe "새우깡"
                 decision.inputTokens shouldBe 1500
@@ -36,10 +37,9 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
         }
 
         `when`("choice 가 null 이거나 후보 범위 밖이면") {
-            then("고른 후보가 없다") {
-                parse("""{"choice":null,"confidence":0.6,"readName":"꼬북칩"}""").choiceIndex shouldBe null
-                parse("""{"choice":4,"confidence":0.6,"readName":"꼬북칩"}""").choiceIndex shouldBe null
-                parse("""{"choice":0,"confidence":0.6,"readName":"꼬북칩"}""").choiceIndex shouldBe null
+            then("null 은 null, 범위 밖 순번은 그대로 돌려줘 호출부가 outside 로 남긴다") {
+                parse("""{"choice":null,"confidence":0.6,"readName":"꼬북칩"}""").choice shouldBe null
+                parse("""{"choice":4,"confidence":0.6,"readName":"꼬북칩"}""").choice shouldBe 4
             }
         }
 
@@ -54,13 +54,13 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
     }
 
     given("SDK 로 실제 요청을 보내면") {
-        fun serve(stopReason: String, text: String, block: (String, () -> String) -> Unit) {
+        fun serve(stopReason: String, text: String, status: Int = 200, error: String? = null, block: (String, () -> String) -> Unit) {
             var body = ""
             val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
             server.createContext("/v1/messages") { exchange ->
                 body = exchange.requestBody.readBytes().toString(Charsets.UTF_8)
                 val response = ObjectMapper().writeValueAsBytes(
-                    mapOf(
+                    if (error != null) mapOf("type" to "error", "error" to mapOf("type" to "invalid_request_error", "message" to error)) else mapOf(
                         "id" to "msg_1", "type" to "message", "role" to "assistant", "model" to "claude-haiku-5-5",
                         "content" to listOf(mapOf("type" to "text", "text" to text)),
                         "stop_reason" to stopReason, "stop_sequence" to null,
@@ -68,7 +68,7 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
                     ),
                 )
                 exchange.responseHeaders.add("Content-Type", "application/json")
-                exchange.sendResponseHeaders(200, response.size.toLong())
+                exchange.sendResponseHeaders(status, response.size.toLong())
                 exchange.responseBody.use { it.write(response) }
             }
             server.start()
@@ -89,7 +89,7 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
                 serve("end_turn", """{"choice":1,"confidence":0.9,"readName":"새우깡"}""") { baseUrl, body ->
                     val decision = decider(baseUrl).decide("https://cdn.test/a.jpg", listOf(NameCandidate("새우깡", "농심")))
 
-                    decision.choiceIndex shouldBe 0
+                    decision.choice shouldBe 1
                     decision.model shouldBe "claude-haiku-5-5"
                     decision.inputTokens shouldBe 1960
                     val sent = ObjectMapper().readTree(body())
@@ -98,6 +98,23 @@ class AnthropicProcessedFoodNameDeciderTest : BehaviorSpec({
                     sent.path("messages")[0].path("content")[1].path("text").asText() shouldBe "1\t새우깡\t농심"
                     sent.path("output_config").path("format").path("type").asText() shouldBe "json_schema"
                     sent.path("output_config").path("format").path("schema").path("required").map { it.asText() } shouldBe listOf("choice", "confidence", "readName")
+                }
+            }
+        }
+
+        `when`("사진 URL 을 가져오지 못해 400 이 오면") {
+            then("사진 없음 예외를 던진다") {
+                serve("end_turn", "", status = 400, error = "Unable to download the file. Please verify the URL and try again.") { baseUrl, _ ->
+                    shouldThrow<NameDecisionImageUnavailable> { decider(baseUrl).decide("https://cdn.test/a.jpg", listOf(NameCandidate("새우깡", null))) }
+                }
+            }
+        }
+
+        `when`("이미지와 무관한 400 이면") {
+            then("사진 없음으로 보지 않는다") {
+                serve("end_turn", "", status = 400, error = "max_tokens: Field required") { baseUrl, _ ->
+                    val e = shouldThrow<RuntimeException> { decider(baseUrl).decide("https://cdn.test/a.jpg", listOf(NameCandidate("새우깡", null))) }
+                    (e is NameDecisionImageUnavailable) shouldBe false
                 }
             }
         }

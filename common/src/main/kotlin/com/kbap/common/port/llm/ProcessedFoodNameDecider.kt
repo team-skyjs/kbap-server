@@ -7,7 +7,7 @@ fun interface ProcessedFoodNameDecider {
 data class NameCandidate(val name: String, val maker: String?)
 
 data class NameDecision(
-    val choiceIndex: Int?,
+    val choice: Int?,
     val confidence: Double,
     val readName: String?,
     val model: String,
@@ -16,3 +16,5 @@ data class NameDecision(
 )
 
 class NameDecisionRefused : RuntimeException("모델이 판별을 거절했다(stop_reason=refusal)")
+
+class NameDecisionImageUnavailable(cause: Throwable) : RuntimeException("모델이 사진 URL 을 가져오지 못했다", cause)

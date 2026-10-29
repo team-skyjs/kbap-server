@@ -4,6 +4,7 @@ import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.port.llm.NameCandidate
+import com.kbap.common.port.llm.NameDecisionImageUnavailable
 import com.kbap.common.port.llm.NameDecisionRefused
 import com.kbap.common.port.llm.ProcessedFoodNameDecider
 import com.kbap.common.util.ImageUrls
@@ -124,15 +125,17 @@ class ProcessedFoodNameDecisionService(
                     ),
                 )
             }.onFailure { log.warn("이름 스캔 판별 비용 이벤트 발행 실패", it) }
+            val chosen = decision.choice?.let { offered.getOrNull(it - 1) }
+            val outside = decision.choice != null && chosen == null
             mapOf(
                 "model" to decision.model,
-                "choice" to decision.choiceIndex?.let { offered[it].reportNo },
+                "choice" to chosen?.reportNo,
                 "confidence" to decision.confidence,
                 "readName" to decision.readName,
                 "latencyMs" to elapsedMillis(started),
                 "costKrw" to costKrw.toDouble(),
                 "at" to at,
-            )
+            ).let { if (outside) it - "choice" + ("error" to "outside") else it }
         } catch (e: Exception) {
             val reason = reasonOf(e)
             log.warn("가공식품 이름 스캔 판별 실패 — 응답에는 영향 없음, reason={}", reason, e)
@@ -171,6 +174,7 @@ class ProcessedFoodNameDecisionService(
 
         fun reasonOf(e: Throwable): String = when {
             e is NameDecisionRefused -> "refusal"
+            e is NameDecisionImageUnavailable -> "image"
             generateSequence(e) { it.cause }.any { it is InterruptedIOException || it is TimeoutException } -> "timeout"
             else -> "error"
         }
