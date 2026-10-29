@@ -46,7 +46,9 @@ data class FoodIngredientRetroJob(
     val addedCodeCount: Int = 0,
     @field:Schema(description = "재료 21개 상한 때문에 건너뛴 음식 id — 사람 판단 필요")
     val skippedCapFoodIds: List<Long> = emptyList(),
-    @field:Schema(description = "호출이 실패한 음식 id — 판정 기록을 남기지 않아 다시 돌리면 이것만 다시 부른다")
+    @field:Schema(description = "재료가 아직 평가되지 않은(null) READY 음식 id — 부분 목록이 되면 다른 회피 재료가 UNKNOWN 대신 SAFE 가 되므로 붙이지 않는다(재수집으로 전체 평가)")
+    val skippedUnassessedFoodIds: List<Long> = emptyList(),
+    @field:Schema(description = "호출 또는 반영 쓰기가 실패한 음식 id — 판정 기록을 남기지 않아 다시 돌리면 이것만 다시 부른다(호출 뒤 쓰기 실패는 호출·비용 합계에 포함)")
     val failedFoodIds: List<Long> = emptyList(),
     @field:Schema(description = "코드별 확률 분포 — lt1(<1%) · 1to10 · 10to50 · 50to90 · ge90(≥90%)")
     val probabilityBuckets: Map<String, Map<String, Int>> = emptyMap(),

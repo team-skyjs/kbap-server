@@ -96,8 +96,17 @@ class FoodIngredientRetroService(
         try {
             val ids = foods.findIdsByContentStatus(FoodContentStatus.READY).let { ready -> foodIds?.toSet()?.let { wanted -> ready.filter { it in wanted } } ?: ready }
             update { it.copy(readyCount = ids.size) }
-            val tasks = ids.map { id -> Callable { process(id, codes, job.dryRun, ::update) } }
-            workers.invokeAll(tasks)
+            val tasks = ids.map { id ->
+                Callable {
+                    try {
+                        process(id, codes, job.dryRun, ::update)
+                    } catch (e: Exception) {
+                        log.warn("재료 소급 판정 음식 처리 실패 — 건너뛰고 재실행으로 보강 foodId={}", id, e)
+                        update { it.copy(failedFoodIds = it.failedFoodIds + id) }
+                    }
+                }
+            }
+            workers.invokeAll(tasks).forEach { it.get() }
             update { it.copy(status = FoodIngredientRetroJob.Status.DONE, finishedAt = Instant.now().toString()) }
             log.info("재료 소급 판정 끝 jobId={} codes={} dryRun={} 요약={}", job.jobId, job.codes, job.dryRun, mapper.writeValueAsString(job))
         } catch (e: Exception) {
@@ -107,7 +116,9 @@ class FoodIngredientRetroService(
     }
 
     private fun process(foodId: Long, codes: List<IngredientCode>, dryRun: Boolean, update: ((FoodIngredientRetroJob) -> FoodIngredientRetroJob) -> Unit) {
-        val food = readTransaction.execute { foods.findById(foodId).orElse(null)?.takeIf { it.isReady() }?.let(::snapshotOf) } ?: return
+        val loaded = readTransaction.execute { foods.findById(foodId).orElse(null) }?.takeIf { it.isReady() } ?: return
+        if (!isAssessed(loaded)) return update { it.copy(skippedUnassessedFoodIds = it.skippedUnassessedFoodIds + foodId) }
+        val food = snapshotOf(loaded)
         val missing = codes.filter { code -> code.name !in food.currentCodes && !isJudged(code, foodId) }
         if (missing.isEmpty()) return
         update { it.copy(targetCount = it.targetCount + 1, estimatedCostKrw = it.estimatedCostKrw + estimatedKrwPerCall) }
@@ -122,8 +133,13 @@ class FoodIngredientRetroService(
         val additions = missing.mapNotNull { code ->
             decisions.byCode[code]?.probability?.takeIf { it >= MIN_PROBABILITY }?.let { FoodIngredient(code.name, (it * 100).roundToInt().coerceIn(1, 100)) }
         }
-        val outcome = if (additions.isEmpty()) Outcome.NONE else writeTransaction.execute { apply(foodId, additions) } ?: Outcome.NONE
-        missing.filter { it in decisions.byCode }.forEach { markJudged(it, foodId) }
+        val outcome = try {
+            if (additions.isEmpty()) Outcome.NONE else writeTransaction.execute { apply(foodId, additions) } ?: Outcome.NONE
+        } catch (e: Exception) {
+            log.warn("재료 소급 판정 반영 실패 — 판정 기록을 남기지 않아 재실행 때 다시 부른다 foodId={}", foodId, e)
+            Outcome.FAILED
+        }
+        if (outcome != Outcome.FAILED) missing.filter { it in decisions.byCode }.forEach { markJudged(it, foodId) }
         update { current ->
             current.copy(
                 calledCount = current.calledCount + 1,
@@ -131,6 +147,8 @@ class FoodIngredientRetroService(
                 addedFoodCount = current.addedFoodCount + if (outcome == Outcome.ADDED) 1 else 0,
                 addedCodeCount = current.addedCodeCount + if (outcome == Outcome.ADDED) additions.size else 0,
                 skippedCapFoodIds = if (outcome == Outcome.CAP) current.skippedCapFoodIds + foodId else current.skippedCapFoodIds,
+                skippedUnassessedFoodIds = if (outcome == Outcome.UNASSESSED) current.skippedUnassessedFoodIds + foodId else current.skippedUnassessedFoodIds,
+                failedFoodIds = if (outcome == Outcome.FAILED) current.failedFoodIds + foodId else current.failedFoodIds,
                 probabilityBuckets = decisions.byCode.entries.fold(current.probabilityBuckets) { buckets, (code, presence) ->
                     val byBucket = buckets[code.name].orEmpty()
                     val bucket = bucketOf(presence.probability)
@@ -140,10 +158,11 @@ class FoodIngredientRetroService(
         }
     }
 
-    private enum class Outcome { ADDED, CAP, NONE }
+    private enum class Outcome { ADDED, CAP, UNASSESSED, FAILED, NONE }
 
     private fun apply(foodId: Long, additions: List<FoodIngredient>): Outcome {
         val food = foods.findByIdForUpdate(foodId)?.takeIf { it.isReady() } ?: return Outcome.NONE
+        if (!isAssessed(food)) return Outcome.UNASSESSED
         val current = food.ingredients.orEmpty()
         val fresh = additions.filter { addition -> current.none { it.code == addition.code } }
         if (fresh.isEmpty()) return Outcome.NONE
@@ -152,6 +171,8 @@ class FoodIngredientRetroService(
         foodIngredients.replace(food.id, food.ingredients)
         return Outcome.ADDED
     }
+
+    private fun isAssessed(food: Food): Boolean = food.ingredientsAssessed && food.ingredients != null
 
     private fun snapshotOf(food: Food) = IngredientDecisionFood(
         koreanName = food.koreanName,

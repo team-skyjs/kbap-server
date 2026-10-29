@@ -231,6 +231,46 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
                 }
             }
 
+            `when`("재료가 아직 평가되지 않은(null) READY 음식이면") {
+                then("부르지 않고 skippedUnassessedFoodIds 로 보고하며 미평가 상태를 그대로 둔다 — 부분 목록이 되면 다른 회피 재료가 UNKNOWN 대신 SAFE 가 된다") {
+                    val unassessed = food("미평가")
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE food SET ingredients = NULL, ingredients_assessed = 0 WHERE id = ${unassessed.id}") } }
+                    fake.probabilityOf = { 0.9 }
+
+                    val result = runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false))
+
+                    fake.calls.size shouldBe 0
+                    result.path("skippedUnassessedFoodIds").map { it.asLong() } shouldBe listOf(unassessed.id)
+                    result.path("targetCount").asInt() shouldBe 0
+                    val reloaded = foods.findById(unassessed.id).orElseThrow()
+                    reloaded.ingredients shouldBe null
+                    reloaded.ingredientsAssessed shouldBe false
+                }
+            }
+
+            `when`("호출은 됐는데 반영 쓰기가 실패하면") {
+                then("작업은 끝나되 그 음식은 failedFoodIds 로 남고 호출·비용 합계에도 들어가며, 판정 기록이 없어 다음 실행에서 다시 부른다") {
+                    val broken = food("쓰기실패")
+                    food("고수국수")
+                    dataSource.connection.use { c ->
+                        c.createStatement().use { it.execute("UPDATE food SET ingredients = '[{\"code\": \"NOT_A_CODE\", \"inclusion_percent\": 50}]' WHERE id = ${broken.id}") }
+                    }
+                    fake.probabilityOf = { 0.9 }
+
+                    val result = runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false))
+
+                    result.path("status").asText() shouldBe "DONE"
+                    result.path("failedFoodIds").map { it.asLong() } shouldBe listOf(broken.id)
+                    result.path("calledCount").asInt() shouldBe 2
+                    result.path("costKrw").asDouble() shouldBe (1.0 plusOrMinus 0.0001)
+                    result.path("addedFoodCount").asInt() shouldBe 1
+
+                    fake.calls.clear()
+                    runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false))
+                    fake.calls.map { it.first } shouldBe listOf("소급-쓰기실패")
+                }
+            }
+
             `when`("foodIds 를 주면") {
                 then("그 READY 음식만 대상이다") {
                     val target = food("고수국수")
