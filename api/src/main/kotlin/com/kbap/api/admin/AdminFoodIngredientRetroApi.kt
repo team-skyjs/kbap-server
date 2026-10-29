@@ -15,12 +15,12 @@ interface AdminFoodIngredientRetroApi {
     @Operation(
         summary = "새 재료 소급 판정 시작",
         description = """
-            READY 음식마다 LLM 을 1회 불러 지정 재료 코드가 들어갈 확률(0~1)을 받고, 1% 이상이면
+            READY 음식마다 LLM 을 1회 불러 지정 재료 코드가 들어갈 확률(0~1)을 받고, round(p×100) 이 반영 기준(`thresholdPercent`, 설정 `kbap.food.ingredient-retro.min-percent` · env `INGREDIENT_RETRO_MIN_PERCENT`, 기본 30) 이상이면
             `food.ingredients` 에 `{code, inclusion_percent = round(p×100)}` 를 바로 더한다(사람 승인 없음). 202 와 jobId 를 즉시 돌려주고
             API 프로세스 배경에서 동시 5건으로 처리한다.
 
             - 대상: READY 이고 그 코드가 아직 없으며 지금 재료 목록(음식 version)으로 판정한 적 없는 음식. 같은 코드로 다시 돌리면 이미 판정한 음식은 호출 0이다(멱등). 판정 뒤 음식이 수정돼 version 이 오르면 다시 대상이 된다.
-            - 기본은 이미 있는 코드를 바꾸지 않는다. `rejudge=true` 면 판정 기록·이미 있는 코드를 무시하고 대상 전부를 다시 판정해 그 코드 항목을 교체한다 — 1% 이상은 비율 갱신·추가, 1% 미만은 `food.ingredients` 와 재료 관계에서 제거(`removedCodeCount`).
+            - 기본은 이미 있는 코드를 바꾸지 않는다. `rejudge=true` 면 판정 기록·이미 있는 코드를 무시하고 대상 전부를 다시 판정해 그 코드 항목을 교체한다 — 기준 이상은 비율 갱신·추가, 기준 미만은 `food.ingredients` 와 재료 관계에서 제거(`removedCodeCount`).
             - 재료가 21개를 넘게 되면 그 음식은 건너뛰고 `skippedCapFoodIds` 로 보고한다. 상한·미평가·도중 READY 이탈로 반영하지 못한 음식은 판정 기록을 남기지 않아 다시 돌리면 다시 부른다.
             - 재료가 아직 평가되지 않은(null) 음식은 부르지 않고 `skippedUnassessedFoodIds` 로 보고한다 — 일부 코드만 붙이면 다른 회피 재료가 UNKNOWN 대신 SAFE 로 바뀐다.
             - 호출이나 반영 쓰기가 실패했거나 판정 중에 음식이 수정된(version 변경 — 옛 판정은 버린다) 음식은 `failedFoodIds` 로 남고 판정 기록이 없어 다시 돌리면 그것만 다시 부른다.

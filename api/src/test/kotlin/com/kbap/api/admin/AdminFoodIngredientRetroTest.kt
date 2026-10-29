@@ -16,6 +16,7 @@ import com.kbap.common.port.llm.IngredientDecider
 import com.kbap.common.port.llm.IngredientDecisionFood
 import com.kbap.common.port.llm.IngredientDecisions
 import com.kbap.common.port.llm.IngredientPresence
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -157,14 +158,17 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
 
         given("새 재료 소급 판정 — POST /api/admin/foods/ingredients/retro") {
             `when`("dryRun 으로 부르면") {
-                then("호출 0회로 대상 수와 예상 비용만 준다 — READY 이고 아직 그 코드가 없는 음식만 대상이다") {
+                then("호출 0회로 대상 수와 예상 비용만 준다 — READY 이고 아직 그 코드가 없는 음식만 대상이며, 시작·조회 응답에 반영 기준(기본 30)을 준다") {
                     food("고수국수")
                     food("비빔밥")
                     food("이미있음", ingredients = listOf(FoodIngredient("CORIANDER", 70)))
                     food("검수중", status = FoodContentStatus.PENDING_REVIEW)
 
+                    post(mapOf("codes" to listOf("CORIANDER"), "dryRun" to true), 202).path("payload").path("thresholdPercent").asInt() shouldBe 30
+                    retro.awaitIdle()
                     val result = runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to true))
 
+                    result.path("thresholdPercent").asInt() shouldBe 30
                     fake.calls.size shouldBe 0
                     result.path("status").asText() shouldBe "DONE"
                     result.path("dryRun").asBoolean() shouldBe true
@@ -175,7 +179,7 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
             }
 
             `when`("실제로 돌리면") {
-                then("READY 음식마다 1회 부르고 1% 이상만 round(p×100) 로 더하며, 21개 상한은 건너뛰고 보고한다") {
+                then("READY 음식마다 1회 부르고 round(p×100) 이 반영 기준(기본 30) 이상인 것만 더하며(29 미반영·30 반영), 21개 상한은 건너뛰고 보고한다") {
                     val high = food("고수국수")
                     val low = food("비빔밥")
                     val edge = food("반미")
@@ -183,14 +187,14 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
                     val full = food("꽉참", ingredients = fullCodes.map { FoodIngredient(it.name, 10) })
                     val pending = food("검수중", status = FoodContentStatus.PENDING_REVIEW)
                     val versionBefore = foods.findById(high.id).orElseThrow().version
-                    fake.probabilityOf = { name, _ -> mapOf("소급-고수국수" to 0.876, "소급-비빔밥" to 0.004, "소급-반미" to 0.01, "소급-꽉참" to 0.5)[name] ?: 0.0 }
+                    fake.probabilityOf = { name, _ -> mapOf("소급-고수국수" to 0.876, "소급-비빔밥" to 0.29, "소급-반미" to 0.30, "소급-꽉참" to 0.5)[name] ?: 0.0 }
 
                     val result = runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false))
 
                     fake.calls.map { it.first } shouldContainExactlyInAnyOrder listOf("소급-고수국수", "소급-비빔밥", "소급-반미", "소급-꽉참")
                     fake.calls.forEach { it.second shouldBe listOf(coriander) }
                     codesOf(high)["CORIANDER"] shouldBe 88
-                    codesOf(edge)["CORIANDER"] shouldBe 1
+                    codesOf(edge)["CORIANDER"] shouldBe 30
                     codesOf(low).containsKey("CORIANDER") shouldBe false
                     codesOf(already)["CORIANDER"] shouldBe 70
                     codesOf(full).size shouldBe Food.MAX_INGREDIENTS
@@ -212,8 +216,7 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
                     result.path("skippedCapFoodIds").map { it.asLong() } shouldBe listOf(full.id)
                     result.path("costKrw").asDouble() shouldBe (2.0 plusOrMinus 0.0001)
                     result.path("probabilityBuckets").path("CORIANDER").let { buckets ->
-                        buckets.path("lt1").asInt() shouldBe 1
-                        buckets.path("1to10").asInt() shouldBe 1
+                        buckets.path("10to50").asInt() shouldBe 2
                         buckets.path("50to90").asInt() shouldBe 2
                     }
                 }
@@ -340,7 +343,7 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
             }
 
             `when`("rejudge 로 부르면") {
-                then("판정 기록과 이미 있는 코드를 무시하고 전부 다시 불러, 1% 이상은 비율을 바꾸거나 더하고 1% 미만은 JSON·관계에서 뺀다") {
+                then("판정 기록과 이미 있는 코드를 무시하고 전부 다시 불러, 반영 기준 이상은 비율을 바꾸거나 더하고 기준 미만(라면 20%)은 JSON·관계에서 뺀다") {
                     val ramen = food("라면", ingredients = listOf(FoodIngredient("SOY", 80), FoodIngredient("CORIANDER", 60)))
                     val banhMi = food("반미", ingredients = listOf(FoodIngredient("CORIANDER", 70)))
                     val pho = food("쌀국수")
@@ -348,7 +351,7 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
                     runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false))
                     relationPercentOf(ramen, "CORIANDER") shouldBe 60
                     fake.calls.clear()
-                    fake.probabilityOf = { name, _ -> mapOf("소급-라면" to 0.0, "소급-반미" to 0.9, "소급-쌀국수" to 0.5)[name] ?: 0.0 }
+                    fake.probabilityOf = { name, _ -> mapOf("소급-라면" to 0.2, "소급-반미" to 0.9, "소급-쌀국수" to 0.5)[name] ?: 0.0 }
 
                     val dry = runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to true, "rejudge" to true))
                     fake.calls.size shouldBe 0
@@ -437,6 +440,26 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
             }
         }
 
+        given("반영 기준 설정") {
+            `when`("1~100 밖이면") {
+                then("서비스를 만들지 않는다(기동 실패)") {
+                    listOf(0, 101).forEach { percent ->
+                        shouldThrow<IllegalArgumentException> {
+                            FoodIngredientRetroService(
+                                StaticListableBeanFactory().getBeanProvider(IngredientDecider::class.java),
+                                foods,
+                                foodIngredients,
+                                redis,
+                                transactionManager,
+                                0.3,
+                                percent,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         given("배경 실행 중 애플리케이션이 내려갈 때") {
             `when`("종료 훅이 돌면") {
                 then("돌던 작업은 FAILED 로 끝나고 잠금이 풀려 같은 코드를 바로 다시 시작할 수 있다") {
@@ -449,6 +472,7 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
                         redis,
                         transactionManager,
                         0.3,
+                        30,
                     )
                     stopping.decider = FakeDecider().also { it.gate = gate }
                     val job = stopping.startRetro(listOf("CORIANDER"), dryRun = false, rejudge = false, foodIds = null)

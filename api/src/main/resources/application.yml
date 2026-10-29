@@ -87,6 +87,10 @@ spring:
         speech: none
 
 kbap:
+  food:
+    # 새 재료 소급 판정(KB-896) 반영 기준 — round(p×100) 이 이 값 이상이면 붙이고, rejudge 에서 미만이면 뺀다(1~100, 예진 10/30 결정 30).
+    ingredient-retro:
+      min-percent: ${INGREDIENT_RETRO_MIN_PERCENT:30}
   # 콘텐츠 아웃박스 — 회수 잡은 batch 프로세스가 돌리고 방치 카운트는 여기(api) 가 센다.
   # 두 프로세스가 yml 을 따로 읽으므로 같은 환경변수를 양쪽에 매핑해 둔다. 한쪽만 고치면
   # 잡은 새 기준으로 돌고 대시보드는 옛 기준으로 세면서 양쪽 다 "정상" 으로 보인다.

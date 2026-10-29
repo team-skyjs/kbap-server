@@ -14,7 +14,7 @@ data class FoodIngredientRetroRequest(
     @field:NotNull(message = "dryRun 은 필수입니다")
     @field:Schema(description = "true 면 호출 0회로 대상 수·예상 비용만 센다", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
     val dryRun: Boolean? = null,
-    @field:Schema(description = "true 면 판정 기록·이미 있는 코드를 무시하고 대상 전부를 다시 판정해 그 코드 항목을 교체한다 — 1% 이상은 비율 갱신·추가, 1% 미만은 제거. dryRun 과 함께면 호출·교체 0(예상만). 기본 false", example = "false", nullable = true)
+    @field:Schema(description = "true 면 판정 기록·이미 있는 코드를 무시하고 대상 전부를 다시 판정해 그 코드 항목을 교체한다 — round(p×100) 이 반영 기준(thresholdPercent) 이상이면 비율 갱신·추가, 미만이면 제거. dryRun 과 함께면 호출·교체 0(예상만). 기본 false", example = "false", nullable = true)
     val rejudge: Boolean? = null,
     @field:Size(max = 10000, message = "foodIds 는 10000개 이하여야 합니다")
     @field:Schema(description = "대상 음식 id(선택). 생략하면 READY 전부, 주면 그중 READY 인 것만", example = "[101, 102]", nullable = true)
@@ -25,6 +25,8 @@ data class FoodIngredientRetroRequest(
 data class FoodIngredientRetroStartResponse(
     @field:Schema(description = "작업 id — GET /api/admin/foods/ingredients/retro/{jobId} 로 진행·결과를 본다")
     val jobId: String,
+    @field:Schema(description = "이 작업에 적용된 반영 기준(%) — round(p×100) 이 이 값 이상이면 붙인다", example = "30")
+    val thresholdPercent: Int,
 )
 
 @Schema(description = "소급 판정 작업 진행·결과(Redis 에 7일 보관)")
@@ -33,6 +35,8 @@ data class FoodIngredientRetroJob(
     val codes: List<String>,
     val dryRun: Boolean,
     val rejudge: Boolean = false,
+    @field:Schema(description = "이 작업에 적용된 반영 기준(%) — round(p×100) 이 이 값 이상이면 붙인다(설정 kbap.food.ingredient-retro.min-percent, 기본 30). 기준 도입 전 작업은 1")
+    val thresholdPercent: Int = 1,
     @field:Schema(description = "RUNNING · DONE · FAILED(중단·배포 종료 — 이미 반영된 음식은 그대로, 같은 요청을 다시 보내면 남은 것만 이어 간다)")
     val status: Status,
     val startedAt: String,
