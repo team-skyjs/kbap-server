@@ -1,6 +1,6 @@
 # 원재료·알레르기 원문 판독 사전. 표기<TAB>코드(쉼표 구분, - 는 알레르기 아님 확정)<TAB>exact|contains|block
 # exact: 토큰 전체가 같을 때만. contains: 토큰 안에 있으면(바로 뒤 말이 맛·향·풍미·향료면 제외). block: 토큰에서 먼저 지우고 코드를 더한다(오탐 방지). suppress: 토큰에 있으면 그 코드를 마지막에 지운다(무알코올맥주·캐슈밀크처럼 다른 용어가 남는 복합어).
-# 원칙: 긍정 오탐 0 우선 — 애매한 재료(레시틴·마가린·글루텐·물엿·마요네즈·고추장 등)는 넣지 않아 미매핑으로 남긴다.
+# 원칙: 긍정 오탐 0 우선 — 애매한 재료(레시틴·마가린·물엿·마요네즈·고추장 등)는 넣지 않아 미매핑으로 남긴다. 글루텐은 KB-912 에서 밀로 확정(옥수수글루텐은 옥수수, 글루텐프리는 block).
 계란	EGG	contains
 달걀	EGG	contains
 전란	EGG	contains
@@ -180,10 +180,10 @@
 돈피	PORK	contains
 돈혈	PORK	contains
 라드	LARD	contains
-돈지	LARD	exact
+돈지	LARD	contains
 돈지방	LARD	contains
 돼지지방	LARD	contains
-우지	TALLOW	exact
+우지	TALLOW	contains
 닭	CHICKEN	contains
 계육	CHICKEN	contains
 치킨	CHICKEN	contains
@@ -312,3 +312,37 @@
 식물성젤라틴	GELATIN	suppress
 물고기	MEAT_BROTH	suppress
 한천젤라틴	GELATIN	suppress
+# KB-912 보강(10/30 카탈로그 14,616개 측정) — 이름에 유래가 드러나는 파생 재료만. 빈도·근거는 PR 본문.
+글루텐	WHEAT	contains
+콘글루텐	CORN	block
+옥수수글루텐	CORN	block
+글루텐프리	-	block
+빵가루	WHEAT	contains
+우동면	WHEAT	contains
+메주	SOY	contains
+청국장	SOY	contains
+낫토	SOY	contains
+유부	SOY	contains
+유부초밥	-	block
+유부조미액	-	block
+유정란	EGG	contains
+메추리알	EGG	contains
+메추리알모양	-	block
+난단백	EGG	contains
+에그알부민	EGG	contains
+에그요크	EGG	contains
+스크램블에그	EGG	contains
+스크램블드에그	EGG	contains
+에그스크램블	EGG	contains
+에그스크럼블	EGG	contains
+훼이	MILK	contains
+락토페린	MILK	contains
+알파락트알부민	MILK	contains
+우지방	-	block
+돈지쇼트닝프리	-	block
+케찹	TOMATO	contains
+케첩	TOMATO	contains
+케찹스파이스	-	block
+케찹향신료	-	block
+크랩	CRAB	contains
+실크랩	-	block

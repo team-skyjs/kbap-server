@@ -461,4 +461,36 @@ class IngredientLabelReaderTest : BehaviorSpec({
             }
         }
     }
+
+    given("KB-912 이름에 유래가 드러나는 파생 재료") {
+        `when`("원재료에 나오면") {
+            then("밀·대두·알류·우유·토마토·게·우지·돈지로 읽는다") {
+                mapOf(
+                    "글루텐" to IngredientCode.WHEAT, "활성글루텐3.1%" to IngredientCode.WHEAT, "글루텐펩타이드" to IngredientCode.WHEAT,
+                    "빵가루" to IngredientCode.WHEAT, "건식빵가루" to IngredientCode.WHEAT, "우동면사리" to IngredientCode.WHEAT,
+                    "메주가루" to IngredientCode.SOY, "청국장분말" to IngredientCode.SOY, "낫토추출물" to IngredientCode.SOY, "조미유부" to IngredientCode.SOY,
+                    "유정란" to IngredientCode.EGG, "깐메추리알" to IngredientCode.EGG, "난단백" to IngredientCode.EGG, "에그알부민파우더" to IngredientCode.EGG,
+                    "에그요크파우더" to IngredientCode.EGG, "스크램블에그" to IngredientCode.EGG,
+                    "훼이파우더" to IngredientCode.MILK, "락토페린농축물" to IngredientCode.MILK, "알파락트알부민" to IngredientCode.MILK,
+                    "토마토케찹" to IngredientCode.TOMATO, "케첩" to IngredientCode.TOMATO, "크랩엑기스" to IngredientCode.CRAB,
+                    "정제우지" to IngredientCode.TALLOW, "우지경화유" to IngredientCode.TALLOW, "조미돈지" to IngredientCode.LARD, "돈지쇼트닝" to IngredientCode.LARD,
+                ).forEach { (term, code) ->
+                    withClue(term) { codes(IngredientLabelReader.read(null, term)) shouldContain code }
+                }
+            }
+        }
+        `when`("유래가 다르거나 '없음'을 뜻하는 복합어면") {
+            then("옥수수 글루텐은 밀이 아니라 옥수수다") {
+                listOf("콘글루텐", "옥수수글루텐", "옥수수 글루텐", "콘 글루텐").forEach { term ->
+                    withClue(term) { codes(IngredientLabelReader.read(null, term)) shouldBe setOf(IngredientCode.CORN) }
+                }
+            }
+
+            then("코드를 붙이지 않는다 — 글루텐프리·유부초밥 소스·케찹 향신료·메추리알 모양·실크 펩타이드·우지방·돈지 쇼트닝 프리") {
+                listOf("글루텐프리 쌀중화면", "글루텐 프리 쌀중화면", "유부초밥박사소스골드", "유부조미액베이스", "케찹스파이스믹스", "케찹향신료", "메추리알모양후레이크", "실크랩펩타이드", "우지방", "돈지쇼트닝프리").forEach { term ->
+                    withClue(term) { codes(IngredientLabelReader.read(null, term)) shouldBe emptySet() }
+                }
+            }
+        }
+    }
 })
