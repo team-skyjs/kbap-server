@@ -162,7 +162,7 @@ class FoodIngredientRetroService(
             if (!rejudge && percents.values.all { it == null }) {
                 Result(Outcome.NONE, loaded.version)
             } else {
-                writeTransaction.execute { apply(foodId, percents, rejudge) } ?: Result(Outcome.FAILED)
+                writeTransaction.execute { apply(foodId, loaded.version, percents, rejudge) } ?: Result(Outcome.FAILED)
             }
         } catch (e: Exception) {
             log.warn("재료 소급 판정 반영 실패 — 판정 기록을 남기지 않아 재실행 때 다시 부른다 foodId={}", foodId, e)
@@ -178,7 +178,7 @@ class FoodIngredientRetroService(
                 removedCodeCount = current.removedCodeCount + result.removed,
                 skippedCapFoodIds = if (result.outcome == Outcome.CAP) current.skippedCapFoodIds + foodId else current.skippedCapFoodIds,
                 skippedUnassessedFoodIds = if (result.outcome == Outcome.UNASSESSED) current.skippedUnassessedFoodIds + foodId else current.skippedUnassessedFoodIds,
-                failedFoodIds = if (result.outcome == Outcome.FAILED) current.failedFoodIds + foodId else current.failedFoodIds,
+                failedFoodIds = if (result.outcome == Outcome.FAILED || result.outcome == Outcome.STALE) current.failedFoodIds + foodId else current.failedFoodIds,
                 probabilityBuckets = decisions.byCode.entries.fold(current.probabilityBuckets) { buckets, (code, presence) ->
                     val byBucket = buckets[code.name].orEmpty()
                     val bucket = bucketOf(presence.probability)
@@ -188,12 +188,13 @@ class FoodIngredientRetroService(
         }
     }
 
-    private enum class Outcome { CHANGED, NONE, CAP, UNASSESSED, NOT_READY, FAILED }
+    private enum class Outcome { CHANGED, NONE, CAP, UNASSESSED, NOT_READY, STALE, FAILED }
 
     private data class Result(val outcome: Outcome, val version: Long? = null, val added: Int = 0, val removed: Int = 0)
 
-    private fun apply(foodId: Long, percents: Map<IngredientCode, Int?>, rejudge: Boolean): Result {
+    private fun apply(foodId: Long, judgedVersion: Long, percents: Map<IngredientCode, Int?>, rejudge: Boolean): Result {
         val food = foods.findByIdForUpdate(foodId)?.takeIf { it.isReady() } ?: return Result(Outcome.NOT_READY)
+        if (food.version != judgedVersion) return Result(Outcome.STALE)
         if (!isAssessed(food)) return Result(Outcome.UNASSESSED)
         val current = food.ingredients.orEmpty()
         val decided = percents.mapKeys { it.key.name }.filter { (code, percent) -> rejudge || (percent != null && current.none { it.code == code }) }

@@ -374,6 +374,27 @@ class AdminFoodIngredientRetroTest : BehaviorSpec() {
                 }
             }
 
+            `when`("판정 중에 음식이 수정되면") {
+                then("옛 스냅숏 판정으로 덮지 않고 failedFoodIds 로 남기며 판정 기록이 없어 다음 실행에서 다시 부른다") {
+                    val edited = food("라면", ingredients = listOf(FoodIngredient("SOY", 80), FoodIngredient("CORIANDER", 60)))
+                    fake.probabilityOf = { _, _ -> 0.0 }
+                    fake.duringCall = { sql("UPDATE food SET ingredients = '[{\"code\": \"CORIANDER\", \"inclusion_percent\": 30}]', version = version + 1 WHERE id = ${edited.id}") }
+
+                    val result = runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false, "rejudge" to true))
+
+                    result.path("failedFoodIds").map { it.asLong() } shouldBe listOf(edited.id)
+                    result.path("removedCodeCount").asInt() shouldBe 0
+                    codesOf(edited) shouldBe mapOf("CORIANDER" to 30)
+
+                    fake.duringCall = {}
+                    fake.calls.clear()
+                    fake.probabilityOf = { _, _ -> 0.9 }
+                    sql("UPDATE food SET ingredients = '[{\"code\": \"SOY\", \"inclusion_percent\": 80}]', version = version + 1 WHERE id = ${edited.id}")
+                    runToEnd(mapOf("codes" to listOf("CORIANDER"), "dryRun" to false))
+                    fake.calls.map { it.first } shouldBe listOf("소급-라면")
+                }
+            }
+
             `when`("foodIds 를 주면") {
                 then("그 READY 음식만 대상이다") {
                     val target = food("고수국수")
