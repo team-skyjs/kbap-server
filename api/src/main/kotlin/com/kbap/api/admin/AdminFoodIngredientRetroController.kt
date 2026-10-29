@@ -21,7 +21,7 @@ class AdminFoodIngredientRetroController(
     override fun startRetro(
         @Valid @RequestBody request: FoodIngredientRetroRequest,
     ): ResponseEntity<BaseResponse<FoodIngredientRetroStartResponse>> {
-        val job = retroService.startRetro(request.codes!!, request.dryRun!!, request.foodIds)
+        val job = retroService.startRetro(request.codes!!, request.dryRun!!, request.rejudge ?: false, request.foodIds)
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(BaseResponse.ok(FoodIngredientRetroStartResponse(job.jobId)))
     }
 

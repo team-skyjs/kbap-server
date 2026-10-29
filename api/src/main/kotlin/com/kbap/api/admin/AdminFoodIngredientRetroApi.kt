@@ -19,11 +19,13 @@ interface AdminFoodIngredientRetroApi {
             `food.ingredients` 에 `{code, inclusion_percent = round(p×100)}` 를 바로 더한다(사람 승인 없음). 202 와 jobId 를 즉시 돌려주고
             API 프로세스 배경에서 동시 5건으로 처리한다.
 
-            - 대상: READY 이고 그 코드가 아직 없으며 이전 실행에서 판정한 적 없는 음식. 같은 코드로 다시 돌리면 이미 판정한 음식은 호출 0이다(멱등).
-            - 이미 있는 코드는 바꾸지 않는다. 재료가 21개를 넘게 되면 그 음식은 건너뛰고 `skippedCapFoodIds` 로 보고한다.
+            - 대상: READY 이고 그 코드가 아직 없으며 지금 재료 목록(음식 version)으로 판정한 적 없는 음식. 같은 코드로 다시 돌리면 이미 판정한 음식은 호출 0이다(멱등). 판정 뒤 음식이 수정돼 version 이 오르면 다시 대상이 된다.
+            - 기본은 이미 있는 코드를 바꾸지 않는다. `rejudge=true` 면 판정 기록·이미 있는 코드를 무시하고 대상 전부를 다시 판정해 그 코드 항목을 교체한다 — 1% 이상은 비율 갱신·추가, 1% 미만은 `food.ingredients` 와 재료 관계에서 제거(`removedCodeCount`).
+            - 재료가 21개를 넘게 되면 그 음식은 건너뛰고 `skippedCapFoodIds` 로 보고한다. 상한·미평가·도중 READY 이탈로 반영하지 못한 음식은 판정 기록을 남기지 않아 다시 돌리면 다시 부른다.
             - 재료가 아직 평가되지 않은(null) 음식은 부르지 않고 `skippedUnassessedFoodIds` 로 보고한다 — 일부 코드만 붙이면 다른 회피 재료가 UNKNOWN 대신 SAFE 로 바뀐다.
             - 호출이나 반영 쓰기가 실패한 음식은 `failedFoodIds` 로 남고 판정 기록이 없어 다시 돌리면 그것만 다시 부른다.
-            - `dryRun=true` 면 호출 0회로 대상 수와 예상 비용(대상 × 1회 추정 단가)만 센다.
+            - `dryRun=true` 면 호출 0회로 대상 수와 예상 비용(대상 × 1회 추정 단가)만 센다. `rejudge` 와 함께여도 호출·교체 0이다.
+            - 배포 등으로 API 프로세스가 내려가면 진행 중이던 작업은 FAILED 로 닫히고 잠금이 풀린다 — 같은 요청을 다시 보내면 이어 간다.
             - 같은 코드 집합의 작업이 진행 중이면 409(FOOD-023). 모르는 코드는 400(FOOD-016), 빈 목록은 400(COMMON-002).
             - 콘텐츠 상태는 READY 그대로, 버전은 올라가고 벡터 재동기화는 하지 않는다. 비용은 호출마다 `llm_call_cost` 에 남는다.
             - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008).
@@ -39,7 +41,7 @@ interface AdminFoodIngredientRetroApi {
         ],
     )
     fun startRetro(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "판정할 코드·dryRun·대상 음식(선택)")
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "판정할 코드·dryRun·rejudge(선택)·대상 음식(선택)")
         request: FoodIngredientRetroRequest,
     ): ResponseEntity<BaseResponse<FoodIngredientRetroStartResponse>>
 

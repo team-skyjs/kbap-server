@@ -186,14 +186,15 @@ kbap:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.4
     # 새 재료 소급 판정(KB-896) — 어드민 소급 API 가 READY 음식마다 1회 호출(코드 목록 → 코드별 포함 여부·확률 구조화 출력).
-    # 가공식품 번역과 같은 저가 계열. 타임아웃은 음식당 10초, 재시도 없음(실패는 건너뛰고 재실행으로 보강 — 멱등).
+    # 가공식품 번역과 같은 저가 계열. 타임아웃은 음식당 20초, 재시도 없음(실패는 건너뛰고 재실행으로 보강 — 멱등).
+    # reasoning-effort 는 low(KB-898) — minimal 에서 근거 없는 중간 확률이 많이 나왔다(dev 10/30 실측).
     ingredient-decision:
       enabled: true
       api-key: ${OPENAI_API_KEY:}
       model: ${INGREDIENT_DECISION_MODEL:gpt-5-nano}
-      reasoning-effort: minimal
+      reasoning-effort: ${INGREDIENT_DECISION_REASONING_EFFORT:low}
       max-retries: 0
-      timeout: 10s
+      timeout: 20s
       pricing:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.4
