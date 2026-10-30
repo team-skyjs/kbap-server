@@ -13,7 +13,7 @@ import java.util.UUID
 
 data class CurationUploadResponse(val assetId: Long, val uploadUrl: String, val method: String, val requiredHeaders: Map<String, String>, val contentLength: Long, val expiresAt: Instant, val completeDeadline: Instant)
 data class CurationCompleteResponse(val assetId: Long, val state: String, val previewUrl: String)
-data class CurationDisplayBackfillResult(val dryRun: Boolean, val candidates: Int, val converted: Int, val failedAssetIds: List<Long>, val originalBytes: Long, val displayBytes: Long)
+data class CurationDisplayBackfillResult(val dryRun: Boolean, val candidates: Int, val converted: Int, val failedAssetIds: List<Long>, val originalBytes: Long, val displayBytes: Long, val nextAfterAssetId: Long? = null)
 
 @Service
 class CurationAssetService(
@@ -47,7 +47,7 @@ class CurationAssetService(
         return response(assetId, completed.finalKey ?: throw BusinessException(ErrorCode.CURATION_UNAVAILABLE))
     }
 
-    fun backfillDisplayVariants(adminId: Long, target: String, dryRun: Boolean, limit: Int): CurationDisplayBackfillResult {
+    fun backfillDisplayVariants(adminId: Long, target: String, dryRun: Boolean, limit: Int, afterAssetId: Long? = null): CurationDisplayBackfillResult {
         access.verifyAdmin(adminId, target)
         val candidates = transactions.getDisplayVariantCandidates()
         if (dryRun) return CurationDisplayBackfillResult(true, candidates.size, 0, emptyList(), 0, 0)

@@ -182,6 +182,33 @@ class CurationDisplayImageTest : BehaviorSpec() {
             }
         }
 
+        given("기존 자산 변형 백필 — 영구 실패 자산 건너뛰기(Codex P2 #501)") {
+            `when`("limit=1 이고 첫 자산이 변환에 실패하면") {
+                then("다음 호출은 afterAssetId 로 그 뒤 자산부터 처리해 두 번째 자산을 변환한다") {
+                    val broken = upload(byteArrayOf(7, 7, 7), "image/png")
+                    val convertible = upload(photo(1500, 1500, "png"), "image/png")
+                    jdbc.update("UPDATE curation_asset SET display_key = NULL")
+
+                    val first = service.backfillDisplayVariants(adminId, "dev", dryRun = false, limit = 1)
+                    first.failedAssetIds shouldBe listOf(broken)
+                    first.converted shouldBe 0
+                    first.nextAfterAssetId shouldBe broken
+
+                    val second = service.backfillDisplayVariants(adminId, "dev", dryRun = false, limit = 1, afterAssetId = first.nextAfterAssetId)
+                    second.converted shouldBe 1
+                    second.failedAssetIds shouldBe emptyList()
+                    second.nextAfterAssetId shouldBe convertible
+                    assets.findById(convertible).get().displayKey.shouldNotBeNull()
+
+                    service.backfillDisplayVariants(adminId, "dev", dryRun = false, limit = 1, afterAssetId = second.nextAfterAssetId).let {
+                        it.converted shouldBe 0
+                        it.failedAssetIds shouldBe emptyList()
+                        it.nextAfterAssetId.shouldBeNull()
+                    }
+                }
+            }
+        }
+
         given("표시용 변형 변환기") {
             val converter = CurationDisplayImageConverter()
 
