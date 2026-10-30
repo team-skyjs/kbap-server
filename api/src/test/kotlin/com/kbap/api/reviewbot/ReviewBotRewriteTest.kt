@@ -69,7 +69,7 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                     val ja = review(bots[1], food, long, "ja", rating = 3)
                     review(bots[2], food, short, "en")
 
-                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 100, seed = 1)
+                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 40, seed = 1)
 
                     result.candidates shouldBe 2
                     result.selected shouldBe 2
@@ -82,17 +82,22 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                 }
             }
 
-            `when`("실행하면") {
-                then("같은 seed 의 dryRun 이 뽑은 리뷰만 content·updated_at 을 바꾸고 별점·사진·작성일은 그대로다") {
-                    val ids = (1..4).map { review(bots[it - 1], food, long, "en") }
-                    val planned = rewriter.rewrite("dev", ratio = 0.5, dryRun = true, limit = 100, seed = 7).sample.map { it.reviewId }
-                    planned.size shouldBe 2
+            `when`("같은 seed 로 여러 번 나눠 실행하면") {
+                then("리뷰별로 고정된 표본에만 수렴해 비율을 넘지 않고, 다시 쓴 리뷰는 content·updated_at 만 바뀐다") {
+                    val foods = (1..8).map { foodRepository.save(Food(koreanName = "재작성음식$it", description = "설명", contentStatus = FoodContentStatus.READY)).id }
+                    val ids = (0 until 8).map { review(bots[it % 4], foods[it], long, "en") }
+                    val planned = rewriter.rewrite("dev", ratio = 0.5, dryRun = true, limit = 40, seed = 7).candidates
+                    (planned in 1..7) shouldBe true
 
-                    val result = rewriter.rewrite("dev", ratio = 0.5, dryRun = false, limit = 100, seed = 7)
+                    val rewritten = (1..planned + 3).flatMap {
+                        rewriter.rewrite("dev", ratio = 0.5, dryRun = false, limit = 1, seed = 7).sample.map { it.reviewId }
+                    }
 
-                    result.rewritten shouldBe 2
-                    ids.forEach { id -> contentOf(id) shouldBe if (id in planned) short else long }
-                    planned.forEach { id ->
+                    rewritten.size shouldBe planned
+                    rewritten.toSet().size shouldBe planned
+                    ids.forEach { id -> contentOf(id) shouldBe if (id in rewritten) short else long }
+                    rewriter.rewrite("dev", ratio = 0.5, dryRun = true, limit = 40, seed = 7).candidates shouldBe 0
+                    rewritten.forEach { id ->
                         rows("SELECT rating, CAST(image_refs AS CHAR), created_at, updated_at FROM food_review WHERE id = $id").single().let { (rating, images, created, updated) ->
                             (rating as Number).toInt() shouldBe 4
                             images.toString().contains("bot/1.webp") shouldBe true
@@ -100,8 +105,6 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                             (updated.toString() != created.toString()) shouldBe true
                         }
                     }
-
-                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 100, seed = 7).candidates shouldBe 2
                 }
             }
 
@@ -112,7 +115,7 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                     review(bots[0], food, long, null)
                     review(bots[1], food, long, null)
 
-                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 100, seed = 3)
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 40, seed = 3)
 
                     fakeGenerator.requests.map { it.language } shouldContainExactlyInAnyOrder listOf("Japanese", "English")
                 }
@@ -134,7 +137,7 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                         short
                     }
 
-                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 100, seed = 1)
+                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 40, seed = 1)
 
                     result.failedIds shouldBe listOf(contested)
                     contentOf(ids[0]) shouldBe short
@@ -148,7 +151,7 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                     val id = review(bots[0], food, long, "en")
                     fakeGenerator.reply = { long }
 
-                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 100, seed = 1)
+                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 40, seed = 1)
 
                     result.failedIds shouldBe listOf(id)
                     result.rewritten shouldBe 0
@@ -179,6 +182,15 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                 then("400 COMMON-002 다") {
                     call("dev", mapOf("ratio" to 1.5)).andExpect { status { isBadRequest() } }
                     call("dev", mapOf("ratio" to 0.5, "limit" to 0)).andExpect { status { isBadRequest() } }
+                    call("dev", mapOf("ratio" to 0.5, "limit" to 41)).andExpect { status { isBadRequest() } }
+                }
+            }
+
+            `when`("seed 없이 실제 실행(dryRun=false)을 부르면") {
+                then("400 이고 생성하지 않는다 — 나눠 부를 때 같은 표본을 보장할 수 없다") {
+                    review(bots[0], food, long, "en")
+                    call("dev", mapOf("ratio" to 0.5, "dryRun" to false)).andExpect { status { isBadRequest() } }
+                    fakeGenerator.requests.size shouldBe 0
                 }
             }
 
