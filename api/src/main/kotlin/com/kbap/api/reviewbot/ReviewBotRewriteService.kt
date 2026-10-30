@@ -8,6 +8,7 @@ import com.kbap.common.port.llm.ReviewTextGenerator
 import io.swagger.v3.oas.annotations.media.Schema
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
@@ -57,15 +58,20 @@ class ReviewBotRewriteService(
     }
 
     private fun save(candidate: Candidate, after: String): Boolean =
-        writeTransaction.execute {
-            val review = reviews.findById(candidate.id).orElse(null)
-            if (review == null || review.content != candidate.content) {
-                false
-            } else {
-                review.rewriteContent(after)
-                true
-            }
-        } == true
+        try {
+            writeTransaction.execute {
+                val review = reviews.findByIdForUpdate(candidate.id)
+                if (review == null || review.content != candidate.content) {
+                    false
+                } else {
+                    review.rewriteContent(after)
+                    true
+                }
+            } == true
+        } catch (e: OptimisticLockingFailureException) {
+            log.warn("리뷰 봇 재작성 — 저장 충돌로 건너뜀 reviewId={}", candidate.id, e)
+            false
+        }
 
     private data class Candidate(val id: Long, val foodId: Long, val rating: Int, val content: String, val language: String)
 

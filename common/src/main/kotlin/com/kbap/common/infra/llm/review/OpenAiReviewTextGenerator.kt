@@ -58,7 +58,8 @@ class OpenAiReviewTextGenerator(
                 "You write casual food reviews as a traveler who just ate the dish in Korea, like a quick message to a friend during the trip.",
                 "Rules:",
                 "- 1 or 2 short sentences in light, friendly internet-casual tone that sounds natural in the target language " +
-                    "(an occasional lol, ㅋㅋ or w is fine, keep it light). Keep within the character limit given in the request.",
+                    "using only casual or internet expressions a native speaker of that language would use without mixing in expressions from other languages. " +
+                    "Keep within the character limit given in the request.",
                 "- Plain text only, no title, no quotes, no emoji, no hashtags, no lists.",
                 "- Talk only about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
             ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }).joinToString("\n")

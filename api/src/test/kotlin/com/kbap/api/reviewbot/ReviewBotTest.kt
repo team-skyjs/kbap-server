@@ -473,7 +473,7 @@ class ReviewBotTest : BehaviorSpec() {
                 then("재생성까지 걸리면 저장하지 않는다") {
                     accountService.ensureBots(5)
                     seedFoods(5)
-                    fakeGenerator.reply = { "Loved this place, the restaurant staff were great and the photo does not do it justice." }
+                    fakeGenerator.reply = { "Loved it, the restaurant staff were great." }
 
                     run(writer(), todayAt(22))
 
@@ -556,7 +556,7 @@ class ReviewBotTest : BehaviorSpec() {
                     val behind = foodRepository.save(Food(koreanName = "뒷페이지음식", description = "설명", contentStatus = FoodContentStatus.READY))
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
-                        if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
+                        if (it.foodName.contains("가드실패")) "Loved it, the restaurant staff were great."
                         else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
@@ -577,7 +577,7 @@ class ReviewBotTest : BehaviorSpec() {
                     val behind = foodRepository.save(Food(koreanName = "뒷페이지음식", description = "설명", contentStatus = FoodContentStatus.READY))
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
-                        if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
+                        if (it.foodName.contains("가드실패")) "Loved it, the restaurant staff were great."
                         else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
@@ -629,6 +629,8 @@ class ReviewBotTest : BehaviorSpec() {
             `when`("시스템 프롬프트를 보면") {
                 then("한두 문장의 가벼운 인터넷 말투를 요구하고 기존 금지 규칙은 그대로다") {
                     OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("1 or 2 short sentences") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("without mixing in expressions from other languages") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("ㅋㅋ") shouldBe false
                     OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("no emoji, no hashtags") shouldBe true
                     OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("2 to 4 sentences") shouldBe false
                 }

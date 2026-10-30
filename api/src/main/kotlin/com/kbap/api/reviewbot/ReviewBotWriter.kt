@@ -150,7 +150,7 @@ class ReviewBotWriter(
             if (text != null) {
                 log.warn(
                     "리뷰 봇 생성물을 버린다(금지어 또는 앱 카드 상한 {}자 초과) foodId={} food={} attempt={} length={}",
-                    request.maxCharacters, foodId, request.foodName, attempt + 1, text.trim().length,
+                    request.maxCharacters, foodId, request.foodName, attempt + 1, text.trim().let { it.codePointCount(0, it.length) },
                 )
             }
         }
