@@ -93,10 +93,10 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                     result.rewritten shouldBe 2
                     ids.forEach { id -> contentOf(id) shouldBe if (id in planned) short else long }
                     planned.forEach { id ->
-                        rows("SELECT rating, image_refs, created_at, updated_at FROM food_review WHERE id = $id").single().let { (rating, images, created, updated) ->
+                        rows("SELECT rating, CAST(image_refs AS CHAR), created_at, updated_at FROM food_review WHERE id = $id").single().let { (rating, images, created, updated) ->
                             (rating as Number).toInt() shouldBe 4
                             images.toString().contains("bot/1.webp") shouldBe true
-                            created.toString().startsWith("2026-10-01 10:00") shouldBe true
+                            created.toString().startsWith("2026-10-01T10:00") shouldBe true
                             (updated.toString() != created.toString()) shouldBe true
                         }
                     }
