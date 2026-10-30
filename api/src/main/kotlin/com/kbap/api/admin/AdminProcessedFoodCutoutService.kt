@@ -36,16 +36,18 @@ class AdminProcessedFoodCutoutService(
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
     private val writeTransaction = TransactionTemplate(transactionManager)
 
-    fun presign(productId: Long, contentLength: Long): AdminProcessedFoodCutoutPresignResponse {
+    fun presign(productId: Long, contentLength: Long, contentSha256: String): AdminProcessedFoodCutoutPresignResponse {
         if (contentLength > MAX_BYTES) throw BusinessException(ErrorCode.IMAGE_TOO_LARGE)
-        val key = readTransaction.execute { keyOf(product(productId)) }!!
-        val upload = uploads.issue(key, CONTENT_TYPE, contentLength, UPLOAD_TTL)
+        val sha256 = contentSha256.lowercase().takeIf { SHA256_HEX.matches(it) } ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val key = readTransaction.execute { keyBaseOf(product(productId)) }!! + sha256.take(KEY_HASH_LENGTH) + KEY_SUFFIX
+        val checksum = Base64.getEncoder().encodeToString(sha256.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+        val upload = uploads.issue(key, CONTENT_TYPE, contentLength, UPLOAD_TTL, checksum)
         return AdminProcessedFoodCutoutPresignResponse(upload.uploadUrl, upload.requiredHeaders, upload.publicUrl, upload.objectKey, upload.expiresAt)
     }
 
     fun confirm(productId: Long, key: String, adminId: Long): AdminProcessedFoodCutoutResponse {
-        if (key != readTransaction.execute { keyOf(product(productId)) }) throw BusinessException(ErrorCode.INVALID_REQUEST)
-        val url = uploadedUrlOrNull(key) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_CUTOUT_NOT_UPLOADED)
+        if (!isKeyOf(readTransaction.execute { keyBaseOf(product(productId)) }!!, key)) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val url = verify(key).first ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_CUTOUT_NOT_UPLOADED)
         return writeTransaction.execute {
             product(productId).apply { saveApprovedCutout(url, adminId, LocalDateTime.now()) }.let(::responseOf)
         }!!
@@ -58,13 +60,13 @@ class AdminProcessedFoodCutoutService(
         if (items.isEmpty() || items.size > MAX_BULK_REGISTER) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val failures = mutableListOf<AdminCutoutRegisterFailure>()
         val duplicated = items.groupingBy { it.productId }.eachCount().filterValues { it > 1 }.keys
-        val known = readTransaction.execute { products.findAllById(items.mapNotNull { it.productId }.distinct()).associate { it.id to keyOf(it) } }!!
+        val known = readTransaction.execute { products.findAllById(items.mapNotNull { it.productId }.distinct()).associate { it.id to keyBaseOf(it) } }!!
 
         val candidates = items.mapNotNull { item ->
             val reason = when {
                 item.productId in duplicated -> "DUPLICATE"
                 item.productId == null || item.productId !in known -> "PRODUCT_NOT_FOUND"
-                item.key != known[item.productId] -> "KEY_MISMATCH"
+                !isKeyOf(known.getValue(item.productId), item.key) -> "KEY_MISMATCH"
                 item.route !in CUTOUT_ROUTES -> "INVALID_ROUTE"
                 item.coverage != null && (item.coverage < BigDecimal.ZERO || item.coverage > BigDecimal.ONE) -> "INVALID_COVERAGE"
                 else -> null
@@ -74,10 +76,11 @@ class AdminProcessedFoodCutoutService(
         }
 
         val verified = Executors.newFixedThreadPool(HEAD_PARALLELISM).use { pool ->
-            candidates.map { item -> pool.submit(Callable { item to uploadedUrlOrNull(item.key!!) }) }.map { it.get() }
+            candidates.map { item -> pool.submit(Callable { item to verify(item.key!!) }) }.map { it.get() }
         }
-        val registrable = verified.mapNotNull { (item, url) ->
-            if (url == null) failures += AdminCutoutRegisterFailure(item.productId, "NOT_UPLOADED")
+        val registrable = verified.mapNotNull { (item, result) ->
+            val (url, reason) = result
+            if (url == null) failures += AdminCutoutRegisterFailure(item.productId, reason ?: "NOT_UPLOADED")
             url?.let { item to it }
         }
 
@@ -181,16 +184,23 @@ class AdminProcessedFoodCutoutService(
         return AdminCutoutBulkApproveResponse(count, dryRun)
     }
 
-    private fun uploadedUrlOrNull(key: String): String? =
-        runCatching { store.head(key) }.getOrNull()
+    private fun verify(key: String): Pair<String?, String?> {
+        val head = runCatching { store.head(key) }.getOrNull()
             ?.takeIf { it.contentType == CONTENT_TYPE && it.sizeBytes in 1..MAX_BYTES }
-            ?.let { "${publicBaseUrl.trimEnd('/')}/$key?v=${it.lastModified.epochSecond}" }
+            ?: return null to "NOT_UPLOADED"
+        val sha256 = head.sha256Hex ?: return null to "CHECKSUM_MISSING"
+        if (sha256.take(KEY_HASH_LENGTH) != key.removeSuffix(KEY_SUFFIX).takeLast(KEY_HASH_LENGTH)) return null to "CHECKSUM_MISMATCH"
+        return "${publicBaseUrl.trimEnd('/')}/$key" to null
+    }
 
     private fun product(id: Long): ProcessedFoodProduct =
         products.findById(id).orElseThrow { BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND) }
 
-    private fun keyOf(product: ProcessedFoodProduct): String =
-        listOf(keyPrefix.trim('/'), "processed/cutout/${product.reportNo}.png").filter { it.isNotEmpty() }.joinToString("/")
+    private fun keyBaseOf(product: ProcessedFoodProduct): String =
+        listOf(keyPrefix.trim('/'), "processed/cutout/${product.reportNo}-").filter { it.isNotEmpty() }.joinToString("/")
+
+    private fun isKeyOf(keyBase: String, key: String?): Boolean =
+        key != null && key.startsWith(keyBase) && KEY_HASH_PART.matches(key.removePrefix(keyBase))
 
     private fun responseOf(product: ProcessedFoodProduct) =
         AdminProcessedFoodCutoutResponse(product.id, product.cutoutImageUrl, product.displayImageUrl())
@@ -206,5 +216,9 @@ class AdminProcessedFoodCutoutService(
         private const val HEAD_PARALLELISM = 8
         private const val COVERAGE_SCALE = 4
         private val UPLOAD_TTL = Duration.ofMinutes(10)
+        private const val KEY_HASH_LENGTH = 16
+        private const val KEY_SUFFIX = ".png"
+        private val KEY_HASH_PART = Regex("[0-9a-f]{16}\\.png")
+        private val SHA256_HEX = Regex("[0-9a-f]{64}")
     }
 }

@@ -10,4 +10,5 @@ data class ReviewDraftRequest(
     val ingredients: List<String>,
     val language: String,
     val rating: Int,
+    val maxCharacters: Int = 80,
 )

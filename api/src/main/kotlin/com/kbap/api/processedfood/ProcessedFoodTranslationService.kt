@@ -61,6 +61,7 @@ class ProcessedFoodTranslationService(
 
     fun localizeDetail(detail: ProcessedFoodDetailResponse, language: LanguageCode, member: Boolean): ProcessedFoodDetailResponse {
         if (language == LanguageCode.KO) return detail
+        val unclearLabels = UnclearIngredientLabels.labelsOf(detail.unclearIngredientLabels.map { it.term }, language)
         val deadline = if (member) System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(syncDeadlineMillis) else null
         val name = request(TranslationTargetType.PF_NAME, detail.id, detail.productName, language, deadline != null)
         val maker = detail.maker?.let { if (brandNameOf(it) != null) null else request(TranslationTargetType.PF_MAKER, detail.id, it, language, deadline != null) }
@@ -71,6 +72,7 @@ class ProcessedFoodTranslationService(
             maker = detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
             ingredients = detail.ingredients?.let { it.copy(translated = ingredients.await(null) ?: it.original) },
             allergenStatement = detail.allergenStatement?.let { it.copy(translated = allergens.await(null) ?: it.original) },
+            unclearIngredientLabels = unclearLabels,
         )
     }
 

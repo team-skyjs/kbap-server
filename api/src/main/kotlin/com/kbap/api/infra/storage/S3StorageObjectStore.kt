@@ -6,6 +6,7 @@ import com.kbap.common.port.storage.StoredObject
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.ChecksumMode
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
@@ -29,12 +30,14 @@ class S3StorageObjectStore(
     override fun head(path: String): StorageObjectMetadata? =
         try {
             val response = s3Client.headObject(
-                HeadObjectRequest.builder().bucket(bucket).key(path).build(),
+                HeadObjectRequest.builder().bucket(bucket).key(path).checksumMode(ChecksumMode.ENABLED).build(),
             )
             StorageObjectMetadata(
                 contentType = response.contentType() ?: "",
                 sizeBytes = response.contentLength(),
                 lastModified = response.lastModified(),
+                sha256Hex = response.checksumSHA256()?.takeIf { it.isNotBlank() && !it.contains('-') }
+                    ?.let { java.util.Base64.getDecoder().decode(it).joinToString("") { b -> "%02x".format(b) } },
             )
         } catch (e: NoSuchKeyException) {
             null

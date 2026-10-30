@@ -20,6 +20,21 @@ object ReviewBotContentGuard {
             text.trim().let { it.codePointCount(0, it.length) >= Review.MIN_CONTENT_LENGTH } &&
             FORBIDDEN.none { it.containsMatchIn(text) }
 
+    private val CARD_LIMITS: Map<String, Int> = mapOf(
+        "Korean" to 40,
+        "Japanese" to 40,
+        "Simplified Chinese" to 40,
+        "Traditional Chinese" to 40,
+        "Thai" to 60,
+    )
+
+    private const val LATIN_CARD_LIMIT = 80
+
+    fun maxLengthFor(language: String): Int = CARD_LIMITS[language] ?: LATIN_CARD_LIMIT
+
+    fun fitsCard(text: String, language: String): Boolean =
+        text.trim().let { it.codePointCount(0, it.length) <= maxLengthFor(language) }
+
     fun coverage(language: String): Map<ReviewBotForbiddenCategory, List<String>> =
         CATEGORIES.associateWith { it.terms(language) }
 }

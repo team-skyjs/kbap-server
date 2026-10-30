@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration
 
 class FakeReviewTextGenerator : ReviewTextGenerator {
     val requests: MutableList<ReviewDraftRequest> = mutableListOf()
-    var reply: (ReviewDraftRequest) -> String = { "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to." }
+    var reply: (ReviewDraftRequest) -> String = { DEFAULT_REPLY }
 
     override fun generate(request: ReviewDraftRequest): String {
         requests += request
@@ -16,7 +16,11 @@ class FakeReviewTextGenerator : ReviewTextGenerator {
 
     fun reset() {
         requests.clear()
-        reply = { "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to." }
+        reply = { DEFAULT_REPLY }
+    }
+
+    companion object {
+        const val DEFAULT_REPLY = "Warm, savory and so good lol"
     }
 }
 

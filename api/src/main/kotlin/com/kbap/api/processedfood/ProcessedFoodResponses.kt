@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.label.AllergenDeclaration
 import com.kbap.common.domain.ingredient.label.IngredientLabelMatch
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
@@ -147,6 +148,8 @@ data class ProcessedFoodDetailResponse(
     val mayContain: List<ProcessedFoodMayContainResponse>,
     @field:Schema(description = "내용 불명 원재료(향료·혼합제제·가공품·복합원재료 등 서버 사전) — SAFE_WITH_NOTE 근거", example = "[\"합성향료\"]")
     val unclearIngredients: List<String>,
+    @field:Schema(description = "unclearIngredients 에 걸린 서버 사전 용어(혼합제제·가공품·복합원재료·복합조미식품·시즈닝·조미료·양념·믹스·베이스)와 요청 lang 라벨 — 사전 순서, 없으면 빈 배열. 원문 토큰은 unclearIngredients 그대로")
+    val unclearIngredientLabels: List<UnclearIngredientLabel> = emptyList(),
     @field:Schema(description = "한국 표시 의무 알레르기(식품표시광고법 시행규칙 별표 2) 중 들어 있는 코드 — 혼입 가능 표기는 빼고. 비회원·회피 0개 화면용")
     val majorAllergens: List<IngredientCode>,
     @field:Schema(description = "표시 이름 — 요청 lang 번역(실패·상한 초과면 한국어 원문)", example = "Banana Flavored Milk")
@@ -187,6 +190,7 @@ data class ProcessedFoodDetailResponse(
                 mayContainMatches = judgement.mayContainMatches,
                 mayContain = judgement.mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
                 unclearIngredients = judgement.unclearIngredients,
+                unclearIngredientLabels = UnclearIngredientLabels.labelsOf(judgement.unclearTerms, LanguageCode.KO),
                 majorAllergens = judgement.majorAllergens,
                 ingredients = product.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
