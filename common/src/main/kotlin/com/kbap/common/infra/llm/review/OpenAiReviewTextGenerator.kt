@@ -39,28 +39,33 @@ class OpenAiReviewTextGenerator(
         return response.result?.output?.text?.trim().orEmpty()
     }
 
-    private fun userPrompt(request: ReviewDraftRequest): String =
-        """
-        Write a very short customer review of this Korean dish.
-        Dish: ${request.foodName}
-        About the dish: ${request.description}
-        Main ingredients: ${request.ingredients.joinToString(", ").ifBlank { "unknown" }}
-        Star rating the reviewer gave: ${request.rating} out of 5 (match the tone to it)
-        Language: write the whole review in ${request.language} only.
-        Length: at most ${request.maxCharacters} characters in total (it must fit in two lines of an app card).
-        """.trimIndent()
-
     companion object {
+        fun userPrompt(request: ReviewDraftRequest): String =
+            listOfNotNull(
+                "Write a very short customer review of this Korean dish.",
+                "Dish: ${request.foodName}",
+                "About the dish: ${request.description}",
+                "Main ingredients: ${request.ingredients.joinToString(", ").ifBlank { "unknown" }}",
+                "Star rating the reviewer gave: ${request.rating} out of 5 (match the tone to it)",
+                "Language: write the whole review in ${request.language} only.",
+                "Length: at most ${request.maxCharacters} characters in total (it must fit in two lines of an app card).",
+                "Sentences: exactly ${request.sentences} ${if (request.sentences == 1) "sentence" else "sentences"}.",
+                request.style.takeIf { it.isNotBlank() }?.let { "Style for this review: $it" },
+                request.avoidSimilarTo?.let { "Another traveler already wrote this about the same dish, so make yours sound clearly different in wording and structure: \"$it\"" },
+            ).joinToString("\n")
+
         val log = LoggerFactory.getLogger(OpenAiReviewTextGenerator::class.java)
 
         val SYSTEM_PROMPT: String =
             listOf(
                 "You write casual food reviews as a traveler who just ate the dish in Korea, like a quick message to a friend during the trip.",
                 "Rules:",
-                "- 1 or 2 short sentences in light, friendly internet-casual tone that sounds natural in the target language " +
+                "- 1 or 2 short sentences (the request says exactly how many) in light, friendly internet-casual tone that sounds natural in the target language " +
                     "using only casual or internet expressions a native speaker of that language would use without mixing in expressions from other languages. " +
                     "Keep within the character limit given in the request.",
                 "- Plain text only, no title, no quotes, no emoji, no hashtags, no lists.",
+                "- Avoid stock phrases like \"Loved it\", \"seriously\", \"great with rice\", \"so good with rice\" and \"perfect\", " +
+                    "and avoid opening with a list of three adjectives (like \"Sweet, savory, and ...\"). Follow the style given in the request.",
                 "- Talk only about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
             ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }).joinToString("\n")
     }

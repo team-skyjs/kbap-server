@@ -1,5 +1,6 @@
 package com.kbap.api.reviewbot
 
+import com.kbap.common.port.llm.ReviewDraftRequest
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
@@ -602,6 +603,60 @@ class ReviewBotTest : BehaviorSpec() {
                     lock.unlock()
                     run(writerBean, todayAt(22))
                     (botReviewCount() > 0).shouldBeTrue()
+                }
+            }
+        }
+
+        given("리뷰 봇 문구 다양화(KB-943 — 형식이 너무 똑같음)") {
+            `when`("같은 난수로 요청을 만들면") {
+                then("스타일·문장 수가 같고, 스타일은 목록 안·문장 수는 1 또는 2 다") {
+                    val food = seedFoods(1).single()
+                    val a = writerBean.draftRequestFor(food, "English", 5, Random(42), null)
+                    val b = writerBean.draftRequestFor(food, "English", 5, Random(42), null)
+                    a.style shouldBe b.style
+                    a.sentences shouldBe b.sentences
+                    (a.style in ReviewBotStyles.ALL).shouldBeTrue()
+                    (a.sentences in 1..2).shouldBeTrue()
+                    (1L..200L).map { writerBean.draftRequestFor(food, "English", 5, Random(it), null).style }.toSet() shouldBe ReviewBotStyles.ALL.toSet()
+                }
+            }
+
+            `when`("사용자 프롬프트를 만들면") {
+                then("고른 스타일·정확한 문장 수·직전 봇 리뷰(있을 때만)를 싣는다") {
+                    val request = ReviewDraftRequest("Bibimbap", "rice bowl", listOf("rice"), "English", 4, 80, ReviewBotStyles.ALL[3], 1, "Earlier bot text, fine")
+                    val prompt = OpenAiReviewTextGenerator.userPrompt(request)
+                    prompt.contains(ReviewBotStyles.ALL[3]) shouldBe true
+                    prompt.contains("exactly 1 sentence") shouldBe true
+                    prompt.contains("Earlier bot text, fine") shouldBe true
+                    OpenAiReviewTextGenerator.userPrompt(request.copy(sentences = 2, avoidSimilarTo = null)).let {
+                        it.contains("exactly 2 sentences") shouldBe true
+                        it.contains("Another traveler") shouldBe false
+                    }
+                }
+                then("시스템 프롬프트는 상투구와 형용사 셋 나열 시작을 피하라고 한다(금지 줄 형태는 쓰지 않는다)") {
+                    listOf("Loved it", "seriously", "great with rice", "perfect", "three adjectives").forEach {
+                        OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains(it) shouldBe true
+                    }
+                }
+            }
+
+            `when`("같은 음식에 이미 봇 리뷰가 있으면") {
+                then("가장 최근 봇 리뷰 본문을 '이것과 다르게' 참고로 요청에 싣는다") {
+                    accountService.ensureBots(3)
+                    val food = seedFoods(1).single()
+                    val earlier = (query("SELECT MIN(id) FROM member WHERE is_bot = 1").single().single() as Number).toLong()
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "INSERT INTO food_review (member_id, target_type, food_id, rating, serving_speed_rating, staff_kindness_rating, content, language, status, created_at, updated_at, version) " +
+                                    "VALUES ($earlier, 'FOOD', ${food.id}, 4, 0, 0, 'Earlier bot text, fine', 'en', 'ACTIVE', NOW(6) - INTERVAL 2 DAY, NOW(6) - INTERVAL 2 DAY, 0)",
+                            )
+                        }
+                    }
+
+                    run(writer(min = 1, max = 1), todayAt(22))
+
+                    fakeGenerator.requests.first().avoidSimilarTo shouldBe "Earlier bot text, fine"
                 }
             }
         }

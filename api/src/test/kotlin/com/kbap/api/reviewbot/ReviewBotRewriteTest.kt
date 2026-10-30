@@ -108,6 +108,55 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                 }
             }
 
+            `when`("같은 seed 로 dryRun 과 실행을 부르면") {
+                then("리뷰마다 같은 스타일·문장 수로 요청한다 — 예진에게 보인 dryRun 결과와 실행 결과의 결이 같다") {
+                    val foods = (1..3).map { foodRepository.save(Food(koreanName = "스타일음식$it", description = "설명", contentStatus = FoodContentStatus.READY)).id }
+                    (0 until 3).forEach { review(bots[it], foods[it], long, "en") }
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 40, seed = 11)
+                    val planned = fakeGenerator.requests.map { it.style to it.sentences }
+                    fakeGenerator.reset()
+                    fakeGenerator.reply = { short }
+
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 40, seed = 11)
+
+                    fakeGenerator.requests.map { it.style to it.sentences } shouldBe planned
+                }
+            }
+
+            `when`("첫 시도의 생성물이 금지어 가드에 걸리면") {
+                then("재시도는 스타일을 다시 뽑아 다른 스타일로 요청하고 그 결과로 저장한다") {
+                    val id = review(bots[0], food, long, "en")
+                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "Loved it, the restaurant staff were great." else short }
+
+                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 40, seed = 11)
+
+                    result.rewritten shouldBe 1
+                    contentOf(id) shouldBe short
+                    fakeGenerator.requests.size shouldBe 2
+                    (fakeGenerator.requests[0].style != fakeGenerator.requests[1].style) shouldBe true
+                }
+            }
+
+            `when`("앞쪽 리뷰가 매번 실패하고 limit 가 작으면") {
+                then("nextAfterId 로 그 리뷰를 지나 다음 리뷰를 처리하고, 끝이면 nextAfterId 가 null 이다") {
+                    val stuckFood = foodRepository.save(Food(koreanName = "영구실패음식", description = "설명", contentStatus = FoodContentStatus.READY)).id
+                    val stuck = review(bots[0], stuckFood, long, "en")
+                    val next = review(bots[1], food, long, "en")
+                    fakeGenerator.reply = { if (it.foodName.contains("영구실패")) "Loved it, the restaurant staff were great." else short }
+
+                    val first = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 1, seed = 5)
+                    first.failedIds shouldBe listOf(stuck)
+                    first.nextAfterId shouldBe stuck
+
+                    val second = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 1, seed = 5, afterId = first.nextAfterId)
+                    second.rewritten shouldBe 1
+                    contentOf(next) shouldBe short
+                    second.nextAfterId shouldBe null
+                    second.candidates shouldBe 2
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 40, seed = 5).candidates shouldBe 1
+                }
+            }
+
             `when`("본문 언어가 비어 있으면") {
                 then("봇 국가 언어로, 그것도 없으면 영어로 다시 쓴다") {
                     execute("UPDATE member SET country_code = 'JP' WHERE id = ${bots[0]}")

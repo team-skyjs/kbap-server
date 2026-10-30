@@ -40,7 +40,7 @@ class AdminReviewBotController(
         @Valid @RequestBody request: AdminReviewBotRewriteRequest,
     ): ResponseEntity<BaseResponse<ReviewBotRewriteResult>> =
         ResponseEntity.ok().header("Cache-Control", "no-store")
-            .body(BaseResponse.ok(rewriter.rewrite(target, request.ratio!!, request.dryRun, request.limit, request.seed)))
+            .body(BaseResponse.ok(rewriter.rewrite(target, request.ratio!!, request.dryRun, request.limit, request.seed, request.afterId)))
 
     @PostMapping
     override fun ensureBots(
