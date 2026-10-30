@@ -45,6 +45,6 @@ class AdminCurationController(private val service: CurationService, private val 
 
     @PostMapping("/assets/display-variants/backfill")
     override fun backfillDisplayVariants(@RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminId: Long, @RequestHeader("X-Target-Environment") target: String, @Valid @RequestBody request: CurationDisplayBackfillRequest): ResponseEntity<BaseResponse<CurationDisplayBackfillResult>> =
-        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(assets.backfillDisplayVariants(adminId, target, request.dryRun, request.limit)))
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(assets.backfillDisplayVariants(adminId, target, request.dryRun, request.limit, request.afterAssetId)))
 
 }

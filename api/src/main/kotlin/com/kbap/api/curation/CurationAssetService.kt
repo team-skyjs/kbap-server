@@ -49,11 +49,12 @@ class CurationAssetService(
 
     fun backfillDisplayVariants(adminId: Long, target: String, dryRun: Boolean, limit: Int, afterAssetId: Long? = null): CurationDisplayBackfillResult {
         access.verifyAdmin(adminId, target)
-        val candidates = transactions.getDisplayVariantCandidates()
+        val candidates = transactions.getDisplayVariantCandidates().filter { (id, _) -> afterAssetId == null || id > afterAssetId }
         if (dryRun) return CurationDisplayBackfillResult(true, candidates.size, 0, emptyList(), 0, 0)
+        val batch = candidates.take(limit.coerceIn(1, MAX_BACKFILL))
         val failed = mutableListOf<Long>()
-        val made = candidates.take(limit.coerceIn(1, MAX_BACKFILL)).mapNotNull { (id, finalKey) -> createDisplayVariant(id, finalKey).also { if (it == null) failed += id } }
-        return CurationDisplayBackfillResult(false, candidates.size, made.size, failed, made.sumOf { it.first.toLong() }, made.sumOf { it.second.toLong() })
+        val made = batch.mapNotNull { (id, finalKey) -> createDisplayVariant(id, finalKey).also { if (it == null) failed += id } }
+        return CurationDisplayBackfillResult(false, candidates.size, made.size, failed, made.sumOf { it.first.toLong() }, made.sumOf { it.second.toLong() }, batch.lastOrNull()?.first)
     }
 
     private fun createDisplayVariant(assetId: Long, finalKey: String): Pair<Int, Int>? {

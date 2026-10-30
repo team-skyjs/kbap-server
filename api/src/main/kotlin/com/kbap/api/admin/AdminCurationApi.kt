@@ -49,6 +49,7 @@ interface AdminCurationApi {
         summary = "표시용 변형(폭 1080 WebP) 백필 — 변형 없는 READY 자산에 1회성으로 만든다(KB-930)",
         description = "dryRun=true(기본)면 대상 수만 센다. 실행하면 대상을 id 순으로 최대 limit(1~500, 기본 100)개 처리하고, 변환·저장 실패는 failedAssetIds 로 돌려주며 원본은 그대로 둔다(응답은 원본 폴백). " +
             "originalBytes·displayBytes 는 이번에 변환한 자산들의 원본·변형 바이트 합이다. 다시 불러도 이미 변형이 있는 자산은 건너뛴다. " +
+            "실패한 자산은 변형이 없어 계속 대상이므로, 응답 nextAfterAssetId 를 다음 요청 afterAssetId 로 넘겨 그 뒤 id 부터 진행한다(없으면 끝). candidates 는 afterAssetId 뒤 남은 수다. " +
             "업로드 확정(complete)도 같은 변형을 만든다. 변형 키는 {원본 키}-w1080.webp, Cache-Control immutable.",
     )
     @ApiErrors(ErrorCode.INVALID_REQUEST, ErrorCode.ADMIN_FORBIDDEN, ErrorCode.CURATION_ENVIRONMENT_MISMATCH, ErrorCode.CURATION_UNAVAILABLE)
