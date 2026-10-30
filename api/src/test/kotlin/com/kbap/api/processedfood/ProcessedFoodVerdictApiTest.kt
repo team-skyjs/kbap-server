@@ -66,6 +66,39 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
         }
 
+        given("확인 안 된 원재료 라벨 다국어(KB-936)") {
+            `when`("회피 재료는 없지만 내용 불명 원재료가 있는 제품 상세를 lang=en 으로 보면") {
+                then("SAFE_WITH_NOTE 이고 원문 토큰은 그대로, unclearIngredientLabels 는 맞은 사전 용어의 영어 라벨이다") {
+                    val id = seed("UL-1", "라벨라면", null, "소맥분(밀), 복합조미식품(간장분말, 마늘), 시즈닝, 정제소금")
+
+                    val detail = get("/api/processed-foods/$id?lang=en", member(93601L, "PEANUT"))
+
+                    detail.path("verdict").asText() shouldBe "SAFE_WITH_NOTE"
+                    detail.path("unclearIngredients").map { it.asText() }.any { it.startsWith("복합조미식품") } shouldBe true
+                    detail.path("unclearIngredientLabels").map { it.path("term").asText() to it.path("label").asText() } shouldBe listOf(
+                        "복합조미식품" to "Compound seasoning",
+                        "시즈닝" to "Seasoning",
+                    )
+                }
+            }
+
+            `when`("lang 없이(한국어) 보면") {
+                then("라벨은 한국어 용어 그대로다") {
+                    val id = seed("UL-2", "라벨과자", null, "소맥분(밀), 혼합제제(구연산, 젖산)")
+
+                    get("/api/processed-foods/$id", member(93602L, "PEANUT")).path("unclearIngredientLabels")
+                        .map { it.path("term").asText() to it.path("label").asText() } shouldBe listOf("혼합제제" to "혼합제제")
+                }
+            }
+
+            `when`("내용 불명 원재료가 없으면") {
+                then("빈 배열이다") {
+                    val id = seed("UL-3", "라벨우유", "우유 함유", "원유 100%")
+                    get("/api/processed-foods/$id?lang=en", member(93603L, "PEANUT")).path("unclearIngredientLabels").size() shouldBe 0
+                }
+            }
+        }
+
         given("가공식품 판정을 쓰는 응답(KB-866)") {
             `when`("우유 회피 회원과 비회원이 바나나맛우유 상세를 보면") {
                 then("회원은 AVOID 와 근거, 비회원은 판정 null 과 주요 알레르기를 받고 unmapped 는 빈 배열이다") {
