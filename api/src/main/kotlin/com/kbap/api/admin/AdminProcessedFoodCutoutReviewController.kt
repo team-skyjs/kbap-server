@@ -40,10 +40,12 @@ class AdminProcessedFoodCutoutReviewController(
         @RequestParam(required = false) route: String?,
         @RequestParam(required = false) minCoverage: BigDecimal?,
         @RequestParam(required = false) maxCoverage: BigDecimal?,
-        @RequestParam(required = false) cursor: Long?,
+        @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "50") size: Int,
+        @RequestParam(required = false) sort: AdminCutoutReviewSort?,
+        @RequestParam(required = false) q: String?,
     ): ResponseEntity<BaseResponse<AdminCutoutReviewPage>> =
-        ResponseEntity.ok(BaseResponse.ok(cutoutService.getCutoutReviewPage(status, route, minCoverage, maxCoverage, cursor, size)))
+        ResponseEntity.ok(BaseResponse.ok(cutoutService.getCutoutReviewPage(status, route, minCoverage, maxCoverage, cursor, size, sort, q)))
 
     @PostMapping("/{id}/cutout-image/review")
     override fun review(
@@ -121,11 +123,18 @@ data class AdminCutoutBulkApproveResponse(
     val dryRun: Boolean,
 )
 
+@Schema(description = "누끼 검수 목록 정렬 — RECENT = 검수 시각 최신순(같으면 id 큰 순). status 가 APPROVED·REJECTED 일 때만 적용, 그 밖에는 무시하고 id 오름차순")
+enum class AdminCutoutReviewSort { RECENT }
+
 @Schema(description = "누끼 검수 목록 한 쪽")
 data class AdminCutoutReviewPage(
     val items: List<AdminCutoutReviewItem>,
-    @field:Schema(description = "다음 쪽 커서(마지막 항목 id) — 없으면 null", nullable = true)
-    val nextCursor: Long?,
+    @field:Schema(
+        description = "다음 쪽 커서(불투명 문자열 — 그대로 cursor 로 보낸다). 기본 정렬은 마지막 항목 id 의 숫자 문자열, RECENT 는 검수 시각·id 를 담은 값. 없으면 null",
+        example = "120",
+        nullable = true,
+    )
+    val nextCursor: String?,
 )
 
 @Schema(description = "누끼 검수 항목")

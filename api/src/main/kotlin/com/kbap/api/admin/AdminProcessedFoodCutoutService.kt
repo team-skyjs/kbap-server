@@ -7,6 +7,7 @@ import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.StorageObjectStore
+import com.kbap.common.util.LikeWildcards
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -16,6 +17,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
 import java.time.LocalDateTime
+import java.util.Base64
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
@@ -99,16 +101,43 @@ class AdminProcessedFoodCutoutService(
         route: String?,
         minCoverage: BigDecimal?,
         maxCoverage: BigDecimal?,
-        cursor: Long?,
+        cursor: String?,
         size: Int,
+        sort: AdminCutoutReviewSort? = null,
+        q: String? = null,
     ): AdminCutoutReviewPage {
         val pageSize = size.coerceIn(1, MAX_PAGE_SIZE)
+        val page = PageRequest.of(0, pageSize + 1)
+        val keyword = q?.trim()?.takeIf { it.isNotEmpty() }
+        val namePattern = keyword?.let { "%" + LikeWildcards.escape(it.lowercase()) + "%" }
+        val exactKey = keyword?.takeIf { it.all(Char::isDigit) }
+        val exactId = exactKey?.toLongOrNull()
+        val recentStatus = status.takeIf { sort == AdminCutoutReviewSort.RECENT && it != null && it != CutoutReviewStatus.PENDING }
+        if (recentStatus != null) {
+            val after = cursor?.let(::decodeRecentCursor)
+            val rows = readTransaction.execute {
+                products.findRecentlyReviewedCutoutPage(recentStatus, route, minCoverage, maxCoverage, namePattern, exactKey, exactId, after?.first, after?.second, page)
+                    .map(AdminCutoutReviewItem::from)
+            }!!
+            val items = rows.take(pageSize)
+            return AdminCutoutReviewPage(items, items.lastOrNull()?.takeIf { rows.size > pageSize }?.let(::encodeRecentCursor))
+        }
+        val after = cursor?.let { it.toLongOrNull() ?: throw BusinessException(ErrorCode.INVALID_CURSOR) }
         val rows = readTransaction.execute {
-            products.findCutoutReviewPage(status, route, minCoverage, maxCoverage, cursor, PageRequest.of(0, pageSize + 1)).map(AdminCutoutReviewItem::from)
+            products.findCutoutReviewPage(status, route, minCoverage, maxCoverage, namePattern, exactKey, exactId, after, page).map(AdminCutoutReviewItem::from)
         }!!
         val items = rows.take(pageSize)
-        return AdminCutoutReviewPage(items, items.lastOrNull()?.processedFoodId?.takeIf { rows.size > pageSize })
+        return AdminCutoutReviewPage(items, items.lastOrNull()?.processedFoodId?.takeIf { rows.size > pageSize }?.toString())
     }
+
+    private fun encodeRecentCursor(item: AdminCutoutReviewItem): String =
+        Base64.getUrlEncoder().withoutPadding().encodeToString("${item.reviewedAt}|${item.processedFoodId}".toByteArray())
+
+    private fun decodeRecentCursor(cursor: String): Pair<LocalDateTime, Long> =
+        runCatching {
+            val (at, id) = String(Base64.getUrlDecoder().decode(cursor)).split('|', limit = 2)
+            LocalDateTime.parse(at) to id.toLong()
+        }.getOrElse { throw BusinessException(ErrorCode.INVALID_CURSOR) }
 
     fun bulkApprove(minCoverage: BigDecimal, dryRun: Boolean, adminId: Long): AdminCutoutBulkApproveResponse {
         if (minCoverage < BigDecimal.ZERO || minCoverage > BigDecimal.ONE) throw BusinessException(ErrorCode.INVALID_REQUEST)

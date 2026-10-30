@@ -39,6 +39,9 @@ interface AdminProcessedFoodCutoutReviewApi {
         summary = "누끼 검수 목록",
         description = """
             누끼가 등록된 제품을 id 오름차순으로 준다. 상태·경로·전경 비율(이상·이하)로 거르고, `nextCursor` 를 `cursor` 로 넘겨 다음 쪽을 받는다.
+            `sort=RECENT` 면 검수 시각 최신순(같으면 id 큰 순)이다 — **status 가 APPROVED·REJECTED 일 때만** 적용하고, PENDING·상태 없음이면 무시하고 id 오름차순이다(PENDING 은 검수 시각이 없다).
+            `q` 는 제품명 부분 일치(대소문자 무시)이고, 숫자만이면 품목보고번호·가공식품 id 정확 일치도 함께 찾는다. 다른 필터와 AND 다.
+            커서는 불투명 문자열이다 — 기본 정렬은 id 숫자 문자열(기존 숫자 커서도 그대로 받는다), RECENT 는 정렬 값을 담은 문자열이라 같은 sort·필터로만 이어 받는다.
             항목마다 HACCP 원본 URL·누끼 URL·앱이 받는 imageUrl·경로·전경 비율·검수 기록을 싣는다.
             - **ADMIN 역할 JWT 전용**.
         """,
@@ -46,7 +49,7 @@ interface AdminProcessedFoodCutoutReviewApi {
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회"),
-            ApiResponse(responseCode = "400", description = "잘못된 status 값(COMMON-002)"),
+            ApiResponse(responseCode = "400", description = "잘못된 status·sort 값(COMMON-002) · 커서 형식 오류(FOOD-002)"),
         ],
     )
     fun getCutoutReviewPage(
@@ -54,8 +57,10 @@ interface AdminProcessedFoodCutoutReviewApi {
         @Parameter(description = "vision·fallback — 없으면 전부") route: String?,
         @Parameter(description = "전경 비율 하한(이상)") minCoverage: BigDecimal?,
         @Parameter(description = "전경 비율 상한(이하)") maxCoverage: BigDecimal?,
-        @Parameter(description = "이전 쪽의 nextCursor") cursor: Long?,
+        @Parameter(description = "이전 쪽의 nextCursor(불투명 문자열)") cursor: String?,
         @Parameter(description = "쪽 크기(1~200, 기본 50)") size: Int,
+        @Parameter(description = "RECENT = 검수 시각 최신순(status 가 APPROVED·REJECTED 일 때만, 그 밖엔 무시)") sort: AdminCutoutReviewSort?,
+        @Parameter(description = "검색어 — 제품명 부분 일치(대소문자 무시), 숫자만이면 품목보고번호·id 정확 일치도") q: String?,
     ): ResponseEntity<BaseResponse<AdminCutoutReviewPage>>
 
     @Operation(
