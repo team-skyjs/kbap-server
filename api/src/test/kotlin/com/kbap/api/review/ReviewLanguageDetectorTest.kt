@@ -126,7 +126,7 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
         `when`("짧은 라틴 글의 판정 차이 기준을 높이면") {
             then("같은 글도 null 이다") {
                 val strict = ReviewLanguageDetector(shortLatinMinMargin = 0.9)
-                strict.detect("Very good") shouldBe null
+                strict.detect("Sangat enak") shouldBe null
                 strict.detect("Muy bueno") shouldBe null
                 strict.detect("The broth was rich and so tasty") shouldBe LanguageCode.EN
             }
