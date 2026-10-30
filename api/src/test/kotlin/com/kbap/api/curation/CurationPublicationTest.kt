@@ -229,7 +229,7 @@ class CurationPublicationTest : BehaviorSpec() {
                 then("images 는 image 1장이고 구 필드 imageUrl·imageAttribution 은 그대로다") {
                     CurationService.keys.forEach(::publish)
                     val item = service.getDetail("sights", "en").items.first()
-                    item.images shouldBe listOf(CurationPublicImage(item.imageUrl, item.imageAttribution))
+                    item.images shouldBe listOf(CurationPublicImage(item.imageUrl, item.imageAttribution, item.originalImageUrl))
                     val token = tokens.issueAccessToken(adminId, MemberRole.ADMIN)
                     mvc.get("/api/admin/curations/seoul/sights") { header("X-API-Version", "1.0"); header("Authorization", "Bearer $token") }.andExpect {
                         status { isOk() }
