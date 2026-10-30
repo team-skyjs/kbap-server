@@ -58,8 +58,10 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
             }
         }
 
-        fun keyOf(reportNo: String) = "local/processed/cutout/$reportNo.png"
-        fun urlOf(reportNo: String, at: Instant = modifiedAt) = "https://cdn.test/${keyOf(reportNo)}?v=${at.epochSecond}"
+        fun hashOf(reportNo: String, version: Int = 0) =
+            java.security.MessageDigest.getInstance("SHA-256").digest("$reportNo#$version".toByteArray()).joinToString("") { "%02x".format(it) }
+        fun keyOf(reportNo: String, version: Int = 0) = "local/processed/cutout/$reportNo-${hashOf(reportNo, version).take(16)}.png"
+        fun urlOf(reportNo: String, version: Int = 0) = "https://cdn.test/${keyOf(reportNo, version)}"
         fun haccpOf(reportNo: String) = "http://www.haccp.or.kr/fresh/prdimg/$reportNo.jpg"
 
         fun seedProduct(reportNo: String, name: String = "검수칩$reportNo"): Long {
@@ -70,7 +72,7 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
             return queryLong("SELECT id FROM processed_food_product WHERE report_no = '$reportNo'")
         }
 
-        fun uploaded(reportNo: String, at: Instant = modifiedAt) = storage.stub(keyOf(reportNo), "image/png", 50_000, at)
+        fun uploaded(reportNo: String, version: Int = 0) = storage.stub(keyOf(reportNo, version), "image/png", 50_000, modifiedAt, hashOf(reportNo, version))
 
         fun admin(request: MockHttpServletRequestDsl, body: Any? = null) {
             request.header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(adminId, MemberRole.ADMIN)}")
@@ -84,8 +86,8 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
         fun read(result: ResultActionsDsl, expected: Int): JsonNode =
             mapper.readTree(result.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8))
 
-        fun item(productId: Long, reportNo: String, route: String = "vision", coverage: Double? = 0.42) =
-            mapOf("productId" to productId, "key" to keyOf(reportNo), "route" to route, "coverage" to coverage)
+        fun item(productId: Long, reportNo: String, route: String = "vision", coverage: Double? = 0.42, version: Int = 0) =
+            mapOf("productId" to productId, "key" to keyOf(reportNo, version), "route" to route, "coverage" to coverage)
 
         fun bulkRegister(items: List<Any>, expected: Int = 200) =
             read(mockMvc.post("/api/admin/processed-foods/cutout-images/bulk-register") { admin(this, items) }, expected)
@@ -185,6 +187,35 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                 }
             }
 
+            `when`("구 키·체크섬 없는 오브젝트·체크섬이 키 해시와 다른 오브젝트면 — KB-935") {
+                then("KEY_MISMATCH·CHECKSUM_MISSING·CHECKSUM_MISMATCH 로 거절하고 나머지는 저장한다") {
+                    val ok = seedProduct("CK-OK").also { uploaded("CK-OK") }
+                    val oldKey = seedProduct("CK-OLD")
+                    storage.stub("local/processed/cutout/CK-OLD.png", "image/png", 1000, modifiedAt, hashOf("CK-OLD"))
+                    val noChecksum = seedProduct("CK-NONE")
+                    storage.stub(keyOf("CK-NONE"), "image/png", 1000, modifiedAt, null)
+                    val wrongChecksum = seedProduct("CK-WRONG")
+                    storage.stub(keyOf("CK-WRONG"), "image/png", 1000, modifiedAt, hashOf("CK-WRONG", 9))
+
+                    val payload = bulkRegister(
+                        listOf(
+                            item(ok, "CK-OK"),
+                            mapOf("productId" to oldKey, "key" to "local/processed/cutout/CK-OLD.png", "route" to "vision", "coverage" to 0.5),
+                            item(noChecksum, "CK-NONE"),
+                            item(wrongChecksum, "CK-WRONG"),
+                        ),
+                    ).path("payload")
+
+                    payload.path("registered").asInt() shouldBe 1
+                    payload.path("failures").map { it.path("productId").asLong() to it.path("reason").asText() } shouldContainExactlyInAnyOrder listOf(
+                        oldKey to "KEY_MISMATCH",
+                        noChecksum to "CHECKSUM_MISSING",
+                        wrongChecksum to "CHECKSUM_MISMATCH",
+                    )
+                    row(ok)["url"] shouldBe urlOf("CK-OK")
+                }
+            }
+
             `when`("500건을 넘거나 비어 있으면") {
                 then("400 COMMON-002 다") {
                     val id = seedProduct("BR-MAX")
@@ -193,8 +224,8 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                 }
             }
 
-            `when`("같은 오브젝트를 다시 등록하면") {
-                then("검수 상태를 유지하고, 다시 올린 오브젝트(수정 시각이 다름)면 PENDING 으로 돌린다") {
+            `when`("같은 그림(같은 해시 키)을 다시 등록하면") {
+                then("검수 상태를 유지하고, 다른 그림(다른 해시 키)이면 PENDING 으로 돌린다") {
                     val id = seedProduct("BR-AGAIN")
                     uploaded("BR-AGAIN")
                     bulkRegister(listOf(item(id, "BR-AGAIN")))
@@ -204,12 +235,11 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                     row(id)["status"] shouldBe "APPROVED"
                     appImage(id) shouldBe urlOf("BR-AGAIN")
 
-                    val reuploadedAt = modifiedAt.plusSeconds(60)
-                    uploaded("BR-AGAIN", reuploadedAt)
-                    bulkRegister(listOf(item(id, "BR-AGAIN")))
+                    uploaded("BR-AGAIN", 1)
+                    bulkRegister(listOf(item(id, "BR-AGAIN", version = 1)))
                     row(id).let {
                         it["status"] shouldBe "PENDING"
-                        it["url"] shouldBe urlOf("BR-AGAIN", reuploadedAt)
+                        it["url"] shouldBe urlOf("BR-AGAIN", 1)
                         it["reviewedBy"] shouldBe null
                     }
                     appImage(id) shouldBe httpsHaccp("BR-AGAIN")
@@ -221,14 +251,13 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                     val id = seedProduct("BR-RACE")
                     uploaded("BR-RACE")
                     bulkRegister(listOf(item(id, "BR-RACE", coverage = 0.9)))
-                    val reuploadedAt = modifiedAt.plusSeconds(60)
-                    uploaded("BR-RACE", reuploadedAt)
+                    uploaded("BR-RACE", 1)
 
                     dataSource.connection.use { holder ->
                         holder.autoCommit = false
                         holder.createStatement().use { it.executeQuery("SELECT id FROM processed_food_product WHERE id = $id FOR UPDATE").close() }
                         val pool = Executors.newSingleThreadExecutor()
-                        val registration = pool.submit<JsonNode> { bulkRegister(listOf(item(id, "BR-RACE", coverage = 0.9))) }
+                        val registration = pool.submit<JsonNode> { bulkRegister(listOf(item(id, "BR-RACE", coverage = 0.9, version = 1))) }
                         Thread.sleep(1_500)
                         registration.isDone shouldBe false
                         holder.createStatement().use {
@@ -240,7 +269,7 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                     }
 
                     row(id).let {
-                        it["url"] shouldBe urlOf("BR-RACE", reuploadedAt)
+                        it["url"] shouldBe urlOf("BR-RACE", 1)
                         it["status"] shouldBe "PENDING"
                         it["reviewedBy"] shouldBe null
                     }
@@ -313,17 +342,16 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                     uploaded("RV-EXP")
                     bulkRegister(listOf(item(id, "RV-EXP")))
                     val seen = urlOf("RV-EXP")
-                    val reuploadedAt = modifiedAt.plusSeconds(60)
-                    uploaded("RV-EXP", reuploadedAt)
-                    bulkRegister(listOf(item(id, "RV-EXP")))
+                    uploaded("RV-EXP", 1)
+                    bulkRegister(listOf(item(id, "RV-EXP", version = 1)))
 
                     review(id, approved = true, expected = 409, expectedCutoutImageUrl = seen).path("code").asText() shouldBe "PFOOD-010"
                     row(id).let {
                         it["status"] shouldBe "PENDING"
-                        it["url"] shouldBe urlOf("RV-EXP", reuploadedAt)
+                        it["url"] shouldBe urlOf("RV-EXP", 1)
                     }
 
-                    review(id, approved = true, expectedCutoutImageUrl = urlOf("RV-EXP", reuploadedAt)).path("payload").path("status").asText() shouldBe "APPROVED"
+                    review(id, approved = true, expectedCutoutImageUrl = urlOf("RV-EXP", 1)).path("payload").path("status").asText() shouldBe "APPROVED"
                 }
             }
 
