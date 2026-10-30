@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.common.domain.processedfood.dto.CutoutReviewCount
 import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.port.storage.PresignedUploadPort
@@ -16,7 +17,9 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Duration
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.Base64
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -139,6 +142,33 @@ class AdminProcessedFoodCutoutService(
             LocalDateTime.parse(at) to id.toLong()
         }.getOrElse { throw BusinessException(ErrorCode.INVALID_CURSOR) }
 
+    fun getCutoutReviewSummary(): AdminCutoutReviewSummary {
+        val today = LocalDate.now(SEOUL)
+        val since = today.atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        val until = today.plusDays(1).atStartOfDay(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        val counts = readTransaction.execute { products.countCutoutReviews(since, until) }!!
+        fun tally(rows: List<CutoutReviewCount>): AdminCutoutReviewTally {
+            fun of(status: CutoutReviewStatus) = rows.filter { it.reviewStatus == status }
+            return AdminCutoutReviewTally(
+                pending = of(CutoutReviewStatus.PENDING).sumOf { it.total },
+                approved = of(CutoutReviewStatus.APPROVED).sumOf { it.total },
+                rejected = of(CutoutReviewStatus.REJECTED).sumOf { it.total },
+                todayApproved = of(CutoutReviewStatus.APPROVED).sumOf { it.reviewedInRange },
+                todayRejected = of(CutoutReviewStatus.REJECTED).sumOf { it.reviewedInRange },
+            )
+        }
+        val total = tally(counts)
+        return AdminCutoutReviewSummary(
+            date = today,
+            pending = total.pending,
+            approved = total.approved,
+            rejected = total.rejected,
+            todayApproved = total.todayApproved,
+            todayRejected = total.todayRejected,
+            byRoute = CUTOUT_ROUTES.associateWith { route -> tally(counts.filter { it.route == route }) },
+        )
+    }
+
     fun bulkApprove(minCoverage: BigDecimal, dryRun: Boolean, adminId: Long): AdminCutoutBulkApproveResponse {
         if (minCoverage < BigDecimal.ZERO || minCoverage > BigDecimal.ONE) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val count = if (dryRun) {
@@ -172,6 +202,7 @@ class AdminProcessedFoodCutoutService(
         const val MAX_PAGE_SIZE = 200
         const val ROUTE_VISION = "vision"
         val CUTOUT_ROUTES = setOf(ROUTE_VISION, "fallback")
+        private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
         private const val HEAD_PARALLELISM = 8
         private const val COVERAGE_SCALE = 4
         private val UPLOAD_TTL = Duration.ofMinutes(10)

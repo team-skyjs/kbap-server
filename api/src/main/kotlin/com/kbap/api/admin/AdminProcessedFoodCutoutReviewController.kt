@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @RestController
@@ -33,6 +34,10 @@ class AdminProcessedFoodCutoutReviewController(
         @RequestBody items: List<AdminCutoutRegisterItem>,
     ): ResponseEntity<BaseResponse<AdminCutoutBulkRegisterResponse>> =
         ResponseEntity.ok(BaseResponse.ok(cutoutService.bulkRegister(items)))
+
+    @GetMapping("/cutout-images/summary")
+    override fun getCutoutReviewSummary(): ResponseEntity<BaseResponse<AdminCutoutReviewSummary>> =
+        ResponseEntity.ok(BaseResponse.ok(cutoutService.getCutoutReviewSummary()))
 
     @GetMapping("/cutout-images")
     override fun getCutoutReviewPage(
@@ -125,6 +130,35 @@ data class AdminCutoutBulkApproveResponse(
 
 @Schema(description = "누끼 검수 목록 정렬 — RECENT = 검수 시각 최신순(같으면 id 큰 순). status 가 APPROVED·REJECTED 일 때만 적용, 그 밖에는 무시하고 id 오름차순")
 enum class AdminCutoutReviewSort { RECENT }
+
+@Schema(description = "누끼 검수 현황 — 누끼가 등록된 제품 수. 오늘은 KST(Asia/Seoul) 자정부터 다음 자정 전까지 검수한 것")
+data class AdminCutoutReviewSummary(
+    @field:Schema(description = "오늘(KST) 날짜", example = "2026-10-30")
+    val date: LocalDate,
+    @field:Schema(description = "검수 대기 수(경로 없는 수동 업로드 포함 전체)", example = "14561")
+    val pending: Long,
+    @field:Schema(description = "승인 수", example = "81")
+    val approved: Long,
+    @field:Schema(description = "반려 수", example = "3")
+    val rejected: Long,
+    @field:Schema(description = "오늘(KST) 승인 수", example = "81")
+    val todayApproved: Long,
+    @field:Schema(description = "오늘(KST) 반려 수", example = "3")
+    val todayRejected: Long,
+    @field:Schema(description = "생성 경로별 — vision·fallback 은 항상 있다(없으면 0). 경로 없는 수동 업로드는 위 전체에만 센다")
+    val byRoute: Map<String, AdminCutoutReviewTally>,
+)
+
+@Schema(description = "누끼 검수 상태별 수")
+data class AdminCutoutReviewTally(
+    val pending: Long,
+    val approved: Long,
+    val rejected: Long,
+    @field:Schema(description = "오늘(KST) 승인 수 — 현재 APPROVED 이면서 검수 시각이 오늘인 것")
+    val todayApproved: Long,
+    @field:Schema(description = "오늘(KST) 반려 수 — 현재 REJECTED 이면서 검수 시각이 오늘인 것")
+    val todayRejected: Long,
+)
 
 @Schema(description = "누끼 검수 목록 한 쪽")
 data class AdminCutoutReviewPage(
