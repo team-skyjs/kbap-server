@@ -42,6 +42,8 @@ data class AdminFoodDetailResponse(
     val humanReview: HumanReviewResponse?,
     @field:Schema(description = "마지막 이미지 재생성 상태(갤러리 응답과 같은 값). 이력 없음·마지막 성공이면 null", nullable = true)
     val regeneration: AdminRegenerationStateResponse?,
+    @field:Schema(description = "지금 대표 이미지(imageRef)를 만든 생성 입력 — 갤러리 대표 항목의 generation 과 같은 값. 이력 없으면 null", nullable = true)
+    val generation: AdminImageGenerationResponse?,
     @field:Schema(description = "추가 이미지 생성이 진행 중인지(갤러리 응답과 같은 값)", example = "false")
     val additionalInProgress: Boolean,
     @field:Schema(
@@ -82,6 +84,7 @@ data class AdminFoodDetailResponse(
             imagePublicBaseUrl: String,
             humanReview: HumanReviewResponse?,
             regeneration: AdminRegenerationStateResponse?,
+            generation: AdminImageGenerationResponse?,
             additionalInProgress: Boolean,
             contentRequestPending: Boolean,
             contentRequestSince: java.time.Instant?,
@@ -111,6 +114,7 @@ data class AdminFoodDetailResponse(
                 updatedAt = food.updatedAt,
                 humanReview = humanReview,
                 regeneration = regeneration,
+                generation = generation,
                 additionalInProgress = additionalInProgress,
                 contentRequestPending = contentRequestPending,
                 contentRequestSince = contentRequestSince,

@@ -159,6 +159,7 @@ class AdminFoodService(
             imagePublicBaseUrl,
             humanReviewService.humanReviewOf(food),
             regenerationStateResolver.of(food.id),
+            food.imageRef?.let { regenerationStateResolver.generationsOf(food.id, listOf(it))[it] },
             regenerationStateResolver.isAdditionalInProgress(food.id),
             contentRequestPending = inFlight.isNotEmpty(),
             contentRequestSince = inFlight.maxOfOrNull { it.createdAt }?.atZone(ZoneId.systemDefault())?.toInstant(),
