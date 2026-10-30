@@ -1,5 +1,6 @@
 package com.kbap.common.domain.processedfood
 
+import com.kbap.common.domain.processedfood.dto.CutoutReviewCount
 import com.kbap.common.domain.processedfood.dto.ProcessedFoodCandidateRow
 import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
@@ -147,4 +148,15 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
         @Param("adminId") adminId: Long,
         @Param("now") now: LocalDateTime,
     ): Int
+
+    @Query(
+        """
+        SELECT p.cutoutRoute AS route, p.cutoutReviewStatus AS reviewStatus, COUNT(p) AS total,
+               SUM(CASE WHEN p.cutoutReviewedAt >= :since AND p.cutoutReviewedAt < :until THEN 1 ELSE 0 END) AS reviewedInRange
+        FROM ProcessedFoodProduct p
+        WHERE p.cutoutReviewStatus IS NOT NULL
+        GROUP BY p.cutoutRoute, p.cutoutReviewStatus
+        """,
+    )
+    fun countCutoutReviews(@Param("since") since: LocalDateTime, @Param("until") until: LocalDateTime): List<CutoutReviewCount>
 }

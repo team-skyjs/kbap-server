@@ -36,6 +36,17 @@ interface AdminProcessedFoodCutoutReviewApi {
     ): ResponseEntity<BaseResponse<AdminCutoutBulkRegisterResponse>>
 
     @Operation(
+        summary = "누끼 검수 현황 집계",
+        description = """
+            누끼가 등록된 제품의 검수 대기·승인·반려 수와, 오늘(KST 자정 기준) 승인·반려 수를 전체와 생성 경로(vision·fallback)별로 준다.
+            오늘 수는 현재 상태 기준이다 — 오늘 승인했다가 반려로 바꾸면 오늘 반려로 센다. 경로 없는 수동 업로드(confirm)는 전체에만 센다.
+            - **ADMIN 역할 JWT 전용**.
+        """,
+    )
+    @ApiResponses(value = [ApiResponse(responseCode = "200", description = "집계")])
+    fun getCutoutReviewSummary(): ResponseEntity<BaseResponse<AdminCutoutReviewSummary>>
+
+    @Operation(
         summary = "누끼 검수 목록",
         description = """
             누끼가 등록된 제품을 id 오름차순으로 준다. 상태·경로·전경 비율(이상·이하)로 거르고, `nextCursor` 를 `cursor` 로 넘겨 다음 쪽을 받는다.
