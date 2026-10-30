@@ -11,6 +11,7 @@ object IngredientTestSeed {
     private const val GROUP_CODES_RESOURCE = "db/migration/V2026.10.21.10.00.40__add_avoidance_group_codes.sql"
     private const val GROUP_CODES_IMAGE_RESOURCE = "db/migration/V2026.10.21.14.45.06__group_code_image_paths.sql"
     private const val CORIANDER_RESOURCE = "db/migration/V2026.10.29.16.52.33__add_coriander_code.sql"
+    private const val CORIANDER_IMAGE_RESOURCE = "db/migration/V2026.10.30.19.17.02__coriander_image_path.sql"
 
     fun restoreCatalog(dataSource: DataSource) {
         val statements = statementsOf(CATALOG_SEED_RESOURCE)
@@ -21,7 +22,8 @@ object IngredientTestSeed {
             statementsOf(CATEGORY_RESOURCE).filter { it.startsWith("UPDATE `ingredients`") } +
             statementsOf(GROUP_CODES_RESOURCE) +
             statementsOf(GROUP_CODES_IMAGE_RESOURCE) +
-            statementsOf(CORIANDER_RESOURCE)
+            statementsOf(CORIANDER_RESOURCE) +
+            statementsOf(CORIANDER_IMAGE_RESOURCE)
 
         dataSource.connection.use { connection ->
             connection.createStatement().use { statement ->
