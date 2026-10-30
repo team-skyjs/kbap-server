@@ -281,7 +281,7 @@ class ReviewBotTest : BehaviorSpec() {
                     botReviewCount() shouldBe 0
                     fakeGenerator.reply = {
                         photoStorage.heads.clear()
-                        "The noodles were warm and savory with a pleasant texture and a balanced flavor."
+                        FakeReviewTextGenerator.DEFAULT_REPLY
                     }
                     run(writer(min = 1, max = 1), todayAt(22))
                     fakeGenerator.requests.size shouldBe 1
@@ -500,13 +500,38 @@ class ReviewBotTest : BehaviorSpec() {
                 then("필터가 버리고 재생성한 본문으로 저장한다") {
                     accountService.ensureBots(1)
                     seedFoods(1)
-                    val good = "The broth was deep and savory, I would order it again."
+                    val good = "Deep savory broth, would order again."
                     fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "      Tasty!!       " else good }
 
                     run(writer(), todayAt(22))
 
                     fakeGenerator.requests.size shouldBe 2
                     query("SELECT content FROM food_review").single().single() shouldBe good
+                }
+            }
+
+            `when`("생성물이 언어별 앱 카드 상한을 넘으면 — KB-943") {
+                then("재생성까지 넘으면 저장하지 않고 건너뛴다(자르지 않는다)") {
+                    accountService.ensureBots(5)
+                    seedFoods(5)
+                    fakeGenerator.reply = { "So good. ".repeat(10).trim() }
+
+                    run(writer(), todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                    (fakeGenerator.requests.size > 0).shouldBeTrue()
+                }
+                then("첫 초안만 넘으면 재생성한 짧은 본문으로 저장하고, 요청에 언어별 상한을 싣는다") {
+                    accountService.ensureBots(1)
+                    seedFoods(1)
+                    val short = "Crispy edges, chewy inside lol"
+                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "So good. ".repeat(10).trim() else short }
+
+                    run(writer(), todayAt(22))
+
+                    fakeGenerator.requests.size shouldBe 2
+                    query("SELECT content FROM food_review").single().single() shouldBe short
+                    fakeGenerator.requests.forEach { it.maxCharacters shouldBe ReviewBotContentGuard.maxLengthFor(it.language) }
                 }
             }
 
@@ -532,7 +557,7 @@ class ReviewBotTest : BehaviorSpec() {
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
                         if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
-                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                        else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
                     run(writer(min = 1, max = 1), todayAt(22))
@@ -553,7 +578,7 @@ class ReviewBotTest : BehaviorSpec() {
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
                         if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
-                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                        else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
                     run(writer(min = 1, max = 1), todayAt(22))
@@ -577,6 +602,35 @@ class ReviewBotTest : BehaviorSpec() {
                     lock.unlock()
                     run(writerBean, todayAt(22))
                     (botReviewCount() > 0).shouldBeTrue()
+                }
+            }
+        }
+
+        given("리뷰 봇 앱 카드 길이 상한(KB-943)") {
+            `when`("언어별 상한을 보면") {
+                then("라틴·키릴 80, 한중일 40, 태국어 60 이고 모르는 언어는 80 이다") {
+                    mapOf(
+                        "English" to 80, "Vietnamese" to 80, "Spanish" to 80, "Indonesian" to 80, "Russian" to 80,
+                        "Korean" to 40, "Japanese" to 40, "Simplified Chinese" to 40, "Traditional Chinese" to 40,
+                        "Thai" to 60, "Klingon" to 80,
+                    ).forEach { (language, limit) -> ReviewBotContentGuard.maxLengthFor(language) shouldBe limit }
+                }
+            }
+            `when`("상한 경계를 재면") {
+                then("상한 글자 수까지는 통과, 한 글자 넘으면 거절 — 코드 포인트로 센다") {
+                    ReviewBotContentGuard.fitsCard("a".repeat(80), "English") shouldBe true
+                    ReviewBotContentGuard.fitsCard("a".repeat(81), "English") shouldBe false
+                    ReviewBotContentGuard.fitsCard("美".repeat(40), "Japanese") shouldBe true
+                    ReviewBotContentGuard.fitsCard("美".repeat(41), "Japanese") shouldBe false
+                    ReviewBotContentGuard.fitsCard("𠀀".repeat(40), "Traditional Chinese") shouldBe true
+                    ReviewBotContentGuard.fitsCard("  ${"a".repeat(80)}  ", "English") shouldBe true
+                }
+            }
+            `when`("시스템 프롬프트를 보면") {
+                then("한두 문장의 가벼운 인터넷 말투를 요구하고 기존 금지 규칙은 그대로다") {
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("1 or 2 short sentences") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("no emoji, no hashtags") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("2 to 4 sentences") shouldBe false
                 }
             }
         }
