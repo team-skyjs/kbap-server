@@ -29,7 +29,7 @@ class ProcessedFoodController(
         @Valid @ModelAttribute request: ProcessedFoodSearchRequest,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<SearchPage<ProcessedFoodSummaryResponse>>> =
-        processedFoodService.searchProcessedFoodPage(request.query, request.cursor, request.size, memberId, request.type)
+        processedFoodService.searchProcessedFoodPage(request.query, request.cursor, request.size, memberId, request.type, request.verdict.orEmpty().toSet())
             .let { page -> page.copy(items = translationService.localizeSummaries(page.items, ProcessedFoodTranslationService.languageOf(request.lang))) }
             .let { ResponseEntity.ok(BaseResponse.ok(it)) }
 
@@ -51,6 +51,14 @@ data class ProcessedFoodSearchRequest(
     val query: String? = null,
     @field:Schema(description = "유형 칩 — 없으면 전체. 검색어가 있어도 결과를 이 유형으로 거른다", example = "SNACKS")
     val type: ProcessedFoodType? = null,
+    @field:Schema(
+        description = "판정 필터(여러 개면 OR, `verdict=AVOID&verdict=CAUTION`) — 조회 회원의 회피 재료로 상세와 같은 규칙(ProcessedFoodJudge)을 적용해 맞는 제품만 준다. " +
+            "**비회원·회피 재료 0개면 무시**(200, 전체 목록 — 칩은 앱이 숨긴다). 판정이 null(원재료·알레르기 표시를 못 읽음)인 제품은 어느 값에도 맞지 않는다. " +
+            "판정은 회원별 계산이라 DB 에서 못 거르므로 커서 위치부터 **최대 200행**을 살펴 size 를 채운다 — 200행 안에 다 못 채우면 채운 만큼(0건일 수 있음)과 " +
+            "hasNext=true·nextCursor(살펴본 다음 위치)를 준다. 앱은 hasNext 가 true 면 nextCursor 로 이어서 부른다.",
+        example = "AVOID",
+    )
+    val verdict: List<ProcessedFoodVerdict>? = null,
     @field:Schema(description = "표시 언어(ko·en·ja·zh-Hans·zh-Hant·vi·id·th·ru·es) — 없으면 ko. 항목 name·maker 에 저장된 번역을 쓴다(없으면 원문)", example = "en")
     val lang: String? = null,
     @field:Schema(description = "직전 페이지 nextCursor 그대로(불투명). 미지정 시 첫 페이지", example = "20")

@@ -4,6 +4,7 @@ import com.kbap.api.core.SearchPage
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
@@ -25,18 +26,28 @@ class ProcessedFoodService(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun searchProcessedFoodPage(query: String?, cursor: String?, size: Int, memberId: Long? = null, type: ProcessedFoodType? = null): SearchPage<ProcessedFoodSummaryResponse> {
+    fun searchProcessedFoodPage(
+        query: String?,
+        cursor: String?,
+        size: Int,
+        memberId: Long? = null,
+        type: ProcessedFoodType? = null,
+        verdicts: Set<ProcessedFoodVerdict> = emptySet(),
+    ): SearchPage<ProcessedFoodSummaryResponse> {
         val tokens = ProcessedFoodSearchRanker.tokensOf(query.orEmpty())
         val offset = cursor?.let { it.toIntOrNull()?.takeIf { value -> value >= 0 && (tokens.isEmpty() || value <= MAX_OFFSET) } ?: throw BusinessException(ErrorCode.INVALID_CURSOR) } ?: 0
         val lastMirror = products.findLastCompletedMirrorStartedAt()
-        if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId)
+        val filter = verdicts.takeIf { it.isNotEmpty() }?.let { memberId }?.let { memberService.getAvoidance(it) }?.takeIf { it.chosen.isNotEmpty() }
+            ?.let { VerdictFilter(it, verdicts) }
+        if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
         val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
         val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type).products
             .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
-        return pageOf(ranked.drop(offset).take(size), ranked.size > offset + size, offset, size, memberId)
+        val rankedById = ranked.associateBy { it.id }
+        return pageOf(ranked.map { it.id }, offset, size, memberId, filter) { ids -> ids.mapNotNull(rankedById::get).associateBy { it.id } }
     }
 
-    private fun listPage(type: ProcessedFoodType?, offset: Int, size: Int, lastMirror: LocalDateTime?, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
+    private fun listPage(type: ProcessedFoodType?, offset: Int, size: Int, lastMirror: LocalDateTime?, memberId: Long?, filter: VerdictFilter?): SearchPage<ProcessedFoodSummaryResponse> {
         val catalog = featuredCatalog.productsByPriority()
         val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
             .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
@@ -52,9 +63,7 @@ class ProcessedFoodService(
             }
             .map { it.id }
         val ids = featured.map { it.first.id } + rest
-        val pageIds = ids.drop(offset).take(size)
-        val loaded = products.findAllById(pageIds).associateBy { it.id }
-        return pageOf(pageIds.mapNotNull(loaded::get), ids.size > offset.toLong() + size, offset, size, memberId)
+        return pageOf(ids, offset, size, memberId, filter) { pageIds -> products.findAllById(pageIds).associateBy { it.id } }
     }
 
     private fun foldsIntoFeatured(
@@ -75,12 +84,41 @@ class ProcessedFoodService(
         return products.map { ProcessedFoodSummaryResponse.withReviews(it, GroupRating.of(it.id, members.getValue(it.id).mapNotNull(ratings::get)), avoidance) }
     }
 
-    private fun pageOf(page: List<ProcessedFoodProduct>, hasNext: Boolean, offset: Int, size: Int, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> {
-        return SearchPage(
-            items = getSummaries(page, memberId),
-            hasNext = hasNext,
-            nextCursor = if (hasNext) (offset.toLong() + size).toString() else null,
-        )
+    private fun pageOf(
+        ids: List<Long>,
+        offset: Int,
+        size: Int,
+        memberId: Long?,
+        filter: VerdictFilter?,
+        load: (List<Long>) -> Map<Long, ProcessedFoodProduct>,
+    ): SearchPage<ProcessedFoodSummaryResponse> {
+        if (filter == null) {
+            val pageIds = ids.drop(offset).take(size)
+            val loaded = load(pageIds)
+            return summaryPage(pageIds.mapNotNull(loaded::get), ids.size > offset.toLong() + size, offset.toLong() + size, memberId)
+        }
+        val matched = mutableListOf<ProcessedFoodProduct>()
+        var position = offset
+        val scanEnd = minOf(ids.size, offset + MAX_VERDICT_SCAN)
+        while (position < scanEnd && matched.size < size) {
+            val chunk = ids.subList(position, minOf(scanEnd, position + VERDICT_SCAN_CHUNK))
+            val loaded = load(chunk)
+            for (id in chunk) {
+                position++
+                val product = loaded[id] ?: continue
+                if (filter.matches(product)) matched += product
+                if (matched.size == size) break
+            }
+        }
+        return summaryPage(matched, position < ids.size, position.toLong(), memberId)
+    }
+
+    private fun summaryPage(page: List<ProcessedFoodProduct>, hasNext: Boolean, next: Long, memberId: Long?): SearchPage<ProcessedFoodSummaryResponse> =
+        SearchPage(items = getSummaries(page, memberId), hasNext = hasNext, nextCursor = if (hasNext) next.toString() else null)
+
+    private class VerdictFilter(private val avoidance: Avoidance, private val verdicts: Set<ProcessedFoodVerdict>) {
+        fun matches(product: ProcessedFoodProduct): Boolean =
+            ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance).verdict in verdicts
     }
 
     @Transactional(readOnly = true)
@@ -210,6 +248,8 @@ class ProcessedFoodService(
     companion object {
         private const val CANDIDATE_LIMIT = 300
         private const val MAX_OFFSET = 10_000
+        const val MAX_VERDICT_SCAN = 200
+        private const val VERDICT_SCAN_CHUNK = 50
         private const val MAX_SCAN_TOKENS = 10
         private val NO_BASELINE: LocalDateTime = LocalDateTime.of(1970, 1, 1, 0, 0)
     }
