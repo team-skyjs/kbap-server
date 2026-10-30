@@ -125,6 +125,25 @@ class ProcessedFoodPopularityTest : BehaviorSpec() {
                 }
             }
 
+            `when`("리뷰·스캔 없이 조회만 여러 회원에게서 쌓이면") {
+                then("조회 고유 사용자도 근거 수에 들어가 시드 순서에서 움직인다 — 하위 시드 라인 위로") {
+                    val cookie = idOf("2016036417043")
+                    val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
+                    (1L..40L).forEach { n ->
+                        member(94000 + n)
+                        execute(
+                            "INSERT INTO processed_food_signal (processed_food_id, member_id, signal_type, signal_date, status, created_at, updated_at) " +
+                                "VALUES ($cookie, ${94000 + n}, 'VIEW', '${today.minusDays(n % 5)}', 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+
+                    popularity.refresh()
+                    val shown = names()
+
+                    (shown.indexOf("치즈쿠키Ⅱ") < shown.indexOf("밥알없는비락식혜")) shouldBe true
+                }
+            }
+
             `when`("같은 리뷰가 시드·봇·제외 회원(10·12·18)의 것이면") {
                 then("집계하지 않아 순서가 바뀌지 않는다") {
                     val before = names()
