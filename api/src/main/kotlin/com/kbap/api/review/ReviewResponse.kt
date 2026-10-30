@@ -103,6 +103,15 @@ data class ReviewResponse(
     @field:JsonInclude(JsonInclude.Include.NON_NULL)
     @field:Schema(description = "리뷰 대상 가공식품 요약 — 가공식품 리뷰에만 있고 음식 리뷰에서는 필드 자체가 생략된다", nullable = true)
     val processedFood: ReviewProcessedFoodResponse? = null,
+
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(
+        description = "요청 lang 으로 이미 저장된 번역 — 전역 피드 GET /api/reviews 의 첫 페이지(cursor·foodId 없음)에만, " +
+            "리뷰 언어가 lang 과 다르고 지금 본문과 같은 원문으로 만든 저장본이 있을 때만 실린다(없으면 필드 자체가 생략). " +
+            "번역 엔진을 부르지 않는다 — 없는 항목은 앱이 POST /api/translations 로 받는다.",
+        nullable = true,
+    )
+    val translation: ReviewTranslationResponse? = null,
 ) {
     companion object {
         fun from(
@@ -136,6 +145,14 @@ data class ReviewResponse(
             )
     }
 }
+
+@Schema(description = "리뷰 본문의 저장된 번역")
+data class ReviewTranslationResponse(
+    @field:Schema(description = "번역문(요청 lang)", example = "국물이 진하고 정말 맛있어요")
+    val text: String,
+    @field:Schema(description = "엔진이 판별한 원문 언어 코드 — 판별 못 했으면 null", example = "en", nullable = true)
+    val sourceLanguage: String?,
+)
 
 @Schema(description = "리뷰에 저장된 위치 정보 — 각 항목은 저장 당시 결측이면 null")
 data class ReviewPlaceResponse(
