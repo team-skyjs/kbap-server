@@ -87,8 +87,13 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
         fun bulkRegister(items: List<Any>, expected: Int = 200) =
             read(mockMvc.post("/api/admin/processed-foods/cutout-images/bulk-register") { admin(this, items) }, expected)
 
-        fun review(id: Long, approved: Boolean, reason: String? = null, expected: Int = 200) =
-            read(mockMvc.post("/api/admin/processed-foods/$id/cutout-image/review") { admin(this, mapOf("approved" to approved, "reason" to reason)) }, expected)
+        fun review(id: Long, approved: Boolean, reason: String? = null, expected: Int = 200, expectedCutoutImageUrl: String? = null) =
+            read(
+                mockMvc.post("/api/admin/processed-foods/$id/cutout-image/review") {
+                    admin(this, mapOf("approved" to approved, "reason" to reason, "expectedCutoutImageUrl" to expectedCutoutImageUrl))
+                },
+                expected,
+            )
 
         fun bulkApprove(minCoverage: Double, dryRun: Boolean) =
             read(mockMvc.post("/api/admin/processed-foods/cutout-images/bulk-approve") { admin(this, mapOf("minCoverage" to minCoverage, "dryRun" to dryRun)) }, 200).path("payload")
@@ -296,6 +301,26 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
 
                     review(id, approved = true)
                     row(id)["reason"] shouldBe null
+                }
+            }
+
+            `when`("관리자가 본 누끼 URL 을 함께 보냈는데 그사이 누끼가 다시 등록됐으면") {
+                then("409 PFOOD-010 이고 상태를 바꾸지 않는다 — 같은 URL 이면 그대로 검수한다") {
+                    val id = seedProduct("RV-EXP")
+                    uploaded("RV-EXP")
+                    bulkRegister(listOf(item(id, "RV-EXP")))
+                    val seen = urlOf("RV-EXP")
+                    val reuploadedAt = modifiedAt.plusSeconds(60)
+                    uploaded("RV-EXP", reuploadedAt)
+                    bulkRegister(listOf(item(id, "RV-EXP")))
+
+                    review(id, approved = true, expected = 409, expectedCutoutImageUrl = seen).path("code").asText() shouldBe "PFOOD-010"
+                    row(id).let {
+                        it["status"] shouldBe "PENDING"
+                        it["url"] shouldBe urlOf("RV-EXP", reuploadedAt)
+                    }
+
+                    review(id, approved = true, expectedCutoutImageUrl = urlOf("RV-EXP", reuploadedAt)).path("payload").path("status").asText() shouldBe "APPROVED"
                 }
             }
 
