@@ -74,6 +74,8 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
           AND (:route IS NULL OR p.cutoutRoute = :route)
           AND (:minCoverage IS NULL OR p.cutoutCoverage >= :minCoverage)
           AND (:maxCoverage IS NULL OR p.cutoutCoverage <= :maxCoverage)
+          AND (:namePattern IS NULL OR LOWER(p.productName) LIKE :namePattern escape '\'
+               OR p.reportNo = :exactKey OR p.id = :exactId)
           AND (:cursor IS NULL OR p.id > :cursor)
         ORDER BY p.id
         """,
@@ -83,7 +85,36 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
         @Param("route") route: String?,
         @Param("minCoverage") minCoverage: BigDecimal?,
         @Param("maxCoverage") maxCoverage: BigDecimal?,
+        @Param("namePattern") namePattern: String?,
+        @Param("exactKey") exactKey: String?,
+        @Param("exactId") exactId: Long?,
         @Param("cursor") cursor: Long?,
+        pageable: Pageable,
+    ): List<ProcessedFoodProduct>
+
+    @Query(
+        """
+        SELECT p FROM ProcessedFoodProduct p
+        WHERE p.cutoutReviewStatus = :status
+          AND (:route IS NULL OR p.cutoutRoute = :route)
+          AND (:minCoverage IS NULL OR p.cutoutCoverage >= :minCoverage)
+          AND (:maxCoverage IS NULL OR p.cutoutCoverage <= :maxCoverage)
+          AND (:namePattern IS NULL OR LOWER(p.productName) LIKE :namePattern escape '\'
+               OR p.reportNo = :exactKey OR p.id = :exactId)
+          AND (:cursorAt IS NULL OR p.cutoutReviewedAt < :cursorAt OR (p.cutoutReviewedAt = :cursorAt AND p.id < :cursorId))
+        ORDER BY p.cutoutReviewedAt DESC, p.id DESC
+        """,
+    )
+    fun findRecentlyReviewedCutoutPage(
+        @Param("status") status: CutoutReviewStatus,
+        @Param("route") route: String?,
+        @Param("minCoverage") minCoverage: BigDecimal?,
+        @Param("maxCoverage") maxCoverage: BigDecimal?,
+        @Param("namePattern") namePattern: String?,
+        @Param("exactKey") exactKey: String?,
+        @Param("exactId") exactId: Long?,
+        @Param("cursorAt") cursorAt: LocalDateTime?,
+        @Param("cursorId") cursorId: Long?,
         pageable: Pageable,
     ): List<ProcessedFoodProduct>
 

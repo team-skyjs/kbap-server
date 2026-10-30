@@ -379,6 +379,71 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
             }
         }
 
+        given("누끼 검수 목록 최근순 정렬·검색(KB-933)") {
+            fun ids(page: JsonNode) = page.path("items").map { it.path("processedFoodId").asLong() }
+            fun reviewedAt(id: Long, at: String) = execute("UPDATE processed_food_product SET cutout_reviewed_at = '$at' WHERE id = $id")
+            fun registered(vararg pairs: Pair<String, String>): List<Long> {
+                val ids = pairs.map { (reportNo, name) -> seedProduct(reportNo, name).also { uploaded(reportNo) } }
+                bulkRegister(ids.zip(pairs.toList()).map { (id, pair) -> item(id, pair.first) })
+                return ids
+            }
+
+            `when`("sort=RECENT 로 승인·반려 목록을 보면") {
+                then("검수 시각 최신순(같으면 id 큰 순)이고 문자열 커서로 이어 받는다") {
+                    val (old, tieLow, tieHigh, newest, pending) = registered("RC-1" to "최근1", "RC-2" to "최근2", "RC-3" to "최근3", "RC-4" to "최근4", "RC-5" to "최근5")
+                    listOf(old, tieLow, tieHigh, newest).forEach { review(it, approved = true) }
+                    reviewedAt(old, "2026-10-30 10:00:00")
+                    reviewedAt(tieLow, "2026-10-30 11:00:00")
+                    reviewedAt(tieHigh, "2026-10-30 11:00:00")
+                    reviewedAt(newest, "2026-10-30 12:00:00")
+
+                    val first = list("status=APPROVED&sort=RECENT&size=2")
+                    ids(first) shouldContainExactly listOf(newest, tieHigh)
+                    val cursor = first.path("nextCursor").asText()
+                    first.path("nextCursor").isTextual shouldBe true
+
+                    val second = list("status=APPROVED&sort=RECENT&size=2&cursor=$cursor")
+                    ids(second) shouldContainExactly listOf(tieLow, old)
+                    second.path("nextCursor").isNull shouldBe true
+                    ids(list("status=APPROVED&sort=RECENT")).contains(pending) shouldBe false
+                }
+            }
+
+            `when`("PENDING 이나 상태 없이 sort=RECENT 를 주면") {
+                then("정렬을 무시하고 id 오름차순·숫자 커서다") {
+                    val (a, b, c) = registered("RP-1" to "대기1", "RP-2" to "대기2", "RP-3" to "대기3")
+
+                    val first = list("status=PENDING&sort=RECENT&size=2")
+                    ids(first) shouldContainExactly listOf(a, b)
+                    first.path("nextCursor").asText() shouldBe b.toString()
+                    ids(list("sort=RECENT&size=2&cursor=${first.path("nextCursor").asText()}")) shouldContainExactly listOf(c)
+                }
+            }
+
+            `when`("최근순 커서가 깨져 있으면") {
+                then("400 FOOD-002 다") {
+                    read(mockMvc.get("/api/admin/processed-foods/cutout-images?status=APPROVED&sort=RECENT&cursor=not.a.cursor") { admin(this) }, 400)
+                        .path("code").asText() shouldBe "FOOD-002"
+                }
+            }
+
+            `when`("q 로 검색하면") {
+                then("제품명 부분 일치(대소문자 무시), 숫자만이면 품목보고번호·id 정확 일치도 찾고 다른 필터와 AND 다") {
+                    val (choco, chocoMilk, numbered, other) = registered(
+                        "QS-1" to "Choco Pie", "QS-2" to "초코우유 CHOCO", "20261030001" to "숫자번호칩", "QS-4" to "감자칩",
+                    )
+                    review(chocoMilk, approved = false, reason = "잘림")
+
+                    ids(list("q=choco")) shouldContainExactly listOf(choco, chocoMilk)
+                    ids(list("q=20261030001")) shouldContainExactly listOf(numbered)
+                    ids(list("q=$other")) shouldContainExactly listOf(other)
+                    ids(list("q=choco&status=PENDING")) shouldContainExactly listOf(choco)
+                    ids(list("q=choco&status=REJECTED&sort=RECENT")) shouldContainExactly listOf(chocoMilk)
+                    ids(read(mockMvc.get("/api/admin/processed-foods/cutout-images") { admin(this); param("q", "%") }, 200).path("payload")).size shouldBe 0
+                }
+            }
+        }
+
         given("누끼 조건 일괄 승인") {
             `when`("전경 비율 기준을 주면") {
                 then("PENDING·vision·기준 이상만 승인하고 건수를 준다 — dryRun 은 세기만 한다") {
