@@ -118,6 +118,31 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                 }
             }
 
+            `when`("생성과 저장 사이에 다른 쪽이 같은 리뷰를 고쳐 커밋하면") {
+                then("그 리뷰만 failedIds 로 넘기고 나머지는 계속 저장한다") {
+                    val ids = (1..3).map { review(bots[it - 1], food, long, "en") }
+                    val contested = ids[1]
+                    var holder: java.sql.Connection? = null
+                    fakeGenerator.reply = {
+                        if (fakeGenerator.requests.size == 2) {
+                            holder = dataSource.connection.apply {
+                                autoCommit = false
+                                createStatement().use { st -> st.executeUpdate("UPDATE food_review SET content = 'Edited by someone else', version = version + 1 WHERE id = $contested") }
+                            }
+                            Thread { Thread.sleep(1500); holder!!.commit(); holder!!.close() }.start()
+                        }
+                        short
+                    }
+
+                    val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 100, seed = 1)
+
+                    result.failedIds shouldBe listOf(contested)
+                    contentOf(ids[0]) shouldBe short
+                    contentOf(contested) shouldBe "Edited by someone else"
+                    contentOf(ids[2]) shouldBe short
+                }
+            }
+
             `when`("생성물이 끝내 상한을 넘으면") {
                 then("그 리뷰는 failedIds 이고 원문을 그대로 둔다") {
                     val id = review(bots[0], food, long, "en")
