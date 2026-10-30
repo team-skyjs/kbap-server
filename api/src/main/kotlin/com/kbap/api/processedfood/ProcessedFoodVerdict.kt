@@ -27,6 +27,7 @@ data class ProcessedFoodJudgement(
     val mayContainMatches: List<ProcessedFoodVerdictMatch>,
     val unclearIngredients: List<String>,
     val majorAllergens: List<IngredientCode>,
+    val unclearTerms: List<String> = emptyList(),
 )
 
 object ProcessedFoodJudge {
@@ -40,6 +41,10 @@ object ProcessedFoodJudge {
     private val containsTerms = unclearTerms[CONTAINS].orEmpty()
     private val standaloneTerms = unclearTerms[STANDALONE].orEmpty()
     private val wholeTerms = unclearTerms[WHOLE].orEmpty().toSet()
+    private val orderedTerms = unclearTerms.values.flatten().let { all ->
+        requireNotNull(ProcessedFoodJudge::class.java.getResourceAsStream("/processed-food/unclear-ingredients.tsv")).bufferedReader(Charsets.UTF_8).readLines()
+            .filter { it.isNotBlank() && !it.startsWith("#") }.map { it.split('\t')[0].trim() }.filter { it in all }
+    }
     private val PERCENT = Regex("""\d+(\.\d+)?\s*%""")
     private val TOKEN_BREAK = Regex("""[,()\[\]{}/·:]+""")
     private val ITEM_BREAK = Regex("""[,/·]+""")
@@ -66,7 +71,7 @@ object ProcessedFoodJudge {
         val majorAllergens = majorParents.filterValues { family -> family.any { it in detected } }.keys.sortedBy { it.ordinal }
         val readable = contained.detections.isNotEmpty() || mayContain.isNotEmpty() || !rawUnknown || contained.declaration == AllergenDeclaration.LISTED
         if (avoidance == null || avoidance.chosen.isEmpty() || !readable) {
-            return ProcessedFoodJudgement(contained, mayContain, null, emptyList(), emptyList(), unclear, majorAllergens)
+            return ProcessedFoodJudgement(contained, mayContain, null, emptyList(), emptyList(), unclear, majorAllergens, termsOf(unclear))
         }
         val avoidMatches = matchesOf(avoidance, contained.detections)
         val matched = avoidMatches.map { it.code }.toSet()
@@ -79,7 +84,7 @@ object ProcessedFoodJudge {
             unclear.isNotEmpty() -> ProcessedFoodVerdict.SAFE_WITH_NOTE
             else -> ProcessedFoodVerdict.SAFE
         }
-        return ProcessedFoodJudgement(contained, mayContain, verdict, avoidMatches, mayContainMatches, unclear, majorAllergens)
+        return ProcessedFoodJudgement(contained, mayContain, verdict, avoidMatches, mayContainMatches, unclear, majorAllergens, termsOf(unclear))
     }
 
     private fun matchesOf(avoidance: Avoidance, detections: List<IngredientLabelDetection>): List<ProcessedFoodVerdictMatch> =
@@ -87,6 +92,9 @@ object ProcessedFoodJudge {
             val covered = avoidance.codeNamesCoveredBy(chosen)
             detections.filter { it.code.name in covered }.map { it.evidence }.distinct().takeIf { it.isNotEmpty() }?.let { ProcessedFoodVerdictMatch(chosen, it) }
         }
+
+    private fun termsOf(unclear: List<String>): List<String> =
+        orderedTerms.filter { term -> unclear.any { token -> if (term in wholeTerms) token == term else term in token } }
 
     private fun unclearIn(rawMaterials: String?): List<String> {
         val text = rawMaterials?.let { Normalizer.normalize(it, Normalizer.Form.NFKC) }.orEmpty()
