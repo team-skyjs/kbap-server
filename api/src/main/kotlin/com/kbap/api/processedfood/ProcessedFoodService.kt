@@ -26,6 +26,7 @@ class ProcessedFoodService(
     private val candidateIndex: ProcessedFoodCandidateIndex,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
     private val cvsCatalog: ProcessedFoodCvsCatalog,
+    private val popularity: ProcessedFoodPopularity,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -79,10 +80,12 @@ class ProcessedFoodService(
         if (stocked.isEmpty()) return null
         val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType) == type }.associateBy { it.reportNo }
         val used = mutableSetOf<Long>()
-        val representatives = cvsCatalog.seedLines.mapNotNull { line ->
+        val ranked = cvsCatalog.seedLines.mapNotNull { line ->
             val pool = line.reportNos.mapNotNull(byReportNo::get).filter { it.id !in used }
-            (line.representative?.let(byReportNo::get)?.takeIf { it.id !in used } ?: lineRepresentativeOf(line.line, pool))?.also { used += it.id }
+            (line.representative?.let(byReportNo::get)?.takeIf { it.id !in used } ?: lineRepresentativeOf(line.line, pool))
+                ?.also { used += it.id }?.let { line.rank to it }
         }
+        val representatives = ranked.map { it.second }
         val representedGroups = representatives.map(::groupKeyOf).toSet()
         val rest = byReportNo.values
             .filter { it.id !in used && groupKeyOf(it) !in representedGroups }
@@ -90,7 +93,10 @@ class ProcessedFoodService(
             .map { group -> group.maxWith(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id })) }
             .sortedBy { it.id }
             .shuffled(Random(LocalDate.now(SEOUL).toEpochDay()))
-        return representatives.map { it.id } + rest.map { it.id }
+        return popularity.order(
+            ranked.map { (rank, row) -> ProcessedFoodPopularity.Entry(row.id, groupKeyOf(row), popularity.seedPercentileOf(rank)) } +
+                rest.map { ProcessedFoodPopularity.Entry(it.id, groupKeyOf(it), ProcessedFoodPopularity.NON_SEED_PERCENTILE) },
+        )
     }
 
     private fun lineRepresentativeOf(line: String, pool: List<ProcessedFoodProduct>): ProcessedFoodProduct? {

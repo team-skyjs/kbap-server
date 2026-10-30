@@ -37,6 +37,7 @@ class ProcessedFoodNameScanService(
     private val freeHour: ProcessedFoodFreeHour,
     private val decisions: ProcessedFoodNameDecisionService,
     private val uploadedImages: UploadedImageService,
+    private val signals: ProcessedFoodSignalRecorder,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -120,6 +121,7 @@ class ProcessedFoodNameScanService(
             throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         }
         val freeUntil = if (charged) freeHour.open(memberId) else liveUntil
+        if (reportNo in offered) signals.record(detail.id, memberId, ProcessedFoodSignalType.SCAN_MATCH)
         return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, charged, detail, freeUntil)
     }
 
