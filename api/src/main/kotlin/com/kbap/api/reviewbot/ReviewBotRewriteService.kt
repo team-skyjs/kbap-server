@@ -41,7 +41,9 @@ class ReviewBotRewriteService(
         }
         val sampled = all.filter { isSampled(sampleSeed, it.id, ratio) }
         val candidates = sampled.filterNot { ReviewBotContentGuard.fitsCard(it.content, it.language) }
-        val selected = candidates.take(limit)
+        val remaining = candidates.filter { afterId == null || it.id > afterId }
+        val selected = remaining.take(limit)
+        val nextAfterId = selected.lastOrNull()?.id?.takeIf { remaining.size > selected.size }
         val latestShort = all.filter { ReviewBotContentGuard.fitsCard(it.content, it.language) }
             .groupBy { it.foodId }.mapValues { (_, reviews) -> reviews.maxBy { it.id }.content }.toMutableMap()
 
@@ -49,9 +51,11 @@ class ReviewBotRewriteService(
         val done = selected.mapNotNull { candidate ->
             val after = try {
                 foods.findById(candidate.foodId).orElse(null)
-                    ?.let {
-                        val request = writer.draftRequestFor(it, candidate.language, candidate.rating, styleRandom(sampleSeed, candidate.id), latestShort[candidate.foodId])
-                        writer.generateAcceptable(it.id, generator, request)
+                    ?.let { food ->
+                        val request = writer.draftRequestFor(food, candidate.language, candidate.rating, styleRandom(sampleSeed, candidate.id, 0), latestShort[candidate.foodId])
+                        writer.generateAcceptable(food.id, generator) { attempt ->
+                            if (attempt == 0) request else ReviewBotStyles.restyle(request, styleRandom(sampleSeed, candidate.id, attempt))
+                        }
                     }
                     ?.takeIf { dryRun || save(candidate, it) }
             } catch (e: RuntimeException) {
@@ -66,7 +70,7 @@ class ReviewBotRewriteService(
             if (!dryRun) log.info("리뷰 봇 재작성 reviewId={} language={} beforeLength={} before={}", candidate.id, candidate.language, candidate.content.length, candidate.content)
             ReviewBotRewriteSample(candidate.id, candidate.language, candidate.content, after)
         }
-        return ReviewBotRewriteResult(dryRun, null, sampleSeed, sampled.size, candidates.size, selected.size, done.size, sampled.size - candidates.size, failed, done.take(SAMPLE_SIZE))
+        return ReviewBotRewriteResult(dryRun, nextAfterId, sampleSeed, sampled.size, candidates.size, selected.size, done.size, sampled.size - candidates.size, failed, done.take(SAMPLE_SIZE))
     }
 
     private fun save(candidate: Candidate, after: String): Boolean =
@@ -82,7 +86,8 @@ class ReviewBotRewriteService(
 
     private fun isSampled(seed: Long, reviewId: Long, ratio: Double): Boolean = Random(seed * SAMPLE_SPREAD + reviewId).nextDouble() < ratio
 
-    private fun styleRandom(seed: Long, reviewId: Long): Random = Random((seed * SAMPLE_SPREAD + reviewId) xor STYLE_SALT)
+    private fun styleRandom(seed: Long, reviewId: Long, attempt: Int): Random =
+        Random(((seed * SAMPLE_SPREAD + reviewId) xor STYLE_SALT) + attempt * ATTEMPT_SPREAD)
 
     private data class Candidate(val id: Long, val foodId: Long, val rating: Int, val content: String, val language: String)
 
@@ -90,6 +95,7 @@ class ReviewBotRewriteService(
         const val MAX_LIMIT = 40
         const val SAMPLE_SPREAD = 1_000_003L
         const val STYLE_SALT = 0x5DEECE66DL
+        const val ATTEMPT_SPREAD = 0x9E3779B97F4AL
         const val SAMPLE_SIZE = 5
     }
 }

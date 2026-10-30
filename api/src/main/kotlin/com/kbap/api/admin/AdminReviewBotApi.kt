@@ -47,7 +47,8 @@ interface AdminReviewBotApi {
             그중 **언어별 앱 카드 상한(라틴·키릴 80·한중일 40·태국어 60자)을 아직 넘는 것**을 id 순 `limit` 개씩 같은 음식·같은 별점·같은 언어(리뷰 language, 없으면 봇 국가 언어, 그것도 없으면 영어)로
             새 리뷰 봇 생성기(짧은 인터넷 말투·상한 강제)를 불러 **content 만** 바꾼다(updated_at 갱신). 사진·별점·작성일·좋아요·language 는 그대로.
             - `dryRun=true`(기본): 생성까지 하되 저장하지 않는다(유료 생성 호출이 일어난다).
-            - 같은 seed 로 여러 번 나눠 불러도 표본(ratio 몫)을 넘지 않는다. `candidates` 가 0 이 될 때까지 같은 seed 로 다시 부른다. **실행(dryRun=false)은 seed 필수**.
+            - 같은 seed 로 여러 번 나눠 불러도 표본(ratio 몫)을 넘지 않는다. 같은 seed 로 응답의 `nextAfterId` 를 `afterId` 로 넘기며 null 이 될 때까지 부르고, 한 바퀴 뒤 남은 `candidates`(실패분)는 afterId 없이 다시 부른다. **실행(dryRun=false)은 seed 필수**.
+            - 스타일·문장 수는 (seed, 리뷰 id, 시도)로 정해져 같은 seed 면 dryRun 과 실행이 같고, 가드에 걸린 재시도는 다른 스타일을 받는다.
             - 이미 상한 안인 리뷰는 대상에서 빠지므로 같은 리뷰를 두 번 고치지 않는다. 생성 실패·상한 초과·그사이 수정·저장 오류는 그 리뷰만 `failedIds`.
             - 원문은 응답 `sample`(앞 5건)과 INFO 로그(리뷰 id·원문)에 남는다. 저장된 번역은 원문 해시가 달라져 자연히 무효다.
             - `X-Target-Environment`(dev·prod)가 서버 환경(큐레이션 환경 값 재사용)과 다르면 409 REVIEW-006.
@@ -138,6 +139,8 @@ data class AdminReviewBotRewriteRequest(
     val limit: Int = 20,
     @field:Schema(description = "표본 seed — 리뷰별로 (seed, 리뷰 id) 가 표본 포함을 정하므로 같은 seed 면 몇 번 나눠 불러도 같은 표본(ratio 몫)에 수렴한다. dryRun=false 면 필수", example = "20261030", nullable = true)
     val seed: Long? = null,
+    @field:Schema(description = "커서 — 직전 응답의 nextAfterId. 이 id 다음 대상부터 처리한다(매번 실패하는 리뷰를 지나가기 위함). 없으면 처음부터", example = "1234", nullable = true)
+    val afterId: Long? = null,
 )
 
 @Schema(description = "리뷰 봇 계정 보장 요청")

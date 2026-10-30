@@ -125,7 +125,7 @@ class ReviewBotWriter(
         val rating = ReviewBotCountries.rating(random)
         val earlier = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, bots.map { it.id })?.content
         val request = draftRequestFor(food, ReviewBotCountries.languageFor(bot.countryCode, random), rating, random, earlier)
-        val content = generateAcceptable(foodId, generator, request) ?: return null
+        val content = generateAcceptable(foodId, generator) { attempt -> if (attempt == 0) request else ReviewBotStyles.restyle(request, random) } ?: return null
         if (!photoService.isStillUsable(photos)) return null
         return runCatching {
             reviewService.createBotReview(bot.id, foodId, rating, content, photos, poolOwnerIds).reviewId
@@ -145,8 +145,10 @@ class ReviewBotWriter(
             avoidSimilarTo = avoidSimilarTo,
         )
 
-    fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
+    fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, requestFor: (attempt: Int) -> ReviewDraftRequest): String? {
+        val first = requestFor(0)
         repeat(MAX_ATTEMPTS) { attempt ->
+            val request = if (attempt == 0) first else requestFor(attempt)
             val text = runCatching { generator.generate(request) }
                 .onFailure { log.warn("리뷰 봇 생성 실패 foodId={} food={} attempt={}", foodId, request.foodName, attempt + 1, it) }
                 .getOrNull()
@@ -158,7 +160,7 @@ class ReviewBotWriter(
                 )
             }
         }
-        log.warn("리뷰 봇 — 이 음식은 이번 틱에서 건너뜁니다(초안 {}회 모두 생성 실패·금지어·길이 초과) foodId={} food={}", MAX_ATTEMPTS, foodId, request.foodName)
+        log.warn("리뷰 봇 — 이 음식은 이번 틱에서 건너뜁니다(초안 {}회 모두 생성 실패·금지어·길이 초과) foodId={} food={}", MAX_ATTEMPTS, foodId, first.foodName)
         return null
     }
 

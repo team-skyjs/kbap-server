@@ -152,7 +152,8 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                     second.rewritten shouldBe 1
                     contentOf(next) shouldBe short
                     second.nextAfterId shouldBe null
-                    second.candidates shouldBe 1
+                    second.candidates shouldBe 2
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 40, seed = 5).candidates shouldBe 1
                 }
             }
 
