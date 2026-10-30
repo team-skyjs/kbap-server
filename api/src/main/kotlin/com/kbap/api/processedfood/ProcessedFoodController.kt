@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 class ProcessedFoodController(
     private val processedFoodService: ProcessedFoodService,
     private val translationService: ProcessedFoodTranslationService,
+    private val signals: ProcessedFoodSignalRecorder,
 ) : ProcessedFoodApi {
     @GetMapping(version = ApiVersions.PROCESSED_FOOD + "+")
     override fun search(
@@ -38,10 +39,13 @@ class ProcessedFoodController(
         @PathVariable id: Long,
         @AuthMemberIdOrNull memberId: Long?,
         @RequestParam(required = false) lang: String?,
-    ): ResponseEntity<BaseResponse<ProcessedFoodDetailResponse>> =
-        ResponseEntity.ok(
-            BaseResponse.ok(translationService.localizeDetail(processedFoodService.getProcessedFoodDetail(id, memberId), ProcessedFoodTranslationService.languageOf(lang), member = memberId != null)),
+    ): ResponseEntity<BaseResponse<ProcessedFoodDetailResponse>> {
+        val detail = processedFoodService.getProcessedFoodDetail(id, memberId)
+        memberId?.let { signals.record(id, it, ProcessedFoodSignalType.VIEW) }
+        return ResponseEntity.ok(
+            BaseResponse.ok(translationService.localizeDetail(detail, ProcessedFoodTranslationService.languageOf(lang), member = memberId != null)),
         )
+    }
 }
 
 @Schema(description = "가공식품 검색 요청")
