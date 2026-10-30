@@ -439,7 +439,7 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                     ids(list("q=$other")) shouldContainExactly listOf(other)
                     ids(list("q=choco&status=PENDING")) shouldContainExactly listOf(choco)
                     ids(list("q=choco&status=REJECTED&sort=RECENT")) shouldContainExactly listOf(chocoMilk)
-                    ids(list("q=%25")).size shouldBe 0
+                    ids(read(mockMvc.get("/api/admin/processed-foods/cutout-images") { admin(this); param("q", "%") }, 200).path("payload")).size shouldBe 0
                 }
             }
         }
