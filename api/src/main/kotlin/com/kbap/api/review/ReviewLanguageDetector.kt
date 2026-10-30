@@ -4,12 +4,15 @@ import com.github.pemistahl.lingua.api.Language
 import com.github.pemistahl.lingua.api.LanguageDetector
 import com.github.pemistahl.lingua.api.LanguageDetectorBuilder
 import com.kbap.common.domain.LanguageCode
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.lang.Character.UnicodeScript
 import java.nio.charset.Charset
 
 @Component
-class ReviewLanguageDetector {
+class ReviewLanguageDetector(
+    @Value("\${kbap.review.language.short-latin-min-margin:0.2}") private val shortLatinMinMargin: Double = 0.2,
+) {
     private val latinDetector: LanguageDetector = LanguageDetectorBuilder
         .fromLanguages(*(LATIN_APP_LANGUAGES.keys + OTHER_LATIN_LANGUAGES).toTypedArray())
         .withLowAccuracyMode()
