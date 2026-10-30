@@ -3,6 +3,8 @@ package com.kbap.api.processedfood
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -12,6 +14,7 @@ enum class ProcessedFoodSignalType { VIEW, SCAN_MATCH }
 class ProcessedFoodSignalRecorder(private val jdbc: JdbcTemplate) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun record(processedFoodId: Long, memberId: Long, type: ProcessedFoodSignalType) {
         try {
             jdbc.update(

@@ -75,7 +75,7 @@ class ProcessedFoodPopularity(
         val signals = (reviews + logged).filter { it.memberId !in excluded && it.processedFoodId in groupOf }.distinct()
         val raw = signals.groupBy { groupOf.getValue(it.processedFoodId) }.mapValues { (_, group) ->
             val reviewCount = group.count { it.type == "REVIEW" }
-            val evidence = 3.0 * reviewCount + group.filter { it.type == "SCAN_MATCH" }.map { it.memberId }.distinct().size
+            val evidence = 3.0 * reviewCount + group.filter { it.type == "SCAN_MATCH" || it.type == "VIEW" }.map { it.memberId }.distinct().size
             Raw(ln(1 + group.sumOf { WEIGHTS.getValue(it.type) }), evidence)
         }
         val groups = catalogGroupOf.values.toSet()
