@@ -66,7 +66,7 @@ class ProcessedFoodPopularity(
         )
         val logged = jdbc.query(
             "SELECT processed_food_id, member_id, signal_type, signal_date FROM processed_food_signal " +
-                "WHERE status = 'ACTIVE' AND processed_food_id IN ($ids) AND signal_date >= ?",
+                "WHERE signal_date >= ? AND processed_food_id IN ($ids)",
             { rs, _ -> Signal(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getDate(4).toLocalDate(), null) },
             Date.valueOf(since.minusDays(SPIKE_BASELINE_DAYS)),
         )

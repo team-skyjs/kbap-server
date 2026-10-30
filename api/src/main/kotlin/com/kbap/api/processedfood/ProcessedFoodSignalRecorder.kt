@@ -15,8 +15,8 @@ class ProcessedFoodSignalRecorder(private val jdbc: JdbcTemplate) {
     fun record(processedFoodId: Long, memberId: Long, type: ProcessedFoodSignalType) {
         try {
             jdbc.update(
-                "INSERT IGNORE INTO processed_food_signal (processed_food_id, member_id, signal_type, signal_date, status, created_at, updated_at) " +
-                    "VALUES (?, ?, ?, ?, 'ACTIVE', NOW(6), NOW(6))",
+                "INSERT INTO processed_food_signal (processed_food_id, member_id, signal_type, signal_date, status, created_at, updated_at) " +
+                    "VALUES (?, ?, ?, ?, 'ACTIVE', NOW(6), NOW(6)) ON DUPLICATE KEY UPDATE id = id",
                 processedFoodId, memberId, type.name, LocalDate.now(SEOUL),
             )
         } catch (e: RuntimeException) {
