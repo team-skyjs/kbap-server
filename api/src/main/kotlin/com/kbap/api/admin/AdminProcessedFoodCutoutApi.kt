@@ -38,6 +38,7 @@ interface AdminProcessedFoodCutoutApi {
         summary = "누끼 이미지 저장(업로드 확인)",
         description = """
             S3 에 오브젝트가 있고 image/png · 2MB 이하인지 확인한 뒤 `cutout_image_url` 에 공개 URL(`?v=수정시각`)을 저장한다.
+            관리자가 직접 올린 한 장이므로 검수 상태는 바로 **APPROVED**(검수자 = 호출 관리자)다 — 일괄 등록(PENDING)과 다르다.
             이후 목록·상세·이름 스캔 후보·대표 상품·리뷰 카드의 `imageUrl` 이 누끼를 우선한다(HACCP 원본 `image_url` 은 그대로, 출처 표기 유지).
             같은 키로 다시 확인해도 된다(멱등). HACCP 미러 동기화는 이 값을 건드리지 않는다.
             - **ADMIN 역할 JWT 전용**.
@@ -54,12 +55,13 @@ interface AdminProcessedFoodCutoutApi {
         @Parameter(description = "가공식품 id") id: Long,
         @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "presign 응답의 key")
         request: AdminProcessedFoodCutoutConfirmRequest,
+        adminId: Long,
     ): ResponseEntity<BaseResponse<AdminProcessedFoodCutoutResponse>>
 
     @Operation(
         summary = "누끼 이미지 해제",
         description = """
-            `cutout_image_url` 을 비워 `imageUrl` 이 HACCP 원본으로 돌아간다. 없을 때 불러도 200(멱등). S3 오브젝트는 지우지 않는다.
+            `cutout_image_url` 과 검수 상태·경로·전경 비율·검수 기록을 비워 `imageUrl` 이 HACCP 원본으로 돌아간다. 없을 때 불러도 200(멱등). S3 오브젝트는 지우지 않는다.
             - **ADMIN 역할 JWT 전용**.
         """,
     )
