@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.food.FakeFoodImageBatchClient
+import com.kbap.api.food.FoodImageBatchCollectService
 import com.kbap.api.food.FoodImageBatchSubmitService
 import com.kbap.api.food.FoodImageProperties
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -15,6 +16,7 @@ import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.RegenerationIntent
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
+import com.kbap.common.port.llm.FoodImageBatchClient
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -39,6 +41,7 @@ class AdminFoodImageFeedbackTest : BehaviorSpec() {
     @Autowired private lateinit var itemRepository: ImageBatchItemJpaRepository
     @Autowired private lateinit var batchRepository: ImageBatchJpaRepository
     @Autowired private lateinit var submitService: FoodImageBatchSubmitService
+    @Autowired private lateinit var collectService: FoodImageBatchCollectService
     @Autowired private lateinit var properties: FoodImageProperties
     @Autowired private lateinit var transactionManager: PlatformTransactionManager
     @Autowired private lateinit var tokenIssuer: TokenIssuer
@@ -170,6 +173,29 @@ class AdminFoodImageFeedbackTest : BehaviorSpec() {
 
                     foodRepository.findById(reviewing.id).orElseThrow().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
                     foodRepository.findById(rejected.id).orElseThrow().contentStatus shouldBe FoodContentStatus.PENDING_IMAGE
+                }
+            }
+
+            `when`("관리자 반려 음식을 WRONG_IMAGE 로 다시 그려 이미지가 수거되면 — 공부 세션 P1(#497)") {
+                then("검수 대기(PENDING_REVIEW)로 오고 관리자 반려 표시(failureKind)는 지워지며 반려 사유는 검수 참고용으로 남는다") {
+                    val rejected = saveFood("반려후재생성", FoodContentStatus.FAILED, failureKind = FoodContentFailureKind.ADMIN_REJECTED)
+                    execute("UPDATE food SET content_review_rejection_reason = '물냉면처럼 보임' WHERE id = ${rejected.id}")
+
+                    read(regenerate(rejected.id, "WRONG_IMAGE", "빨간 비빔 양념"))
+                    foodRepository.findById(rejected.id).orElseThrow().contentFailureKind shouldBe null
+
+                    val openaiBatchId = batchRepository.findAll().single().openaiBatchId!!
+                    fakeClient.polls[openaiBatchId] = FoodImageBatchClient.BatchPoll(FoodImageBatchClient.State.COMPLETED, "file_rejected", null)
+                    fakeClient.results["file_rejected"] = listOf(
+                        FoodImageBatchClient.Result(rejected.id.toString(), byteArrayOf(1, 2, 3), null, FoodImageBatchClient.Usage(100, 4000)),
+                    )
+                    collectService.collectSubmitted()
+
+                    foodRepository.findById(rejected.id).orElseThrow().let {
+                        it.contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                        it.contentFailureKind shouldBe null
+                        it.contentReviewRejectionReason shouldBe "물냉면처럼 보임"
+                    }
                 }
             }
 
