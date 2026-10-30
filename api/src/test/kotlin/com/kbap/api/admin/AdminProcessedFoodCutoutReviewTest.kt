@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.Instant
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -203,6 +205,38 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                         it["reviewedBy"] shouldBe null
                     }
                     appImage(id) shouldBe httpsHaccp("BR-AGAIN")
+                }
+            }
+
+            `when`("교체 등록이 행을 읽은 사이 조건 일괄 승인이 그 행을 승인하면 — Codex P2(#495)") {
+                then("교체된 누끼가 검수 없이 APPROVED 로 남지 않고 PENDING 이다") {
+                    val id = seedProduct("BR-RACE")
+                    uploaded("BR-RACE")
+                    bulkRegister(listOf(item(id, "BR-RACE", coverage = 0.9)))
+                    val reuploadedAt = modifiedAt.plusSeconds(60)
+                    uploaded("BR-RACE", reuploadedAt)
+
+                    dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        holder.createStatement().use { it.executeQuery("SELECT id FROM processed_food_product WHERE id = $id FOR UPDATE").close() }
+                        val pool = Executors.newSingleThreadExecutor()
+                        val registration = pool.submit<JsonNode> { bulkRegister(listOf(item(id, "BR-RACE", coverage = 0.9))) }
+                        Thread.sleep(1_500)
+                        registration.isDone shouldBe false
+                        holder.createStatement().use {
+                            it.executeUpdate("UPDATE processed_food_product SET cutout_review_status = 'APPROVED', cutout_reviewed_by = $adminId, cutout_reviewed_at = NOW(6) WHERE id = $id")
+                        }
+                        holder.commit()
+                        registration.get(10, TimeUnit.SECONDS).path("payload").path("registered").asInt() shouldBe 1
+                        pool.shutdown()
+                    }
+
+                    row(id).let {
+                        it["url"] shouldBe urlOf("BR-RACE", reuploadedAt)
+                        it["status"] shouldBe "PENDING"
+                        it["reviewedBy"] shouldBe null
+                    }
+                    appImage(id) shouldBe httpsHaccp("BR-RACE")
                 }
             }
 
