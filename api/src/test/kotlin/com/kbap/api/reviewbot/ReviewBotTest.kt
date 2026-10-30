@@ -281,7 +281,7 @@ class ReviewBotTest : BehaviorSpec() {
                     botReviewCount() shouldBe 0
                     fakeGenerator.reply = {
                         photoStorage.heads.clear()
-                        "The noodles were warm and savory with a pleasant texture and a balanced flavor."
+                        FakeReviewTextGenerator.DEFAULT_REPLY
                     }
                     run(writer(min = 1, max = 1), todayAt(22))
                     fakeGenerator.requests.size shouldBe 1
@@ -557,7 +557,7 @@ class ReviewBotTest : BehaviorSpec() {
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
                         if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
-                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                        else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
                     run(writer(min = 1, max = 1), todayAt(22))
@@ -578,7 +578,7 @@ class ReviewBotTest : BehaviorSpec() {
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
                         if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
-                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                        else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
                     run(writer(min = 1, max = 1), todayAt(22))
