@@ -73,6 +73,13 @@ class ProcessedFoodPopularityTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
             execute("DELETE FROM processed_food_signal")
             seedCatalog()
+            popularity.refresh()
+        }
+        afterSpec {
+            TestTables.clearAll(dataSource)
+            execute("DELETE FROM processed_food_product")
+            execute("DELETE FROM processed_food_signal")
+            popularity.refresh()
         }
 
         given("편의점 목록 앱 인기 점수(KB-939)") {
