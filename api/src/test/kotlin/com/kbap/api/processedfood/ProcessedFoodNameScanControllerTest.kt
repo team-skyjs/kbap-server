@@ -178,6 +178,18 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     long("SELECT JSON_EXTRACT(request_document, '$.selectedOutsideCandidates') = TRUE FROM scan_operation WHERE request_key = UUID_TO_BIN('$id')") shouldBe 1
                 }
             }
+            `when`("후보로 확정하거나 후보 밖으로 확정하면 — KB-939 인기 신호") {
+                then("후보 확정만 SCAN_MATCH 신호 1행을 남기고, 후보 밖 선택은 남기지 않는다") {
+                    val token = member(81209L)
+                    val offered = scanName(token, "새우깡").path("payload").path("analysisId").asText()
+                    confirm(token, offered, "PS-1")
+                    long("SELECT COUNT(*) FROM processed_food_signal s JOIN processed_food_product p ON p.id = s.processed_food_id WHERE s.member_id = 81209 AND s.signal_type = 'SCAN_MATCH' AND p.report_no = 'PS-1'") shouldBe 1
+
+                    val outside = scanName(token, "새우깡").path("payload").path("analysisId").asText()
+                    confirm(token, outside, "PS-3")
+                    long("SELECT COUNT(*) FROM processed_food_signal s JOIN processed_food_product p ON p.id = s.processed_food_id WHERE s.member_id = 81209 AND p.report_no = 'PS-3'") shouldBe 0
+                }
+            }
             `when`("없는·남의·만료된 분석 ID 이면") {
                 then("404 PFOOD-003") {
                     val owner = member(81206L)
