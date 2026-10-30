@@ -42,12 +42,17 @@ class ReviewBotRewriteService(
         val sampled = all.filter { isSampled(sampleSeed, it.id, ratio) }
         val candidates = sampled.filterNot { ReviewBotContentGuard.fitsCard(it.content, it.language) }
         val selected = candidates.take(limit)
+        val latestShort = all.filter { ReviewBotContentGuard.fitsCard(it.content, it.language) }
+            .groupBy { it.foodId }.mapValues { (_, reviews) -> reviews.maxBy { it.id }.content }.toMutableMap()
 
         val failed = mutableListOf<Long>()
         val done = selected.mapNotNull { candidate ->
             val after = try {
                 foods.findById(candidate.foodId).orElse(null)
-                    ?.let { writer.generateAcceptable(it.id, generator, writer.draftRequestFor(it, candidate.language, candidate.rating)) }
+                    ?.let {
+                        val request = writer.draftRequestFor(it, candidate.language, candidate.rating, styleRandom(sampleSeed, candidate.id), latestShort[candidate.foodId])
+                        writer.generateAcceptable(it.id, generator, request)
+                    }
                     ?.takeIf { dryRun || save(candidate, it) }
             } catch (e: RuntimeException) {
                 log.warn("리뷰 봇 재작성 — 이 리뷰만 건너뜀 reviewId={}", candidate.id, e)
@@ -57,6 +62,7 @@ class ReviewBotRewriteService(
                 failed += candidate.id
                 return@mapNotNull null
             }
+            latestShort[candidate.foodId] = after
             if (!dryRun) log.info("리뷰 봇 재작성 reviewId={} language={} beforeLength={} before={}", candidate.id, candidate.language, candidate.content.length, candidate.content)
             ReviewBotRewriteSample(candidate.id, candidate.language, candidate.content, after)
         }
@@ -76,11 +82,14 @@ class ReviewBotRewriteService(
 
     private fun isSampled(seed: Long, reviewId: Long, ratio: Double): Boolean = Random(seed * SAMPLE_SPREAD + reviewId).nextDouble() < ratio
 
+    private fun styleRandom(seed: Long, reviewId: Long): Random = Random((seed * SAMPLE_SPREAD + reviewId) xor STYLE_SALT)
+
     private data class Candidate(val id: Long, val foodId: Long, val rating: Int, val content: String, val language: String)
 
     private companion object {
         const val MAX_LIMIT = 40
         const val SAMPLE_SPREAD = 1_000_003L
+        const val STYLE_SALT = 0x5DEECE66DL
         const val SAMPLE_SIZE = 5
     }
 }

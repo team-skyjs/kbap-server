@@ -649,7 +649,7 @@ class ReviewBotTest : BehaviorSpec() {
                         c.createStatement().use {
                             it.execute(
                                 "INSERT INTO food_review (member_id, target_type, food_id, rating, serving_speed_rating, staff_kindness_rating, content, language, status, created_at, updated_at, version) " +
-                                    "VALUES ($earlier, 'FOOD', ${food.id}, 4, 0, 0, 'Earlier bot text, fine', 'en', 'ACTIVE', NOW(6), NOW(6), 0)",
+                                    "VALUES ($earlier, 'FOOD', ${food.id}, 4, 0, 0, 'Earlier bot text, fine', 'en', 'ACTIVE', NOW(6) - INTERVAL 2 DAY, NOW(6) - INTERVAL 2 DAY, 0)",
                             )
                         }
                     }

@@ -123,7 +123,8 @@ class ReviewBotWriter(
         val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, poolOwnerIds)?.imageRefs.orEmpty().toSet()
         val photos = ReviewBotPhotoPool.pickCombination(available, previous, random)
         val rating = ReviewBotCountries.rating(random)
-        val request = draftRequestFor(food, ReviewBotCountries.languageFor(bot.countryCode, random), rating)
+        val earlier = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, bots.map { it.id })?.content
+        val request = draftRequestFor(food, ReviewBotCountries.languageFor(bot.countryCode, random), rating, random, earlier)
         val content = generateAcceptable(foodId, generator, request) ?: return null
         if (!photoService.isStillUsable(photos)) return null
         return runCatching {
@@ -139,6 +140,9 @@ class ReviewBotWriter(
             language = language,
             rating = rating,
             maxCharacters = ReviewBotContentGuard.maxLengthFor(language),
+            style = ReviewBotStyles.pick(random),
+            sentences = ReviewBotStyles.sentences(random),
+            avoidSimilarTo = avoidSimilarTo,
         )
 
     fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
