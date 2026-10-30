@@ -27,7 +27,7 @@ class ReviewBotRewriteService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val writeTransaction = TransactionTemplate(transactionManager)
 
-    fun rewrite(target: String, ratio: Double, dryRun: Boolean, limit: Int, seed: Long?): ReviewBotRewriteResult {
+    fun rewrite(target: String, ratio: Double, dryRun: Boolean, limit: Int, seed: Long?, afterId: Long? = null): ReviewBotRewriteResult {
         if (target != environment) throw BusinessException(ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH)
         if (ratio !in 0.0..1.0 || limit !in 1..MAX_LIMIT || (!dryRun && seed == null)) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val generator = generator ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
@@ -66,7 +66,7 @@ class ReviewBotRewriteService(
             if (!dryRun) log.info("리뷰 봇 재작성 reviewId={} language={} beforeLength={} before={}", candidate.id, candidate.language, candidate.content.length, candidate.content)
             ReviewBotRewriteSample(candidate.id, candidate.language, candidate.content, after)
         }
-        return ReviewBotRewriteResult(dryRun, sampleSeed, sampled.size, candidates.size, selected.size, done.size, sampled.size - candidates.size, failed, done.take(SAMPLE_SIZE))
+        return ReviewBotRewriteResult(dryRun, null, sampleSeed, sampled.size, candidates.size, selected.size, done.size, sampled.size - candidates.size, failed, done.take(SAMPLE_SIZE))
     }
 
     private fun save(candidate: Candidate, after: String): Boolean =
@@ -98,6 +98,8 @@ class ReviewBotRewriteService(
 data class ReviewBotRewriteResult(
     @field:Schema(description = "true 면 생성만 하고 저장하지 않았다")
     val dryRun: Boolean,
+    @field:Schema(description = "다음 호출에 afterId 로 넘길 커서 — 이번에 본(실패 포함) 마지막 리뷰 id, 남은 대상이 없으면 null", nullable = true)
+    val nextAfterId: Long?,
     @field:Schema(description = "표본 seed — 요청에 없던 dryRun 이면 서버가 뽑은 값(같은 표본으로 실행할 때 그대로 넘긴다)")
     val seed: Long,
     @field:Schema(description = "표본 크기 — 봇 ACTIVE 음식 리뷰 중 (seed, 리뷰 id) 로 정해진 ratio 몫. 몇 번 불러도 같다")
