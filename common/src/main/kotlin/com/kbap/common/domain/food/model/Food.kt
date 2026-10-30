@@ -111,6 +111,12 @@ class Food(
 
     fun isFailedRegeneration(): Boolean = contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
 
+    fun isWrongImageRegenerable(): Boolean =
+        !imageRef.isNullOrBlank() && (
+            contentStatus == FoodContentStatus.PENDING_REVIEW ||
+                (contentStatus == FoodContentStatus.FAILED && contentFailureKind == FoodContentFailureKind.ADMIN_REJECTED)
+            )
+
     fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: createdAt.takeIf { isReady() }
 
     fun freezePublishedAtIfLegacy() {

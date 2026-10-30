@@ -102,7 +102,8 @@ class AdminFoodImageService(
             if (imageBatchItemRepository.findFoodIdsInProgress(listOf(foodId)).isNotEmpty()) {
                 throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
             }
-            if (!target.isReady() && !target.isFailedRegeneration()) {
+            val wrongImageOnHeldFood = intent == RegenerationIntent.WRONG_IMAGE && target.isWrongImageRegenerable()
+            if (!target.isReady() && !target.isFailedRegeneration() && !wrongImageOnHeldFood) {
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             }
             if (contentOutboxRepository.findInFlightRequest(foodId) != null) {
@@ -139,8 +140,10 @@ class AdminFoodImageService(
 
     private fun galleryOf(foodId: Long): AdminFoodImageGalleryResult {
         val food = foodRepository.findById(foodId).orElseThrow { BusinessException(ErrorCode.FOOD_NOT_FOUND) }
-        val items = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
+        val images = foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
             .sortedWith(compareByDescending<FoodImage> { it.isPrimary }.thenBy { it.sortOrder }.thenBy { it.id })
+        val generations = regenerationStateResolver.generationsOf(foodId, images.map { it.imageKey })
+        val items = images
             .map {
                 AdminFoodImageGalleryResult.Item(
                     id = it.id,
@@ -150,6 +153,7 @@ class AdminFoodImageService(
                     sortOrder = it.sortOrder,
                     source = it.source.name,
                     createdAt = it.createdAt,
+                    generation = generations[it.imageKey],
                 )
             }
         return AdminFoodImageGalleryResult(
@@ -185,5 +189,6 @@ data class AdminFoodImageGalleryResult(
         val sortOrder: Int,
         val source: String,
         val createdAt: java.time.LocalDateTime,
+        val generation: AdminImageGenerationResponse?,
     )
 }
