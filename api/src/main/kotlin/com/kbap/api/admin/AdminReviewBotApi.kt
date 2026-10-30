@@ -43,11 +43,12 @@ interface AdminReviewBotApi {
     @Operation(
         summary = "기존 봇 리뷰를 짧은 말투로 재작성(KB-943)",
         description = """
-            봇 회원(is_bot)의 ACTIVE 리뷰 중 **언어별 앱 카드 상한(라틴·키릴 80·한중일 40·태국어 60자)을 넘는 것**을 대상으로,
-            `ratio` 만큼 무작위로 뽑아(`seed` 를 주면 같은 표본) 같은 음식·같은 별점·같은 언어(리뷰 language, 없으면 봇 국가 언어, 그것도 없으면 영어)로
+            봇 회원(is_bot)의 ACTIVE 음식 리뷰 전체에서 리뷰별로 (`seed`, 리뷰 id) 가 정하는 `ratio` 몫을 표본으로 고정하고,
+            그중 **언어별 앱 카드 상한(라틴·키릴 80·한중일 40·태국어 60자)을 아직 넘는 것**을 id 순 `limit` 개씩 같은 음식·같은 별점·같은 언어(리뷰 language, 없으면 봇 국가 언어, 그것도 없으면 영어)로
             새 리뷰 봇 생성기(짧은 인터넷 말투·상한 강제)를 불러 **content 만** 바꾼다(updated_at 갱신). 사진·별점·작성일·좋아요·language 는 그대로.
             - `dryRun=true`(기본): 생성까지 하되 저장하지 않는다(유료 생성 호출이 일어난다).
-            - 이미 상한 안인 리뷰는 대상에서 빠지므로 같은 리뷰를 두 번 고치지 않는다. 생성 실패·상한 초과·그사이 수정은 `failedIds`.
+            - 같은 seed 로 여러 번 나눠 불러도 표본(ratio 몫)을 넘지 않는다. `candidates` 가 0 이 될 때까지 같은 seed 로 다시 부른다. **실행(dryRun=false)은 seed 필수**.
+            - 이미 상한 안인 리뷰는 대상에서 빠지므로 같은 리뷰를 두 번 고치지 않는다. 생성 실패·상한 초과·그사이 수정·저장 오류는 그 리뷰만 `failedIds`.
             - 원문은 응답 `sample`(앞 5건)과 INFO 로그(리뷰 id·원문)에 남는다. 저장된 번역은 원문 해시가 달라져 자연히 무효다.
             - `X-Target-Environment`(dev·prod)가 서버 환경(큐레이션 환경 값 재사용)과 다르면 409 REVIEW-006.
             - **ADMIN 역할 JWT 전용**.
@@ -55,7 +56,7 @@ interface AdminReviewBotApi {
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "재작성(또는 dryRun) 결과"),
-        ApiResponse(responseCode = "400", description = "ratio 0~1 밖·limit 1~200 밖·생성기 꺼짐(COMMON-002)"),
+        ApiResponse(responseCode = "400", description = "ratio 0~1 밖·limit 1~40 밖·실행인데 seed 없음·생성기 꺼짐(COMMON-002)"),
         ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ApiResponse(responseCode = "409", description = "요청 환경이 서버 환경과 다름(REVIEW-006)"),
     )
@@ -132,10 +133,10 @@ data class AdminReviewBotRewriteRequest(
     @field:Schema(description = "true(기본)면 생성만 하고 저장하지 않는다", example = "true")
     val dryRun: Boolean = true,
     @field:Min(1, message = "limit 는 1 이상이어야 합니다")
-    @field:Max(200, message = "limit 는 200 이하여야 합니다")
-    @field:Schema(description = "한 번에 다시 쓸 최대 건수(1~200, 기본 200)", example = "200")
-    val limit: Int = 200,
-    @field:Schema(description = "표본 난수 seed — 같은 값이면 같은 표본(dryRun 과 실행을 맞출 때)", example = "20261030", nullable = true)
+    @field:Max(40, message = "limit 는 40 이하여야 합니다")
+    @field:Schema(description = "한 번에 다시 쓸 최대 건수(1~40, 기본 20 — 순차 생성이 ALB idle timeout 130s 안에 끝나는 크기). 남은 대상은 같은 seed 로 다시 부른다", example = "20")
+    val limit: Int = 20,
+    @field:Schema(description = "표본 seed — 리뷰별로 (seed, 리뷰 id) 가 표본 포함을 정하므로 같은 seed 면 몇 번 나눠 불러도 같은 표본(ratio 몫)에 수렴한다. dryRun=false 면 필수", example = "20261030", nullable = true)
     val seed: Long? = null,
 )
 

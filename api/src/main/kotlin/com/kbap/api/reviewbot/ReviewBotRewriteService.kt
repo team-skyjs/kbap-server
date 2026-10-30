@@ -8,7 +8,6 @@ import com.kbap.common.port.llm.ReviewTextGenerator
 import io.swagger.v3.oas.annotations.media.Schema
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
@@ -30,8 +29,9 @@ class ReviewBotRewriteService(
 
     fun rewrite(target: String, ratio: Double, dryRun: Boolean, limit: Int, seed: Long?): ReviewBotRewriteResult {
         if (target != environment) throw BusinessException(ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH)
-        if (ratio !in 0.0..1.0 || limit !in 1..MAX_LIMIT) throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (ratio !in 0.0..1.0 || limit !in 1..MAX_LIMIT || (!dryRun && seed == null)) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val generator = generator ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val sampleSeed = seed ?: Random.Default.nextLong()
         val all = jdbc.query(
             "SELECT r.id, r.food_id, r.rating, r.content, r.language, m.country_code FROM food_review r JOIN member m ON m.id = r.member_id " +
                 "WHERE r.status = 'ACTIVE' AND m.is_bot = 1 AND r.food_id IS NOT NULL AND r.content IS NOT NULL ORDER BY r.id",
@@ -39,44 +39,48 @@ class ReviewBotRewriteService(
             val language = ReviewBotCountries.languageNameOf(rs.getString(5)) ?: ReviewBotCountries.nativeLanguageOf(rs.getString(6))
             Candidate(rs.getLong(1), rs.getLong(2), rs.getInt(3), rs.getString(4), language)
         }
-        val candidates = all.filterNot { ReviewBotContentGuard.fitsCard(it.content, it.language) }
-        val selected = candidates.shuffled(seed?.let(::Random) ?: Random.Default)
-            .take((candidates.size * ratio).toInt()).take(limit).sortedBy { it.id }
+        val sampled = all.filter { isSampled(sampleSeed, it.id, ratio) }
+        val candidates = sampled.filterNot { ReviewBotContentGuard.fitsCard(it.content, it.language) }
+        val selected = candidates.take(limit)
 
         val failed = mutableListOf<Long>()
         val done = selected.mapNotNull { candidate ->
-            val food = foods.findById(candidate.foodId).orElse(null)
-            val after = food?.let { writer.generateAcceptable(it.id, generator, writer.draftRequestFor(it, candidate.language, candidate.rating)) }
-            if (after == null || (!dryRun && !save(candidate, after))) {
+            val after = try {
+                foods.findById(candidate.foodId).orElse(null)
+                    ?.let { writer.generateAcceptable(it.id, generator, writer.draftRequestFor(it, candidate.language, candidate.rating)) }
+                    ?.takeIf { dryRun || save(candidate, it) }
+            } catch (e: RuntimeException) {
+                log.warn("리뷰 봇 재작성 — 이 리뷰만 건너뜀 reviewId={}", candidate.id, e)
+                null
+            }
+            if (after == null) {
                 failed += candidate.id
                 return@mapNotNull null
             }
             if (!dryRun) log.info("리뷰 봇 재작성 reviewId={} language={} beforeLength={} before={}", candidate.id, candidate.language, candidate.content.length, candidate.content)
             ReviewBotRewriteSample(candidate.id, candidate.language, candidate.content, after)
         }
-        return ReviewBotRewriteResult(dryRun, candidates.size, selected.size, done.size, all.size - candidates.size, failed, done.take(SAMPLE_SIZE))
+        return ReviewBotRewriteResult(dryRun, sampleSeed, sampled.size, candidates.size, selected.size, done.size, sampled.size - candidates.size, failed, done.take(SAMPLE_SIZE))
     }
 
     private fun save(candidate: Candidate, after: String): Boolean =
-        try {
-            writeTransaction.execute {
-                val review = reviews.findByIdForUpdate(candidate.id)
-                if (review == null || review.content != candidate.content) {
-                    false
-                } else {
-                    review.rewriteContent(after)
-                    true
-                }
-            } == true
-        } catch (e: OptimisticLockingFailureException) {
-            log.warn("리뷰 봇 재작성 — 저장 충돌로 건너뜀 reviewId={}", candidate.id, e)
-            false
-        }
+        writeTransaction.execute {
+            val review = reviews.findByIdForUpdate(candidate.id)
+            if (review == null || review.content != candidate.content) {
+                false
+            } else {
+                review.rewriteContent(after)
+                true
+            }
+        } == true
+
+    private fun isSampled(seed: Long, reviewId: Long, ratio: Double): Boolean = Random(seed * SAMPLE_SPREAD + reviewId).nextDouble() < ratio
 
     private data class Candidate(val id: Long, val foodId: Long, val rating: Int, val content: String, val language: String)
 
     private companion object {
-        const val MAX_LIMIT = 200
+        const val MAX_LIMIT = 40
+        const val SAMPLE_SPREAD = 1_000_003L
         const val SAMPLE_SIZE = 5
     }
 }
@@ -85,13 +89,17 @@ class ReviewBotRewriteService(
 data class ReviewBotRewriteResult(
     @field:Schema(description = "true 면 생성만 하고 저장하지 않았다")
     val dryRun: Boolean,
-    @field:Schema(description = "대상 수 — 봇 ACTIVE 리뷰 중 언어별 앱 카드 상한을 넘는 것")
+    @field:Schema(description = "표본 seed — 요청에 없던 dryRun 이면 서버가 뽑은 값(같은 표본으로 실행할 때 그대로 넘긴다)")
+    val seed: Long,
+    @field:Schema(description = "표본 크기 — 봇 ACTIVE 음식 리뷰 중 (seed, 리뷰 id) 로 정해진 ratio 몫. 몇 번 불러도 같다")
+    val sampled: Int,
+    @field:Schema(description = "남은 대상 수 — 표본 중 아직 언어별 앱 카드 상한을 넘는 것(0 이면 끝)")
     val candidates: Int,
-    @field:Schema(description = "ratio·limit 로 뽑은 수")
+    @field:Schema(description = "이번 호출에서 처리한 수(남은 대상 중 id 순 limit 개)")
     val selected: Int,
     @field:Schema(description = "다시 쓴(dryRun 이면 다시 쓸) 수")
     val rewritten: Int,
-    @field:Schema(description = "이미 상한 안이라 대상에서 뺀 봇 리뷰 수")
+    @field:Schema(description = "표본 중 이미 상한 안인 수(원래 짧았거나 이전 호출에서 다시 쓴 것)")
     val alreadyShort: Int,
     @field:Schema(description = "생성 실패·금지어·상한 초과·그사이 수정돼 건너뛴 리뷰 id")
     val failedIds: List<Long>,
