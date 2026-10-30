@@ -2,6 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.auth.JwtAuthenticationFilter
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -32,8 +34,9 @@ class AdminProcessedFoodCutoutController(
     override fun confirm(
         @PathVariable id: Long,
         @Valid @RequestBody request: AdminProcessedFoodCutoutConfirmRequest,
+        @RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminId: Long,
     ): ResponseEntity<BaseResponse<AdminProcessedFoodCutoutResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(cutoutService.confirm(id, request.key!!)))
+        ResponseEntity.ok(BaseResponse.ok(cutoutService.confirm(id, request.key!!, adminId)))
 
     @DeleteMapping
     override fun delete(
@@ -75,6 +78,6 @@ data class AdminProcessedFoodCutoutResponse(
     val processedFoodId: Long,
     @field:Schema(description = "저장된 누끼 URL(캐시 무효화용 ?v=수정시각) — 없으면 null", nullable = true)
     val cutoutImageUrl: String?,
-    @field:Schema(description = "앱이 받는 imageUrl — 누끼가 있으면 누끼, 없으면 HACCP 원본", nullable = true)
+    @field:Schema(description = "앱이 받는 imageUrl — 승인된 누끼가 있으면 누끼, 아니면 HACCP 원본", nullable = true)
     val imageUrl: String?,
 )

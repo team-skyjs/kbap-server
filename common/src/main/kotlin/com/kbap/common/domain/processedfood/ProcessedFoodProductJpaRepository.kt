@@ -1,10 +1,16 @@
 package com.kbap.common.domain.processedfood
 
 import com.kbap.common.domain.processedfood.dto.ProcessedFoodCandidateRow
+import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import jakarta.persistence.LockModeType
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct, Long> {
@@ -51,4 +57,63 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
         """,
     )
     fun findLastCompletedMirrorStartedAt(): LocalDateTime?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProcessedFoodProduct p WHERE p.id IN :ids ORDER BY p.id")
+    fun findAllForUpdateByIdIn(@Param("ids") ids: Collection<Long>): List<ProcessedFoodProduct>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProcessedFoodProduct p WHERE p.id = :id")
+    fun findForUpdateById(@Param("id") id: Long): ProcessedFoodProduct?
+
+    @Query(
+        """
+        SELECT p FROM ProcessedFoodProduct p
+        WHERE p.cutoutReviewStatus IS NOT NULL
+          AND (:status IS NULL OR p.cutoutReviewStatus = :status)
+          AND (:route IS NULL OR p.cutoutRoute = :route)
+          AND (:minCoverage IS NULL OR p.cutoutCoverage >= :minCoverage)
+          AND (:maxCoverage IS NULL OR p.cutoutCoverage <= :maxCoverage)
+          AND (:cursor IS NULL OR p.id > :cursor)
+        ORDER BY p.id
+        """,
+    )
+    fun findCutoutReviewPage(
+        @Param("status") status: CutoutReviewStatus?,
+        @Param("route") route: String?,
+        @Param("minCoverage") minCoverage: BigDecimal?,
+        @Param("maxCoverage") maxCoverage: BigDecimal?,
+        @Param("cursor") cursor: Long?,
+        pageable: Pageable,
+    ): List<ProcessedFoodProduct>
+
+    @Query(
+        """
+        SELECT COUNT(p) FROM ProcessedFoodProduct p
+        WHERE p.cutoutReviewStatus = :pending AND p.cutoutRoute = :route AND p.cutoutCoverage >= :minCoverage
+        """,
+    )
+    fun countCutoutsToApprove(
+        @Param("pending") pending: CutoutReviewStatus,
+        @Param("route") route: String,
+        @Param("minCoverage") minCoverage: BigDecimal,
+    ): Long
+
+    @Modifying(flushAutomatically = true)
+    @Query(
+        """
+        UPDATE ProcessedFoodProduct p
+        SET p.cutoutReviewStatus = :approved, p.cutoutReviewedAt = :now, p.cutoutReviewedBy = :adminId,
+            p.cutoutReviewReason = NULL, p.updatedAt = :now
+        WHERE p.cutoutReviewStatus = :pending AND p.cutoutRoute = :route AND p.cutoutCoverage >= :minCoverage
+        """,
+    )
+    fun approveCutouts(
+        @Param("pending") pending: CutoutReviewStatus,
+        @Param("approved") approved: CutoutReviewStatus,
+        @Param("route") route: String,
+        @Param("minCoverage") minCoverage: BigDecimal,
+        @Param("adminId") adminId: Long,
+        @Param("now") now: LocalDateTime,
+    ): Int
 }

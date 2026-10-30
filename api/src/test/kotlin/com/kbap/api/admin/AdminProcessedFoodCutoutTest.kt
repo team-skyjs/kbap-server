@@ -36,12 +36,19 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
         val haccpImage = "http://www.haccp.or.kr/fresh/prdimg/cut/1.jpg"
         val modifiedAt = Instant.parse("2026-10-30T04:00:00Z")
         val cutoutUrl = "https://cdn.test/$key?v=${modifiedAt.epochSecond}"
+        var adminId = 0L
 
         fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
 
         fun cutoutColumn(id: Long): Pair<String?, String?> = dataSource.connection.use { c ->
             c.createStatement().use { st ->
                 st.executeQuery("SELECT cutout_image_url, image_url FROM processed_food_product WHERE id = $id").use { rs -> rs.next(); rs.getString(1) to rs.getString(2) }
+            }
+        }
+
+        fun reviewColumns(id: Long): Pair<String?, String?> = dataSource.connection.use { c ->
+            c.createStatement().use { st ->
+                st.executeQuery("SELECT cutout_review_status, cutout_reviewed_by FROM processed_food_product WHERE id = $id").use { rs -> rs.next(); rs.getString(1) to rs.getString(2) }
             }
         }
 
@@ -54,7 +61,7 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
         }
 
         fun admin(request: org.springframework.test.web.servlet.MockHttpServletRequestDsl, body: Any? = null) {
-            request.header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
+            request.header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(adminId, MemberRole.ADMIN)}")
             request.header("X-API-Version", "1.0")
             body?.let {
                 request.contentType = MediaType.APPLICATION_JSON
@@ -81,6 +88,8 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
             storage.heads.remove(key)
+            execute("INSERT IGNORE INTO admin_account (admin_id, admin_pwd, status, created_at, updated_at) VALUES ('cutout-uploader', 'x', 'ACTIVE', NOW(6), NOW(6))")
+            adminId = dataSource.connection.use { c -> c.createStatement().use { st -> st.executeQuery("SELECT id FROM admin_account WHERE admin_id = 'cutout-uploader'").use { rs -> rs.next(); rs.getLong(1) } } }
         }
         afterSpec { execute("DELETE FROM processed_food_product") }
 
@@ -133,7 +142,7 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
             }
 
             `when`("PUT 된 PNG 가 있으면") {
-                then("누끼 URL 을 저장하고 목록·상세 imageUrl 이 누끼를 우선하며 HACCP 원본·출처 표기는 그대로다 — 다시 확인해도 같다") {
+                then("누끼 URL 을 승인 상태로 저장하고 목록·상세 imageUrl 이 누끼를 우선하며 HACCP 원본·출처 표기는 그대로다 — 다시 확인해도 같다") {
                     val id = seedProduct()
                     storage.stub(key, "image/png", 183_204, modifiedAt)
 
@@ -143,6 +152,7 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
                     confirm(id, key).path("payload").path("cutoutImageUrl").asText() shouldBe cutoutUrl
 
                     cutoutColumn(id) shouldBe (cutoutUrl to haccpImage)
+                    reviewColumns(id) shouldBe ("APPROVED" to adminId.toString())
                     appGet("/api/processed-foods?query=누끼칩").path("payload").path("items").single().path("imageUrl").asText() shouldBe cutoutUrl
                     appGet("/api/processed-foods/$id").path("payload").path("image").let {
                         it.path("url").asText() shouldBe cutoutUrl
@@ -166,6 +176,7 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
                     remove(id)
 
                     cutoutColumn(id) shouldBe (null to haccpImage)
+                    reviewColumns(id) shouldBe (null to null)
                     appGet("/api/processed-foods/$id").path("payload").path("image").path("url").asText() shouldBe "https://www.haccp.or.kr/fresh/prdimg/cut/1.jpg"
                 }
             }
