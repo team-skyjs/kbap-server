@@ -53,7 +53,6 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
                     "라틴 한 낱말" to "Good",
                     "라틴 한 낱말(음식 이름)" to "Kimchi",
                     "뜻 없는 한 낱말" to "gigi",
-                    "라틴 세 낱말 — 모델에 맡기기에는 짧다" to "Nice tasty food",
                     "로마자로 쓴 한국어" to "jinjja mashisseoyo daebak",
                     "병음으로 쓴 중국어" to "hen hao chi",
                     "로마자로 쓴 한국어(네 낱말)" to "jinjja mashisseoyo daebak jmt",
@@ -91,6 +90,53 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
             then("베트남어로 붙이지 않는다") {
                 detector.detect("The phở was really great today") shouldBe LanguageCode.EN
                 detector.detect("Le phở était vraiment délicieux") shouldBe null
+            }
+        }
+
+        `when`("한국 음식 이름을 로마자로 섞어 쓴 영어 리뷰이면") {
+            then("en 이다 — 음식 이름 때문에 모델이 타갈로그어·말레이어로 기울어도 영어 표지 낱말로 붙인다") {
+                listOf(
+                    "Best bibimbap ever lol 😋 #kfood #seoul https://example.com/menu @kbap_official",
+                    "Best bibimbap ever lol",
+                    "The bibimbap was great",
+                    "Tteokbokki was too spicy but really good",
+                ).forEach { text -> withClue(text) { detector.detect(text) shouldBe LanguageCode.EN } }
+            }
+        }
+
+        `when`("다른 언어 글에 영어 낱말이 몇 개 섞였을 뿐이면") {
+            then("영어 표지 낱말로 en 을 붙이지 않는다") {
+                detector.detect("Sobrang sarap ng food, the best") shouldBe null
+                detector.detect("Enak food") shouldBe null
+                detector.detect("Comida muy rica, the best") shouldBe LanguageCode.ES
+            }
+        }
+
+        `when`("두세 낱말짜리 라틴 글이면") {
+            then("모델의 1위 앱 언어가 다른 판정과 충분히 벌어질 때만 붙인다") {
+                listOf(
+                    "not bad" to LanguageCode.EN,
+                    "Nice tasty" to LanguageCode.EN,
+                    "Nice tasty food" to LanguageCode.EN,
+                    "delicious but soso" to LanguageCode.EN,
+                    "Very good" to LanguageCode.EN,
+                    "Muy bueno" to LanguageCode.ES,
+                    "Sangat enak" to LanguageCode.ID,
+                    "Enak sekali" to LanguageCode.ID,
+                ).forEach { (text, expected) -> withClue(text) { detector.detect(text) shouldBe expected } }
+            }
+            then("한 낱말·앱 밖 언어·차이가 작은 판정은 null 이다") {
+                listOf("Fr", "gigi", "goooood", "Oooooooo", "ghhhh", "Ang sarap", "Lekker eten", "Très bon", "Muito bom", "hen hao chi")
+                    .forEach { text -> withClue(text) { detector.detect(text) shouldBe null } }
+            }
+        }
+
+        `when`("짧은 라틴 글의 판정 차이 기준을 높이면") {
+            then("같은 글도 null 이다") {
+                val strict = ReviewLanguageDetector(shortLatinMinMargin = 0.9)
+                strict.detect("Sangat enak") shouldBe null
+                strict.detect("Muy bueno") shouldBe null
+                strict.detect("The broth was rich and so tasty") shouldBe LanguageCode.EN
             }
         }
 
