@@ -28,6 +28,9 @@ import com.kbap.common.domain.review.model.ReviewTargetType
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.api.processedfood.ProcessedFoodCandidateIndex
 import com.kbap.api.processedfood.ProcessedFoodService
+import com.kbap.common.domain.translation.ContentTranslationJpaRepository
+import com.kbap.common.domain.translation.ReviewTranslationSource
+import com.kbap.common.domain.translation.model.TranslationTargetType
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
@@ -55,6 +58,7 @@ class ReviewService(
     private val processedFoodService: ProcessedFoodService,
     private val processedFoodGroups: ProcessedFoodCandidateIndex,
     private val processedFoodReviewSwitch: ProcessedFoodReviewSwitch,
+    private val translations: ContentTranslationJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -278,13 +282,25 @@ class ReviewService(
         )
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
+        val items = toResponses(page.map { it.review }, viewerMemberId, lang, includeFood = true)
         return ReviewListPage(
-            items = toResponses(page.map { it.review }, viewerMemberId, lang, includeFood = true),
+            items = if (cursor == null && foodId == null) withStoredTranslations(page.map { it.review }, items, lang) else items,
             hasNext = hasNext,
             nextCursor = page.lastOrNull()
                 ?.takeIf { hasNext }
                 ?.let { ReviewListCursor.encode(sort, it.metric, it.review.id) },
         )
+    }
+
+    private fun withStoredTranslations(reviews: List<Review>, items: List<ReviewResponse>, lang: LanguageCode): List<ReviewResponse> {
+        val sourceHashes = reviews
+            .filter { !it.content.isNullOrBlank() && it.language != lang.code }
+            .associate { it.id to ReviewTranslationSource.hashOf(it.content!!) }
+        if (sourceHashes.isEmpty()) return items
+        val stored = translations.findAllByTargetTypeInAndTargetIdInAndLanguage(listOf(TranslationTargetType.REVIEW), sourceHashes.keys, lang.code)
+            .filter { it.targetType == TranslationTargetType.REVIEW && it.sourceHash == sourceHashes[it.targetId] }
+            .associateBy { it.targetId }
+        return items.map { item -> stored[item.reviewId]?.let { item.copy(translation = ReviewTranslationResponse(it.translatedText, it.sourceLanguage)) } ?: item }
     }
 
     @Transactional(readOnly = true)
