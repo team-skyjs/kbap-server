@@ -39,7 +39,7 @@ class OpenAiReviewTextGenerator(
         return response.result?.output?.text?.trim().orEmpty()
     }
 
-    private fun userPrompt(request: ReviewDraftRequest): String =
+    private fun userPromptOld(request: ReviewDraftRequest): String =
         """
         Write a very short customer review of this Korean dish.
         Dish: ${request.foodName}
@@ -51,6 +51,8 @@ class OpenAiReviewTextGenerator(
         """.trimIndent()
 
     companion object {
+        fun userPrompt(request: ReviewDraftRequest): String = ""
+
         val log = LoggerFactory.getLogger(OpenAiReviewTextGenerator::class.java)
 
         val SYSTEM_PROMPT: String =

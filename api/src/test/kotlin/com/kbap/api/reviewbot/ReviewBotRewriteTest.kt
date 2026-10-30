@@ -108,6 +108,21 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                 }
             }
 
+            `when`("같은 seed 로 dryRun 과 실행을 부르면") {
+                then("리뷰마다 같은 스타일·문장 수로 요청한다 — 예진에게 보인 dryRun 결과와 실행 결과의 결이 같다") {
+                    val foods = (1..3).map { foodRepository.save(Food(koreanName = "스타일음식$it", description = "설명", contentStatus = FoodContentStatus.READY)).id }
+                    (0 until 3).forEach { review(bots[it], foods[it], long, "en") }
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = true, limit = 40, seed = 11)
+                    val planned = fakeGenerator.requests.map { it.style to it.sentences }
+                    fakeGenerator.reset()
+                    fakeGenerator.reply = { short }
+
+                    rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 40, seed = 11)
+
+                    fakeGenerator.requests.map { it.style to it.sentences } shouldBe planned
+                }
+            }
+
             `when`("본문 언어가 비어 있으면") {
                 then("봇 국가 언어로, 그것도 없으면 영어로 다시 쓴다") {
                     execute("UPDATE member SET country_code = 'JP' WHERE id = ${bots[0]}")

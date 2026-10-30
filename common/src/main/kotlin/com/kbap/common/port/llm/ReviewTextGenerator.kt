@@ -11,4 +11,7 @@ data class ReviewDraftRequest(
     val language: String,
     val rating: Int,
     val maxCharacters: Int = 80,
+    val style: String = "",
+    val sentences: Int = 2,
+    val avoidSimilarTo: String? = null,
 )

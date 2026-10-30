@@ -131,7 +131,7 @@ class ReviewBotWriter(
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 
-    fun draftRequestFor(food: Food, language: String, rating: Int): ReviewDraftRequest =
+    fun draftRequestFor(food: Food, language: String, rating: Int, random: Random = Random.Default, avoidSimilarTo: String? = null): ReviewDraftRequest =
         ReviewDraftRequest(
             foodName = food.displayName(LanguageCode.EN),
             description = food.description(LanguageCode.EN),
