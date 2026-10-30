@@ -71,12 +71,12 @@ class ProcessedFoodCvsListTest : BehaviorSpec() {
                         "빙그레 바나나맛 우유",
                         "빙그레 딸기맛 우유",
                         "초코파이",
-                        "꼬북칩 스윗시나몬맛",
+                        "꼬북칩 콘스프맛",
                         "자가비 짭짤한 맛",
                         "비락식혜",
                         "밥알없는비락식혜",
                     )
-                    shown.drop(7) shouldContainExactlyInAnyOrder listOf("꼬북칩 콘스프맛", "자가비 에그크랩", "치즈쿠키Ⅱ", "콘소메맛 팝콘", "ONLY price 오리지널&카라멜 팝콘")
+                    shown.drop(7) shouldContainExactlyInAnyOrder listOf("꼬북칩 스윗시나몬맛", "자가비 에그크랩", "치즈쿠키Ⅱ", "콘소메맛 팝콘", "ONLY price 오리지널&카라멜 팝콘")
                     shown.count { it == "빙그레 바나나맛 우유" } shouldBe 1
                     shown.contains("마트전용 감자과자") shouldBe false
                     page.path("hasNext").asBoolean() shouldBe false
@@ -101,7 +101,7 @@ class ProcessedFoodCvsListTest : BehaviorSpec() {
                 then("편의점 상품 중 그 유형만, 시드 순서를 지킨다") {
                     seedCatalog()
 
-                    names(list("type=BEVERAGE&size=50")) shouldContainExactly listOf("비락식혜", "밥알없는비락식혜")
+                    names(list("type=DRINKS&size=50")) shouldContainExactly listOf("비락식혜", "밥알없는비락식혜")
                 }
             }
 
