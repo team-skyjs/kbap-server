@@ -27,4 +27,6 @@ interface CurationAssetRepository : JpaRepository<CurationAsset, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from CurationAsset a where a.id = :id")
     fun lockById(@Param("id") id: Long): CurationAsset?
+
+    fun findByAssetStateAndDisplayKeyIsNullAndFinalKeyStartingWithOrderById(assetState: String, finalKeyPrefix: String): List<CurationAsset>
 }

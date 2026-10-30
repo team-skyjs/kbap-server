@@ -2,6 +2,7 @@ package com.kbap.api.infra.storage
 
 import com.kbap.common.port.storage.ImmutableObjectMetadata
 import com.kbap.common.port.storage.ImmutableObjectStore
+import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.S3Exception
@@ -26,7 +27,19 @@ class S3ImmutableObjectStore(private val client: S3Client, private val bucket: S
         }
     }
 
+    override fun read(path: String): ByteArray =
+        client.getObjectAsBytes { it.bucket(bucket).key(path).overrideConfiguration { c -> c.apiCallTimeout(Duration.ofSeconds(30)) } }.asByteArray()
+
+    override fun putImmutable(path: String, bytes: ByteArray, contentType: String) {
+        client.putObject(
+            { it.bucket(bucket).key(path).contentType(contentType).cacheControl(IMMUTABLE_CACHE_CONTROL).overrideConfiguration { c -> c.apiCallTimeout(Duration.ofSeconds(30)) } },
+            RequestBody.fromBytes(bytes),
+        )
+    }
+
     companion object {
+        const val IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
         fun create(region: String, bucket: String): ImmutableObjectStore = S3ImmutableObjectStore(S3Client.builder().region(Region.of(region)).build(), bucket)
     }
 }

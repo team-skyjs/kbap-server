@@ -17,6 +17,7 @@ dependencies {
 
     "implementation"(platform(libs.aws.bom))
     "implementation"(libs.aws.s3)
+    "runtimeOnly"(libs.webp.imageio)
 
     "implementation"("tools.jackson.module:jackson-module-kotlin")
 

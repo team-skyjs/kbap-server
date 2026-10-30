@@ -19,6 +19,7 @@ class CurationAsset(
     var completedAt: LocalDateTime? = null,
     var unreferencedSince: LocalDateTime? = null,
     @Column(length = 255) var sourceFingerprint: String? = null,
+    @Column(length = 512) var displayKey: String? = null,
 ) : BaseEntity() {
     fun complete(key: String, fingerprint: String, now: LocalDateTime) {
         assetState = "READY"
@@ -26,5 +27,9 @@ class CurationAsset(
         sourceFingerprint = fingerprint
         completedAt = now
         unreferencedSince = now
+    }
+
+    fun attachDisplayVariant(key: String) {
+        displayKey = key
     }
 }
