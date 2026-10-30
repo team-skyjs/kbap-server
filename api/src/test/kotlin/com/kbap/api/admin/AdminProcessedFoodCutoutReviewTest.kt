@@ -21,6 +21,9 @@ import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
@@ -440,6 +443,69 @@ class AdminProcessedFoodCutoutReviewTest : BehaviorSpec() {
                     ids(list("q=choco&status=PENDING")) shouldContainExactly listOf(choco)
                     ids(list("q=choco&status=REJECTED&sort=RECENT")) shouldContainExactly listOf(chocoMilk)
                     ids(read(mockMvc.get("/api/admin/processed-foods/cutout-images") { admin(this); param("q", "%") }, 200).path("payload")).size shouldBe 0
+                }
+            }
+        }
+
+        given("누끼 검수 현황 집계(KB-937)") {
+            `when`("상태·경로별로 섞여 있고 오늘(KST)·어제 검수가 있으면") {
+                then("전체·오늘 승인/반려와 경로별 수를 준다 — 오늘은 KST 자정 기준") {
+                    val seoul = ZoneId.of("Asia/Seoul")
+                    val todayStart = LocalDate.now(seoul).atStartOfDay(seoul).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+                    fun at(id: Long, time: LocalDateTime) = execute("UPDATE processed_food_product SET cutout_reviewed_at = '$time' WHERE id = $id")
+                    val rows = listOf(
+                        "SM-1" to "vision", "SM-2" to "vision", "SM-3" to "vision", "SM-4" to "vision",
+                        "SM-5" to "fallback", "SM-6" to "fallback", "SM-7" to "fallback",
+                    ).map { (reportNo, route) -> seedProduct(reportNo).also { uploaded(reportNo); bulkRegister(listOf(item(it, reportNo, route = route))) } }
+                    val v1 = rows[0]
+                    val v2 = rows[1]
+                    val v3 = rows[2]
+                    val f1 = rows[4]
+                    val f2 = rows[5]
+                    review(v1, approved = true)
+                    review(v2, approved = true)
+                    review(v3, approved = false, reason = "잘림")
+                    review(f1, approved = true)
+                    review(f2, approved = false, reason = "잔존")
+                    at(v1, todayStart.plusMinutes(1))
+                    at(v2, todayStart.minusSeconds(1))
+                    at(v3, todayStart.plusHours(1))
+                    at(f1, todayStart.minusDays(2))
+                    at(f2, todayStart.plusSeconds(1))
+                    val manual = seedProduct("SM-MANUAL").also { uploaded("SM-MANUAL") }
+                    read(mockMvc.post("/api/admin/processed-foods/$manual/cutout-image/confirm") { admin(this, mapOf("key" to keyOf("SM-MANUAL"))) }, 200)
+
+                    val summary = read(mockMvc.get("/api/admin/processed-foods/cutout-images/summary") { admin(this) }, 200).path("payload")
+
+                    summary.path("pending").asLong() shouldBe 2
+                    summary.path("approved").asLong() shouldBe 4
+                    summary.path("rejected").asLong() shouldBe 2
+                    summary.path("todayApproved").asLong() shouldBe 2
+                    summary.path("todayRejected").asLong() shouldBe 2
+                    summary.path("date").asText() shouldBe LocalDate.now(seoul).toString()
+                    summary.path("byRoute").path("vision").let {
+                        it.path("pending").asLong() shouldBe 1
+                        it.path("approved").asLong() shouldBe 2
+                        it.path("rejected").asLong() shouldBe 1
+                        it.path("todayApproved").asLong() shouldBe 1
+                        it.path("todayRejected").asLong() shouldBe 1
+                    }
+                    summary.path("byRoute").path("fallback").let {
+                        it.path("pending").asLong() shouldBe 1
+                        it.path("approved").asLong() shouldBe 1
+                        it.path("rejected").asLong() shouldBe 1
+                        it.path("todayApproved").asLong() shouldBe 0
+                        it.path("todayRejected").asLong() shouldBe 1
+                    }
+                }
+            }
+
+            `when`("누끼가 하나도 없으면") {
+                then("모두 0 이고 경로 칸도 0 으로 채운다") {
+                    val summary = read(mockMvc.get("/api/admin/processed-foods/cutout-images/summary") { admin(this) }, 200).path("payload")
+                    summary.path("pending").asLong() shouldBe 0
+                    summary.path("byRoute").path("vision").path("approved").asLong() shouldBe 0
+                    summary.path("byRoute").path("fallback").path("rejected").asLong() shouldBe 0
                 }
             }
         }
