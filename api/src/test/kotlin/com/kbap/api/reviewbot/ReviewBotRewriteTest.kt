@@ -126,7 +126,7 @@ class ReviewBotRewriteTest : BehaviorSpec() {
             `when`("첫 시도의 생성물이 금지어 가드에 걸리면") {
                 then("재시도는 스타일을 다시 뽑아 다른 스타일로 요청하고 그 결과로 저장한다") {
                     val id = review(bots[0], food, long, "en")
-                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "Loved it, the restaurant staff were great." else short }
+                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "Loved it, took a photo first." else short }
 
                     val result = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 40, seed = 11)
 
@@ -142,7 +142,7 @@ class ReviewBotRewriteTest : BehaviorSpec() {
                     val stuckFood = foodRepository.save(Food(koreanName = "영구실패음식", description = "설명", contentStatus = FoodContentStatus.READY)).id
                     val stuck = review(bots[0], stuckFood, long, "en")
                     val next = review(bots[1], food, long, "en")
-                    fakeGenerator.reply = { if (it.foodName.contains("영구실패")) "Loved it, the restaurant staff were great." else short }
+                    fakeGenerator.reply = { if (it.foodName.contains("영구실패")) "Loved it, took a photo first." else short }
 
                     val first = rewriter.rewrite("dev", ratio = 1.0, dryRun = false, limit = 1, seed = 5)
                     first.failedIds shouldBe listOf(stuck)
