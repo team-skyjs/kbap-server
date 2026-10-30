@@ -17,6 +17,7 @@ class ProcessedFoodPopularity(
     private val jdbc: JdbcTemplate,
     private val products: ProcessedFoodProductJpaRepository,
     private val cvsCatalog: ProcessedFoodCvsCatalog,
+    private val candidateIndex: ProcessedFoodCandidateIndex,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -50,9 +51,12 @@ class ProcessedFoodPopularity(
     }
 
     internal fun compute(today: LocalDate): Map<String, AppScore> {
-        val groupOf = products.findAllByReportNoIn(cvsCatalog.reportNos)
+        val catalogGroupOf = products.findAllByReportNoIn(cvsCatalog.reportNos)
             .associate { it.id to ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker()) }
-        if (groupOf.isEmpty()) return emptyMap()
+        if (catalogGroupOf.isEmpty()) return emptyMap()
+        val groupOf = candidateIndex.groupMemberIds(catalogGroupOf.keys)
+            .flatMap { (catalogId, members) -> members.map { it to catalogGroupOf.getValue(catalogId) } }
+            .toMap() + catalogGroupOf
         val since = Date.valueOf(today.minusDays(WINDOW_DAYS))
         val excluded = EXCLUDED_MEMBER_IDS + jdbc.queryForList("SELECT id FROM member WHERE is_bot = 1", Long::class.java)
         val ids = groupOf.keys.joinToString(",")
@@ -74,7 +78,7 @@ class ProcessedFoodPopularity(
             val evidence = 3.0 * reviewCount + group.filter { it.type == "SCAN_MATCH" }.map { it.memberId }.distinct().size
             Raw(ln(1 + group.sumOf { WEIGHTS.getValue(it.type) }), evidence)
         }
-        val groups = groupOf.values.toSet()
+        val groups = catalogGroupOf.values.toSet()
         val values = groups.map { raw[it]?.score ?: 0.0 }
         return groups.associateWith { group ->
             val score = raw[group]?.score ?: 0.0
