@@ -123,15 +123,7 @@ class ReviewBotWriter(
         val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, poolOwnerIds)?.imageRefs.orEmpty().toSet()
         val photos = ReviewBotPhotoPool.pickCombination(available, previous, random)
         val rating = ReviewBotCountries.rating(random)
-        val language = ReviewBotCountries.languageFor(bot.countryCode, random)
-        val request = ReviewDraftRequest(
-            foodName = food.displayName(LanguageCode.EN),
-            description = food.description(LanguageCode.EN),
-            ingredients = ingredientNamesOf(food.ingredientsByProbability().map { it.code }),
-            language = language,
-            rating = rating,
-            maxCharacters = ReviewBotContentGuard.maxLengthFor(language),
-        )
+        val request = draftRequestFor(food, ReviewBotCountries.languageFor(bot.countryCode, random), rating)
         val content = generateAcceptable(foodId, generator, request) ?: return null
         if (!photoService.isStillUsable(photos)) return null
         return runCatching {
@@ -139,7 +131,17 @@ class ReviewBotWriter(
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 
-    private fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
+    fun draftRequestFor(food: Food, language: String, rating: Int): ReviewDraftRequest =
+        ReviewDraftRequest(
+            foodName = food.displayName(LanguageCode.EN),
+            description = food.description(LanguageCode.EN),
+            ingredients = ingredientNamesOf(food.ingredientsByProbability().map { it.code }),
+            language = language,
+            rating = rating,
+            maxCharacters = ReviewBotContentGuard.maxLengthFor(language),
+        )
+
+    fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
         repeat(MAX_ATTEMPTS) { attempt ->
             val text = runCatching { generator.generate(request) }
                 .onFailure { log.warn("리뷰 봇 생성 실패 foodId={} food={} attempt={}", foodId, request.foodName, attempt + 1, it) }
@@ -148,7 +150,7 @@ class ReviewBotWriter(
             if (text != null) {
                 log.warn(
                     "리뷰 봇 생성물을 버린다(금지어 또는 앱 카드 상한 {}자 초과) foodId={} food={} attempt={} length={}",
-                    request.maxCharacters, foodId, request.foodName, attempt + 1, text.trim().length,
+                    request.maxCharacters, foodId, request.foodName, attempt + 1, text.trim().let { it.codePointCount(0, it.length) },
                 )
             }
         }
