@@ -20,6 +20,10 @@ object ReviewBotContentGuard {
             text.trim().let { it.codePointCount(0, it.length) >= Review.MIN_CONTENT_LENGTH } &&
             FORBIDDEN.none { it.containsMatchIn(text) }
 
+    fun maxLengthFor(language: String): Int = 80
+
+    fun fitsCard(text: String, language: String): Boolean = true
+
     fun coverage(language: String): Map<ReviewBotForbiddenCategory, List<String>> =
         CATEGORIES.associateWith { it.terms(language) }
 }
