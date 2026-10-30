@@ -4,5 +4,5 @@ import com.kbap.common.port.storage.PresignedUpload
 import java.time.Duration
 
 interface PresignedUploadPort {
-    fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload
+    fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration, checksumSha256Base64: String? = null): PresignedUpload
 }

@@ -20,4 +20,5 @@ data class StorageObjectMetadata(
     val contentType: String,
     val sizeBytes: Long,
     val lastModified: java.time.Instant,
+    val sha256Hex: String? = null,
 )

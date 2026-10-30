@@ -444,7 +444,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 then("모든 용도의 발급 키가 그 용도의 접두로 시작한다 — 목록 키와 uploaded_image.object_path 의 형식이 발급 규칙과 같다") {
                     val issued = mutableListOf<String>()
                     val port = object : PresignedUploadPort {
-                        override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload {
+                        override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration, checksumSha256Base64: String?): PresignedUpload {
                             issued += key
                             return PresignedUpload("https://s3/$key", emptyMap(), "https://cdn.test/$key", key, Instant.EPOCH)
                         }
