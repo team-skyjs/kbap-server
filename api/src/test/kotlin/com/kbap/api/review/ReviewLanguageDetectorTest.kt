@@ -104,6 +104,14 @@ class ReviewLanguageDetectorTest : BehaviorSpec({
             }
         }
 
+        `when`("다른 언어 글에 영어 낱말이 몇 개 섞였을 뿐이면") {
+            then("영어 표지 낱말로 en 을 붙이지 않는다") {
+                detector.detect("Sobrang sarap ng food, the best") shouldBe null
+                detector.detect("Enak food") shouldBe null
+                detector.detect("Comida muy rica, the best") shouldBe LanguageCode.ES
+            }
+        }
+
         `when`("두세 낱말짜리 라틴 글이면") {
             then("모델의 1위 앱 언어가 다른 판정과 충분히 벌어질 때만 붙인다") {
                 listOf(
