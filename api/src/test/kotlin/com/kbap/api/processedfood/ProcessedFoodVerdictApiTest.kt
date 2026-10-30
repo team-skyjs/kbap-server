@@ -66,6 +66,30 @@ class ProcessedFoodVerdictApiTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
         }
 
+        given("목록 요약의 표시 정보 유무(KB-947)") {
+            `when`("원재료·알레르기 표시 유무가 다른 제품을 비회원·회원 목록과 이름 스캔 후보로 보면") {
+                then("labelKnown 은 상세 labelSource 가 NONE 이 아닐 때만 true 다 — 둘 다 없거나 자리표시값·혼입 문장뿐이면 false") {
+                    val expected = mapOf(
+                        seed("LK-1", "표시확인 없음과자", null, "알수없음") to false,
+                        seed("LK-2", "표시확인 원재료과자", null, "소맥분(밀), 설탕") to true,
+                        seed("LK-3", "표시확인 알레르기과자", "밀, 대두 함유", null) to true,
+                        seed("LK-4", "표시확인 혼입과자", "이 제품은 땅콩을 사용한 제품과 같은 제조시설에서 제조하고 있습니다.", "알수없음") to false,
+                    )
+                    val token = member(86947L, "PEANUT")
+                    expected.forEach { (id, known) ->
+                        (get("/api/processed-foods/$id").path("labelSource").asText() != "NONE") shouldBe known
+                    }
+
+                    listOf(get("/api/processed-foods?query=표시확인"), get("/api/processed-foods?query=표시확인", token)).forEach { page ->
+                        page.path("items").associate { it.path("id").asLong() to it.path("labelKnown").asBoolean() } shouldBe expected
+                    }
+                    post("/api/processed-foods/scan/name", mapOf("ocrText" to "표시확인\n원재료과자"), token).path("candidates")
+                        .filter { it.path("id").asLong() in expected }
+                        .forEach { it.path("labelKnown").asBoolean() shouldBe expected.getValue(it.path("id").asLong()) }
+                }
+            }
+        }
+
         given("확인 안 된 원재료 라벨 다국어(KB-936)") {
             `when`("회피 재료는 없지만 내용 불명 원재료가 있는 제품 상세를 lang=en 으로 보면") {
                 then("SAFE_WITH_NOTE 이고 원문 토큰은 그대로, unclearIngredientLabels 는 맞은 사전 용어의 영어 라벨이다") {
