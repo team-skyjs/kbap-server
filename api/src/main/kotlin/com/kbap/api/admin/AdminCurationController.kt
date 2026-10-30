@@ -43,4 +43,8 @@ class AdminCurationController(private val service: CurationService, private val 
     override fun complete(@RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminId: Long, @PathVariable collectionKey: String, @PathVariable assetId: Long, @RequestHeader("X-Target-Environment") target: String, @Valid @RequestBody request: CurationCompleteRequest): ResponseEntity<BaseResponse<CurationCompleteResponse>> =
         ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(assets.complete(adminId, target, collectionKey, assetId, request.contentType, request.size)))
 
+    @PostMapping("/assets/display-variants/backfill")
+    override fun backfillDisplayVariants(@RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminId: Long, @RequestHeader("X-Target-Environment") target: String, @Valid @RequestBody request: CurationDisplayBackfillRequest): ResponseEntity<BaseResponse<CurationDisplayBackfillResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(assets.backfillDisplayVariants(adminId, target, request.dryRun, request.limit)))
+
 }

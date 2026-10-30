@@ -45,6 +45,17 @@ class CurationAssetTransactions(private val assets: CurationAssetRepository, pri
         return state(asset)
     }
 
+    @Transactional
+    fun attachDisplayVariant(assetId: Long, finalKey: String, displayKey: String) {
+        val asset = assets.lockById(assetId) ?: return
+        if (asset.finalKey == finalKey && asset.displayKey == null) asset.attachDisplayVariant(displayKey)
+    }
+
+    @Transactional(readOnly = true)
+    fun getDisplayVariantCandidates(): List<Pair<Long, String>> =
+        assets.findByAssetStateAndDisplayKeyIsNullAndFinalKeyStartingWithOrderById("READY", "curation/${access.environment}/final/")
+            .mapNotNull { asset -> asset.finalKey?.let { asset.id to it } }
+
     private fun verifyOwner(asset: CurationAsset, adminId: Long, key: String, contentType: String, size: Long) {
         val collection = collections.findByCollectionKey(key) ?: invalid()
         if (asset.issuedByAdminId != adminId || asset.collectionId != collection.id || !asset.stagingKey.startsWith("curation/${access.environment}/staging/") || asset.contentType != contentType || asset.sizeBytes != size) invalid()

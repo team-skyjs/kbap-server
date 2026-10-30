@@ -22,6 +22,8 @@ lingua = "1.2.2"
 # 스토리지(KB-145/KB-138): AWS SDK for Java v2 — Spring Boot BOM 이 관리하지 않아 BOM 을 별도 platform 으로 고정.
 # presign(S3Presigner)·head/delete(S3Client) 모두 s3 아티팩트에 포함 — 별도 s3-presigner 의존 불필요.
 aws-sdk = "2.48.0"
+# 큐레이션 표시용 변형(KB-930): ImageIO WebP 읽기·쓰기 플러그인 — libwebp 네이티브 동봉(linux x86_64·aarch64, macOS).
+webp-imageio = "0.10.0"
 # 스케줄 중복 실행 방지(KB-226): 운영 api 2대에서 이미지 회수 틱을 1대만 실행 — Spring Boot BOM 미관리.
 shedlock = "6.9.2"
 sentry = "8.55.0"
@@ -83,6 +85,7 @@ flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 # BOM 으로 버전 정렬 — s3 만 의존(presigner·client 모두 s3 아티팩트에 포함).
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3" }
+webp-imageio = { module = "com.github.usefulness:webp-imageio", version.ref = "webp-imageio" }
 aws-sqs = { module = "software.amazon.awssdk:sqs" }
 
 # --- API docs (Swagger UI) ---
