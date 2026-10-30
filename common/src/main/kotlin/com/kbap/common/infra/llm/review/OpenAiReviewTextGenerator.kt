@@ -66,7 +66,8 @@ class OpenAiReviewTextGenerator(
                 "- Plain text only, no title, no quotes, no emoji, no hashtags, no lists.",
                 "- Avoid stock phrases like \"Loved it\", \"seriously\", \"great with rice\", \"so good with rice\" and \"perfect\", " +
                     "and avoid opening with a list of three adjectives (like \"Sweet, savory, and ...\"). Follow the style given in the request.",
-                "- Talk only about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
+                "- Talk mostly about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
+                "- Avoid inventing specific restaurant names, addresses, or exact prices; a general remark like \"cheap and filling\" or \"the place was busy\" is fine.",
             ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }).joinToString("\n")
     }
 }

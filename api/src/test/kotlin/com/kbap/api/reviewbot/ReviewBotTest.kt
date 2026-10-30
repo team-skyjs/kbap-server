@@ -1,5 +1,6 @@
 package com.kbap.api.reviewbot
 
+import io.kotest.assertions.withClue
 import com.kbap.common.port.llm.ReviewDraftRequest
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.IntegrationTest
@@ -780,9 +781,9 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("가드의 금지 범주와 프롬프트의 금지 문장을 대조하면") {
-                then("가드 범주 = 프롬프트 금지 범주 6종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
+                then("가드 범주 = 프롬프트 금지 범주 4종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
                     ReviewBotContentGuard.CATEGORIES shouldBe ReviewBotForbiddenCategory.entries.toSet()
-                    ReviewBotContentGuard.CATEGORIES.size shouldBe 6
+                    ReviewBotContentGuard.CATEGORIES.size shouldBe 4
                     ReviewBotForbiddenCategory.entries.forEach { category ->
                         OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains(category.promptRule).shouldBeTrue()
                     }
@@ -815,11 +816,11 @@ class ReviewBotTest : BehaviorSpec() {
                         "The location near the station made it easy to find, and the soup was hot.",
                         "Ask for the address if you want it, but the noodles were the real deal.",
                         "역 근처 위치라 찾기 쉬웠고 국물이 진했어요.",
-                        "駅の近くの場所で、スープが濃厚でした。",
-                        "车站附近的位置，汤很浓郁。",
+                        "駅の近くの場所で食べました、スープがとても濃厚でした。",
+                        "车站附近的位置很好找，汤底也很浓郁，非常好喝。",
                         "ที่อยู่ใกล้สถานี น้ำซุปเข้มข้นมาก",
                         "Địa chỉ gần ga, nước dùng rất đậm đà.",
-                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe true }
+                    ).forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
                 }
             }
 
@@ -840,24 +841,24 @@ class ReviewBotTest : BehaviorSpec() {
                 then("전부 통과한다 — 가격 언급은 더 이상 금지가 아니다(S-927, 지어낸 구체 가격은 프롬프트로만 피한다)") {
                     val sentences = mapOf(
                         "en" to listOf("It was only 8,000 won and the broth was rich.", "Cheap but tasty, the noodles had a great chew.", "A bit expensive for what you get, though the sauce was lovely."),
-                        "ko" to listOf("8000원인데 국물이 진해요.", "가격 대비 양이 많고 맛도 좋아요.", "조금 비싸지만 소스가 훌륭해요."),
-                        "ja" to listOf("値段のわりにスープが濃厚でした。", "安いのに美味しい、麺のコシが最高。", "少し高いけどソースが絶品。"),
-                        "zh" to listOf("价格不贵，汤底很浓郁。", "很便宜又好吃，面条很有嚼劲。", "有点贵，但酱汁很棒。"),
+                        "ko" to listOf("8000원인데 국물이 진하고 양도 많아요.", "가격 대비 양이 많고 맛도 정말 좋아요.", "조금 비싸지만 소스가 정말 훌륭했어요."),
+                        "ja" to listOf("値段のわりにスープがとても濃厚でおいしかった。", "安いのにとても美味しい、麺のコシが本当に最高。", "少し高いけどソースが絶品で、麺もおいしかった。"),
+                        "zh" to listOf("价格不贵，汤底很浓郁，面条也很有嚼劲，好吃。", "很便宜又好吃，面条很有嚼劲，汤也很香浓。", "有点贵，但酱汁很棒，面条也很筋道，值得一试。"),
                         "th" to listOf("ราคาไม่แพง น้ำซุปเข้มข้นมาก", "ถูกและอร่อย เส้นเหนียวนุ่ม", "แพงไปหน่อย แต่ซอสอร่อยมาก"),
                         "vi" to listOf("Giá chỉ 50.000 đ mà nước dùng rất đậm đà.", "Rẻ mà ngon, sợi mì dai vừa phải.", "Hơi đắt nhưng nước sốt rất tuyệt."),
                     )
                     sentences.keys shouldBe ReviewBotContentGuard.LANGUAGES
-                    sentences.forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
+                    sentences.forEach { (_, list) -> list.forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } } }
                     listOf("\$12 for this bowl, and the kimchi was crisp.", "Paid ₩9,000 and the portion was generous.", "I paid for a second bowl because the broth was that good.")
-                        .forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe true }
+                        .forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
                     listOf(
                         "Only 12€ and the broth was rich and spicy.",
                         "12000₩ for a bowl this big, the noodles were chewy.",
                         "\$12 well spent, the kimchi was crisp and tangy.",
                         "฿120 and the portion was generous, sauce was lovely.",
                         "12,000₫ for the soup, and it was deeply savory.",
-                        "8000円で、スープが濃厚でした。",
-                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe true }
+                        "8000円で、スープがとても濃厚でおいしかったです。",
+                    ).forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
                 }
             }
 
