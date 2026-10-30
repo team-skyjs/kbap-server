@@ -85,10 +85,11 @@ class AdminProcessedFoodCutoutService(
         return AdminCutoutBulkRegisterResponse(registrable.size, failures)
     }
 
-    fun reviewCutout(productId: Long, approved: Boolean, reason: String?, adminId: Long): AdminCutoutReviewItem =
+    fun reviewCutout(productId: Long, approved: Boolean, reason: String?, adminId: Long, expectedCutoutImageUrl: String? = null): AdminCutoutReviewItem =
         writeTransaction.execute {
-            val product = product(productId)
+            val product = products.findForUpdateById(productId) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
             if (product.cutoutImageUrl == null) throw BusinessException(ErrorCode.PROCESSED_FOOD_CUTOUT_NOT_FOUND)
+            if (expectedCutoutImageUrl != null && expectedCutoutImageUrl != product.cutoutImageUrl) throw BusinessException(ErrorCode.PROCESSED_FOOD_CUTOUT_CHANGED)
             product.reviewCutout(approved, reason, adminId, LocalDateTime.now())
             AdminCutoutReviewItem.from(product)
         }!!

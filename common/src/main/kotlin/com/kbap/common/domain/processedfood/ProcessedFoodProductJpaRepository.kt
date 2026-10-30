@@ -62,6 +62,10 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
     @Query("SELECT p FROM ProcessedFoodProduct p WHERE p.id IN :ids ORDER BY p.id")
     fun findAllForUpdateByIdIn(@Param("ids") ids: Collection<Long>): List<ProcessedFoodProduct>
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProcessedFoodProduct p WHERE p.id = :id")
+    fun findForUpdateById(@Param("id") id: Long): ProcessedFoodProduct?
+
     @Query(
         """
         SELECT p FROM ProcessedFoodProduct p

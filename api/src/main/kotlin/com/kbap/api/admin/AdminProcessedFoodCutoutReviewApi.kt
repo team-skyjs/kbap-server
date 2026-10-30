@@ -63,6 +63,7 @@ interface AdminProcessedFoodCutoutReviewApi {
         description = """
             `approved=true` 면 APPROVED(앱 imageUrl 이 누끼), false 면 REJECTED(앱은 HACCP 원본)로 바꾸고 검수자·시각을 남긴다.
             반려 사유 `reason` 은 반려일 때만 저장하며 승인하면 지운다. 이미 검수한 것도 다시 검수할 수 있다.
+            `expectedCutoutImageUrl`(화면에서 본 누끼 URL)을 보내면 행을 잠그고 현재 누끼와 대조해, 그사이 다시 등록돼 다르면 바꾸지 않고 409 PFOOD-010 을 준다.
             - **ADMIN 역할 JWT 전용**.
         """,
     )
@@ -71,6 +72,7 @@ interface AdminProcessedFoodCutoutReviewApi {
             ApiResponse(responseCode = "200", description = "검수"),
             ApiResponse(responseCode = "400", description = "approved 누락·사유 200자 초과(COMMON-002)"),
             ApiResponse(responseCode = "404", description = "가공식품 없음(PFOOD-001) · 누끼 없음(PFOOD-009)"),
+            ApiResponse(responseCode = "409", description = "본 누끼와 현재 누끼가 다름(PFOOD-010) — 목록을 새로 받아 다시 검수"),
         ],
     )
     fun review(

@@ -51,7 +51,7 @@ class AdminProcessedFoodCutoutReviewController(
         @Valid @RequestBody request: AdminCutoutReviewRequest,
         @RequestAttribute(JwtAuthenticationFilter.MEMBER_ID_ATTRIBUTE) adminId: Long,
     ): ResponseEntity<BaseResponse<AdminCutoutReviewItem>> =
-        ResponseEntity.ok(BaseResponse.ok(cutoutService.reviewCutout(id, request.approved!!, request.reason, adminId)))
+        ResponseEntity.ok(BaseResponse.ok(cutoutService.reviewCutout(id, request.approved!!, request.reason, adminId, request.expectedCutoutImageUrl)))
 
     @PostMapping("/cutout-images/bulk-approve")
     override fun bulkApprove(
@@ -95,6 +95,12 @@ data class AdminCutoutReviewRequest(
     @field:Size(max = ProcessedFoodProduct.CUTOUT_REVIEW_REASON_LENGTH, message = "reason 은 200자 이하여야 합니다")
     @field:Schema(description = "반려 사유(반려일 때만 저장, 최대 200자)", example = "연회색 배경 잔존", nullable = true)
     val reason: String? = null,
+    @field:Schema(
+        description = "관리자가 화면에서 본 누끼 URL(목록의 cutoutImageUrl 그대로) — 보내면 현재 누끼와 대조해 다르면 409 PFOOD-010(그사이 다시 등록됨). 없으면 대조하지 않는다",
+        example = "https://cdn.example.com/dev/processed/cutout/20150445222185.png?v=1793000000",
+        nullable = true,
+    )
+    val expectedCutoutImageUrl: String? = null,
 )
 
 @Schema(description = "누끼 조건 일괄 승인 요청 — PENDING · route=vision · coverage ≥ minCoverage")
