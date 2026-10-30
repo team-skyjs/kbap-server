@@ -225,6 +225,30 @@ class CurationDisplayImageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("폭이 1080 보다 훨씬 크면 — 공부 P2(#501, 디코드 메모리)") {
+                then("처음부터 줄여 읽어 디코드 결과 폭이 1080 이상·원본보다 작고, 최종 변형은 폭 1080 이다") {
+                    val big = photo(4400, 2200, "png")
+
+                    converter.decode(big).let {
+                        (it.width >= 1080) shouldBe true
+                        (it.width < 4400) shouldBe true
+                    }
+                    ImageIO.read(ByteArrayInputStream(converter.toDisplayWebp(big).shouldNotBeNull())).width shouldBe 1080
+                }
+            }
+
+            `when`("EXIF 로 세로로 서는 큰 JPEG 면") {
+                then("회전 뒤 폭(원본 높이) 기준으로 줄여 읽어 최종 폭 1080 을 지킨다") {
+                    val rotated = withExifOrientation(halves(2200, 4400), 6)
+
+                    converter.decode(rotated).let {
+                        (it.height >= 1080) shouldBe true
+                        (it.height < 4400) shouldBe true
+                    }
+                    ImageIO.read(ByteArrayInputStream(converter.toDisplayWebp(rotated).shouldNotBeNull())).width shouldBe 1080
+                }
+            }
+
             `when`("폭이 1080 이하면") {
                 then("크기는 그대로 두고 WebP 로만 바꾼다") {
                     ImageIO.read(ByteArrayInputStream(converter.toDisplayWebp(photo(800, 600, "png")).shouldNotBeNull())).width shouldBe 800

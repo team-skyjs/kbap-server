@@ -34,8 +34,11 @@ class CurationDisplayImageConverter(private val maxPixels: Long = MAX_PIXELS) {
         }
     }
 
-    private fun convert(original: ByteArray): ByteArray {
-        val decoded = ImageIO.createImageInputStream(ByteArrayInputStream(original)).use { input ->
+    private fun convert(original: ByteArray): ByteArray =
+        encodeWebp(scaleToWidth(oriented(decode(original), ExifOrientation.of(original)), MAX_WIDTH))
+
+    internal fun decode(original: ByteArray): BufferedImage =
+        ImageIO.createImageInputStream(ByteArrayInputStream(original)).use { input ->
             val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull() ?: error("읽을 수 없는 이미지 형식")
             try {
                 reader.input = input
@@ -46,8 +49,6 @@ class CurationDisplayImageConverter(private val maxPixels: Long = MAX_PIXELS) {
                 reader.dispose()
             }
         }
-        return encodeWebp(scaleToWidth(oriented(decoded, ExifOrientation.of(original)), MAX_WIDTH))
-    }
 
     private fun oriented(image: BufferedImage, orientation: Int): BufferedImage {
         if (orientation !in 2..8) return image
