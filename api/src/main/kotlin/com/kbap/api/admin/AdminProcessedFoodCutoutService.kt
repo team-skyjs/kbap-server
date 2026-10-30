@@ -77,7 +77,7 @@ class AdminProcessedFoodCutoutService(
         }
 
         writeTransaction.executeWithoutResult {
-            val loaded = products.findAllById(registrable.map { it.first.productId!! }).associateBy { it.id }
+            val loaded = products.findAllForUpdateByIdIn(registrable.map { it.first.productId!! }).associateBy { it.id }
             registrable.forEach { (item, url) ->
                 loaded[item.productId]?.registerCutout(url, item.route!!, item.coverage?.setScale(COVERAGE_SCALE, RoundingMode.HALF_UP))
             }
