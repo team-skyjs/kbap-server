@@ -10,9 +10,7 @@ import org.springframework.stereotype.Component
 import java.sql.Date
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import kotlin.math.ln
-import kotlin.math.pow
 
 @Component
 class ProcessedFoodPopularity(
@@ -55,33 +53,26 @@ class ProcessedFoodPopularity(
         val groupOf = products.findAllByReportNoIn(cvsCatalog.reportNos)
             .associate { it.id to ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker()) }
         if (groupOf.isEmpty()) return emptyMap()
-        val since = today.minusDays(WINDOW_DAYS)
+        val since = Date.valueOf(today.minusDays(WINDOW_DAYS))
         val excluded = EXCLUDED_MEMBER_IDS + jdbc.queryForList("SELECT id FROM member WHERE is_bot = 1", Long::class.java)
         val ids = groupOf.keys.joinToString(",")
         val reviews = jdbc.query(
-            "SELECT processed_food_id, member_id, DATE(created_at) AS day, rating FROM food_review " +
+            "SELECT processed_food_id, member_id, DATE(created_at) FROM food_review " +
                 "WHERE status = 'ACTIVE' AND processed_food_id IN ($ids) AND created_at >= ?",
-            { rs, _ -> Signal(rs.getLong(1), rs.getLong(2), "REVIEW", rs.getDate(3).toLocalDate(), rs.getInt(4)) },
-            Date.valueOf(since.minusDays(SPIKE_BASELINE_DAYS)),
+            { rs, _ -> Signal(rs.getLong(1), rs.getLong(2), "REVIEW", rs.getDate(3).toLocalDate()) },
+            since,
         )
         val logged = jdbc.query(
             "SELECT processed_food_id, member_id, signal_type, signal_date FROM processed_food_signal " +
                 "WHERE signal_date >= ? AND processed_food_id IN ($ids)",
-            { rs, _ -> Signal(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getDate(4).toLocalDate(), null) },
-            Date.valueOf(since.minusDays(SPIKE_BASELINE_DAYS)),
+            { rs, _ -> Signal(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getDate(4).toLocalDate()) },
+            since,
         )
-        val signals = (reviews + logged)
-            .filter { it.memberId !in excluded && it.processedFoodId in groupOf }
-            .distinctBy { listOf(it.processedFoodId, it.memberId, it.type, it.day) }
-        val held = spikes(signals)
-        val inWindow = signals.filter { !it.day.isBefore(since) && (it.processedFoodId to it.day) !in held }
-        val globalMean = inWindow.mapNotNull { it.rating }.average().takeUnless { it.isNaN() } ?: NEUTRAL_RATING
-        val raw = inWindow.groupBy { groupOf.getValue(it.processedFoodId) }.mapValues { (_, group) ->
-            val weighted = group.sumOf { WEIGHTS.getValue(it.type) * 0.5.pow(ChronoUnit.DAYS.between(it.day, today) / HALF_LIFE_DAYS) }
-            val ratings = group.mapNotNull { it.rating }
+        val signals = (reviews + logged).filter { it.memberId !in excluded && it.processedFoodId in groupOf }.distinct()
+        val raw = signals.groupBy { groupOf.getValue(it.processedFoodId) }.mapValues { (_, group) ->
             val reviewCount = group.count { it.type == "REVIEW" }
             val evidence = 3.0 * reviewCount + group.filter { it.type == "SCAN_MATCH" }.map { it.memberId }.distinct().size
-            Raw(ln(1 + weighted) * ratingFactor(ratings, globalMean), evidence)
+            Raw(ln(1 + group.sumOf { WEIGHTS.getValue(it.type) }), evidence)
         }
         val groups = groupOf.values.toSet()
         val values = groups.map { raw[it]?.score ?: 0.0 }
@@ -93,22 +84,7 @@ class ProcessedFoodPopularity(
         }
     }
 
-    private fun spikes(signals: List<Signal>): Set<Pair<Long, LocalDate>> {
-        val perDay = signals.groupingBy { it.processedFoodId to it.day }.eachCount()
-        return perDay.filter { (key, count) ->
-            val (productId, day) = key
-            val baseline = (1..SPIKE_BASELINE_DAYS).sumOf { perDay[productId to day.minusDays(it)] ?: 0 }.toDouble() / SPIKE_BASELINE_DAYS
-            count >= SPIKE_FACTOR * maxOf(baseline, 1.0)
-        }.keys
-    }
-
-    private fun ratingFactor(ratings: List<Int>, globalMean: Double): Double {
-        if (ratings.size < MIN_RATED_REVIEWS) return 1.0
-        val bayesian = (BAYES_WEIGHT * globalMean + ratings.sum()) / (BAYES_WEIGHT + ratings.size)
-        return 0.8 + 0.4 * (bayesian - 1) / 4
-    }
-
-    private data class Signal(val processedFoodId: Long, val memberId: Long, val type: String, val day: LocalDate, val rating: Int?)
+    private data class Signal(val processedFoodId: Long, val memberId: Long, val type: String, val day: LocalDate)
 
     private data class Raw(val score: Double, val evidence: Double)
 
@@ -116,13 +92,7 @@ class ProcessedFoodPopularity(
         const val NON_SEED_PERCENTILE = 0.2
         private const val SEED_FLOOR = 0.5
         private const val WINDOW_DAYS = 90L
-        private const val HALF_LIFE_DAYS = 30.0
-        private const val SPIKE_BASELINE_DAYS = 30L
-        private const val SPIKE_FACTOR = 10.0
         private const val ALPHA_HALF = 30.0
-        private const val MIN_RATED_REVIEWS = 3
-        private const val BAYES_WEIGHT = 5.0
-        private const val NEUTRAL_RATING = 3.0
         private val EXCLUDED_MEMBER_IDS = setOf(10L, 12L, 18L)
         private val WEIGHTS = mapOf("REVIEW" to 5.0, "SCAN_MATCH" to 3.0, "VIEW" to 1.0)
         private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")

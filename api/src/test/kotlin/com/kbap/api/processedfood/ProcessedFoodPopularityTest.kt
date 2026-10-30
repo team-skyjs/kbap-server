@@ -125,16 +125,16 @@ class ProcessedFoodPopularityTest : BehaviorSpec() {
                 }
             }
 
-            `when`("평소 신호가 없던 상품에 하루 10건 이상이 몰리면") {
-                then("그날 신호는 급등으로 보류해 순서가 바뀌지 않는다") {
-                    val before = names()
+            `when`("하루에 리뷰가 몰려도 — 급등 보류 없음(예진 10/30 단순화)") {
+                then("그대로 반영해 하위 시드 라인 위로 올린다") {
                     val cookie = idOf("2016036417043")
                     val now = LocalDateTime.now().withNano(0)
                     (1L..12L).forEach { n -> member(93970 + n); review(93970 + n, cookie, now) }
 
                     popularity.refresh()
+                    val shown = names()
 
-                    names() shouldContainExactly before
+                    (shown.indexOf("치즈쿠키Ⅱ") < shown.indexOf("밥알없는비락식혜")) shouldBe true
                 }
             }
         }
