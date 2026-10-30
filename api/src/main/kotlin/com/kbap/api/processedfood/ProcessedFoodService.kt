@@ -13,7 +13,10 @@ import com.kbap.common.domain.review.ReviewJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
+import kotlin.random.Random
 
 @Service
 class ProcessedFoodService(
@@ -22,6 +25,7 @@ class ProcessedFoodService(
     private val reviews: ReviewJpaRepository,
     private val candidateIndex: ProcessedFoodCandidateIndex,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
+    private val cvsCatalog: ProcessedFoodCvsCatalog,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -48,6 +52,9 @@ class ProcessedFoodService(
     }
 
     private fun listPage(type: ProcessedFoodType?, offset: Int, size: Int, lastMirror: LocalDateTime?, memberId: Long?, filter: VerdictFilter?): SearchPage<ProcessedFoodSummaryResponse> {
+        cvsListIds(type, lastMirror)?.let { ids ->
+            return pageOf(ids, offset, size, memberId, filter) { pageIds -> products.findAllById(pageIds).associateBy { it.id } }
+        }
         val catalog = featuredCatalog.productsByPriority()
         val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
             .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
@@ -65,6 +72,35 @@ class ProcessedFoodService(
         val ids = featured.map { it.first.id } + rest
         return pageOf(ids, offset, size, memberId, filter) { pageIds -> products.findAllById(pageIds).associateBy { it.id } }
     }
+
+    private fun cvsListIds(type: ProcessedFoodType?, lastMirror: LocalDateTime?): List<Long>? {
+        if (cvsCatalog.reportNos.isEmpty()) return null
+        val stocked = products.findAllByReportNoIn(cvsCatalog.reportNos).filterNot { it.isDiscontinued(lastMirror) }
+        if (stocked.isEmpty()) return null
+        val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType) == type }.associateBy { it.reportNo }
+        val used = mutableSetOf<Long>()
+        val representatives = cvsCatalog.seedLines.mapNotNull { line ->
+            val pool = line.reportNos.mapNotNull(byReportNo::get).filter { it.id !in used }
+            (line.representative?.let(byReportNo::get)?.takeIf { it.id !in used } ?: lineRepresentativeOf(line.line, pool))?.also { used += it.id }
+        }
+        val representedGroups = representatives.map(::groupKeyOf).toSet()
+        val rest = byReportNo.values
+            .filter { it.id !in used && groupKeyOf(it) !in representedGroups }
+            .groupBy(::groupKeyOf).values
+            .map { group -> group.maxWith(compareBy<ProcessedFoodProduct>({ it.lastSeenAt }, { it.id })) }
+            .sortedBy { it.id }
+            .shuffled(Random(LocalDate.now(SEOUL).toEpochDay()))
+        return representatives.map { it.id } + rest.map { it.id }
+    }
+
+    private fun lineRepresentativeOf(line: String, pool: List<ProcessedFoodProduct>): ProcessedFoodProduct? {
+        val lineKey = ProcessedFoodSnapshot.normalizeName(line).lowercase()
+        fun key(row: ProcessedFoodProduct) = row.normalizedName.lowercase()
+        val candidates = pool.filter { key(it) == lineKey }.ifEmpty { pool.filter { lineKey in key(it) } }.ifEmpty { pool }
+        return candidates.minWithOrNull(compareBy<ProcessedFoodProduct>({ key(it).length }, { it.reportNo }))
+    }
+
+    private fun groupKeyOf(row: ProcessedFoodProduct): String = ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker())
 
     private fun foldsIntoFeatured(
         row: ProcessedFoodCandidateIndex.ListedRow,
@@ -252,6 +288,7 @@ class ProcessedFoodService(
         private const val VERDICT_SCAN_CHUNK = 50
         private const val MAX_SCAN_TOKENS = 10
         private val NO_BASELINE: LocalDateTime = LocalDateTime.of(1970, 1, 1, 0, 0)
+        private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
     }
 }
 
