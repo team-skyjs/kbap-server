@@ -72,7 +72,7 @@ class AdminProcessedFoodCutoutReviewController(
 data class AdminCutoutRegisterItem(
     @field:Schema(description = "가공식품 id", example = "1024")
     val productId: Long? = null,
-    @field:Schema(description = "S3 오브젝트 키 — `{key-prefix}/processed/cutout/{품목보고번호}.png`", example = "dev/processed/cutout/20150445222185.png")
+    @field:Schema(description = "S3 오브젝트 키 — `{key-prefix}/processed/cutout/{품목보고번호}-{sha256 앞 16자}.png`", example = "dev/processed/cutout/20150445222185-3a7bd3e2360a3d29.png")
     val key: String? = null,
     @field:Schema(description = "누끼 생성 경로: vision·fallback", example = "vision")
     val route: String? = null,
@@ -90,7 +90,7 @@ data class AdminCutoutBulkRegisterResponse(
 @Schema(description = "누끼 일괄 등록 실패 항목")
 data class AdminCutoutRegisterFailure(
     val productId: Long?,
-    @field:Schema(description = "PRODUCT_NOT_FOUND · KEY_MISMATCH · INVALID_ROUTE · INVALID_COVERAGE · DUPLICATE(같은 요청에 같은 productId 가 둘 이상) · NOT_UPLOADED(오브젝트 없음·PNG 아님·2MB 초과·확인 실패)")
+    @field:Schema(description = "PRODUCT_NOT_FOUND · KEY_MISMATCH(이 제품의 해시 키가 아님·구 키) · INVALID_ROUTE · INVALID_COVERAGE · DUPLICATE(같은 요청에 같은 productId 가 둘 이상) · NOT_UPLOADED(오브젝트 없음·PNG 아님·2MB 초과·확인 실패) · CHECKSUM_MISSING(체크섬 없이 PUT 됨) · CHECKSUM_MISMATCH(체크섬이 키 해시와 다름)")
     val reason: String,
 )
 
@@ -104,7 +104,7 @@ data class AdminCutoutReviewRequest(
     val reason: String? = null,
     @field:Schema(
         description = "관리자가 화면에서 본 누끼 URL(목록의 cutoutImageUrl 그대로) — 보내면 현재 누끼와 대조해 다르면 409 PFOOD-010(그사이 다시 등록됨). 없으면 대조하지 않는다",
-        example = "https://cdn.example.com/dev/processed/cutout/20150445222185.png?v=1793000000",
+        example = "https://cdn.example.com/dev/processed/cutout/20150445222185-3a7bd3e2360a3d29.png",
         nullable = true,
     )
     val expectedCutoutImageUrl: String? = null,

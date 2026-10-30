@@ -32,10 +32,12 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
 
     init {
         val reportNo = "PF-CUT-1"
-        val key = "local/processed/cutout/$reportNo.png"
+        val sha256 = java.security.MessageDigest.getInstance("SHA-256").digest("$reportNo png".toByteArray()).joinToString("") { "%02x".format(it) }
+        val checksum = java.util.Base64.getEncoder().encodeToString(sha256.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+        val key = "local/processed/cutout/$reportNo-${sha256.take(16)}.png"
         val haccpImage = "http://www.haccp.or.kr/fresh/prdimg/cut/1.jpg"
         val modifiedAt = Instant.parse("2026-10-30T04:00:00Z")
-        val cutoutUrl = "https://cdn.test/$key?v=${modifiedAt.epochSecond}"
+        val cutoutUrl = "https://cdn.test/$key"
         var adminId = 0L
 
         fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
@@ -72,8 +74,8 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
         fun read(result: org.springframework.test.web.servlet.ResultActionsDsl, expected: Int): JsonNode =
             mapper.readTree(result.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8))
 
-        fun presign(id: Long, contentLength: Long, expected: Int = 200) =
-            read(mockMvc.post("/api/admin/processed-foods/$id/cutout-image/presign") { admin(this, mapOf("contentLength" to contentLength)) }, expected)
+        fun presign(id: Long, contentLength: Long, expected: Int = 200, contentSha256: String = sha256) =
+            read(mockMvc.post("/api/admin/processed-foods/$id/cutout-image/presign") { admin(this, mapOf("contentLength" to contentLength, "contentSha256" to contentSha256)) }, expected)
 
         fun confirm(id: Long, body: String, expected: Int = 200) =
             read(mockMvc.post("/api/admin/processed-foods/$id/cutout-image/confirm") { admin(this, mapOf("key" to body)) }, expected)
@@ -94,8 +96,8 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
         afterSpec { execute("DELETE FROM processed_food_product") }
 
         given("가공식품 누끼 이미지 업로드 URL 발급") {
-            `when`("PNG 크기를 주면") {
-                then("품목보고번호 고정 키로 10분 PUT URL 을 준다") {
+            `when`("PNG 크기와 SHA-256 을 주면") {
+                then("품목보고번호-해시 앞 16자 키로 10분 PUT URL 과 S3 체크섬 헤더를 준다 — KB-935") {
                     val id = seedProduct()
 
                     val payload = presign(id, 183_204).path("payload")
@@ -104,6 +106,16 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
                     payload.path("publicUrl").asText() shouldBe "https://cdn.test/$key"
                     payload.path("requiredHeaders").path("Content-Type").asText() shouldBe "image/png"
                     payload.path("requiredHeaders").path("Content-Length").asText() shouldBe "183204"
+                    payload.path("requiredHeaders").path("x-amz-checksum-sha256").asText() shouldBe checksum
+                    payload.path("requiredHeaders").path("x-amz-sdk-checksum-algorithm").asText() shouldBe "SHA256"
+                }
+            }
+
+            `when`("SHA-256 이 hex 64자가 아니면") {
+                then("400 COMMON-002 다") {
+                    val id = seedProduct()
+                    presign(id, 1000, 400, contentSha256 = "not-a-hash").path("code").asText() shouldBe "COMMON-002"
+                    presign(id, 1000, 400, contentSha256 = sha256.take(63)).path("code").asText() shouldBe "COMMON-002"
                 }
             }
 
@@ -132,11 +144,24 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
                 }
             }
 
-            `when`("이 제품의 키가 아니면") {
+            `when`("이 제품의 키가 아니거나 구 키(해시 없음)면") {
                 then("400 COMMON-002 다") {
                     val id = seedProduct()
-                    storage.stub("local/processed/cutout/OTHER.png", "image/png", 1000, modifiedAt)
-                    confirm(id, "local/processed/cutout/OTHER.png", 400).path("code").asText() shouldBe "COMMON-002"
+                    storage.stub("local/processed/cutout/OTHER-${sha256.take(16)}.png", "image/png", 1000, modifiedAt, sha256)
+                    confirm(id, "local/processed/cutout/OTHER-${sha256.take(16)}.png", 400).path("code").asText() shouldBe "COMMON-002"
+                    storage.stub("local/processed/cutout/$reportNo.png", "image/png", 1000, modifiedAt, sha256)
+                    confirm(id, "local/processed/cutout/$reportNo.png", 400).path("code").asText() shouldBe "COMMON-002"
+                    cutoutColumn(id).first shouldBe null
+                }
+            }
+
+            `when`("체크섬 없이 올라갔거나 체크섬이 키 해시와 다르면 — KB-935") {
+                then("400 PFOOD-008 이고 저장하지 않는다") {
+                    val id = seedProduct()
+                    storage.stub(key, "image/png", 1000, modifiedAt, null)
+                    confirm(id, key, 400).path("code").asText() shouldBe "PFOOD-008"
+                    storage.stub(key, "image/png", 1000, modifiedAt, "f".repeat(64))
+                    confirm(id, key, 400).path("code").asText() shouldBe "PFOOD-008"
                     cutoutColumn(id).first shouldBe null
                 }
             }
@@ -144,7 +169,7 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
             `when`("PUT 된 PNG 가 있으면") {
                 then("누끼 URL 을 승인 상태로 저장하고 목록·상세 imageUrl 이 누끼를 우선하며 HACCP 원본·출처 표기는 그대로다 — 다시 확인해도 같다") {
                     val id = seedProduct()
-                    storage.stub(key, "image/png", 183_204, modifiedAt)
+                    storage.stub(key, "image/png", 183_204, modifiedAt, sha256)
 
                     val saved = confirm(id, key).path("payload")
                     saved.path("cutoutImageUrl").asText() shouldBe cutoutUrl
@@ -166,7 +191,7 @@ class AdminProcessedFoodCutoutTest : BehaviorSpec() {
             `when`("누끼가 있던 제품을 해제하면") {
                 then("imageUrl 이 HACCP 원본(https)으로 돌아가고, 다시 불러도 200 이다") {
                     val id = seedProduct()
-                    storage.stub(key, "image/png", 1000, modifiedAt)
+                    storage.stub(key, "image/png", 1000, modifiedAt, sha256)
                     confirm(id, key)
 
                     remove(id).path("payload").let {

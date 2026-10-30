@@ -17,10 +17,11 @@ interface AdminProcessedFoodCutoutReviewApi {
     @Operation(
         summary = "누끼 일괄 등록",
         description = """
-            S3 에 이미 PUT 된 누끼 PNG 를 최대 500건씩 등록한다. 키는 제품별 고정 `{key-prefix}/processed/cutout/{품목보고번호}.png`.
-            항목마다 S3 HEAD 로 존재·image/png·2MB 이하를 확인하고(최대 8개 병렬) `cutout_image_url` 을 저장한 뒤 **PENDING** 으로 둔다 — 승인 전에는 앱 imageUrl 이 HACCP 원본이다.
+            S3 에 이미 PUT 된 누끼 PNG 를 최대 500건씩 등록한다. 키는 `{key-prefix}/processed/cutout/{품목보고번호}-{sha256 앞 16자}.png`(구 키 `{품목보고번호}.png` 는 KEY_MISMATCH).
+            업로더는 SHA-256 체크섬을 붙여 PUT 해야 한다(`aws s3 cp --checksum-algorithm SHA256`).
+            항목마다 S3 HEAD(체크섬 포함)로 존재·image/png·2MB 이하·체크섬 앞 16자 = 키 해시를 확인하고(최대 8개 병렬) `cutout_image_url = {base}/{key}` 를 저장한 뒤 **PENDING** 으로 둔다 — 승인 전에는 앱 imageUrl 이 HACCP 원본이다.
             부분 성공: 잘못된 항목만 `failures` 에 productId·사유로 돌려주고 나머지는 저장한다.
-            멱등: 같은 오브젝트(같은 수정 시각)를 다시 등록하면 검수 상태를 유지하고 route·coverage 만 갱신한다. 오브젝트를 다시 올렸으면(수정 시각이 다름) PENDING 으로 돌아간다.
+            멱등: 같은 키(= 같은 그림)를 다시 등록하면 검수 상태를 유지하고 route·coverage 만 갱신한다. 다른 그림(다른 키)을 등록하면 PENDING 으로 돌아간다.
             - **ADMIN 역할 JWT 전용**.
         """,
     )

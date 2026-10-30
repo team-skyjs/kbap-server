@@ -28,7 +28,7 @@ class AdminProcessedFoodCutoutController(
         @PathVariable id: Long,
         @Valid @RequestBody request: AdminProcessedFoodCutoutPresignRequest,
     ): ResponseEntity<BaseResponse<AdminProcessedFoodCutoutPresignResponse>> =
-        ResponseEntity.ok(BaseResponse.ok(cutoutService.presign(id, request.contentLength!!)))
+        ResponseEntity.ok(BaseResponse.ok(cutoutService.presign(id, request.contentLength!!, request.contentSha256!!)))
 
     @PostMapping("/confirm")
     override fun confirm(
@@ -51,6 +51,13 @@ data class AdminProcessedFoodCutoutPresignRequest(
     @field:Positive(message = "contentLength 는 1 이상이어야 합니다")
     @field:Schema(description = "올릴 PNG 의 바이트 수(서명에 들어가므로 실제 PUT 본문과 같아야 한다, 최대 2MB)", example = "183204", requiredMode = Schema.RequiredMode.REQUIRED)
     val contentLength: Long? = null,
+    @field:NotBlank(message = "contentSha256 는 필수입니다")
+    @field:Schema(
+        description = "올릴 PNG 의 SHA-256(소문자 hex 64자) — 앞 16자가 키에 들어가고, S3 가 PUT 본문 해시를 이 값으로 검사한다(다르면 S3 가 PUT 을 거절)",
+        example = "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
+        requiredMode = Schema.RequiredMode.REQUIRED,
+    )
+    val contentSha256: String? = null,
 )
 
 @Schema(description = "누끼 이미지 업로드 URL")
@@ -61,7 +68,7 @@ data class AdminProcessedFoodCutoutPresignResponse(
     val requiredHeaders: Map<String, String>,
     @field:Schema(description = "올린 뒤 공개(CDN) URL")
     val publicUrl: String,
-    @field:Schema(description = "오브젝트 키 — confirm 에 그대로 보낸다", example = "dev/processed/cutout/20150445222185.png")
+    @field:Schema(description = "오브젝트 키 `{prefix}/processed/cutout/{품목보고번호}-{sha256 앞 16자}.png` — confirm 에 그대로 보낸다", example = "dev/processed/cutout/20150445222185-3a7bd3e2360a3d29.png")
     val key: String,
     val expiresAt: Instant,
 )
@@ -76,7 +83,7 @@ data class AdminProcessedFoodCutoutConfirmRequest(
 @Schema(description = "가공식품 누끼 이미지 상태")
 data class AdminProcessedFoodCutoutResponse(
     val processedFoodId: Long,
-    @field:Schema(description = "저장된 누끼 URL(캐시 무효화용 ?v=수정시각) — 없으면 null", nullable = true)
+    @field:Schema(description = "저장된 누끼 URL(키에 내용 해시가 들어가 같은 그림 = 같은 URL) — 없으면 null", nullable = true)
     val cutoutImageUrl: String?,
     @field:Schema(description = "앱이 받는 imageUrl — 승인된 누끼가 있으면 누끼, 아니면 HACCP 원본", nullable = true)
     val imageUrl: String?,
