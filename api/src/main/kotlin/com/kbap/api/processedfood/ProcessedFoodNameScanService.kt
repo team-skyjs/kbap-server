@@ -121,7 +121,7 @@ class ProcessedFoodNameScanService(
             throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
         }
         val freeUntil = if (charged) freeHour.open(memberId) else liveUntil
-        signals.record(detail.id, memberId, ProcessedFoodSignalType.SCAN_MATCH)
+        if (reportNo in offered) signals.record(detail.id, memberId, ProcessedFoodSignalType.SCAN_MATCH)
         return ProcessedFoodNameConfirmResponse(analysisId, ProcessedFoodNameScanState.CONFIRMED, charged, detail, freeUntil)
     }
 
