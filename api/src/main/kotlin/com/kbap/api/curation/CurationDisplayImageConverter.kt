@@ -42,9 +42,13 @@ class CurationDisplayImageConverter(private val maxPixels: Long = MAX_PIXELS) {
             val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull() ?: error("읽을 수 없는 이미지 형식")
             try {
                 reader.input = input
-                val pixels = reader.getWidth(0).toLong() * reader.getHeight(0)
+                val width = reader.getWidth(0)
+                val height = reader.getHeight(0)
+                val pixels = width.toLong() * height
                 require(pixels <= maxPixels) { "픽셀 수 상한 초과: $pixels" }
-                reader.read(0)
+                val displayWidth = if (ExifOrientation.of(original) >= 5) height else width
+                val step = (displayWidth / MAX_WIDTH).coerceAtLeast(1)
+                reader.read(0, reader.defaultReadParam.apply { setSourceSubsampling(step, step, 0, 0) })
             } finally {
                 reader.dispose()
             }
