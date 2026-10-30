@@ -113,6 +113,7 @@ class AdminFoodImageService(
                 throw BusinessException(ErrorCode.FOOD_STATUS_NOT_READY)
             }
             target.freezePublishedAtIfLegacy()
+            if (wrongImageOnHeldFood) target.reopenRejectedForImageRegeneration()
             target.contentStatus = FoodContentStatus.PENDING_IMAGE
             cancelPendingVectorOutboxes(foodId, FoodVectorOutboxOperation.UPSERT)
             vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.DELETE)

@@ -111,6 +111,10 @@ class Food(
 
     fun isFailedRegeneration(): Boolean = contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
 
+    fun reopenRejectedForImageRegeneration() {
+        contentFailureKind = null
+    }
+
     fun isWrongImageRegenerable(): Boolean =
         !imageRef.isNullOrBlank() && (
             contentStatus == FoodContentStatus.PENDING_REVIEW ||
