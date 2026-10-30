@@ -111,6 +111,20 @@ class ProcessedFoodPopularityTest : BehaviorSpec() {
                 }
             }
 
+            `when`("리뷰가 편의점 목록 밖 같은 묶음 행(같은 이름·제조사, 다른 품목보고번호)에 쌓이면") {
+                then("목록 상품 묶음의 점수로 합쳐 하위 시드 라인 위로 올린다") {
+                    seed("2016036417999", "치즈쿠키Ⅱ", "치즈제과")
+                    val sibling = idOf("2016036417999")
+                    val now = LocalDateTime.now().withNano(0)
+                    (1L..12L).forEach { n -> member(93930 + n); review(93930 + n, sibling, now.minusDays(n % 4)) }
+
+                    popularity.refresh()
+                    val shown = names()
+
+                    (shown.indexOf("치즈쿠키Ⅱ") < shown.indexOf("밥알없는비락식혜")) shouldBe true
+                }
+            }
+
             `when`("같은 리뷰가 시드·봇·제외 회원(10·12·18)의 것이면") {
                 then("집계하지 않아 순서가 바뀌지 않는다") {
                     val before = names()
