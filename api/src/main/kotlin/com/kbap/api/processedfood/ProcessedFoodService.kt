@@ -185,14 +185,20 @@ class ProcessedFoodService(
         val tokens = tokensByQuery.flatten().distinct().take(MAX_SCAN_TOKENS)
         val rawTokens = queries.flatMap(ProcessedFoodSearchRanker::rawTokensOf).distinct().take(MAX_SCAN_TOKENS)
         val lastMirror = products.findLastCompletedMirrorStartedAt()
-        val candidates = candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror)
+        val seenSince = seenSinceOf(lastMirror)
+        val typos = tokens.filter { candidateIndex.nameCandidateIds(it, seenSince, 1).isEmpty() }
+            .associateWith { candidateIndex.typoCandidates(it, (tokens + rawTokens).filterNot { other -> other.equals(it, ignoreCase = true) }, seenSince, CANDIDATE_LIMIT) }
+            .filterValues { it.ids.isNotEmpty() }
+        val corrections = typos.values.flatMap { it.corrections }.toSet()
+        val candidates = (candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror) + products.findAllById(typos.values.flatMap { it.ids }.distinct()))
+            .distinctBy { it.id }
         val best = linkedMapOf<Long, Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>()
-        tokensByQuery.forEach { queryTokens ->
-            ProcessedFoodSearchRanker.scored(candidates, queryTokens).forEach { scored ->
+        tokensByQuery.map { queryTokens -> queryTokens + queryTokens.flatMap { typos[it]?.corrections.orEmpty() } }.forEach { queryTokens ->
+            ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections).forEach { scored ->
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
-        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror)
+        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), (queries + corrections).joinToString(" "), tokens + corrections, lastMirror)
         return ranked.copy(products = ranked.products.take(limit))
     }
 
@@ -279,8 +285,10 @@ class ProcessedFoodService(
         return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodIds(candidateIndex.groupMemberIds(product.id)))
     }
 
+    private fun seenSinceOf(lastMirror: LocalDateTime?): LocalDateTime = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
+
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?, type: ProcessedFoodType? = null): List<ProcessedFoodProduct> {
-        val seenSince = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
+        val seenSince = seenSinceOf(lastMirror)
         return (
             tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) } +
                 makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) }

@@ -29,6 +29,27 @@ class ProcessedFoodCandidateIndex(
             .toList()
     }
 
+    fun typoCandidates(token: String, context: List<String>, seenSince: LocalDateTime, limit: Int): TypoCandidates {
+        val key = token.lowercase()
+        if (key.length < MIN_TYPO_LENGTH || !key.all(::isHangulSyllable)) return TypoCandidates.NONE
+        val contextKeys = context.map { it.lowercase() }.filter { it != key && it.length >= MIN_CONTEXT_LENGTH }
+        if (contextKeys.isEmpty()) return TypoCandidates.NONE
+        val hits = fresh().entries.asSequence()
+            .filter { it.isAvailableSince(seenSince) && contextKeys.any { c -> c in it.name || it.makers.any { m -> m.length >= MIN_CONTEXT_LENGTH && (c in m || m in c) } } }
+            .mapNotNull { entry -> oneSyllableOff(entry.name, key)?.let { entry to it } }
+            .sortedWith(compareBy({ it.first.nameLength }, { it.first.id }))
+            .take(limit)
+            .toList()
+        return TypoCandidates(hits.map { it.first.id }, hits.map { it.second }.toSet())
+    }
+
+    private fun oneSyllableOff(name: String, key: String): String? =
+        (0..name.length - key.length).asSequence()
+            .map { name.substring(it, it + key.length) }
+            .firstOrNull { window -> window.indices.count { window[it] != key[it] } == 1 && window.all(::isHangulSyllable) }
+
+    private fun isHangulSyllable(c: Char): Boolean = c in '가'..'힣'
+
     fun makerCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int, type: ProcessedFoodType? = null): List<Long> {
         val key = keyword.lowercase()
         return fresh().entries.asSequence()
@@ -112,11 +133,19 @@ class ProcessedFoodCandidateIndex(
         fun isAvailableSince(seenSince: LocalDateTime): Boolean = !tracksDiscontinuation || !lastSeenAt.isBefore(seenSince)
     }
 
+    data class TypoCandidates(val ids: List<Long>, val corrections: Set<String>) {
+        companion object {
+            val NONE = TypoCandidates(emptyList(), emptySet())
+        }
+    }
+
     data class ListedRow(val id: Long, val normalizedName: String, val displayMaker: String?, val groupKey: String)
 
     private data class Snapshot(val entries: List<Entry>, val membersById: Map<Long, List<Long>>, val fingerprint: String?, val checkedAt: Long)
 
     private companion object {
         val MAKER_NOISE = Regex("""[ ()\[\]·・,._-]""")
+        const val MIN_TYPO_LENGTH = 3
+        const val MIN_CONTEXT_LENGTH = 2
     }
 }
