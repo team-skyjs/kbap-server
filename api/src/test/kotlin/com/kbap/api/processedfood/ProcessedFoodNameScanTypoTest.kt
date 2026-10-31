@@ -33,6 +33,7 @@ class ProcessedFoodNameScanTypoTest : BehaviorSpec() {
             seed("TY-2", "빙그레 딸기맛 우유", "빙그레")
             seed("TY-3", "남양 바나나맛 우유", "남양유업")
             seed("TY-4", "빙그레 바나나맞춤 젤리", "빙그레")
+            seed("TY-5", "노브랜드 딸기맛 우유", "노브랜드")
         }
         afterSpec {
             TestTables.clearAll(dataSource)
@@ -47,6 +48,17 @@ class ProcessedFoodNameScanTypoTest : BehaviorSpec() {
                         found shouldContain "TY-1"
                         found shouldNotContain "TY-3"
                     }
+                }
+            }
+            `when`("교정된 상품명이 대표 상품 별칭과 겹치면 — Codex P2(#515)") {
+                then("문맥 게이트를 통과한 상품에만 부스트를 준다 — 다른 브랜드 대표 상품을 끌어올리지 않는다") {
+                    val noBrand = candidates("노브랜드 딸기맞")
+                    noBrand.first() shouldBe "TY-5"
+                    noBrand shouldNotContain "TY-2"
+
+                    val boosted = service.getNameScanCandidates(listOf("빙그레 바나나맞"), 5)
+                    boosted.products.first().reportNo shouldBe "TY-1"
+                    boosted.boostedReportNos shouldBe listOf("TY-1")
                 }
             }
             `when`("틀린 상품명 줄만 오고 제조사·다른 토큰이 없으면") {
