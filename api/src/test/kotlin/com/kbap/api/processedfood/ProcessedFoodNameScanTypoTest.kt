@@ -34,6 +34,8 @@ class ProcessedFoodNameScanTypoTest : BehaviorSpec() {
             seed("TY-3", "남양 바나나맛 우유", "남양유업")
             seed("TY-4", "빙그레 바나나맞춤 젤리", "빙그레")
             seed("TY-5", "노브랜드 딸기맛 우유", "노브랜드")
+            seed("TY-6", "감자스틱", "태광")
+            seed("TY-7", "태광", "다른제과")
         }
         afterSpec {
             TestTables.clearAll(dataSource)
@@ -59,6 +61,11 @@ class ProcessedFoodNameScanTypoTest : BehaviorSpec() {
                     val boosted = service.getNameScanCandidates(listOf("빙그레 바나나맡"), 5)
                     boosted.products.first().reportNo shouldBe "TY-1"
                     boosted.boostedReportNos shouldBe listOf("TY-1")
+                }
+            }
+            `when`("같은 줄에 정확한 철자와 한 글자 틀린 철자가 함께 있으면 — Codex P2(#515 2R)") {
+                then("교정 토큰을 중복으로 더하지 않아 정확 일치 상품이 그대로 1위다") {
+                    candidates("감자스틱 감자스딕 태광").first() shouldBe "TY-6"
                 }
             }
             `when`("틀린 상품명 줄만 오고 제조사·다른 토큰이 없으면") {
