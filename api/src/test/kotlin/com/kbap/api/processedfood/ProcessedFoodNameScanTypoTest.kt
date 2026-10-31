@@ -67,6 +67,9 @@ class ProcessedFoodNameScanTypoTest : BehaviorSpec() {
                 then("교정 토큰을 중복으로 더하지 않아 정확 일치 상품이 그대로 1위다") {
                     candidates("감자스틱 감자스딕 태광").first() shouldBe "TY-6"
                 }
+                then("교정 토큰이 원문 토큰의 부분 문자열이어도 더하지 않는다 — Codex P2(#515 3R)") {
+                    candidates("감자스틱 자스딕 태광").first() shouldBe "TY-6"
+                }
             }
             `when`("틀린 상품명 줄만 오고 제조사·다른 토큰이 없으면") {
                 then("한 글자 치환을 쓰지 않아 후보가 없다") {
