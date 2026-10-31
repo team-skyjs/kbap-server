@@ -48,42 +48,6 @@ enum class ReviewBotForbiddenCategory(
             "th" to listOf("สุขภาพ", "ลดน้ำหนัก", "รักษา", "ดีท็อกซ์", "โภชนาการ"),
         ),
     ),
-    PLACE(
-        promptRule = "Never mention any restaurant, shop, store, branch, place name, address, or location.",
-        promptNouns = listOf("restaurant", "shop", "store", "branch", "place", "address", "location"),
-        stems = mapOf(
-            "en" to listOf(
-                "\\brestaurants?\\b", "\\bshops?\\b", "\\bstores?\\b", "\\bbranch(es)?\\b", "\\bcaf[eé]s?\\b", "\\bdiners?\\b", "\\bstalls?\\b", "\\beater(y|ies)\\b",
-                "\\bplace\\w*", "\\baddress\\w*", "\\blocat\\w*", "\\bnear (the )?\\w+ station\\b", "\\bstreet\\b", "\\bneighbo(u)?rhood\\b", "\\bdistrict\\b",
-            ),
-            "vi" to listOf("\\bquán\\b", "\\bnhà hàng\\b", "\\bcửa hàng\\b", "\\bchi nhánh\\b", "\\bđịa chỉ\\b", "\\bgần\\b", "\\bga\\b"),
-        ),
-        substrings = mapOf(
-            "ko" to listOf("식당", "가게", "매장", "지점", "음식점", "본점", "위치", "주소", "근처", "역 근처", "역에서", "역 앞", "거리"),
-            "ja" to listOf("店", "レストラン", "食堂", "支店", "場所", "住所", "近く", "駅"),
-            "zh" to listOf("餐厅", "餐廳", "店", "分店", "小吃摊", "地址", "位置", "附近", "车站", "車站"),
-            "th" to listOf("ร้าน", "ภัตตาคาร", "สาขา", "ที่อยู่", "ใกล้", "สถานี"),
-        ),
-    ),
-    PRICE(
-        promptRule = "Never mention prices, costs, what you paid, or call it cheap or expensive.",
-        promptNouns = listOf("prices", "costs", "paid", "cheap", "expensive"),
-        stems = mapOf(
-            "en" to listOf(
-                "\\d[\\d,.]*\\s?(won|krw|usd|vnd|baht|yen|yuan|dollars?|bucks)\\b",
-                "\\d[\\d,.]*\\s?(円|元|원|đ)",
-                "\\d[\\d,.]*\\s?[₩$€¥฿₫](?!\\w)",
-                "[₩$€¥฿₫]\\s?\\d", "\\bpric\\w*", "\\bcost\\w*", "\\bpaid\\b", "\\bcheap\\w*", "\\bexpensive\\b", "\\bpricey\\b", "\\bbargain\\w*", "\\bovercharg\\w*",
-            ),
-            "vi" to listOf("\\bgiá\\b(?! đỗ)", "\\bđắt\\b", "\\brẻ\\b", "\\btiền\\b"),
-        ),
-        substrings = mapOf(
-            "ko" to listOf("가격", "비싸", "싸다", "싸요", "저렴", "값이", "가성비"),
-            "ja" to listOf("値段", "価格", "高い", "安い", "高かった", "安かった", "コスパ"),
-            "zh" to listOf("价格", "價格", "贵", "貴", "便宜", "性价比", "性價比"),
-            "th" to listOf("ราคา", "แพง", "ถูก", "บาท", "คุ้ม"),
-        ),
-    ),
     PHOTO(
         promptRule = "Never mention photos or pictures.",
         promptNouns = listOf("photos", "pictures"),
