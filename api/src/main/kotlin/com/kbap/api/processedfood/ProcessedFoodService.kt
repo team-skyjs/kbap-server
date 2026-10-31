@@ -193,7 +193,9 @@ class ProcessedFoodService(
         val candidates = (candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror) + products.findAllById(typos.values.flatMap { it.ids }.distinct()))
             .distinctBy { it.id }
         val best = linkedMapOf<Long, Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>()
-        tokensByQuery.map { queryTokens -> (queryTokens + queryTokens.flatMap { typos[it]?.corrections.orEmpty() }).distinct() }.forEach { queryTokens ->
+        tokensByQuery.map { queryTokens ->
+            queryTokens + queryTokens.flatMap { typos[it]?.corrections.orEmpty() }.distinct().filterNot { correction -> queryTokens.any { correction in it } }
+        }.forEach { queryTokens ->
             ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections).forEach { scored ->
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
