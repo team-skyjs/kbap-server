@@ -8,6 +8,9 @@ module "ecs_environment" {
   hosted_zone_name = var.hosted_zone_name
 
   instance_type        = var.instance_type
+  spot_instances       = var.spot_instances
+  api_task_memory      = var.api_task_memory
+  batch_task_memory    = var.batch_task_memory
   api_instance_count   = var.api_instance_count
   batch_instance_count = var.batch_instance_count
   batch_desired_count  = var.batch_desired_count
@@ -33,9 +36,6 @@ module "ecs_environment" {
   log_retention_days                  = var.log_retention_days
   api_execute_command_enabled         = var.api_execute_command_enabled
   performance_artifact_retention_days = var.performance_artifact_retention_days
-  canary_percentage                   = var.canary_percentage
-  canary_interval_minutes             = var.canary_interval_minutes
-  blue_termination_wait_minutes       = var.blue_termination_wait_minutes
 
   admin_cidr            = var.admin_cidr
   bastion_instance_type = var.bastion_instance_type
@@ -45,5 +45,8 @@ module "ecs_environment" {
 
   blocked_path_patterns = var.blocked_path_patterns
 
-  api_extra_env = var.api_extra_env
+  api_extra_env      = var.api_extra_env
+  batch_extra_env    = var.batch_extra_env
+  api_secret_names   = var.api_secret_names
+  batch_secret_names = var.batch_secret_names
 }

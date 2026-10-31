@@ -30,6 +30,13 @@ resource "aws_launch_template" "pool" {
   image_id      = data.aws_ssm_parameter.ecs_ami.value
   instance_type = var.instance_type
 
+  dynamic "instance_market_options" {
+    for_each = var.spot_instances ? [1] : []
+    content {
+      market_type = "spot"
+    }
+  }
+
   iam_instance_profile {
     arn = aws_iam_instance_profile.instance.arn
   }
@@ -60,6 +67,7 @@ resource "aws_launch_template" "pool" {
     ECS_INSTANCE_ATTRIBUTES={"workload":"${each.key}"}
     ECS_ENABLE_CONTAINER_METADATA=true
     ECS_RESERVED_MEMORY=256
+    ECS_ENABLE_SPOT_INSTANCE_DRAINING=true
     CFG
   EOT
   )
@@ -118,7 +126,7 @@ resource "aws_autoscaling_group" "pool" {
 # api 풀 capacity provider — 태스크를 놓을 자리가 없으면 인스턴스를 늘린다.
 # target_capacity 100 = 빈 인스턴스를 두지 않는다. ECS 는 태스크가 하나라도 있는 인스턴스를 "사용 중"으로 세므로
 # 50 은 "인스턴스마다 절반"이 아니라 "빈 인스턴스를 같은 수만큼 더"다(dev 에서 2 → 4대로 확인).
-# 평시 그린 자리는 spread(instanceId) + 인스턴스당 2자리가 만들고, 스케일 아웃 상태의 배포처럼 자리가 모자랄 때만 인스턴스가 는다.
+# 평시 인스턴스당 태스크 1개(spread). 롤링(min 50/max 100)은 자리를 더 쓰지 않으므로 태스크 스케일 아웃으로 자리가 모자랄 때만 인스턴스가 는다.
 # batch·alloy 는 launch type EC2 그대로(기본 전략 없음).
 resource "aws_ecs_capacity_provider" "api" {
   name = "${local.name_prefix}-api"
