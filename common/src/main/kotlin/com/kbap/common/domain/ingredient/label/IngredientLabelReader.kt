@@ -39,8 +39,12 @@ object IngredientLabelReader {
     private fun placeholderOf(text: String?, placeholders: Set<String>): Boolean =
         text.isNullOrBlank() || Normalizer.normalize(text, Normalizer.Form.NFKC).replace(PLACEHOLDER_NOISE, "").lowercase().let { it.isEmpty() || it in placeholders }
 
+    fun declares(allergens: String?): Boolean = declaredOf(allergens) != null
+
+    private fun declaredOf(allergens: String?): String? = allergens?.let(::normalize)?.takeUnless(::isNotProvided)
+
     fun read(allergens: String?, rawMaterials: String?): IngredientLabelReading {
-        val declared = allergens?.let(::normalize)?.takeUnless(::isNotProvided)
+        val declared = declaredOf(allergens)
         val fromAllergens = declared?.let { scan(it, splitSpaces = true) }.orEmpty()
         val fromRaw = rawMaterials?.takeUnless(::isRawNotProvided)?.let { scan(normalize(it), splitSpaces = false) }.orEmpty()
         val detections = linkedMapOf<IngredientCode, IngredientLabelDetection>()

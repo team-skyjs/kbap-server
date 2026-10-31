@@ -1,7 +1,6 @@
 package com.kbap.api.processedfood
 
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.domain.ingredient.label.AllergenDeclaration
 import com.kbap.common.domain.ingredient.label.IngredientLabelMatch
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.ingredient.label.IngredientLabelReading
@@ -42,12 +41,15 @@ data class ProcessedFoodSummaryResponse(
     val type: ProcessedFoodType? = ProcessedFoodType.of(foodType),
     @field:Schema(description = "평점 — 목록·검색·이름 스캔 후보에서 채운다(리뷰 없으면 average null·count 0)", nullable = true)
     val rating: ProcessedFoodRatingResponse? = null,
+    @field:Schema(description = "표시 정보 유무 — 원재료 또는 알레르기 표시가 있으면 true(상세 labelSource 가 NONE 이 아니면 true, 같은 규칙). false 면 상세는 '확인 못 함'이라 카드에 Safe 리본을 붙이지 않는다", example = "true")
+    val labelKnown: Boolean,
 ) {
     companion object {
         fun from(product: ProcessedFoodProduct, avoidance: Avoidance? = null) =
             ProcessedFoodSummaryResponse(
                 product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, product.displayImageUrl(),
                 verdict = avoidance?.let { ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, it).verdict },
+                labelKnown = ProcessedFoodLabelSource.of(product.allergens, product.rawMaterials) != ProcessedFoodLabelSource.NONE,
             )
 
         fun withReviews(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate?, avoidance: Avoidance? = null) =
@@ -108,7 +110,20 @@ data class ProcessedFoodReviewSummaryResponse(
 }
 
 @Schema(description = "알레르기 판독 근거 — DECLARED: 알레르기 표시란(의무 표시)이 있다 · INGREDIENTS_ONLY: 표시란이 '알수없음'·빈 값이라 원재료 원문으로만 판독 · NONE: 둘 다 없다")
-enum class ProcessedFoodLabelSource { DECLARED, INGREDIENTS_ONLY, NONE }
+enum class ProcessedFoodLabelSource {
+    DECLARED,
+    INGREDIENTS_ONLY,
+    NONE,
+    ;
+
+    companion object {
+        fun of(allergens: String?, rawMaterials: String?): ProcessedFoodLabelSource = when {
+            IngredientLabelReader.declares(ProcessedFoodLabelText.splitMayContain(allergens, ingredientField = false).first) -> DECLARED
+            !IngredientLabelReader.isRawNotProvided(rawMaterials) -> INGREDIENTS_ONLY
+            else -> NONE
+        }
+    }
+}
 
 @Schema(description = "가공식품 상세")
 data class ProcessedFoodDetailResponse(
@@ -174,11 +189,7 @@ data class ProcessedFoodDetailResponse(
                 capacity = product.capacity,
                 rawMaterials = product.rawMaterials,
                 allergens = product.allergens,
-                labelSource = when {
-                    reading.declaration == AllergenDeclaration.LISTED -> ProcessedFoodLabelSource.DECLARED
-                    !IngredientLabelReader.isRawNotProvided(product.rawMaterials) -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
-                    else -> ProcessedFoodLabelSource.NONE
-                },
+                labelSource = ProcessedFoodLabelSource.of(product.allergens, product.rawMaterials),
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
                 unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
