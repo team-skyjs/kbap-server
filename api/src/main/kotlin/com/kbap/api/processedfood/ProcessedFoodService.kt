@@ -185,14 +185,26 @@ class ProcessedFoodService(
         val tokens = tokensByQuery.flatten().distinct().take(MAX_SCAN_TOKENS)
         val rawTokens = queries.flatMap(ProcessedFoodSearchRanker::rawTokensOf).distinct().take(MAX_SCAN_TOKENS)
         val lastMirror = products.findLastCompletedMirrorStartedAt()
-        val candidates = candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror)
+        val seenSince = seenSinceOf(lastMirror)
+        val typos = tokens.filter { candidateIndex.nameCandidateIds(it, seenSince, 1).isEmpty() }
+            .associateWith { candidateIndex.typoCandidates(it, (tokens + rawTokens).filterNot { other -> other.equals(it, ignoreCase = true) }, seenSince, CANDIDATE_LIMIT) }
+            .filterValues { it.ids.isNotEmpty() }
+        val corrections = typos.values.flatMap { it.corrections }.toSet()
+        val candidates = (candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror) + products.findAllById(typos.values.flatMap { it.ids }.distinct()))
+            .distinctBy { it.id }
         val best = linkedMapOf<Long, Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>()
-        tokensByQuery.forEach { queryTokens ->
-            ProcessedFoodSearchRanker.scored(candidates, queryTokens).forEach { scored ->
+        tokensByQuery.map { queryTokens ->
+            queryTokens + queryTokens.flatMap { typos[it]?.corrections.orEmpty() }.distinct().filterNot { correction -> queryTokens.any { correction in it } }
+        }.forEach { queryTokens ->
+            ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections).forEach { scored ->
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
-        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror)
+        val gatedIds = typos.values.flatMap { it.ids }.toSet()
+        val correctedBoost = CorrectedBoost((queries + corrections).joinToString(" "), tokens + corrections) { representative ->
+            candidateIndex.groupMemberIds(representative.id).any { it in gatedIds }
+        }.takeIf { corrections.isNotEmpty() }
+        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror, correctedBoost = correctedBoost)
         return ranked.copy(products = ranked.products.take(limit))
     }
 
@@ -202,8 +214,12 @@ class ProcessedFoodService(
         tokens: List<String>,
         lastMirror: LocalDateTime?,
         type: ProcessedFoodType? = null,
+        correctedBoost: CorrectedBoost? = null,
     ): RankedCandidates {
-        val featured = featuredCatalog.boostedProducts(text, tokens)
+        val plain = featuredCatalog.boostedProducts(text, tokens)
+        val corrected = correctedBoost?.let { featuredCatalog.boostedProducts(it.text, it.tokens) }.orEmpty()
+            .filterNot { boost -> plain.any { it.product == boost.product } }
+        val featured = plain + corrected
         val boosted = if (featured.isEmpty()) {
             emptyList()
         } else {
@@ -212,7 +228,7 @@ class ProcessedFoodService(
             featured.mapNotNull { boost ->
                 representativeOf(boost.product, rows)?.let { Triple(it, boost.matchLength, boost.product) }
                     ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
-            }
+            }.filter { (representative, _, product) -> plain.any { it.product == product } || correctedBoost?.allows?.invoke(representative) == true }
         }
         val boostedIds = boosted.map { it.first.id }.toSet()
         val rest = ranked.filterNot { (product, _) ->
@@ -279,8 +295,10 @@ class ProcessedFoodService(
         return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodIds(candidateIndex.groupMemberIds(product.id)))
     }
 
+    private fun seenSinceOf(lastMirror: LocalDateTime?): LocalDateTime = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
+
     private fun candidatesFor(tokens: List<String>, makerKeywords: List<String>, lastMirror: LocalDateTime?, type: ProcessedFoodType? = null): List<ProcessedFoodProduct> {
-        val seenSince = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
+        val seenSince = seenSinceOf(lastMirror)
         return (
             tokens.flatMap { candidateIndex.nameCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) } +
                 makerKeywords.flatMap { candidateIndex.makerCandidateIds(it, seenSince, CANDIDATE_LIMIT, type) }
@@ -307,5 +325,7 @@ private data class GroupRating(override val processedFoodId: Long, override val 
         }
     }
 }
+
+private class CorrectedBoost(val text: String, val tokens: List<String>, val allows: (ProcessedFoodProduct) -> Boolean)
 
 data class RankedCandidates(val products: List<ProcessedFoodProduct>, val boostedReportNos: List<String>)
