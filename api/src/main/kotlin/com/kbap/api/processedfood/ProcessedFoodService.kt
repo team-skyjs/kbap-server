@@ -198,7 +198,11 @@ class ProcessedFoodService(
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
-        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), (queries + corrections).joinToString(" "), tokens + corrections, lastMirror)
+        val gatedIds = typos.values.flatMap { it.ids }.toSet()
+        val correctedBoost = CorrectedBoost((queries + corrections).joinToString(" "), tokens + corrections) { representative ->
+            candidateIndex.groupMemberIds(representative.id).any { it in gatedIds }
+        }.takeIf { corrections.isNotEmpty() }
+        val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror, correctedBoost = correctedBoost)
         return ranked.copy(products = ranked.products.take(limit))
     }
 
@@ -208,8 +212,12 @@ class ProcessedFoodService(
         tokens: List<String>,
         lastMirror: LocalDateTime?,
         type: ProcessedFoodType? = null,
+        correctedBoost: CorrectedBoost? = null,
     ): RankedCandidates {
-        val featured = featuredCatalog.boostedProducts(text, tokens)
+        val plain = featuredCatalog.boostedProducts(text, tokens)
+        val corrected = correctedBoost?.let { featuredCatalog.boostedProducts(it.text, it.tokens) }.orEmpty()
+            .filterNot { boost -> plain.any { it.product == boost.product } }
+        val featured = plain + corrected
         val boosted = if (featured.isEmpty()) {
             emptyList()
         } else {
@@ -218,7 +226,7 @@ class ProcessedFoodService(
             featured.mapNotNull { boost ->
                 representativeOf(boost.product, rows)?.let { Triple(it, boost.matchLength, boost.product) }
                     ?: null.also { log.warn("가공식품 대표 상품이 DB 에 없어 건너뜁니다 name={} maker={}", boost.product.name, boost.product.maker) }
-            }
+            }.filter { (representative, _, product) -> plain.any { it.product == product } || correctedBoost?.allows?.invoke(representative) == true }
         }
         val boostedIds = boosted.map { it.first.id }.toSet()
         val rest = ranked.filterNot { (product, _) ->
@@ -315,5 +323,7 @@ private data class GroupRating(override val processedFoodId: Long, override val 
         }
     }
 }
+
+private class CorrectedBoost(val text: String, val tokens: List<String>, val allows: (ProcessedFoodProduct) -> Boolean)
 
 data class RankedCandidates(val products: List<ProcessedFoodProduct>, val boostedReportNos: List<String>)

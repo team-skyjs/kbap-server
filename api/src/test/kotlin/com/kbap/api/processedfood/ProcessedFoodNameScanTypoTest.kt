@@ -56,7 +56,7 @@ class ProcessedFoodNameScanTypoTest : BehaviorSpec() {
                     noBrand.first() shouldBe "TY-5"
                     noBrand shouldNotContain "TY-2"
 
-                    val boosted = service.getNameScanCandidates(listOf("빙그레 바나나맞"), 5)
+                    val boosted = service.getNameScanCandidates(listOf("빙그레 바나나맡"), 5)
                     boosted.products.first().reportNo shouldBe "TY-1"
                     boosted.boostedReportNos shouldBe listOf("TY-1")
                 }
