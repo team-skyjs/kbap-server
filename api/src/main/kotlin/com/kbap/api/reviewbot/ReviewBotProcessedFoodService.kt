@@ -202,7 +202,7 @@ class ReviewBotProcessedFoodService(
     }
 
     fun dedupePhotos(target: String, dryRun: Boolean): ReviewBotPhotoDedupeResult {
-        if (target != environment) throw BusinessException(ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH)
+        if (target != environment || environment == PROD) throw BusinessException(ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH)
         val rows = jdbc.query(
             "SELECT r.id, CAST(r.image_refs AS CHAR) FROM food_review r JOIN member m ON m.id = r.member_id " +
                 "WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.target_type = 'PROCESSED_FOOD' AND r.image_refs IS NOT NULL ORDER BY r.created_at, r.id",
@@ -254,6 +254,7 @@ class ReviewBotProcessedFoodService(
     private companion object {
         const val MAX_LIMIT = 40
         const val PHOTO_SHARE = 0.3
+        const val PROD = "prod"
         const val MAX_PHOTOS_PER_REVIEW = 2
         const val SAMPLE_SIZE = 10
         val PATH_IN_JSON = Regex("\"([^\"]+)\"")
