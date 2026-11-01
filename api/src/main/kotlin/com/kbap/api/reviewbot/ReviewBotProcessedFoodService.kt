@@ -21,9 +21,7 @@ import org.springframework.stereotype.Service
 import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import kotlin.random.Random
 
@@ -73,7 +71,6 @@ class ReviewBotProcessedFoodService(
         val availableByKey = runCatching { photoService.getInventory().available.groupBy { ReviewBotPhotoPool.keyOfPath(it) } }
             .onFailure { log.warn("가공식품 리뷰 봇 — 사진 재고를 못 읽어 이번 실행은 텍스트만 쓴다", it) }
             .getOrDefault(emptyMap())
-        val today = LocalDate.now(SEOUL)
 
         val items = mutableListOf<ReviewBotProcessedFoodItem>()
         val failed = linkedSetOf<Long>()
@@ -81,19 +78,22 @@ class ReviewBotProcessedFoodService(
         var written = 0
         for ((rank, product) in targets) {
             if (planned >= limit) break
-            val reviewed = botReviewsOf(candidateIndex.groupMemberIds(product.id))
+            val members = candidateIndex.groupMemberIds(product.id)
+            val reviewed = botReviewsOf(members)
             val random = Random(runSeed * SEED_SPREAD + product.id)
             val need = targetCountOf(rank, random) - reviewed.size
             val eligible = bots.filterNot { it.id in reviewed.keys }.sortedBy { it.id }.shuffled(random)
             var earlier = reviewed.values.lastOrNull()
-            for (bot in eligible.take(maxOf(0, minOf(need, limit - planned)))) {
+            val writers = eligible.take(maxOf(0, minOf(need, limit - planned)))
+            val dates = createdAtsOf(writers.size, latestReviewAtOf(members), random)
+            for ((index, bot) in writers.withIndex()) {
                 planned++
                 val draft = draftFor(product, bot, earlier, random, generator)
                 if (draft == null) {
                     failed += product.id
                     continue
                 }
-                val createdAt = createdAtOf(today, random)
+                val createdAt = dates[index]
                 val photos = availableByKey[ReviewBotPhotoPool.keyOf(PHOTO_KEY_PREFIX + product.reportNo)].orEmpty()
                     .let { if (it.isEmpty()) emptyList() else ReviewBotPhotoPool.pickCombination(it, emptySet(), random) }
                     .takeIf { it.isNotEmpty() && photoService.isStillUsable(it) }.orEmpty()
@@ -182,12 +182,26 @@ class ReviewBotProcessedFoodService(
     private fun targetCountOf(rank: Int, random: Random): Int =
         if (rank <= TOP_RANK) random.nextInt(TOP_MIN, TOP_MAX + 1) else random.nextInt(REST_MIN, REST_MAX + 1)
 
-    private fun createdAtOf(today: LocalDate, random: Random): LocalDateTime {
-        val day = today.minusDays(random.nextLong(0, SPREAD_DAYS))
-        val time = LocalTime.of(random.nextInt(FIRST_HOUR, LAST_HOUR + 1), random.nextInt(60), random.nextInt(60))
-        val zoned = day.atTime(time).atZone(SEOUL)
+    private fun latestReviewAtOf(productIds: List<Long>): LocalDateTime? {
+        if (productIds.isEmpty()) return null
+        return jdbc.queryForObject(
+            "SELECT MAX(created_at) FROM food_review WHERE status = 'ACTIVE' AND processed_food_id IN (${productIds.joinToString(",")})",
+            LocalDateTime::class.java,
+        )
+    }
+
+    private fun createdAtsOf(count: Int, latestExisting: LocalDateTime?, random: Random): List<LocalDateTime> {
         val now = LocalDateTime.now()
-        return zoned.withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime().let { if (it.isAfter(now)) now.minusMinutes(random.nextLong(1, 60)) else it }
+        val lower = maxOf(latestExisting ?: now.minusDays(SPREAD_DAYS), now.minusDays(SPREAD_DAYS))
+        val span = Duration.between(lower, now).seconds.coerceAtLeast(1)
+        return List(count) { inDaytime(lower.plusSeconds(random.nextLong(1, span + 1)), lower, now, random) }.sorted()
+    }
+
+    private fun inDaytime(at: LocalDateTime, lower: LocalDateTime, now: LocalDateTime, random: Random): LocalDateTime {
+        val seoul = at.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL)
+        if (seoul.hour in FIRST_HOUR..LAST_HOUR) return at
+        val shifted = seoul.withHour(random.nextInt(FIRST_HOUR, LAST_HOUR + 1)).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
+        return shifted.takeIf { it.isAfter(lower) && !it.isAfter(now) } ?: at
     }
 
     private companion object {
