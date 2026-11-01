@@ -3,6 +3,7 @@ package com.kbap.api.reviewbot
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.api.review.ProcessedFoodReviewSwitch
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
@@ -30,6 +31,7 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
     @Autowired private lateinit var accountService: ReviewBotAccountService
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
     @Autowired private lateinit var bot: ReviewBotProcessedFoodService
+    @Autowired private lateinit var writeSwitch: ProcessedFoodReviewSwitch
 
     private val mapper = jacksonObjectMapper()
 
@@ -53,6 +55,8 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
         var milk = 0L
         var kick = 0L
 
+        beforeSpec { writeSwitch.writeEnabled = true }
+
         beforeEach {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
@@ -62,6 +66,7 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
             kick = seed("199104611019", "바나나킥", "농심", "과자", "옥수수, 설탕, 바나나분말")
         }
         afterSpec {
+            writeSwitch.writeEnabled = false
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
         }

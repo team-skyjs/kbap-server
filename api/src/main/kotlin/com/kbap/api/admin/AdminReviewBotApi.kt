@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
 import com.kbap.api.reviewbot.ReviewBotRewriteResult
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.DecimalMax
@@ -64,6 +65,28 @@ interface AdminReviewBotApi {
     @SecurityRequirement(name = "bearerAuth")
     fun rewriteReviews(target: String, request: AdminReviewBotRewriteRequest): ResponseEntity<BaseResponse<ReviewBotRewriteResult>>
 
+    @Operation(
+        summary = "편의점 가공식품 봇 리뷰 일괄 작성(KB-951)",
+        description = """
+            리뷰 봇이 가공식품 리뷰를 쓴다. 대상은 `ids`(가공식품 id 목록)이거나, 없으면 편의점 대표 라인(#503 seed) 상위 `topLines`(기본 전체)의 묶음 대표 상품이다.
+            - 상품별 목표 수: 라인 순위 상위 10 은 8~12, 나머지(라인 밖 포함) 3~6 — `seed` 와 상품 id 로 정해 같은 seed 면 몇 번 불러도 같다.
+              이미 그 묶음에 달린 봇 리뷰 수를 빼고 모자란 만큼만 쓰므로, `limit`(기본 20, 최대 40 — ALB idle timeout 130s 안) 으로 나눠 불러도 목표를 넘지 않는다.
+            - 문구는 음식 봇과 같은 스타일·금지어·앱 카드 길이 규칙 + 편의점 포장 상품 문맥(식당·직원·서빙 표현은 가드가 거절). 국가·언어 분포·별점 분포도 음식 봇과 같다.
+            - 맛 축(spiciness·sweetness, 1~5 또는 null)은 LLM 이 상품명·식품유형·원재료로 정한다. 저장은 가공식품 리뷰와 같은 도메인 경로(가공식품 리뷰 쓰기 스위치가 꺼져 있으면 저장되지 않는다).
+            - 작성일은 최근 4주 09~21시 KST 사이로 흩는다. 사진은 상품 사진 풀(`processed:{report_no}` 키)이 있을 때만 붙고, 지금은 텍스트만이다.
+            - `dryRun=true`(기본): 생성까지 하고 저장하지 않는다(유료 생성 호출). **실행(dryRun=false)은 seed 필수**.
+            - `X-Target-Environment` 가 서버 환경과 다르면 409 REVIEW-006. **ADMIN 역할 JWT 전용**.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "작성(또는 dryRun) 결과와 미리보기"),
+        ApiResponse(responseCode = "400", description = "limit 1~40 밖·topLines 1 미만·실행인데 seed 없음·봇 없음·생성기 꺼짐(COMMON-002)"),
+        ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ApiResponse(responseCode = "409", description = "요청 환경이 서버 환경과 다름(REVIEW-006)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    fun writeProcessedFoodReviews(target: String, request: AdminReviewBotProcessedFoodRequest): ResponseEntity<BaseResponse<ReviewBotProcessedFoodRunResult>>
+
     @Operation(summary = "리뷰 봇 사진 재고 조회", description = "사용 가능·미등록·보류 사진을 조회한다. 등록행·리뷰·저장소를 변경하지 않는다.")
     @SecurityRequirement(name = "bearerAuth")
     fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>>
@@ -123,6 +146,23 @@ data class AdminReviewBotPhotoSyncResponse(
             )
     }
 }
+
+@Schema(description = "가공식품 봇 리뷰 일괄 작성 요청")
+data class AdminReviewBotProcessedFoodRequest(
+    @field:Schema(description = "true(기본)면 생성만 하고 저장하지 않는다", example = "true")
+    val dryRun: Boolean = true,
+    @field:Min(1, message = "limit 는 1 이상이어야 합니다")
+    @field:Max(40, message = "limit 는 40 이하여야 합니다")
+    @field:Schema(description = "한 번에 만들 최대 리뷰 수(1~40, 기본 20)", example = "20")
+    val limit: Int = 20,
+    @field:Schema(description = "대상 가공식품 id 목록 — 주면 topLines 는 무시한다", nullable = true)
+    val ids: List<Long>? = null,
+    @field:Min(1, message = "topLines 는 1 이상이어야 합니다")
+    @field:Schema(description = "편의점 대표 라인 상위 N(기본 전체) — ids 가 없을 때만", example = "10", nullable = true)
+    val topLines: Int? = null,
+    @field:Schema(description = "목표 수·봇·문구 스타일·작성일 seed — 실행이면 필수, 같은 값이면 같은 계획", example = "20261102", nullable = true)
+    val seed: Long? = null,
+)
 
 @Schema(description = "기존 봇 리뷰 재작성 요청")
 data class AdminReviewBotRewriteRequest(
