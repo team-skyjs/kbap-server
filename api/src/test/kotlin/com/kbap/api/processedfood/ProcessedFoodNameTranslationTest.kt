@@ -67,11 +67,13 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
             translator.reset()
+            translations.dailyBudgetKrw = 5000.0
             redis.delete("pf-translate:" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
         }
         afterSpec {
             translations.awaitIdle()
             translator.reset()
+            translations.dailyBudgetKrw = 5000.0
         }
 
         given("가공식품 이름 번역 규칙(KB-953)") {
@@ -119,6 +121,29 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                     p.path("samples")[0].path("after").asText() shouldBe "[en] 예감"
                     translator.nameCalls shouldBe listOf("예감" to LanguageCode.EN)
                     storedName(id, "en") shouldBe "[en] 예감"
+                }
+            }
+            `when`("하루 번역 예산이 중간에 다 되면 — Codex P2(#519)") {
+                then("그 행에서 멈추고 budgetExhausted 와 재시작 커서를 줘서 막힌 행을 건너뛰지 않는다") {
+                    val first = seed("NT-4", "예감")
+                    val second = seed("NT-5", "자가비")
+                    staleName(first)
+                    staleName(second)
+                    translations.dailyBudgetKrw = 0.5
+
+                    val p = regenerate("dev", mapOf("dryRun" to false, "limit" to 20)).path("payload")
+
+                    p.path("regenerated").asInt() shouldBe 1
+                    p.path("budgetExhausted").asBoolean() shouldBe true
+                    storedName(second, "en") shouldBe "Premonition"
+                    val restart = p.path("nextAfterId").asLong()
+
+                    translations.dailyBudgetKrw = 5000.0
+                    redis.delete("pf-translate:" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
+                    val resumed = regenerate("dev", mapOf("dryRun" to false, "limit" to 20, "afterId" to restart)).path("payload")
+                    resumed.path("regenerated").asInt() shouldBe 1
+                    resumed.path("budgetExhausted").asBoolean() shouldBe false
+                    storedName(second, "en") shouldBe "[en] 자가비"
                 }
             }
             `when`("요청 환경이 서버 환경과 다르면") {
