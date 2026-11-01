@@ -11,6 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class FakeTextTranslator : TextTranslator, ProcessedFoodTextTranslator {
     val calls: MutableList<Pair<String, LanguageCode>> = CopyOnWriteArrayList()
+    val nameCalls: MutableList<Pair<String, LanguageCode>> = CopyOnWriteArrayList()
     val transactionActiveDuringCalls: MutableList<Boolean> = CopyOnWriteArrayList()
 
     @Volatile
@@ -25,8 +26,14 @@ class FakeTextTranslator : TextTranslator, ProcessedFoodTextTranslator {
         return TranslatedText(reply(text, target), sourceLanguageTag)
     }
 
+    override fun translateName(name: String, target: LanguageCode): TranslatedText {
+        nameCalls += name to target
+        return translate(name, target)
+    }
+
     fun reset() {
         calls.clear()
+        nameCalls.clear()
         transactionActiveDuringCalls.clear()
         reply = DEFAULT_REPLY
         sourceLanguageTag = null
