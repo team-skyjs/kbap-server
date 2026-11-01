@@ -81,12 +81,8 @@ class ProcessedFoodService(
         val stocked = products.findAllByReportNoIn(cvsCatalog.reportNos).filterNot { it.isDiscontinued(lastMirror) }
         if (stocked.isEmpty()) return null
         val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType) == type }.associateBy { it.reportNo }
-        val used = mutableSetOf<Long>()
-        val ranked = cvsCatalog.seedLines.mapNotNull { line ->
-            val pool = line.reportNos.mapNotNull(byReportNo::get).filter { it.id !in used }
-            (line.representative?.let(byReportNo::get)?.takeIf { it.id !in used } ?: lineRepresentativeOf(line.line, pool))
-                ?.also { used += it.id }?.let { line.rank to it }
-        }
+        val ranked = seedLineRepresentativesOf(byReportNo)
+        val used = ranked.map { it.second.id }.toSet()
         val representatives = ranked.map { it.second }
         val representedGroups = representatives.map(::groupKeyOf).toSet()
         val restGroups = byReportNo.values
@@ -103,6 +99,23 @@ class ProcessedFoodService(
             ranked.map { (rank, row) -> ProcessedFoodPopularity.Entry(row.id, groupKeyOf(row), popularity.seedPercentileOf(rank)) } +
                 restGroups.map { ProcessedFoodPopularity.Entry(it.first().id, groupKeyOf(it.first()), ProcessedFoodPopularity.NON_SEED_PERCENTILE) },
         ).map { id -> membersByLead[id] ?: listOf(id) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getSeedLineRepresentatives(): List<Pair<Int, ProcessedFoodProduct>> {
+        if (cvsCatalog.reportNos.isEmpty()) return emptyList()
+        val lastMirror = products.findLastCompletedMirrorStartedAt()
+        val byReportNo = products.findAllByReportNoIn(cvsCatalog.reportNos).filterNot { it.isDiscontinued(lastMirror) }.associateBy { it.reportNo }
+        return seedLineRepresentativesOf(byReportNo)
+    }
+
+    private fun seedLineRepresentativesOf(byReportNo: Map<String, ProcessedFoodProduct>): List<Pair<Int, ProcessedFoodProduct>> {
+        val used = mutableSetOf<Long>()
+        return cvsCatalog.seedLines.mapNotNull { line ->
+            val pool = line.reportNos.mapNotNull(byReportNo::get).filter { it.id !in used }
+            (line.representative?.let(byReportNo::get)?.takeIf { it.id !in used } ?: lineRepresentativeOf(line.line, pool))
+                ?.also { used += it.id }?.let { line.rank to it }
+        }
     }
 
     private fun lineRepresentativeOf(line: String, pool: List<ProcessedFoodProduct>): ProcessedFoodProduct? {

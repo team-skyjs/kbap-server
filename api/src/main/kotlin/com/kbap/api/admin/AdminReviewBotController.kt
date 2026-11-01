@@ -5,6 +5,8 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountService
 import com.kbap.api.reviewbot.ReviewBotPhotoService
 import com.kbap.api.reviewbot.ReviewBotPhotoInventory
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodService
 import com.kbap.api.reviewbot.ReviewBotRewriteResult
 import com.kbap.api.reviewbot.ReviewBotRewriteService
 import org.springframework.web.bind.annotation.GetMapping
@@ -23,7 +25,16 @@ class AdminReviewBotController(
     private val accountService: ReviewBotAccountService,
     private val photos: ReviewBotPhotoService,
     private val rewriter: ReviewBotRewriteService,
+    private val processedFoodBot: ReviewBotProcessedFoodService,
 ) : AdminReviewBotApi {
+    @PostMapping("/processed-foods/reviews")
+    override fun writeProcessedFoodReviews(
+        @RequestHeader("X-Target-Environment") target: String,
+        @Valid @RequestBody request: AdminReviewBotProcessedFoodRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotProcessedFoodRunResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store")
+            .body(BaseResponse.ok(processedFoodBot.run(target, request.dryRun, request.limit, request.ids, request.topLines, request.seed)))
+
     @GetMapping("/images")
     override fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>> =
         ResponseEntity.ok(BaseResponse.ok(photos.getInventory()))
