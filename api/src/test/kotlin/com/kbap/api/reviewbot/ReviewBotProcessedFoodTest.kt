@@ -3,7 +3,20 @@ package com.kbap.api.reviewbot
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.api.image.ImageUploadProperties
 import com.kbap.api.review.ProcessedFoodReviewSwitch
+import com.kbap.common.core.error.BusinessException
+import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.food.FoodJpaRepository
+import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.FoodContentStatus
+import com.kbap.common.domain.review.ReviewJpaRepository
+import io.kotest.assertions.throwables.shouldThrow
+import net.javacrumbs.shedlock.core.LockConfiguration
+import net.javacrumbs.shedlock.core.LockProvider
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
@@ -32,6 +45,10 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
     @Autowired private lateinit var fakeGenerator: FakeReviewTextGenerator
     @Autowired private lateinit var bot: ReviewBotProcessedFoodService
     @Autowired private lateinit var writeSwitch: ProcessedFoodReviewSwitch
+    @Autowired private lateinit var lockProvider: LockProvider
+    @Autowired private lateinit var reviewRepository: ReviewJpaRepository
+    @Autowired private lateinit var foodRepository: FoodJpaRepository
+    @Autowired private lateinit var uploadProperties: ImageUploadProperties
 
     private val mapper = jacksonObjectMapper()
 
@@ -157,6 +174,52 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     result.written shouldBe 0
                     result.failedProductIds shouldBe listOf(kick)
                     botReviews(kick).size shouldBe 0
+                }
+            }
+        }
+
+        given("가공식품 리뷰 봇 동시성·사진·할당(Codex P2 #517)") {
+            `when`("음식 봇 작성기와 같은 분산 락을 다른 쪽이 쥐고 있으면") {
+                then("실행은 409 REVIEW-007 로 거절하고 아무것도 쓰지 않는다 — dryRun 은 그대로 돈다") {
+                    val lock = lockProvider.lock(LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, Duration.ofMinutes(5), Duration.ZERO)).orElseThrow()
+                    try {
+                        val error = shouldThrow<BusinessException> { bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick), topLines = null, seed = 3) }
+                        error.errorCode shouldBe ErrorCode.REVIEW_BOT_BUSY
+                        botReviews(kick).size shouldBe 0
+                        (bot.run("dev", dryRun = true, limit = 40, ids = listOf(kick), topLines = null, seed = 3).items.isNotEmpty()) shouldBe true
+                    } finally {
+                        lock.unlock()
+                    }
+                }
+            }
+            `when`("업로드 기록은 있지만 저장소에 없는(쓸 수 없는) 풀 사진이 있으면") {
+                then("사진 없이 텍스트만 쓴다 — 사진은 사진 서비스 재고·재확인을 거친다") {
+                    val owner = (rows("SELECT MIN(id) FROM member WHERE is_bot = 1").single().single() as Number).toLong()
+                    val path = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf("processed:199104611019") + "/1.webp"
+                    execute(
+                        "INSERT INTO uploaded_image (member_id, object_path, content_type, size_bytes, status, created_at, updated_at) " +
+                            "VALUES ($owner, '$path', 'image/webp', 100000, 'ACTIVE', NOW(6), NOW(6))",
+                    )
+
+                    val result = bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 3)
+
+                    result.written shouldBe 2
+                    rows("SELECT image_refs FROM food_review WHERE processed_food_id = $kick").all { it.single() == null } shouldBe true
+                }
+            }
+            `when`("오늘 봇이 가공식품 리뷰를 썼으면") {
+                then("음식 봇 일일 할당(countReviewBotReviewsSince)에는 세지 않는다 — 음식 리뷰만 센다") {
+                    bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 3)
+                    val startOfDay = LocalDate.now().atStartOfDay().minusDays(30)
+                    reviewRepository.countReviewBotReviewsSince(startOfDay) shouldBe 0
+
+                    val food = foodRepository.save(Food(koreanName = "할당음식", description = "설명", contentStatus = FoodContentStatus.READY)).id
+                    val owner = (rows("SELECT MIN(id) FROM member WHERE is_bot = 1").single().single() as Number).toLong()
+                    execute(
+                        "INSERT INTO food_review (member_id, target_type, food_id, rating, serving_speed_rating, staff_kindness_rating, content, status, created_at, updated_at, version) " +
+                            "VALUES ($owner, 'FOOD', $food, 4, 0, 0, 'Warm and savory, so good', 'ACTIVE', NOW(6), NOW(6), 0)",
+                    )
+                    reviewRepository.countReviewBotReviewsSince(startOfDay) shouldBe 1
                 }
             }
         }
