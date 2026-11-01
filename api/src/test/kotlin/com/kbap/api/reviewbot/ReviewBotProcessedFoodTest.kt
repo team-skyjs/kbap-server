@@ -153,9 +153,20 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     val saved = botReviews(kick)
                     saved.size shouldBe planned
                     saved.map { it[0] }.distinct().size shouldBe planned
-                    saved.all { (it[3] as Number).toInt() == 4 && it[2] == null } shouldBe true
+                    saved.all { (it[3] as Number).toInt() == 4 && (it[2] as Number).toInt() == 1 } shouldBe true
                     val now = LocalDateTime.now()
                     saved.map { it[4] as LocalDateTime }.all { created -> created.isBefore(now.plusSeconds(1)) && created.isAfter(now.minusDays(29)) } shouldBe true
+                }
+            }
+
+            `when`("LLM 이 맛 축을 비워(null) 주면") {
+                then("맛 축은 항상 1~5 로 남긴다 — 해당 없는 축은 최저값 1(예진 11/2 \"선택 별점도 다 남기도록\")") {
+                    fakeGenerator.processedReply = { ProcessedFoodReviewDraft("Smooth and mild, so good lol", spiciness = null, sweetness = null) }
+
+                    val result = bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 3)
+
+                    result.items.all { it.spiciness == 1 && it.sweetness == 1 } shouldBe true
+                    botReviews(kick).all { (it[2] as Number).toInt() == 1 && (it[3] as Number).toInt() == 1 } shouldBe true
                 }
             }
 
