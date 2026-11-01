@@ -10,6 +10,23 @@ import java.time.LocalDateTime
 class FoodListingSortTest : BehaviorSpec({
     fun entry(id: Long, name: String) = FoodListingName(id, name, name, emptyMap(), LocalDateTime.MIN)
 
+    given("리뷰 많은 순 비교 규칙(KB-956)") {
+        `when`("리뷰 수·평균 별점·id 가 섞여 있으면") {
+            then("리뷰 수 내림차순 → 평균 별점 내림차순 → id 내림차순") {
+                val rows = listOf(
+                    FoodListingName(1, "가", "가", emptyMap(), LocalDateTime.MIN, reviewCount = 2),
+                    FoodListingName(2, "나", "나", emptyMap(), LocalDateTime.MIN, reviewCount = 5),
+                    FoodListingName(3, "다", "다", emptyMap(), LocalDateTime.MIN, reviewCount = 2),
+                    FoodListingName(4, "라", "라", emptyMap(), LocalDateTime.MIN, reviewCount = 0),
+                    FoodListingName(5, "마", "마", emptyMap(), LocalDateTime.MIN, reviewCount = 2),
+                    FoodListingName(6, "바", "바", emptyMap(), LocalDateTime.MIN, reviewCount = 0),
+                )
+                FoodListingSort.REVIEWS.order(rows, LanguageCode.EN, mapOf(1L to 4.5, 2L to 3.0, 3L to 4.5, 5L to 3.0)) shouldBe listOf(2L, 3L, 1L, 5L, 6L, 4L)
+                FoodListingSort.parse("reviews") shouldBe FoodListingSort.REVIEWS
+            }
+        }
+    }
+
     given("고정 로케일 비교 규칙") {
         `when`("각 언어의 대표 문자를 비교하면") {
             then("10개 언어에서 지정한 정순과 역순을 따른다") {

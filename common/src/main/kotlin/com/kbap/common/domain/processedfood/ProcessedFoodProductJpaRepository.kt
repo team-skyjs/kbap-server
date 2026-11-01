@@ -21,6 +21,9 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
 
     fun findAllByNormalizedNameIn(normalizedNames: Collection<String>): List<ProcessedFoodProduct>
 
+    @Query(nativeQuery = true, value = "SELECT MAX(report_no) FROM processed_food_product WHERE report_no BETWEEN 'M000000' AND 'M999999'")
+    fun findLatestManualReportNo(): String?
+
     @Query(
         nativeQuery = true,
         value = """

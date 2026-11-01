@@ -10,6 +10,7 @@ data class FoodListingName(
     val displayName: String,
     val nameTranslations: Map<String, String>,
     val updatedAt: LocalDateTime,
+    val reviewCount: Int = 0,
 ) {
     fun name(lang: LanguageCode): String = FoodName.resolve(koreanName, displayName, nameTranslations, lang)
 }

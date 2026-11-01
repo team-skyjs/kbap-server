@@ -21,7 +21,7 @@ import java.time.LocalDateTime
 interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     @Query(
         """
-        select new com.kbap.common.domain.food.dto.FoodListingName(f.id, f.koreanName, f.displayName, f.nameTranslations, f.updatedAt)
+        select new com.kbap.common.domain.food.dto.FoodListingName(f.id, f.koreanName, f.displayName, f.nameTranslations, f.updatedAt, f.reviewCount)
         from Food f
         where f.contentStatus = com.kbap.common.domain.food.model.FoodContentStatus.READY
         order by f.id
