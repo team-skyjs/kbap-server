@@ -95,7 +95,10 @@ class ProcessedFoodService(
             .map { group -> group.sortedWith(representativeOrder) }
             .sortedBy { it.first().id }
             .shuffled(Random(LocalDate.now(SEOUL).toEpochDay()))
-        val membersByLead = restGroups.associate { group -> group.first().id to group.map { it.id } }
+        val seedGroups = representatives.map { lead ->
+            listOf(lead) + byReportNo.values.filter { it.id != lead.id && it.id !in used && groupKeyOf(it) == groupKeyOf(lead) }.sortedWith(representativeOrder)
+        }
+        val membersByLead = (seedGroups + restGroups).associate { group -> group.first().id to group.map { it.id } }
         return popularity.order(
             ranked.map { (rank, row) -> ProcessedFoodPopularity.Entry(row.id, groupKeyOf(row), popularity.seedPercentileOf(rank)) } +
                 restGroups.map { ProcessedFoodPopularity.Entry(it.first().id, groupKeyOf(it.first()), ProcessedFoodPopularity.NON_SEED_PERCENTILE) },
