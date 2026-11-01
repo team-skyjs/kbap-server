@@ -204,7 +204,9 @@ data class ProcessedFoodDetailResponse(
                 unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
-                image = product.displayImageUrl()?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
+                image = product.displayImageUrl()?.let {
+                    ProcessedFoodImageResponse(it, product.source, if (product.source == ProcessedFoodProduct.SOURCE_MANUAL) "processedFood.image.manual" else "processedFood.image.haccp")
+                },
                 reviewSummary = ProcessedFoodReviewSummaryResponse.of(axes),
                 verdict = judgement.verdict,
                 avoidMatches = judgement.avoidMatches,
@@ -263,6 +265,6 @@ data class ProcessedFoodImageResponse(
     val url: String,
     @field:Schema(description = "이미지 출처", example = "HACCP")
     val source: String,
-    @field:Schema(description = "이미지 저작 고지 문구 키", example = "processedFood.image.haccp")
+    @field:Schema(description = "이미지 저작 고지 문구 키 — processedFood.image.haccp, 수동 등록(MANUAL) 상품은 processedFood.image.manual", example = "processedFood.image.haccp")
     val attributionKey: String,
 )
