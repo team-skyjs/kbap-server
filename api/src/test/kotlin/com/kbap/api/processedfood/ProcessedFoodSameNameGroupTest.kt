@@ -30,10 +30,10 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
     init {
         fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
         fun q(v: String?) = v?.let { "'" + it.replace("'", "''") + "'" } ?: "NULL"
-        fun seed(reportNo: String, name: String, maker: String, capacity: String? = null, coverage: String? = null, status: String? = null, raw: String = "옥수수, 바나나"): Long {
+        fun seed(reportNo: String, name: String, maker: String, capacity: String? = null, coverage: String? = null, status: String? = null, raw: String = "옥수수, 바나나", supplement: String? = null): Long {
             execute(
-                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, capacity, raw_materials, allergens, source, content_hash, collected_at, last_seen_at, cutout_coverage, cutout_review_status, status, created_at, updated_at) " +
-                    "VALUES (${q(reportNo)}, ${q(name)}, ${q(ProcessedFoodSnapshot.normalizeName(name))}, '과자', ${q(maker)}, ${q(capacity)}, ${q(raw)}, NULL, 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), ${coverage ?: "NULL"}, ${q(status)}, 'ACTIVE', NOW(6), NOW(6))",
+                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, maker_supplement, capacity, raw_materials, allergens, source, content_hash, collected_at, last_seen_at, cutout_coverage, cutout_review_status, status, created_at, updated_at) " +
+                    "VALUES (${q(reportNo)}, ${q(name)}, ${q(ProcessedFoodSnapshot.normalizeName(name))}, '과자', ${q(maker)}, ${q(supplement)}, ${q(capacity)}, ${q(raw)}, NULL, 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), ${coverage ?: "NULL"}, ${q(status)}, 'ACTIVE', NOW(6), NOW(6))",
             )
             return dataSource.connection.use { c ->
                 c.createStatement().use { s -> s.executeQuery("SELECT id FROM processed_food_product WHERE report_no = ${q(reportNo)}").use { r -> r.next(); r.getLong(1) } }
@@ -77,6 +77,26 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
 
                     shown.count { it == "2001054954151" || it == "199104611019" } shouldBe 1
                     shown.contains("2001054954151") shouldBe true
+                }
+            }
+            `when`("dev 실측처럼 한 행은 제조사 '알수없음'·보완값 없음, 다른 행은 보완값 농심이면") {
+                then("제조사 미상 행이 같은 이름의 유일한 제조사 묶음(농심)에 합쳐져 바나나킥은 1건, 상세 형제도 2건이다") {
+                    val big = seed("2001054954151", "바나나킥", "알수없음", "140g", "0.2000")
+                    val small = seed("199104611019", "바나나킥", "알수없음", "75g", "0.7100", supplement = "농심")
+
+                    val found = reportNos(get("/api/processed-foods?query=바나나"))
+                    found.count { it == "2001054954151" || it == "199104611019" } shouldBe 1
+                    found.contains("199104611019") shouldBe true
+                    get("/api/processed-foods/$big").path("sameNameProducts").map { it.path("id").asLong() } shouldBe listOf(big, small).sorted()
+                }
+            }
+            `when`("제조사 미상 행과 같은 이름의 제조사 묶음이 둘 이상이면") {
+                then("어느 쪽인지 모르므로 합치지 않는다 — 셋 다 따로 보인다") {
+                    seed("TEST-AMB-0", "모호과자", "알수없음")
+                    seed("TEST-AMB-1", "모호과자", "가나제과")
+                    seed("TEST-AMB-2", "모호과자", "다라제과")
+
+                    reportNos(get("/api/processed-foods?query=모호과자")) shouldContainExactlyInAnyOrder listOf("TEST-AMB-0", "TEST-AMB-1", "TEST-AMB-2")
                 }
             }
             `when`("묶음 안에 누끼 승인(APPROVED) 행이 있으면") {
