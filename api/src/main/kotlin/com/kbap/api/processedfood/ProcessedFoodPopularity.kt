@@ -52,7 +52,7 @@ class ProcessedFoodPopularity(
 
     internal fun compute(today: LocalDate): Map<String, AppScore> {
         val catalogGroupOf = products.findAllByReportNoIn(cvsCatalog.reportNos)
-            .associate { it.id to ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker()) }
+            .associate { it.id to (candidateIndex.groupKeyOf(it.id) ?: ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker())) }
         if (catalogGroupOf.isEmpty()) return emptyMap()
         val groupOf = candidateIndex.groupMemberIds(catalogGroupOf.keys)
             .flatMap { (catalogId, members) -> members.map { it to catalogGroupOf.getValue(catalogId) } }

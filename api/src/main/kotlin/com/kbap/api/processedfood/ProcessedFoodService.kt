@@ -64,7 +64,7 @@ class ProcessedFoodService(
         val featured = catalog.mapNotNull { product -> representativeOf(product, named)?.let { it to product } }
             .distinctBy { it.first.id }
         val featuredIds = featured.map { it.first.id }.toSet()
-        val featuredGroups = featured.map { (row, _) -> ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker()) }.toSet()
+        val featuredGroups = featured.map { (row, _) -> groupKeyOf(row) }.toSet()
         val featuredByName = featured.flatMap { (_, product) -> namesOf(product).map { it.lowercase() to product } }.groupBy({ it.first }, { it.second })
         val makerPrefixes = featured.flatMap { (_, product) -> featuredCatalog.makerAliases(product.maker) }.distinct()
         val rest = candidateIndex.listedRows(lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE, type)
@@ -120,7 +120,7 @@ class ProcessedFoodService(
         { it.id },
     )
 
-    private fun groupKeyOf(row: ProcessedFoodProduct): String = ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker())
+    private fun groupKeyOf(row: ProcessedFoodProduct): String = candidateIndex.groupKeyOf(row.id) ?: ProcessedFoodGrouping.keyOf(row.normalizedName, row.displayMaker())
 
     private fun foldsIntoFeatured(
         row: ProcessedFoodCandidateIndex.ListedRow,
@@ -247,7 +247,7 @@ class ProcessedFoodService(
         val rest = ranked.filterNot { (product, _) ->
             product.id in boostedIds || boosted.any { (_, _, featuredProduct) -> foldsInto(product.normalizedName, product.displayMaker(), featuredProduct) }
         }
-            .groupBy { ProcessedFoodGrouping.keyOf(it.first.normalizedName, it.first.displayMaker()) }.values
+            .groupBy { groupKeyOf(it.first) }.values
             .map { group -> latestOf(group.map { it.first })!! to group.first().second }
         val longestBoost = boosted.maxOfOrNull { it.second } ?: 0
         val boostedNameKeys = boosted.flatMap { listOf(it.third.name, it.first.normalizedName) }.map { it.lowercase() }.toSet()
