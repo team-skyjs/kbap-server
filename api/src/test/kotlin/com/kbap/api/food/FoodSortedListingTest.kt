@@ -65,6 +65,48 @@ class FoodSortedListingTest : BehaviorSpec() {
             error("페이지가 종료되지 않았습니다")
         }
 
+        given("리뷰 많은 순(sort=reviews, KB-956)") {
+            fun review(foodId: Long, rating: Int, n: Int) {
+                val jdbc = JdbcTemplate(dataSource)
+                repeat(n) {
+                    jdbc.update(
+                        "INSERT INTO food_review (member_id, target_type, food_id, rating, serving_speed_rating, staff_kindness_rating, content, status, created_at, updated_at, version) " +
+                            "VALUES (89001, 'FOOD', ?, ?, 3, 3, '맛있는 음식이었어요 정말로', 'ACTIVE', NOW(6), NOW(6), 0)",
+                        foodId, rating,
+                    )
+                }
+                jdbc.update("UPDATE food SET review_count = review_count + ? WHERE id = ?", n, foodId)
+            }
+            beforeEach {
+                seed(25)
+                review(5, 5, 3)
+                review(9, 2, 3)
+                review(12, 4, 1)
+            }
+            `when`("전체·저장 목록을 끝까지 넘기면") {
+                then("리뷰 수 내림차순, 같으면 평균 별점 내림차순, 그다음 foodId 내림차순이고 페이지 경계에서 중복·누락이 없다") {
+                    val expected = listOf(5L, 9L, 12L) + (25L downTo 1L).filterNot { it in setOf(5L, 9L, 12L) }
+                    listOf("/api/foods", "/api/bookmarks").forEach { path ->
+                        allIds(path, "reviews", "en") shouldBe expected
+                    }
+                }
+            }
+            `when`("위험도 필터와 함께 쓰면") {
+                then("필터에 맞는 음식만 같은 순서로 남는다") {
+                    JdbcTemplate(dataSource).update("UPDATE food SET ingredients = NULL WHERE id = 9")
+                    val page = request(sort = "reviews", risk = "SAFE").path("payload")
+                    page.path("items").map { it.path("foodId").asLong() }.take(3) shouldBe listOf(5L, 12L, 25L)
+                }
+            }
+            `when`("넘기는 사이 리뷰가 늘어 순서가 바뀌면") {
+                then("옛 커서는 409 FOOD-022 로 첫 페이지부터 다시 보게 한다") {
+                    val cursor = request(sort = "reviews").path("payload").path("nextCursor").asText()
+                    review(20, 5, 1)
+                    request(sort = "reviews", cursor = cursor, expected = 409).path("code").asText() shouldBe "FOOD-022"
+                }
+            }
+        }
+
         given("전체와 저장 음식의 표시 이름 정렬") {
             beforeEach { seed() }
             `when`("10개 언어로 세 페이지 이상 조회하면") {
