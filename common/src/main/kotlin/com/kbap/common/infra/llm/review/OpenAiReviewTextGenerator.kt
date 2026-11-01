@@ -121,8 +121,8 @@ class OpenAiReviewTextGenerator(
                     listOf(
                         "Also rate the product on two axes from what the product name, type and ingredients suggest: " +
                             "\"spiciness\" (1 mild to 5 very spicy) and \"sweetness\" (1 barely sweet to 5 very sweet). " +
-                            "Use null for an axis that does not apply (for example spiciness for milk), and avoid extreme values without a clear reason in the product.",
-                        "Answer with only this JSON object: {\"review\": \"...\", \"spiciness\": 1-5 or null, \"sweetness\": 1-5 or null}",
+                            "Use 1 for an axis that does not apply (for example spiciness for milk), and avoid extreme values without a clear reason in the product.",
+                        "Answer with only this JSON object: {\"review\": \"...\", \"spiciness\": 1-5, \"sweetness\": 1-5}",
                     ),
                 ).joinToString("\n")
     }

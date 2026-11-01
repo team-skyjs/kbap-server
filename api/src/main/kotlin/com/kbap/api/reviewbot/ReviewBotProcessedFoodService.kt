@@ -152,7 +152,9 @@ class ReviewBotProcessedFoodService(
             val draft = runCatching { generator.generateProcessedFood(request) }
                 .onFailure { log.warn("가공식품 리뷰 봇 생성 실패 productId={} attempt={}", product.id, attempt + 1, it) }
                 .getOrNull()
-            if (draft != null && ReviewBotContentGuard.isAcceptableForProcessedFood(draft.text) && ReviewBotContentGuard.fitsCard(draft.text, language)) return draft to request
+            if (draft != null && ReviewBotContentGuard.isAcceptableForProcessedFood(draft.text) && ReviewBotContentGuard.fitsCard(draft.text, language)) {
+                return draft.copy(spiciness = draft.spiciness ?: AXIS_FLOOR, sweetness = draft.sweetness ?: AXIS_FLOOR) to request
+            }
             if (draft != null) log.warn("가공식품 리뷰 봇 생성물을 버린다(가드 또는 길이) productId={} attempt={}", product.id, attempt + 1)
         }
         return null
@@ -190,6 +192,7 @@ class ReviewBotProcessedFoodService(
 
     private companion object {
         const val MAX_LIMIT = 40
+        const val AXIS_FLOOR = 1
         val LOCK_AT_MOST_FOR: Duration = Duration.ofMinutes(15)
         const val MAX_ATTEMPTS = 2
         const val MAX_INGREDIENTS = 8
