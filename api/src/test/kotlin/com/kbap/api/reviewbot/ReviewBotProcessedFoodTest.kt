@@ -49,6 +49,8 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
     @Autowired private lateinit var reviewRepository: ReviewJpaRepository
     @Autowired private lateinit var foodRepository: FoodJpaRepository
     @Autowired private lateinit var uploadProperties: ImageUploadProperties
+    @Autowired private lateinit var photoStorage: com.kbap.api.image.FakeStorageObjectStore
+    @Autowired private lateinit var photoService: ReviewBotPhotoService
 
     private val mapper = jacksonObjectMapper()
 
@@ -78,6 +80,7 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
             TestTables.clearAll(dataSource)
             execute("DELETE FROM processed_food_product")
             fakeGenerator.reset()
+            photoStorage.heads.clear()
             accountService.ensureBots(15)
             milk = seed("1984044800212", "빙그레 바나나맛 우유", "빙그레", "가공유", "원유, 정제수, 설탕, 바나나농축과즙")
             kick = seed("199104611019", "바나나킥", "농심", "과자", "옥수수, 설탕, 바나나분말")
@@ -251,6 +254,62 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                             "VALUES ($owner, 'FOOD', $food, 4, 0, 0, 'Warm and savory, so good', 'ACTIVE', NOW(6), NOW(6), 0)",
                     )
                     reviewRepository.countReviewBotReviewsSince(startOfDay) shouldBe 1
+                }
+            }
+        }
+
+        given("가공식품 봇 리뷰 사진 재활용 금지(S-935)") {
+            fun stubPool(count: Int) {
+                (1..count).forEach { n ->
+                    photoStorage.stub(ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf("processed:199104611019") + "/$n.webp", "image/webp", 100_000L + n)
+                }
+                photoService.sync()
+            }
+            fun photoRefs(): List<String> =
+                rows("SELECT CAST(image_refs AS CHAR) FROM food_review WHERE processed_food_id = $kick AND image_refs IS NOT NULL").map { it.single().toString() }
+
+            `when`("상품 사진 풀이 1장이면") {
+                then("그 사진은 리뷰 한 건에만 붙고 나머지는 텍스트만, 사진 붙은 리뷰는 약 30% 이하다") {
+                    stubPool(1)
+                    val result = bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick), topLines = null, seed = 3)
+
+                    (result.written >= 3) shouldBe true
+                    photoRefs().size shouldBe 1
+                    result.items.count { it.imageCount > 0 } shouldBe 1
+                }
+            }
+            `when`("사진 풀이 여러 장이고 나눠 실행하면") {
+                then("같은 경로가 두 리뷰에 붙지 않는다 — 기존 리뷰가 쓴 사진은 다음 실행에서 빠진다") {
+                    stubPool(3)
+                    bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 5)
+                    bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 5)
+
+                    val used = photoRefs().flatMap { Regex("\"([^\"]+)\"").findAll(it).map { m -> m.groupValues[1] }.toList() }
+                    used.size shouldBe used.distinct().size
+                }
+            }
+            `when`("기존 봇 리뷰 여러 건이 같은 사진을 쓰고 있으면(dev 정리 API)") {
+                then("dryRun 은 바꾸지 않고, 실행은 가장 이른 리뷰만 사진을 남기고 나머지는 사진만 뗀다(본문·updated_at 유지)") {
+                    val path = ReviewBotPhotoPool.poolPrefix(uploadProperties.keyPrefix) + ReviewBotPhotoPool.keyOf("processed:199104611019") + "/1.webp"
+                    val bots = rows("SELECT id FROM member WHERE is_bot = 1 ORDER BY id LIMIT 3").map { (it.single() as Number).toLong() }
+                    bots.forEachIndexed { i, botId ->
+                        execute(
+                            "INSERT INTO food_review (member_id, target_type, processed_food_id, rating, serving_speed_rating, staff_kindness_rating, content, image_refs, status, created_at, updated_at, version) " +
+                                "VALUES ($botId, 'PROCESSED_FOOD', $kick, 4, 0, 0, 'Crunchy and sweet snack $i', '[\"$path\"]', 'ACTIVE', '2026-10-0${i + 1} 12:00:00', '2026-10-0${i + 1} 12:00:00', 0)",
+                        )
+                    }
+
+                    val dry = bot.dedupePhotos("dev", dryRun = true)
+                    dry.reviewsChanged shouldBe 2
+                    photoRefs().size shouldBe 3
+
+                    bot.dedupePhotos("dev", dryRun = false).reviewsChanged shouldBe 2
+                    val after = rows("SELECT content, CAST(image_refs AS CHAR), updated_at FROM food_review WHERE processed_food_id = $kick ORDER BY created_at")
+                    after[0][1].toString().contains(path) shouldBe true
+                    after.drop(1).all { it[1] == null } shouldBe true
+                    after.map { it[0] } shouldBe listOf("Crunchy and sweet snack 0", "Crunchy and sweet snack 1", "Crunchy and sweet snack 2")
+                    after.map { it[2].toString().startsWith("2026-10-0") } shouldBe listOf(true, true, true)
+                    shouldThrow<BusinessException> { bot.dedupePhotos("prod", dryRun = true) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
                 }
             }
         }
