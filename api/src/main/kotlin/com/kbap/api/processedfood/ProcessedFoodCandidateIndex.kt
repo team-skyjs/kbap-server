@@ -96,11 +96,28 @@ class ProcessedFoodCandidateIndex(
         }
     }
 
+    fun groupKeyOf(id: Long): String? = fresh().groupKeyById[id]
+
     private fun load(fingerprint: String?): Snapshot {
-        val entries = products.findCandidateRows().map(::entryOf)
+        val entries = foldUnknownMakers(products.findCandidateRows().map(::entryOf))
         log.info("가공식품 후보 색인 적재 rows={} chars={}", entries.size, entries.sumOf { it.name.length + it.makers.sumOf(String::length) })
         val membersById = entries.groupBy({ it.groupKey }, { it.id }).values.flatMap { ids -> ids.map { it to ids } }.toMap()
-        return Snapshot(entries, membersById, fingerprint, System.nanoTime())
+        return Snapshot(entries, membersById, entries.associate { it.id to it.groupKey }, fingerprint, System.nanoTime())
+    }
+
+    private fun foldUnknownMakers(entries: List<Entry>): List<Entry> {
+        val knownByName = entries.filter { ProcessedFoodGrouping.makerKeyOf(it.displayMaker).isNotEmpty() }
+            .flatMap { entry ->
+                val maker = ProcessedFoodGrouping.makerKeyOf(entry.displayMaker)
+                val namePart = entry.groupKey.substringBeforeLast('|')
+                listOf(namePart to entry.groupKey, maker + namePart to entry.groupKey)
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, keys) -> keys.toSet() }
+        return entries.map { entry ->
+            if (ProcessedFoodGrouping.makerKeyOf(entry.displayMaker).isNotEmpty()) return@map entry
+            knownByName[entry.normalizedName]?.singleOrNull()?.let { entry.copy(groupKey = it) } ?: entry
+        }
     }
 
     private fun entryOf(row: ProcessedFoodCandidateRow): Entry {
@@ -141,7 +158,13 @@ class ProcessedFoodCandidateIndex(
 
     data class ListedRow(val id: Long, val normalizedName: String, val displayMaker: String?, val groupKey: String)
 
-    private data class Snapshot(val entries: List<Entry>, val membersById: Map<Long, List<Long>>, val fingerprint: String?, val checkedAt: Long)
+    private data class Snapshot(
+        val entries: List<Entry>,
+        val membersById: Map<Long, List<Long>>,
+        val groupKeyById: Map<Long, String>,
+        val fingerprint: String?,
+        val checkedAt: Long,
+    )
 
     private companion object {
         val MAKER_NOISE = Regex("""[ ()\[\]·・,._-]""")

@@ -125,6 +125,14 @@ enum class ProcessedFoodLabelSource {
     }
 }
 
+@Schema(description = "같은 묶음 상품(용량 선택용)")
+data class ProcessedFoodSameNameResponse(
+    @field:Schema(description = "가공식품 id", example = "1032")
+    val id: Long,
+    @field:Schema(description = "용량 표시 원문 — 없으면 null", example = "75g", nullable = true)
+    val capacity: String?,
+)
+
 @Schema(description = "가공식품 상세")
 data class ProcessedFoodDetailResponse(
     val id: Long,
@@ -175,9 +183,11 @@ data class ProcessedFoodDetailResponse(
     val ingredients: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "알레르기 표시 — translated·original. 표시가 없거나 '알수없음' 등이면 null", nullable = true)
     val allergenStatement: ProcessedFoodLocalizedText? = null,
+    @field:Schema(description = "같은 묶음(정규화 이름 + 제조사) 상품 — 용량만 다른 별도 등록 등. 자기 자신 포함, id 순. 목록·검색은 이 중 대표 1개만 보인다(KB-950)")
+    val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes): ProcessedFoodDetailResponse {
+        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes, sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList()): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
             return ProcessedFoodDetailResponse(
@@ -205,6 +215,7 @@ data class ProcessedFoodDetailResponse(
                 majorAllergens = judgement.majorAllergens,
                 ingredients = product.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
+                sameNameProducts = sameNameProducts,
             )
         }
 
