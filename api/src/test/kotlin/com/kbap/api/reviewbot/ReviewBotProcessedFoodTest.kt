@@ -106,11 +106,13 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                 }
             }
             `when`("LLM 응답 JSON 을 읽으면") {
-                then("본문·맛 축을 꺼내고, 1~5 밖 축은 버리고(null), 코드 펜스를 벗기고, 본문이 없으면 실패한다") {
+                then("본문·맛 축을 꺼내고, 1~5 밖 정수는 끝값으로 맞추고(아주 매움이 순함으로 뒤집히지 않게), 코드 펜스를 벗기고, 본문이 없으면 실패한다") {
                     OpenAiReviewTextGenerator.parseProcessedDraft("""{"review":"Crunchy and sweet, nice snack","spiciness":null,"sweetness":4}""") shouldBe
                         ProcessedFoodReviewDraft("Crunchy and sweet, nice snack", null, 4)
                     OpenAiReviewTextGenerator.parseProcessedDraft("```json\n{\"review\":\"Spicy noodles, loved the kick\",\"spiciness\":9,\"sweetness\":1}\n```") shouldBe
-                        ProcessedFoodReviewDraft("Spicy noodles, loved the kick", null, 1)
+                        ProcessedFoodReviewDraft("Spicy noodles, loved the kick", 5, 1)
+                    OpenAiReviewTextGenerator.parseProcessedDraft("""{"review":"Barely sweet cracker, nice crunch","spiciness":"hot","sweetness":0}""") shouldBe
+                        ProcessedFoodReviewDraft("Barely sweet cracker, nice crunch", null, 1)
                     shouldThrowAny { OpenAiReviewTextGenerator.parseProcessedDraft("""{"spiciness":2}""") }
                 }
             }
