@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
+import com.kbap.api.food.FoodTestSeed
+import com.kbap.common.domain.member.model.MemberRole
+import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -20,23 +23,24 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
 
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
+    @Autowired private lateinit var tokenIssuer: TokenIssuer
 
     private val mapper = jacksonObjectMapper()
 
     init {
         fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
         fun q(v: String?) = v?.let { "'" + it.replace("'", "''") + "'" } ?: "NULL"
-        fun seed(reportNo: String, name: String, maker: String, capacity: String? = null, coverage: String? = null, status: String? = null): Long {
+        fun seed(reportNo: String, name: String, maker: String, capacity: String? = null, coverage: String? = null, status: String? = null, raw: String = "옥수수, 바나나"): Long {
             execute(
                 "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, capacity, raw_materials, allergens, source, content_hash, collected_at, last_seen_at, cutout_coverage, cutout_review_status, status, created_at, updated_at) " +
-                    "VALUES (${q(reportNo)}, ${q(name)}, ${q(ProcessedFoodSnapshot.normalizeName(name))}, '과자', ${q(maker)}, ${q(capacity)}, '옥수수, 바나나', NULL, 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), ${coverage ?: "NULL"}, ${q(status)}, 'ACTIVE', NOW(6), NOW(6))",
+                    "VALUES (${q(reportNo)}, ${q(name)}, ${q(ProcessedFoodSnapshot.normalizeName(name))}, '과자', ${q(maker)}, ${q(capacity)}, ${q(raw)}, NULL, 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), ${coverage ?: "NULL"}, ${q(status)}, 'ACTIVE', NOW(6), NOW(6))",
             )
             return dataSource.connection.use { c ->
                 c.createStatement().use { s -> s.executeQuery("SELECT id FROM processed_food_product WHERE report_no = ${q(reportNo)}").use { r -> r.next(); r.getLong(1) } }
             }
         }
-        fun get(path: String): JsonNode = mapper.readTree(
-            mockMvc.get(path) { header("X-API-Version", "3.2") }
+        fun get(path: String, token: String? = null): JsonNode = mapper.readTree(
+            mockMvc.get(path) { header("X-API-Version", "3.2"); token?.let { header("Authorization", "Bearer $it") } }
                 .andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         ).path("payload")
         fun reportNos(page: JsonNode): List<String> = page.path("items").map { it.path("reportNo").asText() }
@@ -115,6 +119,17 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                     } while (cursor != null)
 
                     seen shouldContainExactlyInAnyOrder (1..4).map { "페이지과자$it" }
+                }
+            }
+            `when`("안전도 필터를 쓰면") {
+                then("대표가 아니라 필터를 통과한 묶음 행 중에서 대표를 고른다 — 대표가 걸러져도 통과한 형제가 남는다") {
+                    seed("TEST-VF-A", "필터과자", "테스트제과", "50g", "0.9000", "APPROVED", raw = "소맥분(밀), 땅콩")
+                    seed("TEST-VF-B", "필터과자", "테스트제과", "100g", "0.1000", raw = "소맥분(밀), 설탕")
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 95001L, "PEANUT")
+                    val token = tokenIssuer.issueAccessToken(95001L, MemberRole.USER)
+
+                    reportNos(get("/api/processed-foods?query=필터과자&verdict=SAFE", token)) shouldBe listOf("TEST-VF-B")
+                    reportNos(get("/api/processed-foods?query=필터과자", token)) shouldBe listOf("TEST-VF-A")
                 }
             }
             `when`("묶음의 한 상품 상세를 보면") {
