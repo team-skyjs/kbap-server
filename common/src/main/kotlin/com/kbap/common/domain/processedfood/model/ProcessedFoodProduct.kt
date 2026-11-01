@@ -159,6 +159,13 @@ class ProcessedFoodProduct(
         contentHash = snapshot.contentHash()
     }
 
+    fun correctManually(snapshot: ProcessedFoodSnapshot) {
+        require(source == SOURCE_MANUAL) { "수동 등록 행만 수동으로 고칠 수 있습니다" }
+        require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 고칠 수 없습니다" }
+        copyFrom(snapshot)
+        contentHash = snapshot.contentHash()
+    }
+
     fun refresh(snapshot: ProcessedFoodSnapshot, seenAt: LocalDateTime): Boolean {
         require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 갱신할 수 없습니다" }
         lastSeenAt = seenAt
@@ -221,6 +228,7 @@ class ProcessedFoodProduct(
         }
         const val SOURCE_HACCP = "HACCP"
         const val SOURCE_C002 = "C002"
+        const val SOURCE_MANUAL = "MANUAL"
 
         fun tracksDiscontinuation(source: String): Boolean = source == SOURCE_HACCP
         const val REPORT_NO_LENGTH = 20
