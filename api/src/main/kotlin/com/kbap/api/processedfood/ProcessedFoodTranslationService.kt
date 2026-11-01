@@ -206,21 +206,29 @@ class ProcessedFoodTranslationService(
         val page = rows.take(limit)
         val next = page.lastOrNull()?.id?.takeIf { rows.size > limit }
         val estimate = total * estimatedKrwPerCall
-        if (dryRun) return ProcessedFoodNameRegeneration(true, total, page.size, 0, emptyList(), next, estimate, emptyList())
+        if (dryRun) return ProcessedFoodNameRegeneration(true, total, page.size, 0, emptyList(), next, estimate, emptyList(), budgetExhausted = false)
         val failed = mutableListOf<Long>()
         val samples = mutableListOf<ProcessedFoodNameRegenerationSample>()
         var regenerated = 0
+        var lastDone = afterId
+        var budgetExhausted = false
         for (row in page) {
             val name = runCatching { processedFoodService.getAvailableProduct(row.targetId).productName }.getOrNull()
-            val after = name?.let { translateAndStore(TranslationTargetType.PF_NAME, row.targetId, it, hashOf(it), LanguageCode.from(row.language)) }
-            if (after == null) {
+            val attempt = name?.let { attemptTranslation(TranslationTargetType.PF_NAME, row.targetId, it, hashOf(it), LanguageCode.from(row.language)) }
+            if (attempt?.budgetExhausted == true) {
+                budgetExhausted = true
+                break
+            }
+            lastDone = row.id
+            val after = attempt?.text
+            if (after == null || name == null) {
                 failed += row.targetId
                 continue
             }
             regenerated++
             if (samples.size < SAMPLE_SIZE) samples += ProcessedFoodNameRegenerationSample(row.targetId, row.language, name, row.translatedText, after)
         }
-        return ProcessedFoodNameRegeneration(false, total, page.size, regenerated, failed, next, estimate, samples)
+        return ProcessedFoodNameRegeneration(false, total, page.size, regenerated, failed, if (budgetExhausted) lastDone else next, estimate, samples, budgetExhausted)
     }
 
     private fun cachedOrNull(type: TranslationTargetType, productId: Long, source: String, language: LanguageCode): String? {
@@ -248,11 +256,16 @@ class ProcessedFoodTranslationService(
             ?.let { (brand, _) -> brandNames[brand] }
     }
 
-    private fun translateAndStore(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): String? {
-        val translator = translatorProvider.getIfAvailable() ?: return null
+    private fun translateAndStore(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): String? =
+        attemptTranslation(type, productId, source, hash, language).text
+
+    private class Attempt(val text: String?, val budgetExhausted: Boolean)
+
+    private fun attemptTranslation(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): Attempt {
+        val translator = translatorProvider.getIfAvailable() ?: return Attempt(null, budgetExhausted = false)
         if (!withinBudget()) {
             log.warn("가공식품 번역 일일 상한(₩{})에 닿아 원문으로 둔다 — type={}, productId={}, language={}", dailyBudgetKrw, type, productId, language.code)
-            return null
+            return Attempt(null, budgetExhausted = true)
         }
         engineCalls.incrementAndGet()
         val text = try {
@@ -265,7 +278,7 @@ class ProcessedFoodTranslationService(
         runCatching {
             writeTransaction.executeWithoutResult { translations.upsert(type.name, productId, language.code, hash, usable.orEmpty(), null, LocalDateTime.now()) }
         }.onFailure { log.warn("가공식품 번역 저장 실패 — 번역문은 돌려준다: type={}, productId={}, language={}", type, productId, language.code, it) }
-        return usable
+        return Attempt(usable, budgetExhausted = false)
     }
 
     private fun executor(name: String, threads: Int, queue: Int): ExecutorService = ThreadPoolExecutor(
@@ -316,12 +329,14 @@ data class ProcessedFoodNameRegeneration(
     val regenerated: Int,
     @field:Schema(description = "상품을 못 찾거나(단종·삭제) 번역 실패·가드 거절·일일 상한으로 못 바꾼 상품 id")
     val failedProductIds: List<Long>,
-    @field:Schema(description = "다음 호출에 afterId 로 넘길 커서 — 끝이면 null", nullable = true)
+    @field:Schema(description = "다음 호출에 afterId 로 넘길 커서 — 끝이면 null. budgetExhausted 면 막힌 행 바로 앞(그 행부터 다시)", nullable = true)
     val nextAfterId: Long?,
     @field:Schema(description = "전체 재생성 비용 추정(원) = total × 호출당 추정 단가")
     val estimatedTotalKrw: Double,
     @field:Schema(description = "앞 10건의 전·후")
     val samples: List<ProcessedFoodNameRegenerationSample>,
+    @field:Schema(description = "true 면 일일 번역 상한에 닿아 그 행에서 멈췄다 — 다음 날 nextAfterId 로 이어 부른다(null 이면 처음부터)")
+    val budgetExhausted: Boolean,
 )
 
 @Schema(description = "이름 번역 재생성 전·후")
