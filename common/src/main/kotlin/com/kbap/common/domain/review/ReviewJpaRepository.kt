@@ -194,7 +194,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         nativeQuery = true,
         value = """
             SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id
-            WHERE m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE'
+            WHERE m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE' AND r.target_type = 'FOOD'
         """,
     )
     fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long

@@ -13,10 +13,14 @@ import com.kbap.common.port.llm.ProcessedFoodReviewDraftRequest
 import com.kbap.common.port.llm.ReviewTextGenerator
 import io.swagger.v3.oas.annotations.media.Schema
 import org.slf4j.LoggerFactory
+import net.javacrumbs.shedlock.core.LockConfiguration
+import net.javacrumbs.shedlock.core.LockProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import java.sql.Timestamp
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -32,6 +36,8 @@ class ReviewBotProcessedFoodService(
     private val accountService: ReviewBotAccountService,
     private val reviewService: ReviewService,
     private val photoPool: ReviewBotPhotoPool,
+    private val photoService: ReviewBotPhotoService,
+    private val lockProvider: LockProvider,
     private val generator: ReviewTextGenerator?,
     @Value("\${kbap.curation.environment:disabled}") private val environment: String,
 ) {
@@ -42,10 +48,31 @@ class ReviewBotProcessedFoodService(
         if (limit !in 1..MAX_LIMIT || (!dryRun && seed == null) || (topLines != null && topLines < 1)) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val generator = generator ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         val bots = accountService.getBots().ifEmpty { throw BusinessException(ErrorCode.INVALID_REQUEST) }
+        if (dryRun) return plan(dryRun, limit, ids, topLines, seed, generator, bots)
+        val lock = lockProvider.lock(LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, LOCK_AT_MOST_FOR, Duration.ZERO)).orElse(null)
+            ?: throw BusinessException(ErrorCode.REVIEW_BOT_BUSY)
+        try {
+            return plan(dryRun, limit, ids, topLines, seed, generator, bots)
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun plan(
+        dryRun: Boolean,
+        limit: Int,
+        ids: List<Long>?,
+        topLines: Int?,
+        seed: Long?,
+        generator: ReviewTextGenerator,
+        bots: List<Member>,
+    ): ReviewBotProcessedFoodRunResult {
         val runSeed = seed ?: Random.Default.nextLong()
         val targets = targetsOf(ids, topLines)
         val ownerIds = photoPool.ownerIds()
-        val pool = photoPool.snapshot(ownerIds)
+        val availableByKey = runCatching { photoService.getInventory().available.groupBy { ReviewBotPhotoPool.keyOfPath(it) } }
+            .onFailure { log.warn("가공식품 리뷰 봇 — 사진 재고를 못 읽어 이번 실행은 텍스트만 쓴다", it) }
+            .getOrDefault(emptyMap())
         val today = LocalDate.now(SEOUL)
 
         val items = mutableListOf<ReviewBotProcessedFoodItem>()
@@ -67,7 +94,9 @@ class ReviewBotProcessedFoodService(
                     continue
                 }
                 val createdAt = createdAtOf(today, random)
-                val photos = pool.pathsFor(PHOTO_KEY_PREFIX + product.reportNo).let { if (it.isEmpty()) emptyList() else ReviewBotPhotoPool.pickCombination(it, emptySet(), random) }
+                val photos = availableByKey[ReviewBotPhotoPool.keyOf(PHOTO_KEY_PREFIX + product.reportNo)].orEmpty()
+                    .let { if (it.isEmpty()) emptyList() else ReviewBotPhotoPool.pickCombination(it, emptySet(), random) }
+                    .takeIf { it.isNotEmpty() && photoService.isStillUsable(it) }.orEmpty()
                 if (!dryRun && !save(product, bot, draft.second, draft.first, photos, ownerIds, createdAt)) {
                     failed += product.id
                     continue
@@ -161,6 +190,7 @@ class ReviewBotProcessedFoodService(
 
     private companion object {
         const val MAX_LIMIT = 40
+        val LOCK_AT_MOST_FOR: Duration = Duration.ofMinutes(15)
         const val MAX_ATTEMPTS = 2
         const val MAX_INGREDIENTS = 8
         const val SEED_SPREAD = 1_000_003L
