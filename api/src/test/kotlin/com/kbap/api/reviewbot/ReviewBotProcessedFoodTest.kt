@@ -51,6 +51,12 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
     @Autowired private lateinit var uploadProperties: ImageUploadProperties
     @Autowired private lateinit var photoStorage: com.kbap.api.image.FakeStorageObjectStore
     @Autowired private lateinit var photoService: ReviewBotPhotoService
+    @Autowired private lateinit var jdbcTemplate: org.springframework.jdbc.core.JdbcTemplate
+    @Autowired private lateinit var processedFoodService: com.kbap.api.processedfood.ProcessedFoodService
+    @Autowired private lateinit var candidateIndex: com.kbap.api.processedfood.ProcessedFoodCandidateIndex
+    @Autowired private lateinit var cvsCatalog: com.kbap.api.processedfood.ProcessedFoodCvsCatalog
+    @Autowired private lateinit var reviewService: com.kbap.api.review.ReviewService
+    @Autowired private lateinit var photoPool: ReviewBotPhotoPool
 
     private val mapper = jacksonObjectMapper()
 
@@ -310,6 +316,15 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     after.map { it[0] } shouldBe listOf("Crunchy and sweet snack 0", "Crunchy and sweet snack 1", "Crunchy and sweet snack 2")
                     after.map { it[2].toString().startsWith("2026-10-0") } shouldBe listOf(true, true, true)
                     shouldThrow<BusinessException> { bot.dedupePhotos("prod", dryRun = true) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
+                }
+            }
+            `when`("운영(prod) 서버에서 헤더도 prod 로 정리 API 를 부르면 — 공부 지적(#520)") {
+                then("헤더가 맞아도 거절한다 — dev 데이터 정리 전용(prod 는 별도 승인)") {
+                    val prodBot = ReviewBotProcessedFoodService(
+                        jdbcTemplate, processedFoodService, candidateIndex, cvsCatalog, accountService, reviewService, photoPool, photoService, lockProvider, fakeGenerator, "prod",
+                    )
+                    shouldThrow<BusinessException> { prodBot.dedupePhotos("prod", dryRun = false) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
+                    shouldThrow<BusinessException> { prodBot.dedupePhotos("prod", dryRun = true) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
                 }
             }
         }
