@@ -23,6 +23,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 @Service
@@ -86,6 +87,9 @@ class ReviewBotProcessedFoodService(
             var earlier = reviewed.values.lastOrNull()
             val writers = eligible.take(maxOf(0, minOf(need, limit - planned)))
             val dates = createdAtsOf(writers.size, latestReviewAtOf(members), random)
+            val pool = availableByKey[ReviewBotPhotoPool.keyOf(PHOTO_KEY_PREFIX + product.reportNo)].orEmpty()
+            val usedPhotos = usedPhotosOf(members).toMutableSet()
+            val photoSlots = writers.indices.shuffled(random).take((writers.size * PHOTO_SHARE).roundToInt()).toSet()
             for ((index, bot) in writers.withIndex()) {
                 planned++
                 val draft = draftFor(product, bot, earlier, random, generator)
@@ -94,9 +98,7 @@ class ReviewBotProcessedFoodService(
                     continue
                 }
                 val createdAt = dates[index]
-                val photos = availableByKey[ReviewBotPhotoPool.keyOf(PHOTO_KEY_PREFIX + product.reportNo)].orEmpty()
-                    .let { if (it.isEmpty()) emptyList() else ReviewBotPhotoPool.pickCombination(it, emptySet(), random) }
-                    .takeIf { it.isNotEmpty() && photoService.isStillUsable(it) }.orEmpty()
+                val photos = if (index in photoSlots) freshPhotos(pool, usedPhotos, random) else emptyList()
                 if (!dryRun && !save(product, bot, draft.second, draft.first, photos, ownerIds, createdAt)) {
                     failed += product.id
                     continue
@@ -105,7 +107,7 @@ class ReviewBotProcessedFoodService(
                 earlier = draft.first.text
                 items += ReviewBotProcessedFoodItem(
                     product.id, product.reportNo, product.productName, bot.id, draft.second.language, draft.second.rating,
-                    draft.first.spiciness, draft.first.sweetness, draft.first.text, createdAt,
+                    draft.first.spiciness, draft.first.sweetness, draft.first.text, createdAt, photos.size,
                 )
             }
         }
@@ -182,6 +184,51 @@ class ReviewBotProcessedFoodService(
     private fun targetCountOf(rank: Int, random: Random): Int =
         if (rank <= TOP_RANK) random.nextInt(TOP_MIN, TOP_MAX + 1) else random.nextInt(REST_MIN, REST_MAX + 1)
 
+    private fun freshPhotos(pool: List<String>, used: MutableSet<String>, random: Random): List<String> {
+        val remaining = pool.filterNot { it in used }
+        if (remaining.isEmpty()) return emptyList()
+        val picked = remaining.shuffled(random).take(random.nextInt(1, minOf(MAX_PHOTOS_PER_REVIEW, remaining.size) + 1))
+        if (!photoService.isStillUsable(picked)) return emptyList()
+        used += picked
+        return picked
+    }
+
+    private fun usedPhotosOf(productIds: List<Long>): Set<String> {
+        if (productIds.isEmpty()) return emptySet()
+        return jdbc.queryForList(
+            "SELECT CAST(image_refs AS CHAR) FROM food_review WHERE status = 'ACTIVE' AND image_refs IS NOT NULL AND processed_food_id IN (${productIds.joinToString(",")})",
+            String::class.java,
+        ).flatMap(::pathsIn).toSet()
+    }
+
+    fun dedupePhotos(target: String, dryRun: Boolean): ReviewBotPhotoDedupeResult {
+        if (target != environment) throw BusinessException(ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH)
+        val rows = jdbc.query(
+            "SELECT r.id, CAST(r.image_refs AS CHAR) FROM food_review r JOIN member m ON m.id = r.member_id " +
+                "WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.target_type = 'PROCESSED_FOOD' AND r.image_refs IS NOT NULL ORDER BY r.created_at, r.id",
+        ) { rs, _ -> rs.getLong(1) to pathsIn(rs.getString(2)) }
+        val kept = mutableSetOf<String>()
+        val changes = rows.mapNotNull { (id, paths) ->
+            val keep = paths.filterNot { it in kept }.also { kept += it }
+            if (keep.size == paths.size) null else ReviewBotPhotoDedupeChange(id, paths, keep)
+        }
+        if (!dryRun) {
+            val lock = lockProvider.lock(LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, LOCK_AT_MOST_FOR, Duration.ZERO)).orElse(null)
+                ?: throw BusinessException(ErrorCode.REVIEW_BOT_BUSY)
+            try {
+                changes.forEach { change ->
+                    val refs = change.after.takeIf { it.isNotEmpty() }?.joinToString(",", "[", "]") { "\"$it\"" }
+                    jdbc.update("UPDATE food_review SET image_refs = ?, updated_at = updated_at WHERE id = ?", refs, change.reviewId)
+                }
+            } finally {
+                lock.unlock()
+            }
+        }
+        return ReviewBotPhotoDedupeResult(dryRun, rows.size, changes.size, changes.sumOf { it.before.size - it.after.size }, changes.take(SAMPLE_SIZE))
+    }
+
+    private fun pathsIn(json: String?): List<String> = json?.let { PATH_IN_JSON.findAll(it).map { m -> m.groupValues[1] }.toList() }.orEmpty()
+
     private fun latestReviewAtOf(productIds: List<Long>): LocalDateTime? {
         if (productIds.isEmpty()) return null
         return jdbc.queryForObject(
@@ -206,6 +253,10 @@ class ReviewBotProcessedFoodService(
 
     private companion object {
         const val MAX_LIMIT = 40
+        const val PHOTO_SHARE = 0.3
+        const val MAX_PHOTOS_PER_REVIEW = 2
+        const val SAMPLE_SIZE = 10
+        val PATH_IN_JSON = Regex("\"([^\"]+)\"")
         const val AXIS_FLOOR = 1
         val LOCK_AT_MOST_FOR: Duration = Duration.ofMinutes(15)
         const val MAX_ATTEMPTS = 2
@@ -255,6 +306,25 @@ data class ReviewBotProcessedFoodItem(
     @field:Schema(nullable = true)
     val sweetness: Int?,
     val content: String,
-    @field:Schema(description = "작성일(서버 시각) — 최근 4주 09~21시 KST 사이로 흩는다")
+    @field:Schema(description = "작성일(서버 시각) — 상품마다 그 묶음 최신 리뷰 이후로 오름차순")
     val createdAt: LocalDateTime,
+    @field:Schema(description = "붙인 사진 수(0~2) — 묶음 안 사진 1장당 리뷰 1건, 상품별 리뷰의 약 30% 에만")
+    val imageCount: Int = 0,
 )
+
+@Schema(description = "봇 가공식품 리뷰 사진 중복 정리 결과")
+data class ReviewBotPhotoDedupeResult(
+    @field:Schema(description = "true 면 바꾸지 않고 계획만")
+    val dryRun: Boolean,
+    @field:Schema(description = "사진이 있는 봇 가공식품 리뷰 수")
+    val reviewsScanned: Int,
+    @field:Schema(description = "사진을 뗀(뗄) 리뷰 수 — 같은 경로를 먼저 쓴 리뷰가 있는 것")
+    val reviewsChanged: Int,
+    @field:Schema(description = "뗀(뗄) 사진 참조 수")
+    val refsRemoved: Int,
+    @field:Schema(description = "앞 10건")
+    val samples: List<ReviewBotPhotoDedupeChange>,
+)
+
+@Schema(description = "사진 정리 한 건")
+data class ReviewBotPhotoDedupeChange(val reviewId: Long, val before: List<String>, val after: List<String>)

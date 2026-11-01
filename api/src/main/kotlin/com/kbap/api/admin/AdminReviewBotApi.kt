@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
 import com.kbap.api.reviewbot.ReviewBotRewriteResult
 import jakarta.validation.constraints.DecimalMin
@@ -87,6 +88,24 @@ interface AdminReviewBotApi {
     @SecurityRequirement(name = "bearerAuth")
     fun writeProcessedFoodReviews(target: String, request: AdminReviewBotProcessedFoodRequest): ResponseEntity<BaseResponse<ReviewBotProcessedFoodRunResult>>
 
+    @Operation(
+        summary = "봇 가공식품 리뷰 사진 중복 정리(S-935)",
+        description = """
+            봇 회원의 ACTIVE 가공식품 리뷰 중 같은 사진 경로를 쓰는 리뷰가 여럿이면, 작성일이 가장 이른 리뷰만 그 사진을 남기고 나머지 리뷰에서는 그 사진만 뗀다.
+            본문·별점·작성일·updated_at 은 그대로이고, 사진이 다 빠지면 사진 없음이 된다. 사람 리뷰는 보지 않는다.
+            - `dryRun=true`(기본): 바꿀 리뷰 수·뗄 참조 수·앞 10건 표본만 준다.
+            - 실행은 리뷰 봇 분산 락을 잡는다(못 잡으면 409 REVIEW-007).
+            - `X-Target-Environment` 가 서버 환경과 다르면 409 REVIEW-006. **ADMIN 역할 JWT 전용**. prod 실행은 별도 승인.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "정리(또는 dryRun) 결과"),
+        ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ApiResponse(responseCode = "409", description = "환경 불일치(REVIEW-006)·리뷰 봇 작업 중(REVIEW-007)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    fun dedupeProcessedFoodPhotos(target: String, request: AdminReviewBotPhotoDedupeRequest): ResponseEntity<BaseResponse<ReviewBotPhotoDedupeResult>>
+
     @Operation(summary = "리뷰 봇 사진 재고 조회", description = "사용 가능·미등록·보류 사진을 조회한다. 등록행·리뷰·저장소를 변경하지 않는다.")
     @SecurityRequirement(name = "bearerAuth")
     fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>>
@@ -146,6 +165,12 @@ data class AdminReviewBotPhotoSyncResponse(
             )
     }
 }
+
+@Schema(description = "봇 가공식품 리뷰 사진 중복 정리 요청")
+data class AdminReviewBotPhotoDedupeRequest(
+    @field:Schema(description = "true(기본)면 계획만", example = "true")
+    val dryRun: Boolean = true,
+)
 
 @Schema(description = "가공식품 봇 리뷰 일괄 작성 요청")
 data class AdminReviewBotProcessedFoodRequest(
