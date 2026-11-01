@@ -170,6 +170,24 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이미 사람 리뷰가 있는 상품에 여러 건을 쓰면 — 공부 지적(#517)") {
+                then("id 순서가 작성일 순서와 같고, 기존 리뷰보다 이른 날짜가 없다(목록은 id 내림차순이라 날짜가 섞여 보이지 않게)") {
+                    com.kbap.api.food.FoodTestSeed.seedMemberAvoiding(dataSource, 95301L)
+                    execute(
+                        "INSERT INTO food_review (member_id, target_type, food_id, processed_food_id, rating, serving_speed_rating, staff_kindness_rating, content, status, created_at, updated_at, version) " +
+                            "VALUES (95301, 'PROCESSED_FOOD', NULL, $kick, 5, 0, 0, '사람이 쓴 리뷰입니다 맛있어요', 'ACTIVE', NOW(6) - INTERVAL 1 DAY, NOW(6) - INTERVAL 1 DAY, 0)",
+                    )
+                    val human = rows("SELECT created_at FROM food_review WHERE member_id = 95301").single().single() as LocalDateTime
+
+                    bot.run("dev", dryRun = false, limit = 6, ids = listOf(kick), topLines = null, seed = 3)
+
+                    val dates = rows("SELECT r.created_at FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.processed_food_id = $kick ORDER BY r.id").map { it.single() as LocalDateTime }
+                    (dates.size >= 3) shouldBe true
+                    dates shouldBe dates.sorted()
+                    dates.all { it.isAfter(human) } shouldBe true
+                }
+            }
+
             `when`("limit 이 작으면") {
                 then("그만큼만 쓰고 다음 호출이 이어서 쓴다") {
                     bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 5).written shouldBe 2
