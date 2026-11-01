@@ -115,10 +115,16 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                     reportNos(get("/api/processed-foods?query=바나나킥")) shouldBe listOf("199104611019")
                 }
             }
-            `when`("조건이 모두 같으면") {
-                then("id 가 작은 쪽이 대표다") {
+            `when`("승인·라인·누끼 비율이 같으면") {
+                then("최근 미러에서 본 행이 먼저(KB-858 유지), 그것도 같으면 id 가 작은 쪽이 대표다") {
+                    val stale = seed("TEST-SEEN-1", "최근과자", "테스트제과", "50g")
+                    val fresh = seed("TEST-SEEN-2", "최근과자", "테스트제과", "100g")
+                    execute("UPDATE processed_food_product SET last_seen_at = NOW(6) - INTERVAL 1 DAY WHERE id = $stale")
+                    get("/api/processed-foods?query=최근과자").path("items").map { it.path("id").asLong() } shouldBe listOf(fresh)
+
                     val first = seed("TEST-SAME-1", "같은이름과자", "테스트제과", "50g")
                     seed("TEST-SAME-2", "같은이름과자", "테스트제과", "100g")
+                    execute("UPDATE processed_food_product SET last_seen_at = NOW(6) - INTERVAL 1 HOUR WHERE report_no IN ('TEST-SAME-1', 'TEST-SAME-2')")
 
                     get("/api/processed-foods?query=같은이름과자").path("items").map { it.path("id").asLong() } shouldBe listOf(first)
                 }
