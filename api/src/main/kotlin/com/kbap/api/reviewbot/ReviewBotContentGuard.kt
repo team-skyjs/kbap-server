@@ -30,6 +30,8 @@ object ReviewBotContentGuard {
 
     private const val LATIN_CARD_LIMIT = 80
 
+    fun isAcceptableForProcessedFood(text: String): Boolean = true
+
     fun maxLengthFor(language: String): Int = CARD_LIMITS[language] ?: LATIN_CARD_LIMIT
 
     fun fitsCard(text: String, language: String): Boolean =

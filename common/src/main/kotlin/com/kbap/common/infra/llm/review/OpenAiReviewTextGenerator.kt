@@ -3,6 +3,8 @@ package com.kbap.common.infra.llm.review
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.domain.review.model.ReviewBotForbiddenCategory
 import com.kbap.common.infra.llm.model.LlmPricing
+import com.kbap.common.port.llm.ProcessedFoodReviewDraft
+import com.kbap.common.port.llm.ProcessedFoodReviewDraftRequest
 import com.kbap.common.port.llm.ReviewDraftRequest
 import com.kbap.common.port.llm.ReviewTextGenerator
 import org.slf4j.LoggerFactory
@@ -39,7 +41,15 @@ class OpenAiReviewTextGenerator(
         return response.result?.output?.text?.trim().orEmpty()
     }
 
+    override fun generateProcessedFood(request: ProcessedFoodReviewDraftRequest): ProcessedFoodReviewDraft = ProcessedFoodReviewDraft("", null, null)
+
     companion object {
+        val PROCESSED_SYSTEM_PROMPT: String = ""
+
+        fun processedUserPrompt(request: ProcessedFoodReviewDraftRequest): String = ""
+
+        fun parseProcessedDraft(raw: String): ProcessedFoodReviewDraft = ProcessedFoodReviewDraft("", null, null)
+
         fun userPrompt(request: ReviewDraftRequest): String =
             listOfNotNull(
                 "Write a very short customer review of this Korean dish.",
