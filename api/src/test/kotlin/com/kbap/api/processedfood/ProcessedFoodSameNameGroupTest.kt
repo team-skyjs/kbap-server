@@ -158,6 +158,19 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                     reportNos(get("/api/processed-foods?query=필터과자", token)) shouldBe listOf("TEST-VF-A")
                 }
             }
+            `when`("검색어 없는 편의점 목록에서 시드 라인 대표가 안전도 필터에 걸리면 — Codex P2(#516)") {
+                then("같은 묶음의 통과한 형제가 그 라인의 대표로 보인다") {
+                    seed("2001054954151", "바나나킥", "농심", "140g", "0.2000", "APPROVED", raw = "옥수수, 땅콩")
+                    seed("199104611019", "바나나킥", "농심", "75g", "0.7100")
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 95002L, "PEANUT")
+                    val token = tokenIssuer.issueAccessToken(95002L, MemberRole.USER)
+
+                    val safe = reportNos(get("/api/processed-foods?size=50&verdict=SAFE", token))
+                    safe.contains("199104611019") shouldBe true
+                    safe.contains("2001054954151") shouldBe false
+                    reportNos(get("/api/processed-foods?size=50", token)).contains("2001054954151") shouldBe true
+                }
+            }
             `when`("묶음의 한 상품 상세를 보면") {
                 then("같은 묶음 형제 목록(id·용량)이 실린다 — 자기 자신 포함, id 순") {
                     val big = seed("2001054954151", "바나나킥", "농심", "140g", "0.2000")
