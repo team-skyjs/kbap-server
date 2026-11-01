@@ -3,8 +3,11 @@ package com.kbap.common.infra.llm.review
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.domain.review.model.ReviewBotForbiddenCategory
 import com.kbap.common.infra.llm.model.LlmPricing
+import com.kbap.common.port.llm.ProcessedFoodReviewDraft
+import com.kbap.common.port.llm.ProcessedFoodReviewDraftRequest
 import com.kbap.common.port.llm.ReviewDraftRequest
 import com.kbap.common.port.llm.ReviewTextGenerator
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
@@ -20,8 +23,13 @@ class OpenAiReviewTextGenerator(
     private val configuredModelName: String,
     private val eventPublisher: ApplicationEventPublisher,
 ) : ReviewTextGenerator {
-    override fun generate(request: ReviewDraftRequest): String {
-        val response = chatModel.call(Prompt(listOf(SystemMessage(SYSTEM_PROMPT), UserMessage(userPrompt(request)))))
+    override fun generate(request: ReviewDraftRequest): String = call(SYSTEM_PROMPT, userPrompt(request))
+
+    override fun generateProcessedFood(request: ProcessedFoodReviewDraftRequest): ProcessedFoodReviewDraft =
+        parseProcessedDraft(call(PROCESSED_SYSTEM_PROMPT, processedUserPrompt(request)))
+
+    private fun call(system: String, user: String): String {
+        val response = chatModel.call(Prompt(listOf(SystemMessage(system), UserMessage(user))))
         val usage = response.metadata.usage
         val input = (usage.promptTokens ?: 0).toLong()
         val output = (usage.completionTokens ?: 0).toLong()
@@ -40,6 +48,32 @@ class OpenAiReviewTextGenerator(
     }
 
     companion object {
+        private val mapper = jacksonObjectMapper()
+        private val FENCE = Regex("""^```(?:json)?\s*|\s*```$""")
+        private val AXIS_RANGE = 1..5
+
+        fun processedUserPrompt(request: ProcessedFoodReviewDraftRequest): String =
+            listOfNotNull(
+                "Write a very short customer review of this packaged Korean product you bought at a convenience store.",
+                "Product: ${request.productName}",
+                "Product type: ${request.foodType ?: "unknown"}",
+                "Main ingredients: ${request.ingredients.joinToString(", ").ifBlank { "unknown" }}",
+                "Star rating the reviewer gave: ${request.rating} out of 5 (match the tone to it)",
+                "Language: write the whole review in ${request.language} only.",
+                "Length: at most ${request.maxCharacters} characters in total (it must fit in two lines of an app card).",
+                "Sentences: exactly ${request.sentences} ${if (request.sentences == 1) "sentence" else "sentences"}.",
+                request.style.takeIf { it.isNotBlank() }?.let { "Style for this review: $it" },
+                request.avoidSimilarTo?.let { "Another traveler already wrote this about the same product, so make yours sound clearly different in wording and structure: \"$it\"" },
+            ).joinToString("\n")
+
+        fun parseProcessedDraft(raw: String): ProcessedFoodReviewDraft {
+            val node = mapper.readTree(raw.trim().replace(FENCE, ""))
+            val text = node.path("review").asText("").trim()
+            check(text.isNotEmpty()) { "가공식품 리뷰 봇 응답에 review 가 없다" }
+            fun axis(name: String): Int? = node.path(name).takeIf { it.isInt }?.asInt()?.takeIf { it in AXIS_RANGE }
+            return ProcessedFoodReviewDraft(text, axis("spiciness"), axis("sweetness"))
+        }
+
         fun userPrompt(request: ReviewDraftRequest): String =
             listOfNotNull(
                 "Write a very short customer review of this Korean dish.",
@@ -69,5 +103,27 @@ class OpenAiReviewTextGenerator(
                 "- Talk mostly about taste, texture, spiciness, portion feel, and how it pairs with rice or drinks.",
                 "- Avoid inventing specific restaurant names, addresses, or exact prices; a general remark like \"cheap and filling\" or \"the place was busy\" is fine.",
             ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" }).joinToString("\n")
+
+        val PROCESSED_SYSTEM_PROMPT: String =
+            listOf(
+                "You write casual reviews of packaged Korean snacks, drinks and instant foods as a traveler who bought them at a convenience store in Korea, like a quick message to a friend during the trip.",
+                "Rules:",
+                "- 1 or 2 short sentences (the request says exactly how many) in light, friendly internet-casual tone that sounds natural in the target language " +
+                    "using only casual or internet expressions a native speaker of that language would use without mixing in expressions from other languages. " +
+                    "Keep within the character limit given in the request.",
+                "- Plain text only inside the review, no title, no quotes, no emoji, no hashtags, no lists.",
+                "- Avoid stock phrases like \"Loved it\", \"seriously\" and \"perfect\", and avoid opening with a list of three adjectives. Follow the style given in the request.",
+                "- Talk mostly about taste, texture, sweetness or spiciness, packaging, how it goes as a snack, and whether it felt worth it.",
+                "- Avoid mentioning restaurants, servers, staff or table service: it is a packaged product.",
+                "- Avoid inventing specific store names, addresses, or exact prices.",
+            ).plus(ReviewBotForbiddenCategory.entries.map { "- ${it.promptRule}" })
+                .plus(
+                    listOf(
+                        "Also rate the product on two axes from what the product name, type and ingredients suggest: " +
+                            "\"spiciness\" (1 mild to 5 very spicy) and \"sweetness\" (1 barely sweet to 5 very sweet). " +
+                            "Use 1 for an axis that does not apply (for example spiciness for milk), and avoid extreme values without a clear reason in the product.",
+                        "Answer with only this JSON object: {\"review\": \"...\", \"spiciness\": 1-5, \"sweetness\": 1-5}",
+                    ),
+                ).joinToString("\n")
     }
 }

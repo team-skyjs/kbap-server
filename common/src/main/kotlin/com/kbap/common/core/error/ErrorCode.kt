@@ -103,6 +103,7 @@ enum class ErrorCode(
     REVIEW_NOT_ELIGIBLE("REVIEW-004", 403, "스캔 이력이 있는 음식에만 리뷰를 작성할 수 있습니다"),
     REVIEW_BODY_TOO_SHORT("REVIEW-005", 400, "리뷰 본문은 10자 이상이어야 해요"),
     REVIEW_BOT_ENVIRONMENT_MISMATCH("REVIEW-006", 409, "요청 환경이 서버 환경과 다릅니다"),
+    REVIEW_BOT_BUSY("REVIEW-007", 409, "리뷰 봇이 다른 작업 중입니다. 잠시 후 다시 시도해 주세요"),
 
     PLACE_SEARCH_FAILED("PLACE-001", 502, "식당 검색에 실패했습니다. 잠시 후 다시 시도해 주세요"),
 

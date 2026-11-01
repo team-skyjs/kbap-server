@@ -3,6 +3,7 @@ package com.kbap.api.review
 import java.util.Optional
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
@@ -90,6 +91,36 @@ class ReviewService(
         if (!processedFoodReviewSwitch.writeEnabled) throw BusinessException(ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED)
         val product = processedFoodService.getAvailableProduct(processedFoodId)
         verifyImageOwnership(memberId, imagePaths)
+        return persistProcessedFoodReview(memberId, product, rating, content, imagePaths, spiciness, sweetness)
+    }
+
+    @Transactional
+    fun createBotProcessedFoodReview(
+        botId: Long,
+        processedFoodId: Long,
+        rating: Int,
+        content: String,
+        imagePaths: List<String>,
+        poolOwnerIds: Set<Long>,
+        spiciness: Int?,
+        sweetness: Int?,
+    ): ReviewResponse {
+        if (!processedFoodReviewSwitch.writeEnabled) throw BusinessException(ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED)
+        val product = processedFoodService.getAvailableProduct(processedFoodId)
+        if (!memberService.getMember(botId).isBot) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        if (imagePaths.isNotEmpty()) verifyBotImages(imagePaths, poolOwnerIds)
+        return persistProcessedFoodReview(botId, product, rating, content, imagePaths.ifEmpty { null }, spiciness, sweetness)
+    }
+
+    private fun persistProcessedFoodReview(
+        memberId: Long,
+        product: ProcessedFoodProduct,
+        rating: Int,
+        content: String?,
+        imagePaths: List<String>?,
+        spiciness: Int?,
+        sweetness: Int?,
+    ): ReviewResponse {
         verifyContentLength(content)
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
@@ -118,6 +149,11 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         if (!memberService.getMember(botId).isBot) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        verifyBotImages(imagePaths, poolOwnerIds)
+        return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
+    }
+
+    private fun verifyBotImages(imagePaths: List<String>, poolOwnerIds: Set<Long>) {
         val prefix = storageKeyPrefix.trim('/').let { if (it.isEmpty()) "images/review-bot/" else "$it/images/review-bot/" }
         val pattern = Regex(Regex.escape(prefix) + "[0-9a-f]{12}/[0-9]+\\.webp")
         if (imagePaths.isEmpty() || imagePaths.size > Review.MAX_IMAGE_COUNT || imagePaths.distinct().size != imagePaths.size || imagePaths.any { path ->
@@ -128,7 +164,6 @@ class ReviewService(
         if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, UploadedImage.REVIEW_BOT_SEGMENT, poolOwnerIds)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
-        return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
     }
 
     private fun persistReview(
