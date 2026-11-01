@@ -145,4 +145,5 @@ enum class ErrorCode(
     PROCESSED_FOOD_CUTOUT_NOT_UPLOADED("PFOOD-008", 400, "누끼 이미지 업로드를 확인하지 못했습니다"),
     PROCESSED_FOOD_CUTOUT_NOT_FOUND("PFOOD-009", 404, "검수할 누끼 이미지가 없습니다"),
     PROCESSED_FOOD_CUTOUT_CHANGED("PFOOD-010", 409, "검수하는 사이 누끼 이미지가 바뀌었습니다. 새 이미지를 보고 다시 검수해 주세요"),
+    PROCESSED_FOOD_NOT_MANUAL("PFOOD-011", 409, "수동 등록 상품만 고칠 수 있습니다"),
 }

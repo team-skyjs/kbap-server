@@ -138,6 +138,29 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
             }
         }
 
+        given("수동 등록(MANUAL) 행과 미러(KB-952)") {
+            `when`("같은 품목보고번호의 HACCP 원본이 와도") {
+                then("MANUAL 행을 덮지 않고 건너뛰며(출처 충돌로 셈), last_seen 을 밀지 않고 단종 판정도 받지 않는다") {
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, raw_materials, source, content_hash, collected_at, last_seen_at, status, created_at, updated_at) " +
+                                    "VALUES ('M000001', '와사비맛 아몬드', '와사비맛아몬드', '견과류가공품', '㈜바프', '아몬드, 와사비시즈닝', 'MANUAL', REPEAT('b', 64), '2026-01-01 00:00:00', '2026-01-01 00:00:00', 'ACTIVE', NOW(6), NOW(6))",
+                            )
+                        }
+                    }
+                    val source = FakeSource(mapOf("과자" to listOf(product("M000001", "엉뚱한 상품", "과자"))))
+
+                    val summary = mirror(source, FakeLookup(emptyMap()), listOf("과자")).mirror()
+
+                    summary.sourceConflicts shouldBe 1
+                    summary.inserted shouldBe 0
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE report_no = 'M000001' AND product_name = '와사비맛 아몬드' AND source = 'MANUAL' AND last_seen_at = '2026-01-01 00:00:00'") shouldBe 1
+                    repository.findByReportNo("M000001")!!.isDiscontinued(java.time.LocalDateTime.of(2026, 10, 20, 0, 0)) shouldBe false
+                }
+            }
+        }
+
         given("가공식품 제품 마스터 미러링") {
             `when`("두 유형을 페이지 단위(2건)로 처음 돌리면") {
                 then("유형마다 마지막 페이지까지 읽고, 유형 간 겹친 행은 한 번만 저장하며, 정규화 이름을 함께 남긴다") {
