@@ -26,8 +26,12 @@ class ProcessedFoodPinImporter(
     }
 
     fun runOnce(): Int {
-        val files = storage.list("$root/pending/", null, MAX_FILES_PER_RUN).map { it.path }.filter { it.endsWith(".json") }
-        files.forEach { path -> runCatching { import(path) }.onFailure { log.warn("번역 고정 파일 처리 실패 — 다음 실행에서 다시 본다 path={}", path, it) } }
+        val files = storage.list("$root/pending/", null, MAX_FILES_PER_RUN).map { it.path }.filter { it.endsWith(".json") }.sorted()
+        for ((done, path) in files.withIndex()) {
+            val failure = runCatching { import(path) }.exceptionOrNull() ?: continue
+            log.warn("번역 고정 파일 처리 실패 — 뒤 파일이 앞 파일의 재처리에 덮이지 않게 이번 실행을 멈추고 다음 실행에서 이 파일부터 다시 본다 path={}", path, failure)
+            return done
+        }
         return files.size
     }
 
