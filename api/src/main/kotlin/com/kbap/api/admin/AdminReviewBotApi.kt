@@ -2,6 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
+import com.kbap.api.reviewbot.ReviewBotRedistributeResult
 import com.kbap.api.reviewbot.ReviewBotRewriteResult
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.DecimalMax
@@ -106,6 +107,24 @@ interface AdminReviewBotApi {
     @SecurityRequirement(name = "bearerAuth")
     fun dedupeProcessedFoodPhotos(target: String, request: AdminReviewBotPhotoDedupeRequest): ResponseEntity<BaseResponse<ReviewBotPhotoDedupeResult>>
 
+    @Operation(
+        summary = "봇 가공식품 리뷰 작성일 재분산(KB-966)",
+        description = """
+            봇 회원의 ACTIVE 가공식품 리뷰 작성일을 spreadDays 와 같은 규칙으로 다시 배정한다 — 상품별로 최근 days 일(KST, 오늘 포함) 안 하루 한 건·KST 08~23시·미래 없음, 리뷰 id 순서를 유지하며 updated_at 도 같은 값.
+            사람 리뷰·음식 리뷰는 보지 않는다. 일회성(dev 정리용) — **prod 는 거절(409 REVIEW-006)**, 운영은 생성 때 spreadDays 로 한다.
+            - `dryRun=true`(기본): 대상 상품·리뷰 수와 앞 10건 표본(전·후 작성일)만 준다.
+            - 실행은 리뷰 봇 분산 락을 잡는다(못 잡으면 409 REVIEW-007). `X-Target-Environment` 가 서버 환경과 다르면 409 REVIEW-006. **ADMIN 역할 JWT 전용**.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "재분산(또는 dryRun) 결과"),
+        ApiResponse(responseCode = "400", description = "days 범위 밖(COMMON-002)"),
+        ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
+        ApiResponse(responseCode = "409", description = "환경 불일치·prod(REVIEW-006)·리뷰 봇 작업 중(REVIEW-007)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    fun redistributeProcessedFoodReviewDates(target: String, request: AdminReviewBotRedistributeRequest): ResponseEntity<BaseResponse<ReviewBotRedistributeResult>>
+
     @Operation(summary = "리뷰 봇 사진 재고 조회", description = "사용 가능·미등록·보류 사진을 조회한다. 등록행·리뷰·저장소를 변경하지 않는다.")
     @SecurityRequirement(name = "bearerAuth")
     fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>>
@@ -187,6 +206,26 @@ data class AdminReviewBotProcessedFoodRequest(
     val topLines: Int? = null,
     @field:Schema(description = "목표 수·봇·문구 스타일·작성일 seed — 실행이면 필수, 같은 값이면 같은 계획", example = "20261102", nullable = true)
     val seed: Long? = null,
+    @field:Min(1, message = "spreadDays 는 1 이상이어야 합니다")
+    @field:Max(90, message = "spreadDays 는 90 이하여야 합니다")
+    @field:Schema(
+        description = "작성일 분산 일수(1~90, KB-966) — 주면 상품별 리뷰 작성일을 최근 N일(KST, 오늘 포함) 안에 고르게 배정한다: 한 상품은 하루 한 건, KST 08~23시, 미래 없음. 생략하면 기존 규칙(최근 28일·그 상품의 마지막 리뷰 이후·KST 09~21시)",
+        example = "30",
+        nullable = true,
+    )
+    val spreadDays: Int? = null,
+)
+
+@Schema(description = "봇 가공식품 리뷰 작성일 재분산 요청(KB-966)")
+data class AdminReviewBotRedistributeRequest(
+    @field:Schema(description = "true(기본)면 계획만", example = "true")
+    val dryRun: Boolean = true,
+    @field:Min(1, message = "days 는 1 이상이어야 합니다")
+    @field:Max(90, message = "days 는 90 이하여야 합니다")
+    @field:Schema(description = "분산 일수(1~90) — spreadDays 와 같은 규칙", example = "30")
+    val days: Int = 30,
+    @field:Schema(description = "배정 seed — 같은 값이면 같은 계획", example = "20261102")
+    val seed: Long = 0,
 )
 
 @Schema(description = "기존 봇 리뷰 재작성 요청")

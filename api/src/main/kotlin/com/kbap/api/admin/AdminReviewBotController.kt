@@ -7,6 +7,7 @@ import com.kbap.api.reviewbot.ReviewBotPhotoService
 import com.kbap.api.reviewbot.ReviewBotPhotoInventory
 import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
+import com.kbap.api.reviewbot.ReviewBotRedistributeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodService
 import com.kbap.api.reviewbot.ReviewBotRewriteResult
 import com.kbap.api.reviewbot.ReviewBotRewriteService
@@ -41,7 +42,15 @@ class AdminReviewBotController(
         @Valid @RequestBody request: AdminReviewBotProcessedFoodRequest,
     ): ResponseEntity<BaseResponse<ReviewBotProcessedFoodRunResult>> =
         ResponseEntity.ok().header("Cache-Control", "no-store")
-            .body(BaseResponse.ok(processedFoodBot.run(target, request.dryRun, request.limit, request.ids, request.topLines, request.seed)))
+            .body(BaseResponse.ok(processedFoodBot.run(target, request.dryRun, request.limit, request.ids, request.topLines, request.seed, request.spreadDays)))
+
+    @PostMapping("/processed-foods/reviews/redistribute")
+    override fun redistributeProcessedFoodReviewDates(
+        @RequestHeader("X-Target-Environment") target: String,
+        @Valid @RequestBody request: AdminReviewBotRedistributeRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotRedistributeResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store")
+            .body(BaseResponse.ok(processedFoodBot.redistribute(target, request.days, request.dryRun, request.seed)))
 
     @GetMapping("/images")
     override fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>> =

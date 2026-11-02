@@ -27,6 +27,8 @@ import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.ints.shouldBeInRange
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -325,6 +327,64 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     )
                     shouldThrow<BusinessException> { prodBot.dedupePhotos("prod", dryRun = false) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
                     shouldThrow<BusinessException> { prodBot.dedupePhotos("prod", dryRun = true) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
+                }
+            }
+        }
+
+        given("가공식품 봇 리뷰 작성일 분산(KB-966)") {
+            val seoul = java.time.ZoneId.of("Asia/Seoul")
+            fun datesOf(productId: Long): List<java.time.LocalDateTime> = botReviews(productId).map { (it[4] as java.time.LocalDateTime) }
+            fun checkSpread(productIds: List<Long>, days: Long) {
+                val now = java.time.LocalDateTime.now()
+                val all = productIds.flatMap { id ->
+                    val dates = datesOf(id)
+                    dates.map { it.atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(seoul).toLocalDate() }.distinct().size shouldBe dates.size
+                    dates
+                }
+                all.forEach { at ->
+                    (at.isAfter(now.minusDays(days)) && !at.isAfter(now)) shouldBe true
+                    at.atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(seoul).hour shouldBeInRange 8..23
+                }
+                all.map { it.toLocalDate() }.distinct().size shouldBeGreaterThan 5
+            }
+            `when`("spreadDays=30 으로 만들면") {
+                then("작성일이 최근 30일 안(미래 없음)·KST 08~23시에 흩어지고, 한 상품의 리뷰는 같은 날에 몰리지 않는다") {
+                    bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick, milk), topLines = null, seed = 966, spreadDays = 30)
+                    checkSpread(listOf(kick, milk), 30)
+                    rows("SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.updated_at <> r.created_at").single().single().toString() shouldBe "0"
+                }
+            }
+            `when`("쓸 수 있는 날보다 리뷰가 많으면 — Codex P2(#527)") {
+                then("생성은 그 상품을 날 수만큼만 쓰고 나머지를 skipped 로 알리며, 재분산은 400 과 필요한 최소 일수를 준다") {
+                    val fresh = seed("CAP-1", "포카칩 오리지널", "오리온", "과자", "감자, 식물성유지, 정제소금")
+                    val result = bot.run("dev", dryRun = false, limit = 40, ids = listOf(fresh), topLines = null, seed = 968, spreadDays = 1)
+                    result.written shouldBe 1
+                    result.skippedForDays shouldBeGreaterThan 0
+                    datesOf(fresh).size shouldBe 1
+
+                    bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick), topLines = null, seed = 969, spreadDays = 30).written shouldBeGreaterThan 1
+                    val most = (rows("SELECT MAX(c) FROM (SELECT COUNT(*) c FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.target_type = 'PROCESSED_FOOD' GROUP BY r.processed_food_id) t").single().single() as Number).toInt()
+                    val error = shouldThrow<BusinessException> { bot.redistribute("dev", days = 1, dryRun = true, seed = 1) }
+                    error.errorCode shouldBe ErrorCode.INVALID_REQUEST
+                    ((error.payload as Map<*, *>)["minDays"] as Int) shouldBeInRange most..most + 1
+                }
+            }
+            `when`("기존 봇 리뷰를 재분산하면") {
+                then("dryRun 은 아무것도 바꾸지 않고, 실행하면 같은 규칙으로 흩어지며 prod 는 거절한다") {
+                    bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick, milk), topLines = null, seed = 967)
+                    execute("UPDATE food_review r JOIN member m ON m.id = r.member_id SET r.created_at = NOW(6), r.updated_at = NOW(6) WHERE m.is_bot = 1")
+                    val before = rows("SELECT r.id, r.created_at FROM food_review r ORDER BY r.id")
+                    val dry = bot.redistribute("dev", days = 30, dryRun = true, seed = 1)
+                    dry.reviews shouldBe before.size
+                    rows("SELECT r.id, r.created_at FROM food_review r ORDER BY r.id") shouldBe before
+
+                    val applied = bot.redistribute("dev", days = 30, dryRun = false, seed = 1)
+                    applied.reviews shouldBe before.size
+                    checkSpread(listOf(kick, milk), 30)
+                    rows("SELECT COUNT(*) FROM food_review WHERE updated_at <> created_at").single().single().toString() shouldBe "0"
+
+                    shouldThrow<BusinessException> { bot.redistribute("prod", days = 30, dryRun = true, seed = 1) }.errorCode shouldBe ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH
+                    shouldThrow<BusinessException> { bot.redistribute("dev", days = 0, dryRun = true, seed = 1) }.errorCode shouldBe ErrorCode.INVALID_REQUEST
                 }
             }
         }
