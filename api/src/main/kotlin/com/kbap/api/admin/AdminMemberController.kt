@@ -58,9 +58,13 @@ class AdminMemberController(
         )
 
     @GetMapping("/{id}/scan-photos")
-    @io.swagger.v3.oas.annotations.Operation(summary = "회원 스캔 사진 갤러리", description = "ADMIN 전용. 단일·다중 스캔 저장 사진을 경로로 중복 제거해 최신순 24개씩 조회한다.")
-    fun getScanPhotos(@PathVariable id: Long, @RequestParam(defaultValue = "1") page: Int): ResponseEntity<BaseResponse<AdminScanPhotoPage>> =
-        ResponseEntity.ok(BaseResponse.ok(adminMemberQueryService.getScanPhotoPage(id, page.coerceAtLeast(1))))
+    @io.swagger.v3.oas.annotations.Operation(summary = "회원 스캔 사진 갤러리", description = "ADMIN 전용. 단일·다중 메뉴판 스캔 저장 사진과 가공식품 스캔 사진(KB-964)을 경로로 중복 제거해 최신순 24개씩 조회한다. type=ALL(기본)·MENU·PACKAGED 로 거르고, 그 외 값은 400.")
+    fun getScanPhotos(
+        @PathVariable id: Long,
+        @RequestParam(defaultValue = "1") page: Int,
+        @RequestParam(defaultValue = "ALL") type: ScanPhotoTypeFilter,
+    ): ResponseEntity<BaseResponse<AdminScanPhotoPage>> =
+        ResponseEntity.ok(BaseResponse.ok(adminMemberQueryService.getScanPhotoPage(id, page.coerceAtLeast(1), type)))
 
     @GetMapping("/{id}/scans")
     override fun getMemberScanPage(

@@ -14,6 +14,7 @@ class AdminDashboardController(
     private val adminDashboardMetricsService: AdminDashboardMetricsService,
     private val adminLlmReportService: AdminLlmReportService,
     private val adminMemberQueryService: AdminMemberQueryService,
+    private val adminScanCountryService: AdminScanCountryService,
 ) : AdminDashboardApi {
     @GetMapping("/metrics")
     override fun getMetricsSummary(): ResponseEntity<BaseResponse<AdminDashboardMetricsResponse>> =
@@ -31,4 +32,11 @@ class AdminDashboardController(
         @RequestParam(required = false) isBot: Boolean?,
     ): ResponseEntity<BaseResponse<List<AdminDailyCountResponse>>> =
         ResponseEntity.ok(BaseResponse.ok(adminMemberQueryService.getDailySignups(days, isBot)))
+
+    @GetMapping("/scan-countries")
+    override fun getScanCountries(
+        @RequestParam(required = false) days: Int?,
+        @RequestParam(required = false) excludeMemberIds: List<Long>?,
+    ): ResponseEntity<BaseResponse<AdminScanCountryReport>> =
+        ResponseEntity.ok(BaseResponse.ok(adminScanCountryService.getScanCountries(days, excludeMemberIds.orEmpty())))
 }
