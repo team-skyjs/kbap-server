@@ -17,6 +17,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.LocalDate
@@ -69,13 +70,19 @@ class ProcessedFoodTranslationService(
         val maker = detail.maker?.let { if (brandNameOf(it) != null) null else request(TranslationTargetType.PF_MAKER, detail.id, it, language, deadline != null) }
         val ingredients = request(TranslationTargetType.PF_INGREDIENTS, detail.id, detail.ingredients?.original, language, sync = false)
         val allergens = request(TranslationTargetType.PF_ALLERGENS, detail.id, detail.allergenStatement?.original, language, sync = false)
+        val foodType = detail.foodType?.let { request(TranslationTargetType.PF_FOOD_TYPE, foodTypeKeyOf(it), it, language, deadline != null) }
         return detail.copy(
             name = name.await(deadline) ?: detail.productName,
             maker = detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
             ingredients = detail.ingredients?.let { it.copy(translated = ingredients.await(null) ?: it.original) },
             allergenStatement = detail.allergenStatement?.let { it.copy(translated = allergens.await(null) ?: it.original) },
             unclearIngredientLabels = unclearLabels,
+            foodTypeLocalized = detail.foodType?.let { ProcessedFoodLocalizedText(foodType.await(deadline) ?: it, it) },
         )
+    }
+
+    fun translateNameInBackground(productId: Long, name: String) {
+        LanguageCode.entries.filter { it != LanguageCode.KO }.forEach { request(TranslationTargetType.PF_NAME, productId, name, it, sync = false) }
     }
 
     fun localizeSummaries(items: List<ProcessedFoodSummaryResponse>, language: LanguageCode): List<ProcessedFoodSummaryResponse> {
@@ -221,6 +228,12 @@ class ProcessedFoodTranslationService(
                 break
             }
             lastDone = row.id
+            if (attempt?.rejected == true && name != null && translatorProvider.getIfAvailable()?.isAcceptableName(row.translatedText, name) == false) {
+                writeTransaction.executeWithoutResult { translations.upsert(TranslationTargetType.PF_NAME.name, row.targetId, row.language, hashOf(name), name, null, LocalDateTime.now()) }
+                regenerated++
+                if (samples.size < SAMPLE_SIZE) samples += ProcessedFoodNameRegenerationSample(row.targetId, row.language, name, row.translatedText, name)
+                continue
+            }
             val after = attempt?.text
             if (after == null || name == null) {
                 failed += row.targetId
@@ -260,7 +273,7 @@ class ProcessedFoodTranslationService(
     private fun translateAndStore(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): String? =
         attemptTranslation(type, productId, source, hash, language).text
 
-    private class Attempt(val text: String?, val budgetExhausted: Boolean)
+    private class Attempt(val text: String?, val budgetExhausted: Boolean, val rejected: Boolean = false)
 
     private fun attemptTranslation(
         type: TranslationTargetType,
@@ -280,7 +293,7 @@ class ProcessedFoodTranslationService(
             (if (type == TranslationTargetType.PF_NAME) translator.translateName(source, language) else translator.translate(source, language)).text.trim()
         } catch (e: TranslationRejectedException) {
             log.warn("가공식품 번역이 가드에 거절됐다 — 원문을 이 원문 해시의 번역으로 남겨 다시 부르지 않는다: type={}, productId={}, language={}, reason={}", type, productId, language.code, e.message)
-            if (keepExistingOnReject) return Attempt(null, budgetExhausted = false)
+            if (keepExistingOnReject) return Attempt(null, budgetExhausted = false, rejected = true)
             source
         } catch (e: RuntimeException) {
             log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
@@ -297,6 +310,9 @@ class ProcessedFoodTranslationService(
         threads, threads, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue(queue),
         { Thread(it, name).apply { isDaemon = true } },
     )
+
+    private fun foodTypeKeyOf(foodType: String): Long =
+        ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(foodType.trim().toByteArray(Charsets.UTF_8))).long and Long.MAX_VALUE
 
     private fun hashOf(source: String): String =
         MessageDigest.getInstance("SHA-256").digest("$CACHE_VERSION\n$source".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }

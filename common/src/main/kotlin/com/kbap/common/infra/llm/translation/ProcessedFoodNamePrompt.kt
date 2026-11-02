@@ -10,9 +10,11 @@ object ProcessedFoodNamePrompt {
         ClassPathResource("processed-food/official-latin-names.tsv").inputStream.bufferedReader(Charsets.UTF_8).readLines()
             .filter { it.isNotBlank() && !it.startsWith("#") }
             .map { it.split('\t') }
-            .associate { (korean, latin) -> korean.trim() to latin.trim() }
+            .associate { (korean, latin) -> compact(korean) to latin.trim() }
 
-    fun officialLatinOf(name: String): String? = OFFICIAL.entries.filter { it.key in name }.maxByOrNull { it.key.length }?.value
+    private fun compact(text: String): String = text.replace(Regex("\\s+"), "")
+
+    fun officialLatinOf(name: String): String? = compact(name).let { key -> OFFICIAL.entries.filter { it.key in key }.maxByOrNull { it.key.length }?.value }
 
     fun system(target: LanguageCode, source: String): String =
         listOfNotNull(
@@ -24,7 +26,7 @@ object ProcessedFoodNamePrompt {
             "Translate only descriptive words such as flavor, size or form into ${TranslationPrompt.languageNameOf(target)} " +
                 "(for example 자가비 짭짤한 맛 → Jagabee Salty in English, Jagabee しお味 in Japanese, Jagabee 咸味 in Simplified Chinese).",
             "Keep the brand part in Latin letters for every target language.",
-            officialLatinOf(source)?.let { "The official Latin name of this product's brand is $it — use it exactly." },
+            officialLatinOf(source)?.let { "The official Latin name of this product's brand or product name is $it — use it exactly and translate only the remaining descriptive words." },
             "Return only the name on one line, with no quotes, notes or question marks.",
         ).joinToString(" ")
 
@@ -37,7 +39,7 @@ object ProcessedFoodNamePrompt {
         reject(latinWords.isEmpty(), "가공식품 이름 번역에 라틴 표기 브랜드가 없다")
         val official = officialLatinOf(source)
         if (official != null) {
-            reject(!name.contains(official, ignoreCase = true), "가공식품 이름 번역이 공식 라틴 표기($official)를 쓰지 않았다")
+            reject(!Regex("(?i)(?<!\\p{L})" + Regex.escape(official) + "(?!\\p{L})").containsMatchIn(name), "가공식품 이름 번역이 공식 라틴 표기($official)를 낱말 그대로 쓰지 않았다")
             return TranslatedText(name, null)
         }
         val sourceLatin = LATIN_WORD.findAll(source).map { it.value.lowercase() }.toSet()
