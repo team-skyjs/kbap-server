@@ -78,7 +78,7 @@ class ProcessedFoodTranslationService(
         val foodType = detail.foodType?.let { request(TranslationTargetType.PF_FOOD_TYPE, foodTypeKeyOf(it), it, language, deadline != null) }
         return detail.copy(
             name = pinnedName ?: name.await(deadline) ?: detail.productName,
-            maker = detail.maker?.let { pinnedMaker ?: brandNameOf(it) ?: maker.await(deadline) ?: it },
+            maker = pinnedMaker ?: detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
             ingredients = detail.ingredients?.let { it.copy(translated = ingredients.await(null) ?: it.original) },
             allergenStatement = detail.allergenStatement?.let { it.copy(translated = allergens.await(null) ?: it.original) },
             unclearIngredientLabels = unclearLabels,
@@ -120,12 +120,12 @@ class ProcessedFoodTranslationService(
                 name = cache[TranslationTargetType.PF_NAME_PINNED to item.id]?.translatedText
                     ?: request(TranslationTargetType.PF_NAME, item.id, nameSourceOf(item.productName, item.maker), language, sync = false, cache[TranslationTargetType.PF_NAME to item.id]).await(null)
                     ?: item.productName,
-                maker = item.maker?.let {
-                    cache[TranslationTargetType.PF_MAKER_PINNED to item.id]?.translatedText
-                        ?: brandNameOf(it)
-                        ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false, cache[TranslationTargetType.PF_MAKER to item.id]).await(null)
-                        ?: it
-                },
+                maker = cache[TranslationTargetType.PF_MAKER_PINNED to item.id]?.translatedText
+                    ?: item.maker?.let {
+                        brandNameOf(it)
+                            ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false, cache[TranslationTargetType.PF_MAKER to item.id]).await(null)
+                            ?: it
+                    },
             )
         }
     }
