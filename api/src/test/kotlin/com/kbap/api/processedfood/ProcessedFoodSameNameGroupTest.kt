@@ -54,6 +54,23 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
         }
 
+        given("용량·용기만 다른 상품도 한 묶음(예진 11/2)") {
+            `when`("신라면·신라면컵·신라면 큰사발과 같은 제조사의 다른 상품이 있으면") {
+                then("검색·편의점 목록에서 신라면 묶음은 1건이고, 상세의 같은 상품 목록에 셋이 다 있으며, 다른 상품은 따로 나온다") {
+                    val bag = seed("SV-1", "신라면", "농심")
+                    val cup = seed("SV-2", "신라면컵", "농심")
+                    val bowl = seed("SV-3", "신라면 큰사발", "농심")
+                    seed("SV-4", "신라면 블랙", "농심")
+
+                    val found = reportNos(get("/api/processed-foods?query=신라면"))
+                    found.count { it in setOf("SV-1", "SV-2", "SV-3") } shouldBe 1
+                    found.contains("SV-4") shouldBe true
+                    reportNos(get("/api/processed-foods?size=50")).count { it in setOf("SV-1", "SV-2", "SV-3") } shouldBe 1
+                    get("/api/processed-foods/$cup").path("sameNameProducts").map { it.path("id").asLong() }.sorted() shouldBe listOf(bag, cup, bowl).sorted()
+                }
+            }
+        }
+
         given("같은 이름 상품을 대표 1개로 묶기(KB-950)") {
             `when`("용량만 다른 바나나킥 두 행이 있으면(dev 실측 report 2001054954151 140g 0.20 / 199104611019 75g 0.71)") {
                 then("검색 결과에 바나나킥은 1건이고, 둘 다 편의점 같은 대표 라인이라 누끼 비율이 높은 75g 이 대표다") {
