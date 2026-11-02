@@ -128,6 +128,16 @@ class ProcessedFoodTranslationPinTest : BehaviorSpec() {
                         setOf("NAME:en:HBAF Honey Butter Almond", "MAKER:en:HBAF")
                 }
             }
+            `when`("원 제조사가 없는 상품에 제조사를 고정하면 — Codex P2(#528)") {
+                then("상세·목록 모두 고정 제조사를 보여 준다") {
+                    val id = seed("PIN-5", "무명과자", "알수없음")
+                    admin("/names/overrides", mapOf("dryRun" to false, "kind" to "MAKER", "items" to listOf(mapOf("productId" to id, "language" to "en", "name" to "HBAF"))))
+                    detail(id).path("maker").asText() shouldBe "HBAF"
+                    mapper.readTree(
+                        mockMvc.get("/api/processed-foods?query=무명과자&lang=en") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("items").first { it.path("id").asLong() == id }.path("maker").asText() shouldBe "HBAF"
+                }
+            }
             `when`("이름을 다시 생성하거나 미리 번역하면") {
                 then("고정된 상품·언어는 건너뛰어 엔진을 부르지 않고, 고정값도 그대로다") {
                     val id = seed("PIN-3", "예감", "오리온")
