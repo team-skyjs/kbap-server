@@ -5,6 +5,7 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountService
 import com.kbap.api.reviewbot.ReviewBotPhotoService
 import com.kbap.api.reviewbot.ReviewBotPhotoInventory
+import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodService
 import com.kbap.api.reviewbot.ReviewBotRewriteResult
@@ -27,6 +28,13 @@ class AdminReviewBotController(
     private val rewriter: ReviewBotRewriteService,
     private val processedFoodBot: ReviewBotProcessedFoodService,
 ) : AdminReviewBotApi {
+    @PostMapping("/processed-foods/photos/dedupe")
+    override fun dedupeProcessedFoodPhotos(
+        @RequestHeader("X-Target-Environment") target: String,
+        @RequestBody request: AdminReviewBotPhotoDedupeRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotPhotoDedupeResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(processedFoodBot.dedupePhotos(target, request.dryRun)))
+
     @PostMapping("/processed-foods/reviews")
     override fun writeProcessedFoodReviews(
         @RequestHeader("X-Target-Environment") target: String,

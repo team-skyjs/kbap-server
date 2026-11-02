@@ -70,7 +70,7 @@ class OpenAiReviewTextGenerator(
             val node = mapper.readTree(raw.trim().replace(FENCE, ""))
             val text = node.path("review").asText("").trim()
             check(text.isNotEmpty()) { "가공식품 리뷰 봇 응답에 review 가 없다" }
-            fun axis(name: String): Int? = node.path(name).takeIf { it.isInt }?.asInt()?.takeIf { it in AXIS_RANGE }
+            fun axis(name: String): Int? = node.path(name).takeIf { it.isInt }?.asInt()?.coerceIn(AXIS_RANGE)
             return ProcessedFoodReviewDraft(text, axis("spiciness"), axis("sweetness"))
         }
 
