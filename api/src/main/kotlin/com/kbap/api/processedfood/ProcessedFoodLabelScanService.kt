@@ -7,6 +7,7 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.ingredient.label.AllergenDeclaration
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.ingredient.label.IngredientLabelReading
+import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.domain.scan.ScanUsageJpaRepository
 import com.kbap.common.domain.scan.model.ScanOperation
@@ -21,10 +22,12 @@ import java.util.UUID
 class ProcessedFoodLabelScanService(
     private val operations: ScanOperationJpaRepository,
     private val usages: ScanUsageJpaRepository,
+    private val members: MemberJpaRepository,
     private val memberService: MemberService,
 ) {
     @Transactional
     fun scanLabel(memberId: Long, analysisId: String?, clientRequestId: UUID?, pages: List<String>, language: String): ProcessedFoodLabelScanResponse {
+        if (analysisId == null) members.findByIdForUpdate(memberId)
         memberService.getMember(memberId)
         val text = ProcessedFoodLabelText.of(pages)
         val headingSeen = listOfNotNull(text.allergens, text.rawMaterials).any { HEADING_PHRASE.containsMatchIn(it) }
