@@ -19,8 +19,10 @@ class ReviewRepositoryCustomImpl(
         excludedReviewIds: List<Long>,
         limit: Int,
         includeProcessed: Boolean,
+        includeFood: Boolean,
+        latestByCreatedAt: Boolean,
     ): List<ReviewPageRow> {
-        val conditions = (EXCLUSIONS + targetVisibility(includeProcessed)).toMutableList()
+        val conditions = (EXCLUSIONS + targetVisibility(includeProcessed, includeFood)).toMutableList()
         if (foodId != null) conditions += "r.foodId = :foodId"
         if (countryCode != null) conditions += "r.authorCountryCode = :countryCode"
         if (minRating != null) conditions += "r.rating >= :minRating"
@@ -35,12 +37,19 @@ class ReviewRepositoryCustomImpl(
         val metricComparator = if (descending) "<" else ">"
         val direction = if (descending) "desc" else "asc"
         val hasCursor = idCursor != null
-        val cursorCondition = if (sort == ReviewSort.LATEST) {
+        val cursorCondition = if (sort == ReviewSort.LATEST && latestByCreatedAt) {
+            "(r.createdAt $metricComparator ($CURSOR_CREATED_AT) or (r.createdAt = ($CURSOR_CREATED_AT) and r.id $metricComparator :idCursor) " +
+                "or (($CURSOR_CREATED_AT) is null and r.id $metricComparator :idCursor))"
+        } else if (sort == ReviewSort.LATEST) {
             "r.id $metricComparator :idCursor"
         } else {
             "($metricExpr $metricComparator :metricCursor or ($metricExpr = :metricCursor and r.id < :idCursor))"
         }
-        val orderClause = if (sort == ReviewSort.LATEST) "r.id $direction" else "$metricExpr $direction, r.id desc"
+        val orderClause = when {
+            sort == ReviewSort.LATEST && latestByCreatedAt -> "r.createdAt $direction, r.id $direction"
+            sort == ReviewSort.LATEST -> "r.id $direction"
+            else -> "$metricExpr $direction, r.id desc"
+        }
 
         val jpql = if (sort == ReviewSort.HELPFUL) {
             buildString {
@@ -113,7 +122,12 @@ class ReviewRepositoryCustomImpl(
         const val FOOD_VISIBLE = "r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.FOOD and exists (select 1 from Food f where f.id = r.foodId)"
         const val PROCESSED_FOOD_VISIBLE = "r.targetType = com.kbap.common.domain.review.model.ReviewTargetType.PROCESSED_FOOD and exists (select 1 from ProcessedFoodProduct p where p.id = r.processedFoodId)"
 
-        fun targetVisibility(includeProcessed: Boolean): String =
-            if (includeProcessed) "(($FOOD_VISIBLE) or ($PROCESSED_FOOD_VISIBLE))" else "($FOOD_VISIBLE)"
+        const val CURSOR_CREATED_AT = "select rc.createdAt from Review rc where rc.id = :idCursor"
+
+        fun targetVisibility(includeProcessed: Boolean, includeFood: Boolean = true): String = when {
+            includeProcessed && includeFood -> "(($FOOD_VISIBLE) or ($PROCESSED_FOOD_VISIBLE))"
+            includeProcessed -> "($PROCESSED_FOOD_VISIBLE)"
+            else -> "($FOOD_VISIBLE)"
+        }
     }
 }

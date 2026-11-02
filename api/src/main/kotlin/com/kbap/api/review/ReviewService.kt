@@ -299,6 +299,7 @@ class ReviewService(
         maxRating: Int?,
         cursor: ReviewListCursor.Position?,
         includeProcessed: Boolean = false,
+        targetType: ReviewTargetFilter = ReviewTargetFilter.ALL,
     ): ReviewListPage {
         foodId?.let { foodService.getReadyFood(it) }
         val rows = reviewRepository.findReviewPage(
@@ -313,7 +314,9 @@ class ReviewService(
             excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
             excludedReviewIds = NO_EXCLUDED_REVIEW_IDS,
             limit = PAGE_SIZE + 1,
-            includeProcessed = includeProcessed,
+            includeProcessed = includeProcessed && targetType != ReviewTargetFilter.FOOD,
+            includeFood = !includeProcessed || targetType != ReviewTargetFilter.PROCESSED_FOOD,
+            latestByCreatedAt = includeProcessed,
         )
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)

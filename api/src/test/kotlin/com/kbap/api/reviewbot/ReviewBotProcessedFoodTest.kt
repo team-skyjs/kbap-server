@@ -338,7 +338,7 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                 val now = java.time.LocalDateTime.now()
                 val all = productIds.flatMap { id ->
                     val dates = datesOf(id)
-                    dates.map { it.toLocalDate() }.distinct().size shouldBe dates.size
+                    dates.map { it.atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(seoul).toLocalDate() }.distinct().size shouldBe dates.size
                     dates
                 }
                 all.forEach { at ->
