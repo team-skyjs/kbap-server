@@ -88,6 +88,16 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Ottogi Kimchi Ramen", "오뚜기 김치라면") }
             }
         }
+        `when`("우유를 표기하면(예진 11/2 — Uyu 금지)") {
+            then("우유는 설명어라 Milk 로 옮기고 Uyu 로마자는 거절한다, 빙그레 바나나맛·딸기맛 우유는 사전 표기") {
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "매일우유").contains("Milk") shouldBe true
+                ProcessedFoodNamePrompt.officialLatinOf("빙그레 딸기맛 우유") shouldBe "Binggrae Strawberry Milk"
+                shouldNotThrowAny { ProcessedFoodNamePrompt.parse("Maeil Milk", "매일우유") }
+                shouldNotThrowAny { ProcessedFoodNamePrompt.parse("Binggrae Strawberry Milk", "빙그레 딸기맛 우유") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Maeil Uyu", "매일우유") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Binggrae Banana Uyu", "빙그레 바나나맛 우유") }
+            }
+        }
         `when`("뜻으로 옮긴 번역(dev 실측)을 검사하면") {
             then("거절한다 — 원문 첫 소리와 안 맞음·공식 표기 누락·라틴 브랜드 없음·물음표·여러 줄") {
                 listOf(
