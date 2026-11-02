@@ -96,6 +96,17 @@ class ProcessedFoodPinImportTest : BehaviorSpec() {
                     storage.head("$root/pending/b.json") shouldBe null
                 }
             }
+            `when`("pending 에 .json 아닌 객체가 한 페이지 넘게 있으면 — Codex P2(#532 2R)") {
+                then("건너뛰며 다음 페이지로 넘겨 뒤의 .json 파일도 처리한다") {
+                    val id = seed("IMP-5", "칸쵸")
+                    (0 until 120).forEach { storage.put("$root/pending/a-%03d.txt".format(it), "x".toByteArray(), "text/plain") }
+                    drop("z.json", mapOf("kind" to "NAME", "items" to listOf(mapOf("productId" to id, "language" to "en", "name" to "Kancho"))))
+                    importer.runOnce()
+
+                    pins() shouldBe 1
+                    storage.head("$root/pending/z.json") shouldBe null
+                }
+            }
             `when`("JSON 이 깨졌거나 5,000건을 넘으면") {
                 then("failed 로 옮기고 사유를 쓰며 저장하지 않는다") {
                     val id = seed("IMP-3", "꼬북칩")
