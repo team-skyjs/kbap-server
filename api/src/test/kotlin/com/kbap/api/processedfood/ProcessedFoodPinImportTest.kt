@@ -51,7 +51,7 @@ class ProcessedFoodPinImportTest : BehaviorSpec() {
 
                     pins() shouldBe 0
                     result("$root/done/batch-1.dryrun.json.result.json").path("applied").asInt() shouldBe 1
-                    storage.get("$root/done/batch-1.dryrun.json") shouldBe storage.get("$root/done/batch-1.dryrun.json")
+                    (storage.get("$root/done/batch-1.dryrun.json") != null) shouldBe true
                     storage.head("$root/pending/batch-1.dryrun.json") shouldBe null
                 }
             }
@@ -68,7 +68,7 @@ class ProcessedFoodPinImportTest : BehaviorSpec() {
                     done.path("rejected").asInt() shouldBe 1
                     done.path("rejections")[0].path("index").asInt() shouldBe 1200
                     done.path("rejections")[0].path("reason").asText() shouldBe "PRODUCT_NOT_FOUND"
-                    storage.head("$root/done/batch-2.json") shouldBe storage.head("$root/done/batch-2.json")
+                    (storage.get("$root/done/batch-2.json") != null) shouldBe true
                     storage.head("$root/pending/batch-2.json") shouldBe null
 
                     drop("batch-2.json", mapOf("kind" to "NAME", "items" to items))
