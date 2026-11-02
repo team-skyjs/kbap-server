@@ -100,7 +100,7 @@ class ProcessedFoodTranslationService(
             matched++
         }
         val rest = name.substring(index).trim()
-        if (matched < makerKey.length || rest.isEmpty()) return name
+        if (matched < makerKey.length || rest.isEmpty() || ProcessedFoodSnapshot.normalizeName(rest) in GENERIC_NAMES) return name
         val official = translatorProvider.getIfAvailable()?.officialLatinOf(name)
         return if (official != null && official != translatorProvider.getIfAvailable()?.officialLatinOf(rest)) name else rest
     }
@@ -156,7 +156,7 @@ class ProcessedFoodTranslationService(
                     return engineCalls.get() - before
                 }
                 listOf(
-                    TranslationTargetType.PF_NAME to row.productName,
+                    TranslationTargetType.PF_NAME to nameSourceOf(row.productName, row.displayMaker()),
                     TranslationTargetType.PF_MAKER to row.displayMaker()?.takeIf { brandNameOf(it) == null },
                     TranslationTargetType.PF_INGREDIENTS to row.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided),
                     TranslationTargetType.PF_ALLERGENS to row.allergens?.takeUnless(IngredientLabelReader::isNotProvided),
@@ -342,6 +342,7 @@ class ProcessedFoodTranslationService(
 
         const val CACHE_VERSION = "pf1"
         private const val SAMPLE_SIZE = 10
+        private val GENERIC_NAMES = setOf("라면", "비빔면", "짜장면", "냉면", "우유", "식혜", "콜라", "사이다", "주스", "과자", "만두", "김치")
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500
