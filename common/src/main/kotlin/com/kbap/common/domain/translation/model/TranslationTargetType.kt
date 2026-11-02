@@ -7,4 +7,6 @@ enum class TranslationTargetType {
     PF_FOOD_TYPE,
     PF_INGREDIENTS,
     PF_ALLERGENS,
+    PF_NAME_PINNED,
+    PF_MAKER_PINNED,
 }
