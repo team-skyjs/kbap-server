@@ -26,13 +26,25 @@ class ProcessedFoodPinImporter(
     }
 
     fun runOnce(): Int {
-        val files = storage.list("$root/pending/", null, MAX_FILES_PER_RUN).map { it.path }.filter { it.endsWith(".json") }.sorted()
+        val files = pendingFiles()
         for ((done, path) in files.withIndex()) {
             val failure = runCatching { import(path) }.exceptionOrNull() ?: continue
             log.warn("번역 고정 파일 처리 실패 — 뒤 파일이 앞 파일의 재처리에 덮이지 않게 이번 실행을 멈추고 다음 실행에서 이 파일부터 다시 본다 path={}", path, failure)
             return done
         }
         return files.size
+    }
+
+    private fun pendingFiles(): List<String> {
+        val files = mutableListOf<String>()
+        var after: String? = null
+        while (files.size < MAX_FILES_PER_RUN) {
+            val page = storage.list("$root/pending/", after, LIST_PAGE_SIZE).map { it.path }
+            if (page.isEmpty()) break
+            files += page.filter { it.endsWith(".json") }
+            after = page.last()
+        }
+        return files.sorted().take(MAX_FILES_PER_RUN)
     }
 
     private fun import(path: String) {
@@ -75,6 +87,7 @@ class ProcessedFoodPinImporter(
         private const val JSON = "application/json"
         const val MAX_ITEMS_PER_FILE = 5_000
         private const val MAX_FILES_PER_RUN = 50
+        private const val LIST_PAGE_SIZE = 100
         private const val MAX_DETAIL = 300
         private val mapper = jacksonObjectMapper()
     }

@@ -88,7 +88,9 @@ class ProcessedFoodTranslationService(
 
     fun translateNameInBackground(productId: Long, name: String, maker: String?) {
         val source = nameSourceOf(name, maker)
-        LanguageCode.entries.filter { it != LanguageCode.KO }.forEach { request(TranslationTargetType.PF_NAME, productId, source, it, sync = false) }
+        val pinned = readTransaction.execute { translations.findAllByTargetTypeInAndTargetIdIn(listOf(TranslationTargetType.PF_NAME_PINNED), listOf(productId)) }!!
+            .map { it.language }.toSet()
+        LanguageCode.entries.filter { it != LanguageCode.KO && it.code !in pinned }.forEach { request(TranslationTargetType.PF_NAME, productId, source, it, sync = false) }
     }
 
     fun nameSourceOf(name: String, maker: String?): String {
