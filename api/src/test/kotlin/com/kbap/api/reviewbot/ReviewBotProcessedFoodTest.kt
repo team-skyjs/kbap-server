@@ -362,6 +362,7 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     result.skippedForDays shouldBeGreaterThan 0
                     datesOf(fresh).size shouldBe 1
 
+                    bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick), topLines = null, seed = 969, spreadDays = 30).written shouldBeGreaterThan 1
                     val most = (rows("SELECT MAX(c) FROM (SELECT COUNT(*) c FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.target_type = 'PROCESSED_FOOD' GROUP BY r.processed_food_id) t").single().single() as Number).toInt()
                     val error = shouldThrow<BusinessException> { bot.redistribute("dev", days = 1, dryRun = true, seed = 1) }
                     error.errorCode shouldBe ErrorCode.INVALID_REQUEST
