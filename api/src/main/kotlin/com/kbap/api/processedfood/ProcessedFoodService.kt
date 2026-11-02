@@ -235,7 +235,7 @@ class ProcessedFoodService(
             candidateIndex.groupMemberIds(representative.id).any { it in gatedIds }
         }.takeIf { corrections.isNotEmpty() }
         val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror, correctedBoost = correctedBoost)
-        return ranked.copy(products = ranked.products.take(limit))
+        return ranked.copy(products = ranked.products.distinctBy(::groupKeyOf).take(limit))
     }
 
     private fun featuredFirst(
