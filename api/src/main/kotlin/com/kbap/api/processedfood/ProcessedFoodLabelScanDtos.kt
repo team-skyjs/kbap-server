@@ -37,7 +37,7 @@ data class ProcessedFoodLabelPage(
 
 @Schema(description = "성분표 분석 결과 — 검출되지 않은 재료는 '확인 안 됨'이지 '없음/안전'이 아니다")
 data class ProcessedFoodLabelScanResponse(
-    @field:Schema(description = "분석 ID — 같은 ID 로 다시 보내면 결과만 갱신(차감 0)")
+    @field:Schema(description = "분석 ID — 같은 ID 로 다시 보내면 결과만 갱신")
     val analysisId: String,
     @field:Schema(description = "항상 LABEL_RESULT")
     val state: ProcessedFoodNameScanState,
@@ -53,7 +53,7 @@ data class ProcessedFoodLabelScanResponse(
     val avoidance: List<ProcessedFoodAvoidanceResponse>,
     @field:Schema(description = "정리된 원문(면 사이 중복 줄 제거, 줄 순서 유지)")
     val rawText: String,
-    @field:Schema(description = "이번 호출에서 1회 차감했는지")
+    @field:Schema(description = "이번 호출에서 1회 차감했는지 — KB-963 부터 가공식품 스캔은 차감하지 않아 항상 false")
     val charged: Boolean,
     @field:Schema(description = "내 판정(가공식품 상세와 같은 규칙) — 회피 재료 0개·읽은 원재료와 알레르기 표시가 모두 없으면 null", nullable = true)
     val verdict: ProcessedFoodVerdict?,
@@ -63,7 +63,7 @@ data class ProcessedFoodLabelScanResponse(
     @field:Schema(description = "unclearIngredients 에 걸린 서버 사전 용어와 요청 lang 라벨(가공식품 상세와 같은 형태)")
     val unclearIngredientLabels: List<UnclearIngredientLabel> = emptyList(),
     val majorAllergens: List<IngredientCode>,
-    @field:Schema(description = "가공식품 1시간 무료 창이 끝나는 시각(ISO) — 차감된 가공식품 스캔 성공부터 고정 60분, 창 안의 가공식품 스캔은 차감 0(charged=false)·남은 횟수 0 이어도 통과. 창이 없으면 null", example = "2026-10-27T04:00:00Z", nullable = true)
+    @field:Schema(description = "가공식품 1시간 무료 창 — KB-963 부터 가공식품 스캔은 무료 횟수에서 차감하지 않아 창을 열지 않는다. 항상 null(호환용으로 필드만 남김)", nullable = true)
     val freeUntil: Instant? = null,
 )
 
