@@ -2,6 +2,7 @@ package com.kbap.api.admin
 
 import com.kbap.api.processedfood.ProcessedFoodDetailResponse
 import com.kbap.api.processedfood.ProcessedFoodService
+import com.kbap.api.processedfood.ProcessedFoodTranslationService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
@@ -17,6 +18,7 @@ import java.time.LocalDateTime
 class AdminProcessedFoodManualService(
     private val products: ProcessedFoodProductJpaRepository,
     private val processedFoods: ProcessedFoodService,
+    private val translations: ProcessedFoodTranslationService,
     transactionManager: PlatformTransactionManager,
 ) {
     private val transaction = TransactionTemplate(transactionManager)
@@ -31,6 +33,7 @@ class AdminProcessedFoodManualService(
             } catch (e: DataIntegrityViolationException) {
                 return@repeat
             }
+            translations.translateNameInBackground(id, request.productName!!.trim(), ProcessedFoodProduct.displayMakerOf(request.manufacturer, null, null))
             return processedFoods.getProcessedFoodDetail(id, null)
         }
         throw BusinessException(ErrorCode.INVALID_REQUEST)
@@ -42,6 +45,7 @@ class AdminProcessedFoodManualService(
             if (product.source != ProcessedFoodProduct.SOURCE_MANUAL) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_MANUAL)
             product.correctManually(snapshotOf(product.reportNo, request))
         }
+        translations.translateNameInBackground(id, request.productName!!.trim(), ProcessedFoodProduct.displayMakerOf(request.manufacturer, null, null))
         return processedFoods.getProcessedFoodDetail(id, null)
     }
 

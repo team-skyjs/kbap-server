@@ -38,7 +38,7 @@ data class ProcessedFoodSummaryResponse(
     @field:Schema(description = "한국어 원문 제품명", example = "빙그레 바나나맛 우유")
     val nameKo: String = productName,
     @field:Schema(description = "유형 칩 — 어디에도 안 맞으면 null", nullable = true)
-    val type: ProcessedFoodType? = ProcessedFoodType.of(foodType),
+    val type: ProcessedFoodType? = ProcessedFoodType.of(foodType, productName),
     @field:Schema(description = "평점 — 목록·검색·이름 스캔 후보에서 채운다(리뷰 없으면 average null·count 0)", nullable = true)
     val rating: ProcessedFoodRatingResponse? = null,
     @field:Schema(description = "표시 정보 유무 — 원재료 또는 알레르기 표시가 있으면 true(상세 labelSource 가 NONE 이 아니면 true, 같은 규칙). false 면 상세는 '확인 못 함'이라 카드에 Safe 리본을 붙이지 않는다", example = "true")
@@ -183,6 +183,8 @@ data class ProcessedFoodDetailResponse(
     val ingredients: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "알레르기 표시 — translated·original. 표시가 없거나 '알수없음' 등이면 null", nullable = true)
     val allergenStatement: ProcessedFoodLocalizedText? = null,
+    @field:Schema(description = "식품유형 — translated(요청 lang)·original(한국어). 식품유형이 없으면 null. 같은 식품유형은 상품이 달라도 번역을 함께 쓴다(KB-960)", nullable = true)
+    val foodTypeLocalized: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "같은 묶음(정규화 이름 + 제조사) 상품 — 용량만 다른 별도 등록 등. 자기 자신 포함, id 순. 목록·검색은 이 중 대표 1개만 보인다(KB-950)")
     val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
 ) {
@@ -218,6 +220,7 @@ data class ProcessedFoodDetailResponse(
                 ingredients = product.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 sameNameProducts = sameNameProducts,
+                foodTypeLocalized = product.foodType?.let { ProcessedFoodLocalizedText(it, it) },
             )
         }
 

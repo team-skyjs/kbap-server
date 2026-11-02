@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
+import com.kbap.common.util.RamyeonSpelling
 import java.text.Normalizer
 
 @Component
@@ -42,7 +43,7 @@ class ProcessedFoodFeaturedCatalog {
         return makers.any { (name, aliases) -> name != maker && aliases.any { alias -> alias in textKey && ownInText.none { alias in it } } }
     }
 
-    private fun keyOf(value: String): String = ProcessedFoodSnapshot.normalizeName(Normalizer.normalize(value, Normalizer.Form.NFKC)).lowercase()
+    private fun keyOf(value: String): String = RamyeonSpelling.fold(ProcessedFoodSnapshot.normalizeName(Normalizer.normalize(value, Normalizer.Form.NFKC)).lowercase())
 
     data class Boost(val product: FeaturedProduct, val matchLength: Int)
 

@@ -1,6 +1,7 @@
 package com.kbap.api.processedfood
 
 import io.swagger.v3.oas.annotations.media.Schema
+import org.springframework.core.io.ClassPathResource
 
 @Schema(description = "가공식품 유형 칩 — 식품유형(food_type) 원문을 두 글자 이상 키워드(포함) 또는 유형명 전체(일치)로 묶는다. 어디에도 안 맞으면 null(전체에만 나온다)")
 enum class ProcessedFoodType(private val contains: List<String>, private val names: Set<String> = emptySet()) {
@@ -37,7 +38,14 @@ enum class ProcessedFoodType(private val contains: List<String>, private val nam
     companion object {
         private val NOISE = Regex("""[\s·.,()]""")
 
-        fun of(foodType: String?): ProcessedFoodType? {
+        private val OVERRIDES: List<Pair<String, ProcessedFoodType>> =
+            ClassPathResource("processed-food/type-overrides.tsv").inputStream.bufferedReader(Charsets.UTF_8).readLines()
+                .filter { it.isNotBlank() && !it.startsWith("#") }
+                .map { it.split('\t') }
+                .map { (key, type) -> key.replace(NOISE, "") to valueOf(type.trim()) }
+
+        fun of(foodType: String?, name: String? = null): ProcessedFoodType? {
+            name?.replace(NOISE, "")?.let { key -> OVERRIDES.firstOrNull { (override, _) -> override in key }?.let { return it.second } }
             val type = foodType?.replace(NOISE, "")?.takeIf { it.isNotEmpty() } ?: return null
             return entries.firstOrNull { chip -> type in chip.names || chip.contains.any { it in type } }
         }

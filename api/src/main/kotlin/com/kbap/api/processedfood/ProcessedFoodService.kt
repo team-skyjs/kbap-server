@@ -11,6 +11,7 @@ import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.util.RamyeonSpelling
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -46,9 +47,10 @@ class ProcessedFoodService(
         val filter = verdicts.takeIf { it.isNotEmpty() }?.let { memberId }?.let { memberService.getAvoidance(it) }?.takeIf { it.chosen.isNotEmpty() }
             ?.let { VerdictFilter(it, verdicts) }
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
-        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
-            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+        val nameTokens = tokens.map(RamyeonSpelling::koreanTokenOf).distinct()
+        val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
+            .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
             .groupBy(::groupKeyOf).values.map { group -> group.sortedWith(representativeOrder) }
         val rankedById = ranked.flatten().associateBy { it.id }
         return pageOf(ranked.map { group -> group.map { it.id } }, offset, size, memberId, filter) { ids -> ids.mapNotNull(rankedById::get).associateBy { it.id } }
@@ -60,7 +62,7 @@ class ProcessedFoodService(
         }
         val catalog = featuredCatalog.productsByPriority()
         val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
-            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+            .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
         val featured = catalog.mapNotNull { product -> representativeOf(product, named)?.let { it to product } }
             .distinctBy { it.first.id }
         val featuredIds = featured.map { it.first.id }.toSet()
@@ -80,7 +82,7 @@ class ProcessedFoodService(
         if (cvsCatalog.reportNos.isEmpty()) return null
         val stocked = products.findAllByReportNoIn(cvsCatalog.reportNos).filterNot { it.isDiscontinued(lastMirror) }
         if (stocked.isEmpty()) return null
-        val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType) == type }.associateBy { it.reportNo }
+        val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }.associateBy { it.reportNo }
         val ranked = seedLineRepresentativesOf(byReportNo)
         val used = ranked.map { it.second.id }.toSet()
         val representatives = ranked.map { it.second }
@@ -253,7 +255,7 @@ class ProcessedFoodService(
             emptyList()
         } else {
             products.findAllByNormalizedNameIn(featured.flatMap { namesOf(it.product) }).filterNot { it.isDiscontinued(lastMirror) }
-                .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+                .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
         }
         val boosted = if (featured.isEmpty()) {
             emptyList()

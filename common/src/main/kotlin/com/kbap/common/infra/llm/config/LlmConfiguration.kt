@@ -14,6 +14,7 @@ import com.kbap.common.infra.llm.menu.MenuBoardResultParser
 import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
 import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
 import com.kbap.common.infra.llm.translation.OpenAiTextTranslator
+import com.kbap.common.infra.llm.translation.ProcessedFoodNamePrompt
 import com.kbap.common.infra.llm.model.LlmPricing
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
@@ -125,6 +126,10 @@ class LlmConfiguration {
             override fun translate(text: String, target: LanguageCode) = labelTranslator.translate(text, target)
 
             override fun translateName(name: String, target: LanguageCode) = nameTranslator.translate(name, target)
+
+            override fun isAcceptableName(translated: String, source: String) = runCatching { ProcessedFoodNamePrompt.parse(translated, source) }.isSuccess
+
+            override fun officialLatinOf(name: String) = ProcessedFoodNamePrompt.officialLatinOf(name)
         }
     }
 
