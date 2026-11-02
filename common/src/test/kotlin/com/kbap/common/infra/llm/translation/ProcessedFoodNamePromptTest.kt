@@ -17,8 +17,8 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                 prompt.contains("Never invent an English name") shouldBe true
                 prompt.contains("Translate only descriptive words") shouldBe true
                 prompt.contains("Keep the brand part in Latin letters for every target language") shouldBe true
-                prompt.contains("The official Latin name of this product's brand is Jagabee") shouldBe true
-                ProcessedFoodNamePrompt.system(LanguageCode.EN, "예감").contains("The official Latin name of this product's brand") shouldBe false
+                prompt.contains("The official Latin name of this product's brand or product name is Jagabee") shouldBe true
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "예감").contains("The official Latin name of this product's brand or product name") shouldBe false
             }
         }
         `when`("공식 표기를 찾으면") {
@@ -48,6 +48,62 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                     "롯데 빼빼로" to "Lotte Pepero",
                     "바나나맛 우유" to "Banana Milk",
                 ).forEach { (source, output) -> shouldNotThrowAny { ProcessedFoodNamePrompt.parse(output, source) } }
+            }
+        }
+        `when`("공식 표기 사전을 보강하면(KB-960)") {
+            then("dev 거절 브랜드가 사전에서 잡히고 띄어쓰기와 무관하며, 사전 표기를 쓴 번역은 첫 소리와 달라도 통과한다") {
+                ProcessedFoodNamePrompt.officialLatinOf("빙그레 바나나맛 우유") shouldBe "Binggrae Banana Milk"
+                ProcessedFoodNamePrompt.officialLatinOf("빙그레바나나맛우유") shouldBe "Binggrae Banana Milk"
+                ProcessedFoodNamePrompt.officialLatinOf("환타 오렌지") shouldBe "Fanta"
+                ProcessedFoodNamePrompt.officialLatinOf("까르보불닭볶음면") shouldBe "Carbo Buldak"
+                ProcessedFoodNamePrompt.officialLatinOf("불닭볶음면") shouldBe "Buldak"
+                listOf(
+                    "빙그레 바나나맛 우유" to "Binggrae Banana Milk",
+                    "환타 오렌지" to "Fanta Orange",
+                    "까르보불닭볶음면" to "Carbo Buldak Stir-fried Noodles",
+                    "더위사냥" to "Deowi Sanyang",
+                    "복음자리 딸기잼" to "Bokumjari Strawberry Jam",
+                    "마이쮸 포도" to "Mychew Grape",
+                ).forEach { (source, output) -> shouldNotThrowAny { ProcessedFoodNamePrompt.parse(output, source) } }
+                listOf(
+                    "빙그레 바나나맛 우유" to "Banana Uyu by Binggrae",
+                    "환타 오렌지" to "Fantao Orange Flavor",
+                    "까르보불닭볶음면" to "Carbo Bullet Bokkeum-myeon",
+                    "복음자리 딸기잼" to "Gomjumari Strawberry Jam",
+                    "더위사냥" to "The War Summer Hunt",
+                    "인생라면" to "Life Ramen",
+                ).forEach { (source, output) -> shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse(output, source) } }
+            }
+        }
+        `when`("라면을 표기하면(예진 11/2 — 한국 라면은 Ramyeon)") {
+            then("Ramyeon 은 통과·Ramyun 은 Ramyeon 으로 바꾸고, 원문에 라멘이 없는데 Ramen 이면 거절, 일본식 라멘만 Ramen 허용") {
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "신라면").contains("Ramyeon") shouldBe true
+                ProcessedFoodNamePrompt.officialLatinOf("신라면") shouldBe "Shin Ramyeon"
+                ProcessedFoodNamePrompt.parse("Shin Ramyeon", "신라면").text shouldBe "Shin Ramyeon"
+                ProcessedFoodNamePrompt.parse("Shin Ramyun", "신라면").text shouldBe "Shin Ramyeon"
+                ProcessedFoodNamePrompt.parse("Neoguri Ramyeon Mild", "너구리 순한맛").text shouldBe "Neoguri Ramyeon Mild"
+                ProcessedFoodNamePrompt.parse("Miso Ramen", "미소라멘").text shouldBe "Miso Ramen"
+                ProcessedFoodNamePrompt.parse("Buldak Bokkeum-myeon", "불닭볶음면").text shouldBe "Buldak Bokkeum-myeon"
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Jin Ramen Mild", "진라면 순한맛") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Ottogi Kimchi Ramen", "오뚜기 김치라면") }
+            }
+        }
+        `when`("공식 라틴 표기 바로 옆에 가나·한자 서술어가 붙으면 — Codex P2(#524)") {
+            then("라틴 낱말 경계만 보므로 통과하고, 공식 표기가 더 긴 라틴 낱말의 일부면 계속 거절한다") {
+                ProcessedFoodNamePrompt.parse("Fantaオレンジ", "환타 오렌지").text shouldBe "Fantaオレンジ"
+                ProcessedFoodNamePrompt.parse("Jagabee咸味", "자가비 짭짤한맛").text shouldBe "Jagabee咸味"
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Fantastic Orange", "환타 오렌지") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Fanta2 Orange", "환타 오렌지") }
+            }
+        }
+        `when`("우유를 표기하면(예진 11/2 — Uyu 금지)") {
+            then("우유는 설명어라 Milk 로 옮기고 Uyu 로마자는 거절한다, 빙그레 바나나맛·딸기맛 우유는 사전 표기") {
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "매일우유").contains("Milk") shouldBe true
+                ProcessedFoodNamePrompt.officialLatinOf("빙그레 딸기맛 우유") shouldBe "Binggrae Strawberry Milk"
+                shouldNotThrowAny { ProcessedFoodNamePrompt.parse("Maeil Milk", "매일우유") }
+                shouldNotThrowAny { ProcessedFoodNamePrompt.parse("Binggrae Strawberry Milk", "빙그레 딸기맛 우유") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Maeil Uyu", "매일우유") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Binggrae Banana Uyu", "빙그레 바나나맛 우유") }
             }
         }
         `when`("뜻으로 옮긴 번역(dev 실측)을 검사하면") {

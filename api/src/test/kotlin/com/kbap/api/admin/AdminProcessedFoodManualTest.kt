@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
@@ -25,6 +26,8 @@ class AdminProcessedFoodManualTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
+    @Autowired private lateinit var translator: com.kbap.api.translation.FakeTextTranslator
+    @Autowired private lateinit var translations: com.kbap.api.processedfood.ProcessedFoodTranslationService
 
     private val mapper = jacksonObjectMapper()
 
@@ -86,6 +89,26 @@ class AdminProcessedFoodManualTest : BehaviorSpec() {
                     execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.example.com/cutout/M000001.png', cutout_review_status = 'APPROVED' WHERE id = $id")
 
                     get("/api/processed-foods/$id").path("image").path("attributionKey").asText() shouldBe "processedFood.image.manual"
+                }
+            }
+            `when`("수동 등록·정정하면 — KB-960") {
+                then("이름 번역을 뒤에서 9개 언어로 바로 만든다(후보·상세에서 한국어만 보이지 않게)") {
+                    translator.reset()
+                    val id = create(wasabi).path("payload").path("id").asLong()
+                    translations.awaitIdle()
+                    translator.nameCalls.map { it.first }.toSet() shouldBe setOf("와사비맛 아몬드")
+                    translator.nameCalls.map { it.second }.toSet() shouldBe LanguageCode.entries.filter { it != LanguageCode.KO }.toSet()
+
+                    translator.reset()
+                    update(id, wasabi + ("productName" to "와사비맛 아몬드 대용량"))
+                    translations.awaitIdle()
+                    translator.nameCalls.map { it.first }.toSet() shouldBe setOf("와사비맛 아몬드 대용량")
+                }
+                then("제조사 원문(㈜오뚜기)이 아니라 표시 제조사 기준으로 접두를 뺀다 — Codex P2(#524)") {
+                    translator.reset()
+                    create(wasabi + ("productName" to "오뚜기 뿌셔뿌셔 양념치킨맛") + ("manufacturer" to "㈜오뚜기"))
+                    translations.awaitIdle()
+                    translator.nameCalls.map { it.first }.toSet() shouldBe setOf("뿌셔뿌셔 양념치킨맛")
                 }
             }
             `when`("지워진 수동 키가 있어도") {
