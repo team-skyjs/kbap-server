@@ -110,16 +110,44 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                 }
             }
             `when`("재생성에서 거절되면") {
-                then("기존 번역을 덮어쓰지 않고 실패로 센다") {
-                    val id = seed("NT-7", "예감")
-                    staleName(id)
+                then("기존 번역이 가드를 통과하면 덮어쓰지 않고, 기존 번역도 오역(가드 거절)이면 원문으로 바꾼다 — KB-960") {
+                    val bad = seed("NT-7", "예감")
+                    val good = seed("NT-8", "예감 오리지널")
+                    staleName(bad)
+                    execute(
+                        "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) " +
+                            "VALUES ('PF_NAME', $good, 'en', 'stale', 'Yegam Original', NULL, 'ACTIVE', NOW(6), NOW(6))",
+                    )
                     translator.reply = { _, _ -> throw TranslationRejectedException("뜻 번역") }
 
                     val p = regenerate("dev", mapOf("dryRun" to false, "limit" to 20)).path("payload")
 
-                    p.path("regenerated").asInt() shouldBe 0
-                    p.path("failedProductIds").map { it.asLong() } shouldBe listOf(id)
-                    storedName(id, "en") shouldBe "Premonition"
+                    p.path("regenerated").asInt() shouldBe 1
+                    p.path("failedProductIds").map { it.asLong() } shouldBe listOf(good)
+                    storedName(bad, "en") shouldBe "예감"
+                    storedName(good, "en") shouldBe "Yegam Original"
+                }
+            }
+        }
+
+        given("식품유형 사용자 언어 표시(KB-960)") {
+            `when`("상세를 영어로 보면") {
+                then("foodTypeLocalized 는 원문과 번역을 함께 주고, 같은 식품유형은 상품이 달라도 한 번만 번역한다") {
+                    val first = seed("NT-9", "예감")
+                    val second = seed("NT-10", "자가비")
+                    repeat(2) {
+                        listOf(first, second).forEach { id ->
+                            mockMvc.get("/api/processed-foods/$id?lang=en") { header("X-API-Version", "3.2") }.andExpect { status { isOk() } }
+                        }
+                        translations.awaitIdle()
+                    }
+
+                    val detail = mapper.readTree(
+                        mockMvc.get("/api/processed-foods/$first?lang=en") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("foodTypeLocalized")
+                    detail.path("original").asText() shouldBe "과자"
+                    detail.path("translated").asText() shouldBe "[en] 과자"
+                    translator.calls.count { it.first == "과자" } shouldBe 1
                 }
             }
         }
