@@ -8,4 +8,6 @@ fun interface ProcessedFoodTextTranslator {
     fun translateName(name: String, target: LanguageCode): TranslatedText = translate(name, target)
 
     fun isAcceptableName(translated: String, source: String): Boolean = true
+
+    fun officialLatinOf(name: String): String? = null
 }

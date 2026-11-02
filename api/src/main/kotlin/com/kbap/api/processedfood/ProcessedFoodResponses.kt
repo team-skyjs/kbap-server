@@ -38,7 +38,7 @@ data class ProcessedFoodSummaryResponse(
     @field:Schema(description = "한국어 원문 제품명", example = "빙그레 바나나맛 우유")
     val nameKo: String = productName,
     @field:Schema(description = "유형 칩 — 어디에도 안 맞으면 null", nullable = true)
-    val type: ProcessedFoodType? = ProcessedFoodType.of(foodType),
+    val type: ProcessedFoodType? = ProcessedFoodType.of(foodType, productName),
     @field:Schema(description = "평점 — 목록·검색·이름 스캔 후보에서 채운다(리뷰 없으면 average null·count 0)", nullable = true)
     val rating: ProcessedFoodRatingResponse? = null,
     @field:Schema(description = "표시 정보 유무 — 원재료 또는 알레르기 표시가 있으면 true(상세 labelSource 가 NONE 이 아니면 true, 같은 규칙). false 면 상세는 '확인 못 함'이라 카드에 Safe 리본을 붙이지 않는다", example = "true")

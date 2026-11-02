@@ -131,7 +131,7 @@ class ProcessedFoodCandidateIndex(
             tracksDiscontinuation = ProcessedFoodProduct.tracksDiscontinuation(row.source),
             normalizedName = row.normalizedName,
             displayMaker = ProcessedFoodProduct.displayMakerOf(row.manufacturer, row.seller, row.makerSupplement),
-            type = ProcessedFoodType.of(row.foodType),
+            type = ProcessedFoodType.of(row.foodType, row.normalizedName),
         ).let { it.copy(groupKey = ProcessedFoodGrouping.keyOf(it.normalizedName, it.displayMaker)) }
     }
 

@@ -34,6 +34,8 @@ class FakeTextTranslator : TextTranslator, ProcessedFoodTextTranslator {
     override fun isAcceptableName(translated: String, source: String): Boolean =
         runCatching { com.kbap.common.infra.llm.translation.ProcessedFoodNamePrompt.parse(translated, source) }.isSuccess
 
+    override fun officialLatinOf(name: String): String? = com.kbap.common.infra.llm.translation.ProcessedFoodNamePrompt.officialLatinOf(name)
+
     fun reset() {
         calls.clear()
         nameCalls.clear()

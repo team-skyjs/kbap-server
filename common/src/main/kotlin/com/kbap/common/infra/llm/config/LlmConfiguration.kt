@@ -128,6 +128,8 @@ class LlmConfiguration {
             override fun translateName(name: String, target: LanguageCode) = nameTranslator.translate(name, target)
 
             override fun isAcceptableName(translated: String, source: String) = runCatching { ProcessedFoodNamePrompt.parse(translated, source) }.isSuccess
+
+            override fun officialLatinOf(name: String) = ProcessedFoodNamePrompt.officialLatinOf(name)
         }
     }
 

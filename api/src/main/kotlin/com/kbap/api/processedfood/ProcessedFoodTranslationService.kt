@@ -66,7 +66,7 @@ class ProcessedFoodTranslationService(
         if (language == LanguageCode.KO) return detail
         val unclearLabels = UnclearIngredientLabels.labelsOf(detail.unclearIngredientLabels.map { it.term }, language)
         val deadline = if (member) System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(syncDeadlineMillis) else null
-        val name = request(TranslationTargetType.PF_NAME, detail.id, detail.productName, language, deadline != null)
+        val name = request(TranslationTargetType.PF_NAME, detail.id, nameSourceOf(detail.productName, detail.maker), language, deadline != null)
         val maker = detail.maker?.let { if (brandNameOf(it) != null) null else request(TranslationTargetType.PF_MAKER, detail.id, it, language, deadline != null) }
         val ingredients = request(TranslationTargetType.PF_INGREDIENTS, detail.id, detail.ingredients?.original, language, sync = false)
         val allergens = request(TranslationTargetType.PF_ALLERGENS, detail.id, detail.allergenStatement?.original, language, sync = false)
@@ -81,8 +81,28 @@ class ProcessedFoodTranslationService(
         )
     }
 
-    fun translateNameInBackground(productId: Long, name: String) {
-        LanguageCode.entries.filter { it != LanguageCode.KO }.forEach { request(TranslationTargetType.PF_NAME, productId, name, it, sync = false) }
+    fun translateNameInBackground(productId: Long, name: String, maker: String?) {
+        val source = nameSourceOf(name, maker)
+        LanguageCode.entries.filter { it != LanguageCode.KO }.forEach { request(TranslationTargetType.PF_NAME, productId, source, it, sync = false) }
+    }
+
+    fun nameSourceOf(name: String, maker: String?): String {
+        val makerKey = maker?.let { ProcessedFoodSnapshot.normalizeName(it) }?.takeIf { it.isNotEmpty() } ?: return name
+        var index = 0
+        var matched = 0
+        while (index < name.length && matched < makerKey.length) {
+            if (name[index].isWhitespace()) {
+                index++
+                continue
+            }
+            if (!name[index].equals(makerKey[matched], ignoreCase = true)) return name
+            index++
+            matched++
+        }
+        val rest = name.substring(index).trim()
+        if (matched < makerKey.length || rest.isEmpty()) return name
+        val official = translatorProvider.getIfAvailable()?.officialLatinOf(name)
+        return if (official != null && official != translatorProvider.getIfAvailable()?.officialLatinOf(rest)) name else rest
     }
 
     fun localizeSummaries(items: List<ProcessedFoodSummaryResponse>, language: LanguageCode): List<ProcessedFoodSummaryResponse> {
@@ -92,7 +112,7 @@ class ProcessedFoodTranslationService(
         }!!.associateBy { it.targetType to it.targetId }
         return items.map { item ->
             item.copy(
-                name = request(TranslationTargetType.PF_NAME, item.id, item.productName, language, sync = false, cache[TranslationTargetType.PF_NAME to item.id]).await(null) ?: item.productName,
+                name = request(TranslationTargetType.PF_NAME, item.id, nameSourceOf(item.productName, item.maker), language, sync = false, cache[TranslationTargetType.PF_NAME to item.id]).await(null) ?: item.productName,
                 maker = item.maker?.let {
                     brandNameOf(it) ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false, cache[TranslationTargetType.PF_MAKER to item.id]).await(null) ?: it
                 },
@@ -221,7 +241,7 @@ class ProcessedFoodTranslationService(
         var lastDone = afterId
         var budgetExhausted = false
         for (row in page) {
-            val name = runCatching { processedFoodService.getAvailableProduct(row.targetId).productName }.getOrNull()
+            val name = runCatching { processedFoodService.getAvailableProduct(row.targetId).let { nameSourceOf(it.productName, it.displayMaker()) } }.getOrNull()
             val attempt = name?.let { attemptTranslation(TranslationTargetType.PF_NAME, row.targetId, it, hashOf(it), LanguageCode.from(row.language), keepExistingOnReject = true) }
             if (attempt?.budgetExhausted == true) {
                 budgetExhausted = true

@@ -33,7 +33,7 @@ class AdminProcessedFoodManualService(
             } catch (e: DataIntegrityViolationException) {
                 return@repeat
             }
-            translations.translateNameInBackground(id, request.productName!!.trim())
+            translations.translateNameInBackground(id, request.productName!!.trim(), request.manufacturer)
             return processedFoods.getProcessedFoodDetail(id, null)
         }
         throw BusinessException(ErrorCode.INVALID_REQUEST)
@@ -45,7 +45,7 @@ class AdminProcessedFoodManualService(
             if (product.source != ProcessedFoodProduct.SOURCE_MANUAL) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_MANUAL)
             product.correctManually(snapshotOf(product.reportNo, request))
         }
-        translations.translateNameInBackground(id, request.productName!!.trim())
+        translations.translateNameInBackground(id, request.productName!!.trim(), request.manufacturer)
         return processedFoods.getProcessedFoodDetail(id, null)
     }
 
