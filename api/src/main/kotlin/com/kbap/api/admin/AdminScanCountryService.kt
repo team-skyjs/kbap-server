@@ -52,7 +52,7 @@ data class AdminScanCountryReport(
 data class AdminScanCountryRow(
     @field:Schema(description = "회원 국가 코드 — 미설정이면 null", nullable = true, example = "US")
     val countryCode: String?,
-    @field:Schema(description = "메뉴판 스캔 횟수 — 묶음 스캔 성공 1건 + 묶음에 안 묶인 단일 메뉴판 스캔 사진 1장")
+    @field:Schema(description = "메뉴판 스캔 횟수 — 묶음 스캔(배치)은 성공 1건, 단일 스캔(v1)은 시도 1건(성공 기록이 없어 묶음에 안 묶인 메뉴판 사진 업로드 1장 — 실패·포기한 단일 스캔과 묶음 등록 전에 끊긴 업로드도 센다)")
     val menuCount: Long,
     @field:Schema(description = "가공식품 스캔 횟수 — 이름 스캔 확정 + 성분표 분석 성공 각 1회")
     val packagedCount: Long,
