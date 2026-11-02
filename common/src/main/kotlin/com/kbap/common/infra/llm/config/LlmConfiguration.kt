@@ -1,5 +1,6 @@
 package com.kbap.common.infra.llm.config
 
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.IngredientDecider
 import com.kbap.common.port.llm.ProcessedFoodTextTranslator
@@ -111,18 +112,20 @@ class LlmConfiguration {
             .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
             .httpClientBuilderCustomizer { it.timeout(props.timeout) }
             .build()
-        val delegate = OpenAiTextTranslator(
-            chatModel = chatModel,
-            pricing = LlmPricing(
-                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-                usdToKrw = properties.usdToKrw,
-            ),
-            configuredModelName = props.model.orEmpty(),
-            eventPublisher = eventPublisher,
-            format = OpenAiTextTranslator.Format.PROCESSED_FOOD,
+        val pricing = LlmPricing(
+            inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+            outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+            usdToKrw = properties.usdToKrw,
         )
-        return ProcessedFoodTextTranslator(delegate::translate)
+        fun translator(format: OpenAiTextTranslator.Format) =
+            OpenAiTextTranslator(chatModel = chatModel, pricing = pricing, configuredModelName = props.model.orEmpty(), eventPublisher = eventPublisher, format = format)
+        val labelTranslator = translator(OpenAiTextTranslator.Format.PROCESSED_FOOD)
+        val nameTranslator = translator(OpenAiTextTranslator.Format.PROCESSED_FOOD_NAME)
+        return object : ProcessedFoodTextTranslator {
+            override fun translate(text: String, target: LanguageCode) = labelTranslator.translate(text, target)
+
+            override fun translateName(name: String, target: LanguageCode) = nameTranslator.translate(name, target)
+        }
     }
 
     @Bean

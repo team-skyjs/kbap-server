@@ -80,6 +80,14 @@ class AdminProcessedFoodManualTest : BehaviorSpec() {
                     get("/api/processed-foods?query=와사비맛").path("items").map { it.path("reportNo").asText() } shouldBe listOf("M000001")
                 }
             }
+            `when`("수동 상품에 승인된 누끼가 붙으면") {
+                then("이미지 출처 고지 키가 HACCP 가 아니라 수동 등록이다 — 공부 참고(#518)") {
+                    val id = create(wasabi).path("payload").path("id").asLong()
+                    execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.example.com/cutout/M000001.png', cutout_review_status = 'APPROVED' WHERE id = $id")
+
+                    get("/api/processed-foods/$id").path("image").path("attributionKey").asText() shouldBe "processedFood.image.manual"
+                }
+            }
             `when`("지워진 수동 키가 있어도") {
                 then("그 번호를 다시 쓰지 않고 다음 번호를 매긴다") {
                     execute(
