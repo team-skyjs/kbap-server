@@ -15,6 +15,7 @@ class FakeStorageObjectStore : StorageObjectStore {
     @Volatile var failDeletes: Boolean = false
     val failDeletePaths: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     val lastModified: MutableMap<String, java.time.Instant> = java.util.concurrent.ConcurrentHashMap()
+    val bodies: MutableMap<String, ByteArray> = java.util.concurrent.ConcurrentHashMap()
 
     fun stub(path: String, contentType: String, sizeBytes: Long, modifiedAt: java.time.Instant = java.time.Instant.now(), sha256Hex: String? = null) {
         heads[path] = StorageObjectMetadata(contentType, sizeBytes, modifiedAt, sha256Hex)
@@ -31,7 +32,10 @@ class FakeStorageObjectStore : StorageObjectStore {
     override fun put(path: String, bytes: ByteArray, contentType: String) {
         heads[path] = StorageObjectMetadata(contentType, bytes.size.toLong(), java.time.Instant.now())
         lastModified[path] = java.time.Instant.now()
+        bodies[path] = bytes
     }
+
+    override fun get(path: String): ByteArray? = bodies[path]
 
     override fun head(path: String): StorageObjectMetadata? {
         if (headDelayMillis > 0) Thread.sleep(headDelayMillis)
@@ -44,6 +48,7 @@ class FakeStorageObjectStore : StorageObjectStore {
         deleted.add(path)
         heads.remove(path)
         lastModified.remove(path)
+        bodies.remove(path)
     }
 }
 

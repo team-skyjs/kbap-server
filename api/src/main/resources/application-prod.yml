@@ -24,6 +24,10 @@ spring:
         enabled: ${REDIS_SSL_ENABLED:true}
 
 kbap:
+  processed-food:
+    # 번역 고정 S3 파일 드롭(S-943) — {key-prefix}/admin-imports/translation-overrides/pending/*.json 을 5분마다 처리. 끄려면 env 로 false.
+    pin-import:
+      enabled: ${PROCESSED_FOOD_PIN_IMPORT_ENABLED:true}
   curation:
     environment: prod
   storage:
