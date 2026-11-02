@@ -11,6 +11,7 @@ import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.util.RamyeonSpelling
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -46,8 +47,9 @@ class ProcessedFoodService(
         val filter = verdicts.takeIf { it.isNotEmpty() }?.let { memberId }?.let { memberService.getAvoidance(it) }?.takeIf { it.chosen.isNotEmpty() }
             ?.let { VerdictFilter(it, verdicts) }
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
-        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
+        val nameTokens = tokens.map(RamyeonSpelling::koreanTokenOf).distinct()
+        val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
             .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
             .groupBy(::groupKeyOf).values.map { group -> group.sortedWith(representativeOrder) }
         val rankedById = ranked.flatten().associateBy { it.id }
