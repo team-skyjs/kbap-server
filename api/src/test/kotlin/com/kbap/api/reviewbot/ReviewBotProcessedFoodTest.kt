@@ -203,9 +203,9 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
 
             `when`("limit 이 작으면") {
                 then("그만큼만 쓰고 다음 호출이 이어서 쓴다") {
-                    bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 5).written shouldBe 2
-                    bot.run("dev", dryRun = false, limit = 2, ids = listOf(kick), topLines = null, seed = 5).written shouldBe 2
-                    botReviews(kick).size shouldBe 4
+                    bot.run("dev", dryRun = false, limit = 1, ids = listOf(kick), topLines = null, seed = 5).written shouldBe 1
+                    bot.run("dev", dryRun = false, limit = 1, ids = listOf(kick), topLines = null, seed = 5).written shouldBe 1
+                    botReviews(kick).size shouldBe 2
                 }
             }
 

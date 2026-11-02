@@ -49,7 +49,8 @@ class ProcessedFoodNameScanService(
                 lifecycle = state.name,
                 initialLanguage = language,
                 fxState = FX_STATE,
-                requestDocument = mapOf("ocrText" to ocrText, "candidates" to candidates.map { it.reportNo }, "boostedReportNos" to ranked.boostedReportNos),
+                requestDocument = mapOf("ocrText" to ocrText, "candidates" to candidates.map { it.reportNo }, "boostedReportNos" to ranked.boostedReportNos) +
+                    listOfNotNull(imagePath?.let { "imagePath" to it }),
                 limitsVersion = LIMITS_VERSION,
                 expiresAt = now.plus(CANDIDATES_TTL),
                 resultExpiresAt = now.plus(RESULT_TTL),
