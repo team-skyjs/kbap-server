@@ -88,6 +88,14 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Ottogi Kimchi Ramen", "오뚜기 김치라면") }
             }
         }
+        `when`("공식 라틴 표기 바로 옆에 가나·한자 서술어가 붙으면 — Codex P2(#524)") {
+            then("라틴 낱말 경계만 보므로 통과하고, 공식 표기가 더 긴 라틴 낱말의 일부면 계속 거절한다") {
+                ProcessedFoodNamePrompt.parse("Fantaオレンジ", "환타 오렌지").text shouldBe "Fantaオレンジ"
+                ProcessedFoodNamePrompt.parse("Jagabee咸味", "자가비 짭짤한맛").text shouldBe "Jagabee咸味"
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Fantastic Orange", "환타 오렌지") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Fanta2 Orange", "환타 오렌지") }
+            }
+        }
         `when`("우유를 표기하면(예진 11/2 — Uyu 금지)") {
             then("우유는 설명어라 Milk 로 옮기고 Uyu 로마자는 거절한다, 빙그레 바나나맛·딸기맛 우유는 사전 표기") {
                 ProcessedFoodNamePrompt.system(LanguageCode.EN, "매일우유").contains("Milk") shouldBe true
