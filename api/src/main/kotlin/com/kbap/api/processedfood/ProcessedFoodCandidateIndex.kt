@@ -116,7 +116,7 @@ class ProcessedFoodCandidateIndex(
             .mapValues { (_, keys) -> keys.toSet() }
         return entries.map { entry ->
             if (ProcessedFoodGrouping.makerKeyOf(entry.displayMaker).isNotEmpty()) return@map entry
-            knownByName[entry.normalizedName]?.singleOrNull()?.let { entry.copy(groupKey = it) } ?: entry
+            knownByName[entry.groupKey.substringBeforeLast('|')]?.singleOrNull()?.let { entry.copy(groupKey = it) } ?: entry
         }
     }
 
