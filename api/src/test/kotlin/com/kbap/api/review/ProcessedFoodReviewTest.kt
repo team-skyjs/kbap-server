@@ -77,8 +77,8 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                 viewer?.let { header("Authorization", "Bearer ${token(it)}") }
             }.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         )
-        fun foodReview(author: Member): Long {
-            val food = foods.save(Food(koreanName = "가공리뷰음식", description = "설명", contentStatus = FoodContentStatus.READY))
+        fun foodReview(author: Member, foodName: String = "가공리뷰음식"): Long {
+            val food = foods.save(Food(koreanName = foodName, description = "설명", contentStatus = FoodContentStatus.READY))
             return json(
                 mvc.post("/api/reviews") {
                     header("X-API-Version", "1.0")
@@ -195,7 +195,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
             }
             `when`("3.2 피드를 최신순으로 보면 — 작성일을 과거로 둔 리뷰(KB-966)") {
                 then("id 가 아니라 작성일(created_at) 내림차순으로 섞이고, 리뷰 id 커서로 그 다음부터 이어진다") {
-                    val foodIds = (1..3).map { foodReview(member("pfr-latest-food-$it")) }
+                    val foodIds = (1..3).map { foodReview(member("pfr-latest-food-$it"), "최신음식$it") }
                     val productId = product("최신과자")
                     val productIds = (1..3).map { write(productId, member("pfr-latest-pf-$it")).path("payload").path("reviewId").asLong() }
                     listOf(foodIds[0] to 1, productIds[0] to 2, foodIds[1] to 3, productIds[1] to 4, foodIds[2] to 5, productIds[2] to 6).forEach { (id, hoursAgo) ->
