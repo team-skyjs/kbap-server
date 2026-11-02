@@ -75,6 +75,19 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                 ).forEach { (source, output) -> shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse(output, source) } }
             }
         }
+        `when`("라면을 표기하면(예진 11/2 — 한국 라면은 Ramyeon)") {
+            then("Ramyeon 은 통과·Ramyun 은 Ramyeon 으로 바꾸고, 원문에 라멘이 없는데 Ramen 이면 거절, 일본식 라멘만 Ramen 허용") {
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "신라면").contains("Ramyeon") shouldBe true
+                ProcessedFoodNamePrompt.officialLatinOf("신라면") shouldBe "Shin Ramyeon"
+                ProcessedFoodNamePrompt.parse("Shin Ramyeon", "신라면").text shouldBe "Shin Ramyeon"
+                ProcessedFoodNamePrompt.parse("Shin Ramyun", "신라면").text shouldBe "Shin Ramyeon"
+                ProcessedFoodNamePrompt.parse("Neoguri Ramyeon Mild", "너구리 순한맛").text shouldBe "Neoguri Ramyeon Mild"
+                ProcessedFoodNamePrompt.parse("Miso Ramen", "미소라멘").text shouldBe "Miso Ramen"
+                ProcessedFoodNamePrompt.parse("Buldak Bokkeum-myeon", "불닭볶음면").text shouldBe "Buldak Bokkeum-myeon"
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Jin Ramen Mild", "진라면 순한맛") }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Ottogi Kimchi Ramen", "오뚜기 김치라면") }
+            }
+        }
         `when`("뜻으로 옮긴 번역(dev 실측)을 검사하면") {
             then("거절한다 — 원문 첫 소리와 안 맞음·공식 표기 누락·라틴 브랜드 없음·물음표·여러 줄") {
                 listOf(

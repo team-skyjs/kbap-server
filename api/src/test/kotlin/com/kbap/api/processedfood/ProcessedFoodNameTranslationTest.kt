@@ -52,6 +52,13 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
             "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) " +
                 "VALUES ('PF_NAME', $id, 'en', 'stale', 'Premonition', NULL, 'ACTIVE', NOW(6), NOW(6))",
         )
+        fun seedWith(reportNo: String, name: String, maker: String, foodType: String): Long {
+            execute(
+                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, raw_materials, allergens, source, content_hash, collected_at, last_seen_at, status, created_at, updated_at) " +
+                    "VALUES ('$reportNo', '$name', '${ProcessedFoodSnapshot.normalizeName(name)}', '$foodType', '$maker', '소맥분(밀), 설탕', '밀 함유', 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+            )
+            return dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery("SELECT id FROM processed_food_product WHERE report_no = '$reportNo'").use { r -> r.next(); r.getLong(1) } } }
+        }
         fun storedName(id: Long, language: String): String? = rows.findByTargetTypeAndTargetIdAndLanguage(TranslationTargetType.PF_NAME, id, language)?.translatedText
         fun regenerate(target: String, body: Map<String, Any?>, expected: Int = 200): JsonNode = mapper.readTree(
             mockMvc.post("/api/admin/processed-foods/translations/names/regenerate") {
@@ -126,6 +133,31 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                     p.path("failedProductIds").map { it.asLong() } shouldBe listOf(good)
                     storedName(bad, "en") shouldBe "예감"
                     storedName(good, "en") shouldBe "Yegam Original"
+                }
+            }
+        }
+
+        given("제조사 접두와 스낵면 분류(KB-960)") {
+            `when`("상품명 앞에 제조사가 붙어 있으면") {
+                then("이름 번역 원문에서 제조사를 빼되, 공식 상품명에 브랜드가 들어가는 사전 항목은 그대로 둔다") {
+                    val snack = seedWith("NT-11", "오뚜기 뿌셔뿌셔 떡볶이맛", "오뚜기", "유탕면류")
+                    val milk = seedWith("NT-12", "빙그레 바나나맛 우유", "빙그레", "가공유")
+                    listOf(snack, milk).forEach { id -> mockMvc.get("/api/processed-foods/$id?lang=en") { header("X-API-Version", "3.2") }.andExpect { status { isOk() } } }
+                    translations.awaitIdle()
+
+                    translator.nameCalls.map { it.first }.toSet() shouldBe setOf("뿌셔뿌셔 떡볶이맛", "빙그레 바나나맛 우유")
+                }
+            }
+            `when`("유탕면류로 등록된 스낵면(뿌셔뿌셔)을 보면") {
+                then("유형 칩은 라면이 아니라 과자다") {
+                    seedWith("NT-13", "오뚜기 뿌셔뿌셔 불고기맛", "오뚜기", "유탕면류")
+                    val items = mapper.readTree(
+                        mockMvc.get("/api/processed-foods?query=뿌셔뿌셔") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("items")
+                    items[0].path("type").asText() shouldBe "SNACKS"
+                    mapper.readTree(
+                        mockMvc.get("/api/processed-foods?query=뿌셔뿌셔&type=RAMEN") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("items").size() shouldBe 0
                 }
             }
         }
