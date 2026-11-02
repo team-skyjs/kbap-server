@@ -7,7 +7,7 @@ data class FoodListingRequest(
     @field:NotBlank
     @field:Schema(description = "표시 및 정렬 언어. ko, zh-Hans, en, ja, zh-Hant, vi, id, th, ru, es. 미지원 값은 en", requiredMode = Schema.RequiredMode.REQUIRED)
     val lang: String,
-    @field:Schema(description = "기본순 또는 실제 표시 이름 정순/역순", allowableValues = ["default", "name_asc", "name_desc"], defaultValue = "default")
+    @field:Schema(description = "기본순, 실제 표시 이름 정순/역순, 또는 리뷰 많은 순(reviews — KB-956)", allowableValues = ["default", "name_asc", "name_desc", "reviews"], defaultValue = "default")
     val sort: String? = null,
     @field:Schema(description = "직전 nextCursor를 그대로 전달하는 불투명 문자열. 숫자 커서·언어/정렬/필터/회원 불일치: 400 FOOD-002. 목록 변경: 409 FOOD-022, 첫 페이지부터 재조회")
     val cursor: String? = null,
@@ -15,7 +15,8 @@ data class FoodListingRequest(
     val risk: String? = null,
 )
 
-const val FOOD_LISTING_DESCRIPTION = "명시적 X-API-Version 3.1 이상 계약. sort=default(기본), name_asc, name_desc. " +
+const val FOOD_LISTING_DESCRIPTION = "명시적 X-API-Version 3.1 이상 계약. sort=default(기본), name_asc, name_desc, reviews. " +
+    "reviews 는 활성 리뷰 수 내림차순, 같으면 평균 별점 내림차순, 그다음 foodId 내림차순이다(리뷰 수·평균이 바뀌면 커서는 409 FOOD-022). " +
     "실제 표시 이름의 로케일 순서와 foodId로 정렬하고 역순은 두 기준 모두 반전한다. " +
     "ICU 77.1, 자연수 비교, 대소문자 동률·악센트 구분, 중국어 간체 pinyin/번체 stroke. " +
     "번역 누락은 한국어 표시명 그대로 비교한다. 기존 전체 기본순은 foodId 내림차순이다. " +
