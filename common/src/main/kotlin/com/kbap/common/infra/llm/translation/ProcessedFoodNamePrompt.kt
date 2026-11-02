@@ -43,7 +43,7 @@ object ProcessedFoodNamePrompt {
         reject(latinWords.isEmpty(), "가공식품 이름 번역에 라틴 표기 브랜드가 없다")
         val official = officialLatinOf(source)
         if (official != null) {
-            reject(!Regex("(?i)(?<!\\p{L})" + Regex.escape(official) + "(?!\\p{L})").containsMatchIn(name), "가공식품 이름 번역이 공식 라틴 표기($official)를 낱말 그대로 쓰지 않았다")
+            reject(!latinWord(Regex.escape(official)).containsMatchIn(name), "가공식품 이름 번역이 공식 라틴 표기($official)를 낱말 그대로 쓰지 않았다")
             return TranslatedText(name, null)
         }
         val sourceLatin = LATIN_WORD.findAll(source).map { it.value.lowercase() }.toSet()
@@ -61,9 +61,10 @@ object ProcessedFoodNamePrompt {
     private const val INITIAL_STRIDE = 588
     private val LATIN_WORD = Regex("\\p{IsLatin}+")
     private val WHITESPACE = Regex("\\s+")
-    private val RAMYUN = Regex("(?i)(?<!\\p{L})ramyun(?!\\p{L})")
-    private val RAMEN = Regex("(?i)(?<!\\p{L})ramen(?!\\p{L})")
-    private val UYU = Regex("(?i)(?<!\\p{L})uyu(?!\\p{L})")
+    private fun latinWord(pattern: String) = Regex("(?i)(?<![A-Za-z0-9])$pattern(?![A-Za-z0-9])")
+    private val RAMYUN = latinWord("ramyun")
+    private val RAMEN = latinWord("ramen")
+    private val UYU = latinWord("uyu")
     private val INITIALS: List<String> = listOf(
         "gk", "kg", "n", "dt", "td", "rl", "m", "bp", "pb", "s", "s", "aeiouyw", "jcz", "jcz", "cj", "kc", "t", "pf", "h",
     )
