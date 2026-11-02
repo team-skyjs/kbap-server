@@ -365,7 +365,7 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     val most = (rows("SELECT MAX(c) FROM (SELECT COUNT(*) c FROM food_review r JOIN member m ON m.id = r.member_id WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.target_type = 'PROCESSED_FOOD' GROUP BY r.processed_food_id) t").single().single() as Number).toInt()
                     val error = shouldThrow<BusinessException> { bot.redistribute("dev", days = 1, dryRun = true, seed = 1) }
                     error.errorCode shouldBe ErrorCode.INVALID_REQUEST
-                    (error.payload as Map<*, *>)["minDays"] shouldBe most
+                    ((error.payload as Map<*, *>)["minDays"] as Int) shouldBeInRange most..most + 1
                 }
             }
             `when`("기존 봇 리뷰를 재분산하면") {

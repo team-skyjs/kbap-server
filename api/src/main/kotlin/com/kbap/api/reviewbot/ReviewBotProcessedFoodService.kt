@@ -79,6 +79,8 @@ class ReviewBotProcessedFoodService(
         val failed = linkedSetOf<Long>()
         var planned = 0
         var written = 0
+        var skippedForDays = 0
+        val dayCapacity = spreadDays?.let { availableDaysOf(it, LocalDateTime.now()) } ?: Int.MAX_VALUE
         for ((rank, product) in targets) {
             if (planned >= limit) break
             val members = candidateIndex.groupMemberIds(product.id)
@@ -87,7 +89,9 @@ class ReviewBotProcessedFoodService(
             val need = targetCountOf(rank, random) - reviewed.size
             val eligible = bots.filterNot { it.id in reviewed.keys }.sortedBy { it.id }.shuffled(random)
             var earlier = reviewed.values.lastOrNull()
-            val writers = eligible.take(maxOf(0, minOf(need, limit - planned)))
+            val wanted = maxOf(0, minOf(need, limit - planned))
+            val writers = eligible.take(minOf(wanted, dayCapacity))
+            skippedForDays += minOf(wanted, eligible.size) - writers.size
             val dates = spreadDays?.let { spreadDatesOf(writers.size, it, LocalDateTime.now(), random) } ?: createdAtsOf(writers.size, latestReviewAtOf(members), random)
             val pool = availableByKey[ReviewBotPhotoPool.keyOf(PHOTO_KEY_PREFIX + product.reportNo)].orEmpty()
             val usedPhotos = usedPhotosOf(members).toMutableSet()
@@ -113,7 +117,7 @@ class ReviewBotProcessedFoodService(
                 )
             }
         }
-        return ReviewBotProcessedFoodRunResult(dryRun, runSeed, targets.size, planned, written, failed.toList(), items)
+        return ReviewBotProcessedFoodRunResult(dryRun, runSeed, targets.size, planned, written, failed.toList(), items, skippedForDays)
     }
 
     private fun targetsOf(ids: List<Long>?, topLines: Int?): List<Pair<Int, ProcessedFoodProduct>> {
@@ -254,6 +258,11 @@ class ReviewBotProcessedFoodService(
                 "WHERE m.is_bot = 1 AND r.status = 'ACTIVE' AND r.target_type = 'PROCESSED_FOOD' ORDER BY r.id",
         ) { rs, _ -> Triple(rs.getLong(1), rs.getLong(2), rs.getTimestamp(3).toLocalDateTime()) }
         val now = LocalDateTime.now()
+        val most = rows.groupingBy { it.second }.eachCount().values.maxOrNull() ?: 0
+        if (most > availableDaysOf(days, now)) {
+            val minDays = (days..SPREAD_DAYS_RANGE.last + 1).first { it > SPREAD_DAYS_RANGE.last || availableDaysOf(it, now) >= most }
+            throw BusinessException(ErrorCode.INVALID_REQUEST, mapOf("minDays" to minDays, "maxReviewsPerProduct" to most))
+        }
         val changes = rows.groupBy { it.second }.flatMap { (productId, reviews) ->
             val dates = spreadDatesOf(reviews.size, days, now, Random(seed * SEED_SPREAD + productId))
             reviews.zip(dates) { (id, _, before), after -> ReviewBotRedistributeChange(id, productId, before, after) }
@@ -273,12 +282,15 @@ class ReviewBotProcessedFoodService(
         return ReviewBotRedistributeResult(dryRun, days, rows.map { it.second }.distinct().size, changes.size, changes.take(SAMPLE_SIZE))
     }
 
+    private fun todayUsable(now: LocalDateTime): Boolean = now.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL).hour > SPREAD_FIRST_HOUR
+
+    private fun availableDaysOf(days: Int, now: LocalDateTime): Int = if (todayUsable(now)) days else maxOf(1, days - 1)
+
     private fun spreadDatesOf(count: Int, days: Int, now: LocalDateTime, random: Random): List<LocalDateTime> {
         if (count == 0) return emptyList()
         val nowSeoul = now.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL)
-        val todayUsable = nowSeoul.hour > SPREAD_FIRST_HOUR
-        val newest = if (todayUsable) nowSeoul.toLocalDate() else nowSeoul.toLocalDate().minusDays(1)
-        val span = if (todayUsable) days else maxOf(1, days - 1)
+        val newest = if (todayUsable(now)) nowSeoul.toLocalDate() else nowSeoul.toLocalDate().minusDays(1)
+        val span = availableDaysOf(days, now)
         return List(count) { index ->
             val from = index * span / count
             val until = maxOf(from + 1, (index + 1) * span / count)
@@ -340,6 +352,8 @@ data class ReviewBotProcessedFoodRunResult(
     val failedProductIds: List<Long>,
     @field:Schema(description = "만든(dryRun 이면 만들 뻔한) 리뷰 미리보기")
     val items: List<ReviewBotProcessedFoodItem>,
+    @field:Schema(description = "spreadDays 의 쓸 수 있는 날 수(상품당 하루 1건)를 넘어 이번에 쓰지 않은 리뷰 수 — 더 긴 spreadDays 로 다시 부르면 채운다")
+    val skippedForDays: Int = 0,
 )
 
 @Schema(description = "가공식품 봇 리뷰 한 건(미리보기 또는 저장분)")
