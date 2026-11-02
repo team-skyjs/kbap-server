@@ -104,6 +104,18 @@ class AdminProcessedFoodManualTest : BehaviorSpec() {
                     translations.awaitIdle()
                     translator.nameCalls.map { it.first }.toSet() shouldBe setOf("와사비맛 아몬드 대용량")
                 }
+                then("고정된 (상품, 언어)는 정정해도 다시 번역하지 않는다 — KB-960 후속") {
+                    val id = create(wasabi + ("productName" to "와사비 아몬드 고정")).path("payload").path("id").asLong()
+                    translations.awaitIdle()
+                    execute(
+                        "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) " +
+                            "VALUES ('PF_NAME_PINNED', $id, 'en', 'pin', 'Wasabi Almond', NULL, 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                    translator.reset()
+                    update(id, wasabi + ("productName" to "와사비 아몬드 고정 대용량"))
+                    translations.awaitIdle()
+                    translator.nameCalls.map { it.second }.toSet() shouldBe LanguageCode.entries.filter { it != LanguageCode.KO && it != LanguageCode.EN }.toSet()
+                }
                 then("제조사 원문(㈜오뚜기)이 아니라 표시 제조사 기준으로 접두를 뺀다 — Codex P2(#524)") {
                     translator.reset()
                     create(wasabi + ("productName" to "오뚜기 뿌셔뿌셔 양념치킨맛") + ("manufacturer" to "㈜오뚜기"))
