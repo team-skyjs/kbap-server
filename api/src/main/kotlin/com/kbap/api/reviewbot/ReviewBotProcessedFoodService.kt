@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service
 import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.roundToInt
@@ -80,7 +81,6 @@ class ReviewBotProcessedFoodService(
         var planned = 0
         var written = 0
         var skippedForDays = 0
-        val dayCapacity = spreadDays?.let { availableDaysOf(it, LocalDateTime.now()) } ?: Int.MAX_VALUE
         for ((rank, product) in targets) {
             if (planned >= limit) break
             val members = candidateIndex.groupMemberIds(product.id)
@@ -90,9 +90,11 @@ class ReviewBotProcessedFoodService(
             val eligible = bots.filterNot { it.id in reviewed.keys }.sortedBy { it.id }.shuffled(random)
             var earlier = reviewed.values.lastOrNull()
             val wanted = maxOf(0, minOf(need, limit - planned))
-            val writers = eligible.take(minOf(wanted, dayCapacity))
+            val now = LocalDateTime.now()
+            val spreadDayList = spreadDays?.let { spreadDaysOf(it, now, latestReviewAtOf(members)) }
+            val writers = eligible.take(minOf(wanted, spreadDayList?.size ?: Int.MAX_VALUE))
             skippedForDays += minOf(wanted, eligible.size) - writers.size
-            val dates = spreadDays?.let { spreadDatesOf(writers.size, it, LocalDateTime.now(), random) } ?: createdAtsOf(writers.size, latestReviewAtOf(members), random)
+            val dates = spreadDayList?.let { spreadDatesOf(writers.size, it, now, random) } ?: createdAtsOf(writers.size, latestReviewAtOf(members), random)
             val pool = availableByKey[ReviewBotPhotoPool.keyOf(PHOTO_KEY_PREFIX + product.reportNo)].orEmpty()
             val usedPhotos = usedPhotosOf(members).toMutableSet()
             val photoSlots = writers.indices.shuffled(random).take((writers.size * PHOTO_SHARE).roundToInt()).toSet()
@@ -259,12 +261,12 @@ class ReviewBotProcessedFoodService(
         ) { rs, _ -> Triple(rs.getLong(1), rs.getLong(2), rs.getTimestamp(3).toLocalDateTime()) }
         val now = LocalDateTime.now()
         val most = rows.groupingBy { it.second }.eachCount().values.maxOrNull() ?: 0
-        if (most > availableDaysOf(days, now)) {
-            val minDays = (days..SPREAD_DAYS_RANGE.last + 1).first { it > SPREAD_DAYS_RANGE.last || availableDaysOf(it, now) >= most }
+        if (most > spreadDaysOf(days, now, null).size) {
+            val minDays = (days..SPREAD_DAYS_RANGE.last + 1).first { it > SPREAD_DAYS_RANGE.last || spreadDaysOf(it, now, null).size >= most }
             throw BusinessException(ErrorCode.INVALID_REQUEST, mapOf("minDays" to minDays, "maxReviewsPerProduct" to most))
         }
         val changes = rows.groupBy { it.second }.flatMap { (productId, reviews) ->
-            val dates = spreadDatesOf(reviews.size, days, now, Random(seed * SEED_SPREAD + productId))
+            val dates = spreadDatesOf(reviews.size, spreadDaysOf(days, now, null), now, Random(seed * SEED_SPREAD + productId))
             reviews.zip(dates) { (id, _, before), after -> ReviewBotRedistributeChange(id, productId, before, after) }
         }
         if (!dryRun) {
@@ -284,17 +286,23 @@ class ReviewBotProcessedFoodService(
 
     private fun todayUsable(now: LocalDateTime): Boolean = now.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL).hour > SPREAD_FIRST_HOUR
 
-    private fun availableDaysOf(days: Int, now: LocalDateTime): Int = if (todayUsable(now)) days else maxOf(1, days - 1)
+    private fun spreadDaysOf(days: Int, now: LocalDateTime, after: LocalDateTime?): List<LocalDate> {
+        val today = now.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL).toLocalDate()
+        val newest = if (todayUsable(now)) today else today.minusDays(1)
+        val oldest = newest.minusDays(maxOf(1, if (todayUsable(now)) days else days - 1) - 1L)
+        val firstFree = after?.atZone(ZoneId.systemDefault())?.withZoneSameInstant(SEOUL)?.toLocalDate()?.plusDays(1)
+        val from = if (firstFree != null && firstFree.isAfter(oldest)) firstFree else oldest
+        return generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(newest) }.toList()
+    }
 
-    private fun spreadDatesOf(count: Int, days: Int, now: LocalDateTime, random: Random): List<LocalDateTime> {
-        if (count == 0) return emptyList()
+    private fun spreadDatesOf(count: Int, dayList: List<LocalDate>, now: LocalDateTime, random: Random): List<LocalDateTime> {
+        if (count == 0 || dayList.isEmpty()) return emptyList()
         val nowSeoul = now.atZone(ZoneId.systemDefault()).withZoneSameInstant(SEOUL)
-        val newest = if (todayUsable(now)) nowSeoul.toLocalDate() else nowSeoul.toLocalDate().minusDays(1)
-        val span = availableDaysOf(days, now)
+        val span = dayList.size
         return List(count) { index ->
             val from = index * span / count
             val until = maxOf(from + 1, (index + 1) * span / count)
-            val day = newest.minusDays(random.nextInt(from, until).toLong())
+            val day = dayList[random.nextInt(from, until)]
             val lastHour = if (day == nowSeoul.toLocalDate()) nowSeoul.hour - 1 else SPREAD_LAST_HOUR
             day.atTime(random.nextInt(SPREAD_FIRST_HOUR, lastHour + 1), random.nextInt(60), random.nextInt(60))
                 .atZone(SEOUL).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime()
