@@ -202,6 +202,8 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     cards("ko").getValue(pinned).path("name").asText() shouldBe "고정과자"
                     get("/api/reviews/me?lang=en", "3.2", author).path("payload").path("items")[0].path("processedFood").path("name").asText() shouldBe "Pinned Snack"
                     get("/api/processed-foods/$pinned/reviews?lang=en", "3.2").path("payload").path("items")[0].path("processedFood").path("name").asText() shouldBe "Pinned Snack"
+                }
+            }
             `when`("3.2 피드를 targetType 으로 거르면(KB-966)") {
                 then("FOOD 는 음식 리뷰만, PROCESSED_FOOD 는 가공식품 리뷰만, ALL(기본)은 둘 다, 그 외 값은 400 이고 3.1 은 그대로다") {
                     val author = member("pfr-target")
