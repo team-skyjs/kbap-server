@@ -178,6 +178,38 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     get("/api/reviews/me?lang=en", "3.1", author).path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(foodReviewId)
                 }
             }
+            `when`("3.2 피드를 targetType 으로 거르면(KB-966)") {
+                then("FOOD 는 음식 리뷰만, PROCESSED_FOOD 는 가공식품 리뷰만, ALL(기본)은 둘 다, 그 외 값은 400 이고 3.1 은 그대로다") {
+                    val author = member("pfr-target")
+                    val foodReviewId = foodReview(author)
+                    val productReviewId = write(product("거름과자"), author).path("payload").path("reviewId").asLong()
+                    fun ids(query: String, version: String = "3.2") = get("/api/reviews?lang=en$query", version).path("payload").path("items").map { it.path("reviewId").asLong() }
+                    ids("") shouldBe listOf(productReviewId, foodReviewId)
+                    ids("&targetType=ALL") shouldBe listOf(productReviewId, foodReviewId)
+                    ids("&targetType=FOOD") shouldBe listOf(foodReviewId)
+                    ids("&targetType=PROCESSED_FOOD") shouldBe listOf(productReviewId)
+                    ids("&targetType=PROCESSED_FOOD&minRating=5") shouldBe emptyList()
+                    get("/api/reviews?lang=en&targetType=PACKAGED", "3.2", expected = 400)
+                    ids("", "3.1") shouldBe listOf(foodReviewId)
+                }
+            }
+            `when`("3.2 피드를 최신순으로 보면 — 작성일을 과거로 둔 리뷰(KB-966)") {
+                then("id 가 아니라 작성일(created_at) 내림차순으로 섞이고, 리뷰 id 커서로 그 다음부터 이어진다") {
+                    val foodIds = (1..3).map { foodReview(member("pfr-latest-food-$it")) }
+                    val productId = product("최신과자")
+                    val productIds = (1..3).map { write(productId, member("pfr-latest-pf-$it")).path("payload").path("reviewId").asLong() }
+                    listOf(foodIds[0] to 1, productIds[0] to 2, foodIds[1] to 3, productIds[1] to 4, foodIds[2] to 5, productIds[2] to 6).forEach { (id, hoursAgo) ->
+                        sql("UPDATE food_review SET created_at = NOW(6) - INTERVAL ${hoursAgo * 10} HOUR, updated_at = created_at WHERE id = $id")
+                    }
+                    val expected = listOf(foodIds[0], productIds[0], foodIds[1], productIds[1], foodIds[2], productIds[2])
+                    val first = get("/api/reviews?lang=en&sort=latest", "3.2").path("payload")
+                    first.path("items").map { it.path("reviewId").asLong() } shouldBe expected
+                    get("/api/reviews?lang=en&sort=latest", "3.1").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe foodIds.reversed()
+
+                    val second = first.path("items")[1].path("reviewId").asLong()
+                    get("/api/reviews?lang=en&sort=latest&cursor=$second", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected.drop(2)
+                }
+            }
             `when`("3.2 피드를 리뷰 많은 순(food_review_count)으로 보면 — Codex P2") {
                 then("음식은 그 음식, 가공식품은 그 제품의 리뷰 수로 정렬된다") {
                     val foodReviewId = foodReview(member("pfr-sort-food"))
