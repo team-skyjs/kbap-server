@@ -98,7 +98,7 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
             JOIN scan_operation o ON o.id = p.operation_id WHERE :includeMenu AND o.member_id = :memberId AND o.status = 'ACTIVE' AND p.status = 'ACTIVE'
             UNION ALL
             SELECT u.object_path AS path, u.created_at, 'PACKAGED' AS scan_type FROM uploaded_image u
-            WHERE :includePackaged AND u.member_id = :memberId AND u.status = 'ACTIVE' AND locate(concat('/', :packagedSegment, '/'), concat('/', u.object_path)) > 0
+            WHERE :includePackaged AND u.member_id = :memberId AND u.status = 'ACTIVE' AND locate(:packagedSegment, u.object_path) > 0
         """
     }
 }

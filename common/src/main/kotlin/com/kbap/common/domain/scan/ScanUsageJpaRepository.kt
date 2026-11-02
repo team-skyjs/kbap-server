@@ -17,7 +17,7 @@ interface ScanUsageJpaRepository : JpaRepository<ScanUsage, Long> {
             WHERE s.status = 'ACTIVE' AND s.recorded_at >= :since AND o.key_namespace IN ('SCAN_BATCH', 'PFOOD_NAME', 'PFOOD_LABEL')
             UNION ALL
             SELECT u.member_id, 'MENU' AS scan_type FROM uploaded_image u
-            WHERE u.created_at >= :since AND locate(concat('/', :menuSegment, '/'), concat('/', u.object_path)) > 0
+            WHERE u.created_at >= :since AND locate(:menuSegment, u.object_path) > 0
               AND NOT EXISTS (SELECT 1 FROM scan_operation_photo p WHERE p.uploaded_image_id = u.id)
         ) x JOIN member m ON m.id = x.member_id
         WHERE m.is_bot = 0 AND x.member_id NOT IN (:excludedMemberIds)

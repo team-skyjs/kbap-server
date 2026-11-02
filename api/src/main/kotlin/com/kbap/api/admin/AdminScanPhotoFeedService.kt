@@ -68,7 +68,7 @@ class AdminScanPhotoFeedService(
         private const val NO_MEMBER_ID = 0L
 
         fun scanTypeOf(path: String): ScanPhotoType =
-            if ("/${UploadPurpose.PACKAGED_SCAN.segment}/" in "/$path") ScanPhotoType.PACKAGED else ScanPhotoType.MENU
+            if (UploadPurpose.PACKAGED_SCAN.segment in path) ScanPhotoType.PACKAGED else ScanPhotoType.MENU
 
         fun processedFoodNamesOf(repository: ProcessedFoodProductJpaRepository, ids: List<Long>): Map<Long, String> =
             if (ids.isEmpty()) emptyMap() else repository.findAllById(ids.distinct()).associate { it.id to it.productName }

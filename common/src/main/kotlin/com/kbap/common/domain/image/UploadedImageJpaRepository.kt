@@ -90,8 +90,8 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
                 ORDER BY so.id DESC LIMIT 1) AS processedFoodId
         FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id
         WHERE u.status = 'ACTIVE' AND u.id < :beforeId
-          AND ((:includeMenu AND locate(concat('/', :menuSegment, '/'), concat('/', u.object_path)) > 0)
-            OR (:includePackaged AND locate(concat('/', :packagedSegment, '/'), concat('/', u.object_path)) > 0))
+          AND ((:includeMenu AND locate(:menuSegment, u.object_path) > 0)
+            OR (:includePackaged AND locate(:packagedSegment, u.object_path) > 0))
           AND m.is_bot = :isBot AND (:memberId IS NULL OR u.member_id = :memberId) AND u.member_id NOT IN (:excludedMemberIds)
         ORDER BY u.id DESC LIMIT :limit
     """)
