@@ -200,7 +200,7 @@ data class ReviewProcessedFoodResponse(
     @field:Schema(description = "제품 이미지 URL — 없으면 null", nullable = true)
     val imageUrl: String?,
     @field:Schema(
-        description = "요청 언어 제품명 — 가공식품 목록 name 과 같은 규칙(고정 번역 → 저장된 번역 → 없으면 원문, 원문이면 뒤에서 번역해 다음 조회부터 번역). 한국어면 원문. 앱은 이 값을 표시하고 productName 은 원문 참고용",
+        description = "요청 언어 제품명 — 고정 번역 → 저장된 번역 → 저장된 번역이 없으면 원문(리뷰 조회는 번역을 예약하지 않음). 한국어면 원문. 앱은 이 값을 표시하고 productName 은 원문 참고용",
         example = "Saeukkang",
     )
     val name: String = productName,
