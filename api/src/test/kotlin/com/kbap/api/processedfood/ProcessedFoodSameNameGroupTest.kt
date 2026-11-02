@@ -15,6 +15,7 @@ import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -67,6 +68,24 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                     found.contains("SV-4") shouldBe true
                     reportNos(get("/api/processed-foods?size=50")).count { it in setOf("SV-1", "SV-2", "SV-3") } shouldBe 1
                     get("/api/processed-foods/$cup").path("sameNameProducts").map { it.path("id").asLong() }.sorted() shouldBe listOf(bag, cup, bowl).sorted()
+                }
+            }
+            `when`("신라면 앞면을 이름 스캔하면 — Codex P2(#530)") {
+                then("후보에 신라면 묶음은 1건이다(카탈로그 부스트 행과 같은 묶음 변형이 따로 나오지 않는다)") {
+                    seed("SV-1", "신라면", "농심")
+                    seed("SV-2", "신라면컵", "농심")
+                    seed("SV-3", "신라면 큰사발", "농심")
+                    FoodTestSeed.seedMemberAvoiding(dataSource, 95101L)
+                    val token = tokenIssuer.issueAccessToken(95101L, MemberRole.USER)
+                    val candidates = mapper.readTree(
+                        mockMvc.post("/api/processed-foods/scan/name") {
+                            header("X-API-Version", "3.2")
+                            header("Authorization", "Bearer $token")
+                            contentType = org.springframework.http.MediaType.APPLICATION_JSON
+                            content = mapper.writeValueAsString(mapOf("ocrText" to "농심\n신라면"))
+                        }.andExpect { status { isOk() } }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("candidates").map { it.path("reportNo").asText() }
+                    candidates.count { it in setOf("SV-1", "SV-2", "SV-3") } shouldBe 1
                 }
             }
         }
