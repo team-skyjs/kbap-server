@@ -77,6 +77,25 @@ class ProcessedFoodPinImportTest : BehaviorSpec() {
                     pins() shouldBe 12
                 }
             }
+            `when`("앞 파일의 보관(이동·삭제)이 실패하면 — Codex P2(#532)") {
+                then("그 실행의 나머지 파일을 멈춰, 다음 실행에서 앞 파일부터 다시 처리해도 뒤 파일의 새 값이 남는다") {
+                    val id = seed("IMP-4", "포카칩")
+                    drop("a.json", mapOf("kind" to "NAME", "items" to listOf(mapOf("productId" to id, "language" to "en", "name" to "Old Name"))))
+                    drop("b.json", mapOf("kind" to "NAME", "items" to listOf(mapOf("productId" to id, "language" to "en", "name" to "Pocachip"))))
+                    storage.failDeletePaths += "$root/pending/a.json"
+                    try {
+                        importer.runOnce()
+                        (storage.get("$root/pending/b.json") != null) shouldBe true
+                    } finally {
+                        storage.failDeletePaths.clear()
+                    }
+                    importer.runOnce()
+
+                    dataSource.connection.use { c -> c.createStatement().use { st -> st.executeQuery("SELECT translated_text FROM content_translation WHERE target_type = 'PF_NAME_PINNED' AND target_id = $id AND language = 'en'").use { r -> r.next(); r.getString(1) } } } shouldBe "Pocachip"
+                    storage.head("$root/pending/a.json") shouldBe null
+                    storage.head("$root/pending/b.json") shouldBe null
+                }
+            }
             `when`("JSON 이 깨졌거나 5,000건을 넘으면") {
                 then("failed 로 옮기고 사유를 쓰며 저장하지 않는다") {
                     val id = seed("IMP-3", "꼬북칩")
