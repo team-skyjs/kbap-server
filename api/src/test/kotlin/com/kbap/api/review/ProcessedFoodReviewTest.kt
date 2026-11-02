@@ -210,6 +210,18 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     get("/api/reviews?lang=en&sort=latest&cursor=$second", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected.drop(2)
                 }
             }
+            `when`("작성일이 같은 리뷰들 사이에서 커서로 이어 보면(KB-966 동률 경계)") {
+                then("같은 작성일은 id 내림차순이고, 커서 리뷰 다음부터 빠짐·중복 없이 이어진다") {
+                    val productId = product("동률과자")
+                    val ids = (1..4).map { write(productId, member("pfr-tie-$it")).path("payload").path("reviewId").asLong() }
+                    sql("UPDATE food_review SET created_at = '2026-10-01 12:00:00.000000', updated_at = created_at WHERE id IN (${ids.joinToString(",")})")
+                    val expected = ids.sortedDescending()
+                    get("/api/reviews?lang=en&sort=latest", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected
+                    expected.indices.forEach { i ->
+                        get("/api/reviews?lang=en&sort=latest&cursor=${expected[i]}", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected.drop(i + 1)
+                    }
+                }
+            }
             `when`("3.2 피드를 리뷰 많은 순(food_review_count)으로 보면 — Codex P2") {
                 then("음식은 그 음식, 가공식품은 그 제품의 리뷰 수로 정렬된다") {
                     val foodReviewId = foodReview(member("pfr-sort-food"))
