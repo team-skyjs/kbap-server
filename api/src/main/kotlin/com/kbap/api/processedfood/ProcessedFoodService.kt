@@ -64,7 +64,7 @@ class ProcessedFoodService(
         val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
             .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
         val featured = catalog.mapNotNull { product -> representativeOf(product, named)?.let { it to product } }
-            .distinctBy { it.first.id }
+            .distinctBy { groupKeyOf(it.first) }
         val featuredIds = featured.map { it.first.id }.toSet()
         val featuredGroups = featured.map { (row, _) -> groupKeyOf(row) }.toSet()
         val featuredByName = featured.flatMap { (_, product) -> namesOf(product).map { it.lowercase() to product } }.groupBy({ it.first }, { it.second })
