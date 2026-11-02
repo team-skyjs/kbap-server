@@ -44,6 +44,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
     @Autowired private lateinit var adminMembers: AdminMemberQueryService
     @Autowired private lateinit var uploadedImages: UploadedImageJpaRepository
     @Autowired private lateinit var processedFoodRepository: ProcessedFoodProductJpaRepository
+    @Autowired private lateinit var pfTranslations: com.kbap.api.processedfood.ProcessedFoodTranslationService
 
     private val mapper = jacksonObjectMapper()
 
@@ -176,6 +177,28 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     get("/api/reviews?lang=en", "3.1").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(foodReviewId)
                     get("/api/reviews/me?lang=en", "3.2", author).path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(productReviewId, foodReviewId)
                     get("/api/reviews/me?lang=en", "3.1", author).path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(foodReviewId)
+                }
+            }
+            `when`("리뷰 카드의 가공식품 이름을 외국어로 보면(S-942)") {
+                then("name 은 요청 언어(고정 → 저장된 번역 → 없으면 원문 뒤 번역 예약)이고 productName 은 원문 그대로이며, 한국어는 원문이다") {
+                    val pinned = product("고정과자")
+                    val translated = product("번역과자")
+                    val author = member("pfr-name")
+                    write(pinned, author)
+                    write(translated, member("pfr-name-2"))
+                    sql("INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) VALUES ('PF_NAME_PINNED', $pinned, 'en', 'pin', 'Pinned Snack', NULL, 'ACTIVE', NOW(6), NOW(6))")
+                    fun cards(lang: String) = get("/api/reviews?lang=$lang", "3.2").path("payload").path("items")
+                        .associate { it.path("processedFood").path("processedFoodId").asLong() to it.path("processedFood") }
+
+                    val first = cards("en")
+                    first.getValue(pinned).path("name").asText() shouldBe "Pinned Snack"
+                    first.getValue(pinned).path("productName").asText() shouldBe "고정과자"
+                    first.getValue(translated).path("name").asText() shouldBe "번역과자"
+                    pfTranslations.awaitIdle()
+                    cards("en").getValue(translated).path("name").asText() shouldBe "[en] 번역과자"
+                    cards("ko").getValue(pinned).path("name").asText() shouldBe "고정과자"
+                    get("/api/reviews/me?lang=en", "3.2", author).path("payload").path("items")[0].path("processedFood").path("name").asText() shouldBe "Pinned Snack"
+                    get("/api/processed-foods/$pinned/reviews?lang=en", "3.2").path("payload").path("items")[0].path("processedFood").path("name").asText() shouldBe "Pinned Snack"
                 }
             }
             `when`("3.2 피드를 리뷰 많은 순(food_review_count)으로 보면 — Codex P2") {
