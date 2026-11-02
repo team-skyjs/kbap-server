@@ -2,7 +2,8 @@ package com.kbap.common.infra.llm.translation
 
 import com.kbap.common.domain.LanguageCode
 import io.kotest.assertions.throwables.shouldNotThrowAny
-import io.kotest.assertions.throwables.shouldThrowAny
+import com.kbap.common.port.llm.TranslationRejectedException
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 
@@ -39,6 +40,13 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                     "짜파게티" to "Jjapaghetti",
                     "짜파게티" to "Jjapaghetti ジャジャン麺",
                     "예감" to "Yegam 薯片",
+                    "매운 새우깡" to "Spicy Saeukkang",
+                    "매운 새우깡" to "辛い Saeukkang",
+                    "무가당 요거트" to "Sugar-free Yogurt",
+                    "제로 콜라" to "Zero Cola",
+                    "씨제이 햇반" to "CJ Hetbahn",
+                    "롯데 빼빼로" to "Lotte Pepero",
+                    "바나나맛 우유" to "Banana Milk",
                 ).forEach { (source, output) -> shouldNotThrowAny { ProcessedFoodNamePrompt.parse(output, source) } }
             }
         }
@@ -51,7 +59,7 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                     "예감" to "预感",
                     "예감" to "予感",
                     "짜파게티" to "Jjapaghetti\nnoodles",
-                ).forEach { (source, output) -> shouldThrowAny { ProcessedFoodNamePrompt.parse(output, source) } }
+                ).forEach { (source, output) -> shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse(output, source) } }
             }
         }
     }

@@ -11,6 +11,7 @@ import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.auth.TokenIssuer
+import com.kbap.common.port.llm.TranslationRejectedException
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -89,6 +90,36 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
 
                     translator.nameCalls shouldBe listOf("예감" to LanguageCode.EN)
                     translator.calls.map { it.first }.contains("소맥분(밀), 설탕") shouldBe true
+                }
+            }
+        }
+
+        given("가공식품 이름 번역이 가드에 거절되면 — 공부 지적(#519)") {
+            `when`("상세를 영어로 두 번 보면") {
+                then("거절은 원문 해시 기준으로 원문을 저장해 같은 이름을 매일 다시 부르지 않는다") {
+                    val id = seed("NT-6", "예감")
+                    translator.reply = { text, _ -> if (text == "예감") throw TranslationRejectedException("뜻 번역") else text }
+
+                    repeat(2) {
+                        mockMvc.get("/api/processed-foods/$id?lang=en") { header("X-API-Version", "3.2") }.andExpect { status { isOk() } }
+                        translations.awaitIdle()
+                    }
+
+                    storedName(id, "en") shouldBe "예감"
+                    translator.nameCalls.size shouldBe 1
+                }
+            }
+            `when`("재생성에서 거절되면") {
+                then("기존 번역을 덮어쓰지 않고 실패로 센다") {
+                    val id = seed("NT-7", "예감")
+                    staleName(id)
+                    translator.reply = { _, _ -> throw TranslationRejectedException("뜻 번역") }
+
+                    val p = regenerate("dev", mapOf("dryRun" to false, "limit" to 20)).path("payload")
+
+                    p.path("regenerated").asInt() shouldBe 0
+                    p.path("failedProductIds").map { it.asLong() } shouldBe listOf(id)
+                    storedName(id, "en") shouldBe "Premonition"
                 }
             }
         }
