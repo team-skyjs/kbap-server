@@ -369,6 +369,25 @@ class ReviewBotProcessedFoodTest : BehaviorSpec() {
                     ((error.payload as Map<*, *>)["minDays"] as Int) shouldBeInRange most..most + 1
                 }
             }
+            `when`("이미 리뷰가 있는 상품에 spreadDays 로 더 쓰면 — #527 후속") {
+                then("새 작성일은 그 묶음의 마지막 리뷰 날 다음부터만 쓰여, 기존 날짜와 겹치지 않고 id 순서와 작성일 순서가 같다") {
+                    val fresh = seed("SPR-1", "꼬깔콘 고소한맛", "롯데", "과자", "옥수수, 식물성유지")
+                    bot.run("dev", dryRun = false, limit = 2, ids = listOf(fresh), topLines = null, seed = 970, spreadDays = 30)
+                    rows("SELECT id FROM food_review WHERE processed_food_id = $fresh ORDER BY id").map { (it[0] as Number).toLong() }.forEachIndexed { index, id ->
+                        execute("UPDATE food_review SET created_at = NOW(6) - INTERVAL ${21 - index} DAY, updated_at = created_at WHERE id = $id")
+                    }
+                    val oldLatest = datesOf(fresh).max()
+
+                    bot.run("dev", dryRun = false, limit = 40, ids = listOf(fresh), topLines = null, seed = 971, spreadDays = 30).written shouldBeGreaterThan 0
+
+                    val rowsById = rows("SELECT r.id, r.created_at FROM food_review r WHERE r.processed_food_id = $fresh ORDER BY r.id").map { (it[0] as Number).toLong() to (it[1] as java.time.LocalDateTime) }
+                    val added = rowsById.drop(2).map { it.second }
+                    val oldLatestDay = oldLatest.atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(seoul).toLocalDate()
+                    added.all { it.atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(seoul).toLocalDate().isAfter(oldLatestDay) } shouldBe true
+                    rowsById.map { it.second.atZone(java.time.ZoneId.systemDefault()).withZoneSameInstant(seoul).toLocalDate() }.distinct().size shouldBe rowsById.size
+                    rowsById.map { it.second } shouldBe rowsById.map { it.second }.sorted()
+                }
+            }
             `when`("기존 봇 리뷰를 재분산하면") {
                 then("dryRun 은 아무것도 바꾸지 않고, 실행하면 같은 규칙으로 흩어지며 prod 는 거절한다") {
                     bot.run("dev", dryRun = false, limit = 40, ids = listOf(kick, milk), topLines = null, seed = 967)
