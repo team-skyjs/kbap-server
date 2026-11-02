@@ -104,6 +104,12 @@ class AdminProcessedFoodManualTest : BehaviorSpec() {
                     translations.awaitIdle()
                     translator.nameCalls.map { it.first }.toSet() shouldBe setOf("와사비맛 아몬드 대용량")
                 }
+                then("제조사 원문(㈜오뚜기)이 아니라 표시 제조사 기준으로 접두를 뺀다 — Codex P2(#524)") {
+                    translator.reset()
+                    create(wasabi + ("productName" to "오뚜기 뿌셔뿌셔 양념치킨맛") + ("manufacturer" to "㈜오뚜기"))
+                    translations.awaitIdle()
+                    translator.nameCalls.map { it.first }.toSet() shouldBe setOf("뿌셔뿌셔 양념치킨맛")
+                }
             }
             `when`("지워진 수동 키가 있어도") {
                 then("그 번호를 다시 쓰지 않고 다음 번호를 매긴다") {

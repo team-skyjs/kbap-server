@@ -148,6 +148,22 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                     translator.nameCalls.map { it.first }.toSet() shouldBe setOf("뿌셔뿌셔 떡볶이맛", "빙그레 바나나맛 우유")
                 }
             }
+            `when`("대표 상품을 미리 번역하면 — Codex P2(#524)") {
+                then("조회 경로와 같은 원문(제조사 접두 제거)으로 번역해 캐시가 맞는다") {
+                    seedWith("NT-14", "해태 맛동산", "해태", "과자")
+                    translations.prewarmFeatured(listOf(LanguageCode.EN))
+
+                    translator.nameCalls.map { it.first } shouldBe listOf("맛동산")
+                }
+            }
+            `when`("공식 상품명에 브랜드가 붙거나 접두를 빼면 일반명사만 남으면") {
+                then("제조사를 빼지 않는다 — 삼양라면·팔도 비빔면은 브랜드가 상품명") {
+                    translations.nameSourceOf("삼양라면", "삼양") shouldBe "삼양라면"
+                    translations.nameSourceOf("팔도 비빔면", "팔도") shouldBe "팔도 비빔면"
+                    translations.nameSourceOf("오뚜기 라면", "오뚜기") shouldBe "오뚜기 라면"
+                    translations.nameSourceOf("농심 새우깡", "농심") shouldBe "새우깡"
+                }
+            }
             `when`("유탕면류로 등록된 스낵면(뿌셔뿌셔)을 보면") {
                 then("유형 칩은 라면이 아니라 과자다") {
                     seedWith("NT-13", "오뚜기 뿌셔뿌셔 불고기맛", "오뚜기", "유탕면류")
