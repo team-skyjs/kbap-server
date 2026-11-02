@@ -199,10 +199,15 @@ data class ReviewProcessedFoodResponse(
     val maker: String?,
     @field:Schema(description = "제품 이미지 URL — 없으면 null", nullable = true)
     val imageUrl: String?,
+    @field:Schema(
+        description = "요청 언어 제품명 — 고정 번역 → 저장된 번역 → 저장된 번역이 없으면 원문(리뷰 조회는 번역을 예약하지 않음). 한국어면 원문. 앱은 이 값을 표시하고 productName 은 원문 참고용",
+        example = "Saeukkang",
+    )
+    val name: String = productName,
 ) {
     companion object {
-        fun from(product: ProcessedFoodProduct) = ReviewProcessedFoodResponse(
-            product.id, product.reportNo, product.productName, product.displayMaker(), product.displayImageUrl(),
+        fun from(product: ProcessedFoodProduct, name: String = product.productName) = ReviewProcessedFoodResponse(
+            product.id, product.reportNo, product.productName, product.displayMaker(), product.displayImageUrl(), name,
         )
     }
 }
