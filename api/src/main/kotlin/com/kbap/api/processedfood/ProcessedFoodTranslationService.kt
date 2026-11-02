@@ -5,6 +5,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.TranslationRejectedException
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.ContentTranslation
@@ -108,6 +109,20 @@ class ProcessedFoodTranslationService(
         if (matched < makerKey.length || rest.isEmpty() || ProcessedFoodSnapshot.normalizeName(rest) in GENERIC_NAMES) return name
         val official = translatorProvider.getIfAvailable()?.officialLatinOf(name)
         return if (official != null && official != translatorProvider.getIfAvailable()?.officialLatinOf(rest)) name else rest
+    }
+
+    fun localizedNamesOf(products: Collection<ProcessedFoodProduct>, language: LanguageCode): Map<Long, String> {
+        if (language == LanguageCode.KO || products.isEmpty()) return emptyMap()
+        val cache = readTransaction.execute {
+            translations.findAllByTargetTypeInAndTargetIdInAndLanguage(NAME_TYPES, products.map { it.id }, language.code)
+        }!!.associateBy { it.targetType to it.targetId }
+        return products.associate { product ->
+            product.id to (
+                cache[TranslationTargetType.PF_NAME_PINNED to product.id]?.translatedText
+                    ?: request(TranslationTargetType.PF_NAME, product.id, nameSourceOf(product.productName, product.displayMaker()), language, sync = false, cache[TranslationTargetType.PF_NAME to product.id]).await(null)
+                    ?: product.productName
+                )
+        }
     }
 
     fun localizeSummaries(items: List<ProcessedFoodSummaryResponse>, language: LanguageCode): List<ProcessedFoodSummaryResponse> {
@@ -418,6 +433,7 @@ class ProcessedFoodTranslationService(
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500
         private val SUMMARY_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER, TranslationTargetType.PF_NAME_PINNED, TranslationTargetType.PF_MAKER_PINNED)
+        private val NAME_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_NAME_PINNED)
         private val PIN_TYPES = listOf(TranslationTargetType.PF_NAME_PINNED, TranslationTargetType.PF_MAKER_PINNED)
         const val MAX_PINS_PER_REQUEST = 500
         private const val MAX_PIN_LENGTH = 200
