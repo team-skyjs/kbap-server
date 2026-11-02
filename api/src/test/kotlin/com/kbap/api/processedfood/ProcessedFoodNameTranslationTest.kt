@@ -164,6 +164,17 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                     translations.nameSourceOf("농심 새우깡", "농심") shouldBe "새우깡"
                 }
             }
+            `when`("라면을 영어 표기(ramen·ramyun·ramyeon)로 검색하면") {
+                then("한국어 이름의 라면 상품을 찾는다") {
+                    val shin = seedWith("NT-15", "신라면", "농심", "유탕면류")
+                    listOf("ramen", "ramyun", "Ramyeon", "shin ramen").forEach { query ->
+                        val ids = mapper.readTree(
+                            mockMvc.get("/api/processed-foods?query=$query") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                        ).path("payload").path("items").map { it.path("id").asLong() }
+                        (shin in ids) shouldBe true
+                    }
+                }
+            }
             `when`("유탕면류로 등록된 스낵면(뿌셔뿌셔)을 보면") {
                 then("유형 칩은 라면이 아니라 과자다") {
                     seedWith("NT-13", "오뚜기 뿌셔뿌셔 불고기맛", "오뚜기", "유탕면류")
