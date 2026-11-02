@@ -5,14 +5,10 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
-import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
-import com.kbap.common.port.scan.ScanReservationResult
-import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -35,9 +31,6 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
 
     @Autowired
     private lateinit var tokenIssuer: TokenIssuer
-
-    @Autowired
-    private lateinit var reservationStore: ScanReservationStore
 
     private val mapper = jacksonObjectMapper()
 
@@ -125,16 +118,16 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
 
         given("이름 스캔 확정 — POST /api/processed-foods/scan/confirm") {
             `when`("후보 중 하나로 확정하면") {
-                then("상세(검색 상세와 같은 응답)와 charged=true, 원장 차감 1행·스캔 횟수 +1") {
+                then("상세(검색 상세와 같은 응답)와 charged=false, 원장 1행·스캔 횟수 그대로(KB-963 무차감)") {
                     val token = member(81201L)
                     val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
                     val p = confirm(token, id, "PS-1").path("payload")
                     p.path("state").asText() shouldBe "CONFIRMED"
-                    p.path("charged").asBoolean() shouldBe true
+                    p.path("charged").asBoolean() shouldBe false
                     p.path("product").path("reportNo").asText() shouldBe "PS-1"
                     p.path("product").path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP")
                     usageRowsOf(id) shouldBe 1
-                    scanCountOf(81201L) shouldBe 1
+                    scanCountOf(81201L) shouldBe 0
                 }
             }
             `when`("같은 분석 ID 를 같은 품목으로 다시 확정하면") {
@@ -146,7 +139,7 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     again.path("charged").asBoolean() shouldBe false
                     again.path("product").path("reportNo").asText() shouldBe "PS-1"
                     usageRowsOf(id) shouldBe 1
-                    scanCountOf(81202L) shouldBe 1
+                    scanCountOf(81202L) shouldBe 0
                 }
             }
             `when`("확정된 분석을 다른 품목이나 해당 없음으로 다시 확정하면") {
@@ -201,55 +194,6 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     confirm(owner, id, "PS-1", expected = 404).path("code").asText() shouldBe "PFOOD-003"
                 }
             }
-            `when`("무료 스캔 횟수를 다 쓴 회원이 확정하면") {
-                then("403 SCAN-004, 차감 없음") {
-                    val token = member(81208L, scanCount = Member.FREE_SCAN_LIMIT)
-                    val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
-                    confirm(token, id, "PS-1", expected = 403).path("code").asText() shouldBe "SCAN-004"
-                    usageRowsOf(id) shouldBe 0
-                    scanCountOf(81208L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
-                }
-            }
-            `when`("무료 1회 남은 회원이 서로 다른 분석 두 개를 동시에 확정하면 — 한도 우회 방지(보안 리뷰)") {
-                then("하나만 차감되고 다른 하나는 그 차감이 연 무료 창(KB-876) 안이라 차감 0 — 횟수는 한도를 넘지 않는다") {
-                    val token = member(81210L, scanCount = Member.FREE_SCAN_LIMIT - 1)
-                    val ids = (1..2).map { scanName(token, "새우깡").path("payload").path("analysisId").asText() }
-                    val pool = Executors.newFixedThreadPool(2)
-                    val start = CountDownLatch(1)
-                    val statuses = ids.map { id ->
-                        pool.submit<Int> {
-                            start.await()
-                            mockMvc.post("/api/processed-foods/scan/confirm") {
-                                header("X-API-Version", "3.2")
-                                header("Authorization", "Bearer $token")
-                                contentType = MediaType.APPLICATION_JSON
-                                content = mapper.writeValueAsString(mapOf("analysisId" to id, "reportNo" to "PS-1"))
-                            }.andReturn().response.status
-                        }
-                    }
-                    start.countDown()
-                    val codes = statuses.map { it.get(30, TimeUnit.SECONDS) }
-                    pool.shutdown()
-                    codes shouldContainExactlyInAnyOrder listOf(200, 200)
-                    scanCountOf(81210L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
-                    ids.sumOf { usageRowsOf(it) } shouldBe 2
-                }
-            }
-            `when`("남은 1회를 메뉴판 스캔 V2 가 예약 중일 때 이름 확정을 하면 — 공부 ①(같은 예약 저장소)") {
-                then("403 SCAN-004 — 예약이 풀리면 확정된다") {
-                    val token = member(81211L, scanCount = Member.FREE_SCAN_LIMIT - 1)
-                    val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
-                    reservationStore.reserve(81211L, "menu-v2-in-flight", Member.FREE_SCAN_LIMIT - 1, Member.FREE_SCAN_LIMIT) shouldBe ScanReservationResult.RESERVED
-                    try {
-                        confirm(token, id, "PS-1", expected = 403).path("code").asText() shouldBe "SCAN-004"
-                        usageRowsOf(id) shouldBe 0
-                    } finally {
-                        reservationStore.release(81211L, "menu-v2-in-flight")
-                    }
-                    confirm(token, id, "PS-1").path("payload").path("charged").asBoolean() shouldBe true
-                    scanCountOf(81211L) shouldBe Member.FREE_SCAN_LIMIT.toLong()
-                }
-            }
             `when`("확정 뒤 그 품목이 생산종료 기준을 넘긴 다음 같은 품목으로 재확정하면 — 공부 ②·Codex P2") {
                 then("생산종료 검사 없이 같은 결과를 준다(charged=false)") {
                     val token = member(81212L)
@@ -278,7 +222,7 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                 }
             }
             `when`("같은 분석 ID 확정이 동시에 두 번 오면") {
-                then("한 번만 차감된다 — 원장 1행·횟수 +1, 두 응답 모두 같은 품목") {
+                then("원장은 1행만 남고 횟수는 그대로, 두 응답 모두 같은 품목") {
                     val token = member(81209L)
                     val id = scanName(token, "새우깡").path("payload").path("analysisId").asText()
                     val pool = Executors.newFixedThreadPool(2)
@@ -293,9 +237,9 @@ class ProcessedFoodNameScanControllerTest : BehaviorSpec() {
                     val payloads = results.map { it.get(30, TimeUnit.SECONDS) }
                     pool.shutdown()
                     payloads.map { it.path("product").path("reportNo").asText() }.toSet() shouldBe setOf("PS-1")
-                    payloads.map { it.path("charged").asBoolean() } shouldContainExactlyInAnyOrder listOf(true, false)
+                    payloads.map { it.path("charged").asBoolean() } shouldBe listOf(false, false)
                     usageRowsOf(id) shouldBe 1
-                    scanCountOf(81209L) shouldBe 1
+                    scanCountOf(81209L) shouldBe 0
                 }
             }
         }
