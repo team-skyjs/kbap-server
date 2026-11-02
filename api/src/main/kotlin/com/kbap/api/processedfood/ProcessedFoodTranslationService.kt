@@ -117,9 +117,10 @@ class ProcessedFoodTranslationService(
             translations.findAllByTargetTypeInAndTargetIdInAndLanguage(NAME_TYPES, products.map { it.id }, language.code)
         }!!.associateBy { it.targetType to it.targetId }
         return products.associate { product ->
+            val hash = hashOf(nameSourceOf(product.productName, product.displayMaker()))
             product.id to (
                 cache[TranslationTargetType.PF_NAME_PINNED to product.id]?.translatedText
-                    ?: request(TranslationTargetType.PF_NAME, product.id, nameSourceOf(product.productName, product.displayMaker()), language, sync = false, cache[TranslationTargetType.PF_NAME to product.id]).await(null)
+                    ?: cache[TranslationTargetType.PF_NAME to product.id]?.takeIf { it.sourceHash == hash && it.translatedText.isNotBlank() }?.translatedText
                     ?: product.productName
                 )
         }

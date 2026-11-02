@@ -180,7 +180,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                 }
             }
             `when`("리뷰 카드의 가공식품 이름을 외국어로 보면(S-942)") {
-                then("name 은 요청 언어(고정 → 저장된 번역 → 없으면 원문 뒤 번역 예약)이고 productName 은 원문 그대로이며, 한국어는 원문이다") {
+                then("name 은 요청 언어(고정 → 저장된 번역 → 없으면 원문 — 읽기 전용이라 번역을 부르지 않음)이고 productName 은 원문 그대로이며, 한국어는 원문이다") {
                     val pinned = product("고정과자")
                     val translated = product("번역과자")
                     val author = member("pfr-name")
@@ -194,6 +194,9 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     first.getValue(pinned).path("name").asText() shouldBe "Pinned Snack"
                     first.getValue(pinned).path("productName").asText() shouldBe "고정과자"
                     first.getValue(translated).path("name").asText() shouldBe "번역과자"
+                    pfTranslations.awaitIdle()
+                    sql("SELECT COUNT(*) FROM content_translation WHERE target_type = 'PF_NAME' AND target_id = $translated") shouldBe 0L
+                    get("/api/processed-foods/$translated?lang=en", "3.2")
                     pfTranslations.awaitIdle()
                     cards("en").getValue(translated).path("name").asText() shouldBe "[en] 번역과자"
                     cards("ko").getValue(pinned).path("name").asText() shouldBe "고정과자"
