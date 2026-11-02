@@ -83,14 +83,23 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
             CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus,
             (SELECT o.id FROM orders o WHERE o.image_path = u.object_path AND o.status = 'ACTIVE') AS orderId,
             (SELECT p.operation_id FROM scan_operation_photo p WHERE p.uploaded_image_id = u.id AND p.status = 'ACTIVE'
-                ORDER BY p.operation_id LIMIT 1) AS operationId
+                ORDER BY p.operation_id LIMIT 1) AS operationId,
+            (SELECT pf.id FROM scan_operation so JOIN processed_food_product pf ON pf.report_no = JSON_UNQUOTE(JSON_EXTRACT(so.request_document, '$.selectedReportNo'))
+                WHERE so.member_id = u.member_id AND so.key_namespace = 'PFOOD_NAME' AND so.lifecycle = 'CONFIRMED'
+                  AND JSON_UNQUOTE(JSON_EXTRACT(so.request_document, '$.imagePath')) = u.object_path
+                ORDER BY so.id DESC LIMIT 1) AS processedFoodId
         FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id
-        WHERE u.status = 'ACTIVE' AND locate(:segment, u.object_path) > 0 AND u.id < :beforeId
+        WHERE u.status = 'ACTIVE' AND u.id < :beforeId
+          AND ((:includeMenu AND locate(concat('/', :menuSegment, '/'), concat('/', u.object_path)) > 0)
+            OR (:includePackaged AND locate(concat('/', :packagedSegment, '/'), concat('/', u.object_path)) > 0))
           AND m.is_bot = :isBot AND (:memberId IS NULL OR u.member_id = :memberId) AND u.member_id NOT IN (:excludedMemberIds)
         ORDER BY u.id DESC LIMIT :limit
     """)
     fun findScanPhotoFeed(
-        @Param("segment") segment: String,
+        @Param("menuSegment") menuSegment: String,
+        @Param("packagedSegment") packagedSegment: String,
+        @Param("includeMenu") includeMenu: Boolean,
+        @Param("includePackaged") includePackaged: Boolean,
         @Param("isBot") isBot: Boolean,
         @Param("memberId") memberId: Long?,
         @Param("excludedMemberIds") excludedMemberIds: Collection<Long>,
@@ -140,4 +149,5 @@ interface ScanPhotoFeedRow {
     val memberStatus: String
     val orderId: Long?
     val operationId: Long?
+    val processedFoodId: Long?
 }

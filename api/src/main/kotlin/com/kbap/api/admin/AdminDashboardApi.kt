@@ -1,6 +1,8 @@
 package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
+import com.kbap.api.core.config.ApiErrors
+import com.kbap.common.core.error.ErrorCode
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import jakarta.validation.constraints.Max
@@ -78,4 +80,22 @@ interface AdminDashboardApi {
         @Parameter(description = "true 면 봇만, false 면 사람만, 생략하면 전체", example = "false")
         isBot: Boolean?,
     ): ResponseEntity<BaseResponse<List<AdminDailyCountResponse>>>
+
+    @Operation(
+        summary = "국가별 스캔 횟수(KB-964)",
+        description = """
+            회원 국가(country_code)별 스캔 **횟수**(유니크 사용자 아님) — 메뉴판·가공식품 분리 + 합계, total 내림차순, 국가 미설정은 countryCode=null 한 줄. 봇 계정은 항상 제외.
+            - 메뉴판: 묶음 스캔(배치)은 성공한 스캔 작업 1건(사진 장수 아님 — 성공 원장 scan_usage 1행), 단일 스캔(v1)은 묶음에 안 묶인 메뉴판 스캔 사진 1장(성공 원장이 없어 업로드 기준 — 실패한 단일 스캔도 센다).
+            - 가공식품: 이름 스캔 확정 + 성분표 분석 성공 각 1회(성공 원장 scan_usage 1행 — 해당 없음·판독 실패는 빠진다).
+            - days=7|30(KST 자정 기준, 오늘 포함), 생략하면 전체 기간. 그 외 값은 400(COMMON-002).
+            - **ADMIN 역할 JWT 전용**.
+        """,
+    )
+    @ApiErrors(ErrorCode.INVALID_REQUEST)
+    fun getScanCountries(
+        @Parameter(description = "7 또는 30, 생략 = 전체 기간", example = "30")
+        days: Int?,
+        @Parameter(description = "이 회원들의 스캔은 뺀다 — 쉼표 구분 회원 id 목록", example = "10,12,18")
+        excludeMemberIds: List<Long>?,
+    ): ResponseEntity<BaseResponse<AdminScanCountryReport>>
 }

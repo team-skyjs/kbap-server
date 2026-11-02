@@ -12,21 +12,22 @@ import java.time.LocalDateTime
 
 interface OrderJpaRepository : JpaRepository<Order, Long> {
     @Query(value = """
-        SELECT photos.path AS path, MAX(photos.created_at) AS createdAt FROM (
-            SELECT image_path AS path, created_at FROM orders WHERE member_id = :memberId AND status = 'ACTIVE' AND image_path IS NOT NULL AND image_path <> ''
-            UNION ALL
-            SELECT p.object_key AS path, p.created_at FROM scan_operation_photo p
-            JOIN scan_operation o ON o.id = p.operation_id WHERE o.member_id = :memberId AND o.status = 'ACTIVE' AND p.status = 'ACTIVE'
-        ) photos GROUP BY photos.path ORDER BY createdAt DESC, photos.path
+        SELECT photos.path AS path, MAX(photos.created_at) AS createdAt, MAX(photos.scan_type) AS scanType,
+            (SELECT pf.id FROM scan_operation so JOIN processed_food_product pf ON pf.report_no = JSON_UNQUOTE(JSON_EXTRACT(so.request_document, '$.selectedReportNo'))
+                WHERE so.member_id = :memberId AND so.key_namespace = 'PFOOD_NAME' AND so.lifecycle = 'CONFIRMED'
+                  AND JSON_UNQUOTE(JSON_EXTRACT(so.request_document, '$.imagePath')) = photos.path
+                ORDER BY so.id DESC LIMIT 1) AS processedFoodId
+        FROM ($MEMBER_SCAN_PHOTOS) photos GROUP BY photos.path ORDER BY createdAt DESC, photos.path
     """, countQuery = """
-        SELECT COUNT(*) FROM (
-            SELECT image_path AS path FROM orders WHERE member_id = :memberId AND status = 'ACTIVE' AND image_path IS NOT NULL AND image_path <> ''
-            UNION
-            SELECT p.object_key AS path FROM scan_operation_photo p
-            JOIN scan_operation o ON o.id = p.operation_id WHERE o.member_id = :memberId AND o.status = 'ACTIVE' AND p.status = 'ACTIVE'
-        ) photos
+        SELECT COUNT(DISTINCT photos.path) FROM ($MEMBER_SCAN_PHOTOS) photos
     """, nativeQuery = true)
-    fun findMemberScanPhotos(@Param("memberId") memberId: Long, pageable: Pageable): Page<MemberScanPhoto>
+    fun findMemberScanPhotos(
+        @Param("memberId") memberId: Long,
+        @Param("includeMenu") includeMenu: Boolean,
+        @Param("includePackaged") includePackaged: Boolean,
+        @Param("packagedSegment") packagedSegment: String,
+        pageable: Pageable,
+    ): Page<MemberScanPhoto>
 
     fun existsByImagePath(imagePath: String): Boolean
 
@@ -87,9 +88,24 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
         @Param("afterId") afterId: Long,
         limit: Limit,
     ): List<Order>
+
+    companion object {
+        const val MEMBER_SCAN_PHOTOS = """
+            SELECT image_path AS path, created_at, 'MENU' AS scan_type FROM orders
+            WHERE :includeMenu AND member_id = :memberId AND status = 'ACTIVE' AND image_path IS NOT NULL AND image_path <> ''
+            UNION ALL
+            SELECT p.object_key AS path, p.created_at, 'MENU' AS scan_type FROM scan_operation_photo p
+            JOIN scan_operation o ON o.id = p.operation_id WHERE :includeMenu AND o.member_id = :memberId AND o.status = 'ACTIVE' AND p.status = 'ACTIVE'
+            UNION ALL
+            SELECT u.object_path AS path, u.created_at, 'PACKAGED' AS scan_type FROM uploaded_image u
+            WHERE :includePackaged AND u.member_id = :memberId AND u.status = 'ACTIVE' AND locate(concat('/', :packagedSegment, '/'), concat('/', u.object_path)) > 0
+        """
+    }
 }
 
 interface MemberScanPhoto {
     val path: String
     val createdAt: LocalDateTime
+    val scanType: String
+    val processedFoodId: Long?
 }
