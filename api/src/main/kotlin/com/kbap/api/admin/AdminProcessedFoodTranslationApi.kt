@@ -2,6 +2,13 @@ package com.kbap.api.admin
 
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.processedfood.ProcessedFoodNameRegeneration
+import com.kbap.api.processedfood.ProcessedFoodPin
+import com.kbap.api.processedfood.ProcessedFoodPinItem
+import com.kbap.api.processedfood.ProcessedFoodPinKind
+import com.kbap.api.processedfood.ProcessedFoodPinResult
+import com.kbap.api.processedfood.ProcessedFoodTranslationService
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Size
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -39,6 +46,23 @@ interface AdminProcessedFoodTranslationApi {
         """,
     )
     fun regenerateNames(target: String, request: AdminProcessedFoodNameRegenerateRequest): ResponseEntity<BaseResponse<ProcessedFoodNameRegeneration>>
+
+    @Operation(
+        summary = "가공식품 이름·제조사 번역 고정(KB-960 후속)",
+        description = """
+            사람이 정한 언어별 표시값을 그대로 저장해 고정한다 — 가드·번역 엔진을 거치지 않는다. kind=NAME(기본)이면 제품명, MAKER 면 제조사.
+            - 고정값은 상세·목록 표시에서 자동 번역·브랜드 사전보다 먼저 쓰이고, 이름 재생성(names/regenerate)·미리 번역(prewarm)·원문 해시 변경이 덮지 않는다(별도 번역 종류 PF_NAME_PINNED·PF_MAKER_PINNED 로 저장).
+            - 원문(product_name)이 바뀌어도 고정은 유지한다. 해제 API 는 아직 없다.
+            - 같은 이름 다른 공장(묶음 형제)은 productId 별로 따로 보낸다.
+            - items 는 요청당 500건 이하(넘으면 400). 한 요청은 한 트랜잭션이고, 응답은 건수와 거절 사유만 준다(적용 항목은 되돌려주지 않음) — 큰 묶음은 500건씩 순차 호출.
+            - `dryRun=true`(기본): 저장 없이 적용·무변·거절 수만.
+            - `X-Target-Environment`(dev·prod)가 서버 환경과 다르면 409 PFOOD-012. **ADMIN 역할 JWT 전용**.
+        """,
+    )
+    fun pinTranslations(target: String, request: AdminProcessedFoodPinRequest): ResponseEntity<BaseResponse<ProcessedFoodPinResult>>
+
+    @Operation(summary = "가공식품 번역 고정 목록(검수용)", description = "한 상품의 고정된 이름·제조사 번역을 kind·언어순으로 준다. **ADMIN 역할 JWT 전용**.")
+    fun getPinnedTranslations(@Parameter(description = "가공식품 id", example = "4821") productId: Long): ResponseEntity<BaseResponse<List<ProcessedFoodPin>>>
 }
 
 @Schema(description = "가공식품 이름 번역 재생성 요청")
@@ -51,4 +75,15 @@ data class AdminProcessedFoodNameRegenerateRequest(
     val limit: Int = 20,
     @field:Schema(description = "커서 — 직전 응답의 nextAfterId", nullable = true)
     val afterId: Long? = null,
+)
+
+@Schema(description = "가공식품 번역 고정 요청")
+data class AdminProcessedFoodPinRequest(
+    @field:Schema(description = "true(기본)면 저장하지 않는다", example = "true")
+    val dryRun: Boolean = true,
+    @field:Schema(description = "NAME(기본): 제품명 · MAKER: 제조사", example = "NAME")
+    val kind: ProcessedFoodPinKind = ProcessedFoodPinKind.NAME,
+    @field:Size(max = ProcessedFoodTranslationService.MAX_PINS_PER_REQUEST, message = "items 는 500건 이하여야 합니다")
+    @field:Valid
+    val items: List<ProcessedFoodPinItem> = emptyList(),
 )
