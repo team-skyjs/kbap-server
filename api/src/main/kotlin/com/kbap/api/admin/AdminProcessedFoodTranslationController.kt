@@ -4,6 +4,8 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.processedfood.ProcessedFoodNameRegeneration
 import com.kbap.api.processedfood.ProcessedFoodTranslationService
+import com.kbap.api.processedfood.ProcessedFoodPinResult
+import com.kbap.api.processedfood.ProcessedFoodPin
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import jakarta.validation.Valid
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import com.kbap.common.domain.LanguageCode
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -33,6 +36,20 @@ class AdminProcessedFoodTranslationController(
         return ResponseEntity.ok().header("Cache-Control", "no-store")
             .body(BaseResponse.ok(translationService.regenerateNames(request.dryRun, request.limit, request.afterId)))
     }
+
+    @PostMapping("/names/overrides")
+    override fun pinTranslations(
+        @RequestHeader("X-Target-Environment") target: String,
+        @Valid @RequestBody request: AdminProcessedFoodPinRequest,
+    ): ResponseEntity<BaseResponse<ProcessedFoodPinResult>> {
+        if (target != environment) throw BusinessException(ErrorCode.PROCESSED_FOOD_ENVIRONMENT_MISMATCH)
+        return ResponseEntity.ok().header("Cache-Control", "no-store")
+            .body(BaseResponse.ok(translationService.pin(request.kind, request.dryRun, request.items)))
+    }
+
+    @GetMapping("/names/overrides")
+    override fun getPinnedTranslations(@RequestParam productId: Long): ResponseEntity<BaseResponse<List<ProcessedFoodPin>>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(translationService.getPins(productId)))
 
     @PostMapping("/prewarm")
     override fun prewarm(@RequestParam(required = false) languages: String?): ResponseEntity<BaseResponse<AdminProcessedFoodPrewarmResponse>> {
