@@ -19,6 +19,7 @@ class AdminScanPhotoController(
         @RequestParam(required = false) memberId: Long?,
         @RequestParam(required = false) excludeMemberIds: List<Long>?,
         @RequestParam(required = false) cursor: String?,
+        @RequestParam(defaultValue = "ALL") type: ScanPhotoTypeFilter,
     ): ResponseEntity<BaseResponse<AdminScanPhotoFeed>> =
-        ResponseEntity.ok(BaseResponse.ok(feedService.getScanPhotoFeed(isBot, memberId, excludeMemberIds.orEmpty(), cursor)))
+        ResponseEntity.ok(BaseResponse.ok(feedService.getScanPhotoFeed(isBot, memberId, excludeMemberIds.orEmpty(), cursor, type)))
 }
