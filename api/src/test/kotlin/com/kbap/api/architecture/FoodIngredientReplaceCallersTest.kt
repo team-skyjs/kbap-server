@@ -4,6 +4,7 @@ import com.kbap.api.admin.AdminFoodContentDraftService
 import com.kbap.api.admin.AdminFoodContentIngestService
 import com.kbap.api.admin.AdminFoodIngredientBackfillService
 import com.kbap.api.admin.AdminFoodService
+import com.kbap.api.admin.FoodIngredientRetroService
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.tngtech.archunit.core.domain.JavaCodeUnit
 import com.tngtech.archunit.core.importer.ClassFileImporter
@@ -36,7 +37,7 @@ class FoodIngredientReplaceCallersTest : BehaviorSpec({
 
     given("재료 관계 교체(replace)를 부르는 자리") {
         `when`("운영 코드를 전수 검사하면") {
-            then("수집 결과 반영·어드민 음식 수정·재료 백필 셋뿐이다 — 새 호출자는 아래 전제를 확인하고 이 목록에 더한다") {
+            then("수집 결과 반영·어드민 음식 수정·재료 백필·새 재료 소급 판정 넷뿐이다 — 새 호출자는 아래 전제를 확인하고 이 목록에 더한다") {
                 withClue(
                     "replace 는 그 음식의 재료 행을 잠금 없이 읽어 읽힌 행만 지운다. 새 호출자가 음식 행을 잠그기 전에 다른 조회를 하면 " +
                         "옛 목록을 읽어 재료 행이 조용히 남는다. 범위 삭제로 되돌리면 KB-682 교착이 돌아온다.",
@@ -45,6 +46,7 @@ class FoodIngredientReplaceCallersTest : BehaviorSpec({
                         "AdminFoodContentIngestService.applyContent",
                         "AdminFoodIngredientBackfillService.backfill",
                         "AdminFoodService.updateFood",
+                        "FoodIngredientRetroService.apply",
                     )
                 }
             }
@@ -56,6 +58,7 @@ class FoodIngredientReplaceCallersTest : BehaviorSpec({
                     method(AdminFoodContentIngestService::class.java, "lockFoodAndCompleteOutbox"),
                     method(AdminFoodContentDraftService::class.java, "reviewDraft"),
                     method(AdminFoodService::class.java, "updateFood"),
+                    method(FoodIngredientRetroService::class.java, "apply"),
                     replaceCalls.single { it.originOwner.name.startsWith(AdminFoodIngredientBackfillService::class.java.name) }.origin,
                 )
 

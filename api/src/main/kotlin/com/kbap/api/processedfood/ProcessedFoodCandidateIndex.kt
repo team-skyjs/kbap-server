@@ -29,6 +29,27 @@ class ProcessedFoodCandidateIndex(
             .toList()
     }
 
+    fun typoCandidates(token: String, context: List<String>, seenSince: LocalDateTime, limit: Int): TypoCandidates {
+        val key = token.lowercase()
+        if (key.length < MIN_TYPO_LENGTH || !key.all(::isHangulSyllable)) return TypoCandidates.NONE
+        val contextKeys = context.map { it.lowercase() }.filter { it != key && it.length >= MIN_CONTEXT_LENGTH }
+        if (contextKeys.isEmpty()) return TypoCandidates.NONE
+        val hits = fresh().entries.asSequence()
+            .filter { it.isAvailableSince(seenSince) && contextKeys.any { c -> c in it.name || it.makers.any { m -> m.length >= MIN_CONTEXT_LENGTH && (c in m || m in c) } } }
+            .mapNotNull { entry -> oneSyllableOff(entry.name, key)?.let { entry to it } }
+            .sortedWith(compareBy({ it.first.nameLength }, { it.first.id }))
+            .take(limit)
+            .toList()
+        return TypoCandidates(hits.map { it.first.id }, hits.map { it.second }.toSet())
+    }
+
+    private fun oneSyllableOff(name: String, key: String): String? =
+        (0..name.length - key.length).asSequence()
+            .map { name.substring(it, it + key.length) }
+            .firstOrNull { window -> window.indices.count { window[it] != key[it] } == 1 && window.all(::isHangulSyllable) }
+
+    private fun isHangulSyllable(c: Char): Boolean = c in '가'..'힣'
+
     fun makerCandidateIds(keyword: String, seenSince: LocalDateTime, limit: Int, type: ProcessedFoodType? = null): List<Long> {
         val key = keyword.lowercase()
         return fresh().entries.asSequence()
@@ -47,6 +68,13 @@ class ProcessedFoodCandidateIndex(
             .map { group -> group.maxWith(compareBy<Entry>({ it.lastSeenAt }, { it.id })) }
             .sortedBy { it.id }
             .map { ListedRow(it.id, it.normalizedName, it.displayMaker, it.groupKey) }
+
+    fun groupMemberIds(id: Long): List<Long> = groupMemberIds(listOf(id)).getValue(id)
+
+    fun groupMemberIds(ids: Collection<Long>): Map<Long, List<Long>> {
+        val membersById = fresh().membersById
+        return ids.associateWith { membersById[it] ?: listOf(it) }
+    }
 
     private fun fresh(): Snapshot {
         val current = snapshot
@@ -68,10 +96,28 @@ class ProcessedFoodCandidateIndex(
         }
     }
 
+    fun groupKeyOf(id: Long): String? = fresh().groupKeyById[id]
+
     private fun load(fingerprint: String?): Snapshot {
-        val entries = products.findCandidateRows().map(::entryOf)
+        val entries = foldUnknownMakers(products.findCandidateRows().map(::entryOf))
         log.info("가공식품 후보 색인 적재 rows={} chars={}", entries.size, entries.sumOf { it.name.length + it.makers.sumOf(String::length) })
-        return Snapshot(entries, fingerprint, System.nanoTime())
+        val membersById = entries.groupBy({ it.groupKey }, { it.id }).values.flatMap { ids -> ids.map { it to ids } }.toMap()
+        return Snapshot(entries, membersById, entries.associate { it.id to it.groupKey }, fingerprint, System.nanoTime())
+    }
+
+    private fun foldUnknownMakers(entries: List<Entry>): List<Entry> {
+        val knownByName = entries.filter { ProcessedFoodGrouping.makerKeyOf(it.displayMaker).isNotEmpty() }
+            .flatMap { entry ->
+                val maker = ProcessedFoodGrouping.makerKeyOf(entry.displayMaker)
+                val namePart = entry.groupKey.substringBeforeLast('|')
+                listOf(namePart to entry.groupKey, maker + namePart to entry.groupKey)
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, keys) -> keys.toSet() }
+        return entries.map { entry ->
+            if (ProcessedFoodGrouping.makerKeyOf(entry.displayMaker).isNotEmpty()) return@map entry
+            knownByName[entry.normalizedName]?.singleOrNull()?.let { entry.copy(groupKey = it) } ?: entry
+        }
     }
 
     private fun entryOf(row: ProcessedFoodCandidateRow): Entry {
@@ -104,11 +150,25 @@ class ProcessedFoodCandidateIndex(
         fun isAvailableSince(seenSince: LocalDateTime): Boolean = !tracksDiscontinuation || !lastSeenAt.isBefore(seenSince)
     }
 
+    data class TypoCandidates(val ids: List<Long>, val corrections: Set<String>) {
+        companion object {
+            val NONE = TypoCandidates(emptyList(), emptySet())
+        }
+    }
+
     data class ListedRow(val id: Long, val normalizedName: String, val displayMaker: String?, val groupKey: String)
 
-    private data class Snapshot(val entries: List<Entry>, val fingerprint: String?, val checkedAt: Long)
+    private data class Snapshot(
+        val entries: List<Entry>,
+        val membersById: Map<Long, List<Long>>,
+        val groupKeyById: Map<Long, String>,
+        val fingerprint: String?,
+        val checkedAt: Long,
+    )
 
     private companion object {
         val MAKER_NOISE = Regex("""[ ()\[\]·・,._-]""")
+        const val MIN_TYPO_LENGTH = 3
+        const val MIN_CONTEXT_LENGTH = 2
     }
 }

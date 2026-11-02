@@ -4,12 +4,15 @@ import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.common.core.error.ErrorCode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.kbap.common.domain.member.model.OnboardingProfileDefaults
 import com.kbap.common.domain.member.model.SocialProvider
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockHttpServletResponse
@@ -174,7 +177,7 @@ class AuthControllerTest : BehaviorSpec() {
             }
 
             `when`("로그인하면") {
-                then("회원이 신원과 함께 저장되고 온보딩 대기·활성 상태로 가입된다") {
+                then("회원이 신원·기본 닉네임·기본 프로필 사진과 함께 저장되고 온보딩 대기·활성 상태로 가입된다") {
                     login().andReturn()
 
                     countMembers() shouldBe 1
@@ -183,6 +186,8 @@ class AuthControllerTest : BehaviorSpec() {
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                     memberColumn("google-sub-fixed", "member_status") shouldBe "ACTIVE"
                     memberColumn("google-sub-fixed", "status") shouldBe "ACTIVE"
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(memberColumn("google-sub-fixed", "profile_image_url")) shouldBe true
                 }
             }
         }
@@ -679,7 +684,7 @@ class AuthControllerTest : BehaviorSpec() {
                     val newId = memberIdOf(FakeSocialTokenVerifier.DEFAULT_SUB)
                     (newId != previousId) shouldBe true
                     memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "onboarding_completed") shouldBe "0"
-                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "nickname") shouldBe null
+                    memberColumn(FakeSocialTokenVerifier.DEFAULT_SUB, "nickname") shouldNotBe "길동이"
                     getMyProfile(bodyToken(response, "accessToken")).andReturn().response.status shouldBe 200
                 }
             }

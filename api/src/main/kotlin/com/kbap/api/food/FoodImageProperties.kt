@@ -7,12 +7,19 @@ data class FoodImageProperties(
     val outputUsdPerMillionTokens: Double,
     val usdToKrw: Double,
 ) {
-    fun promptFor(koreanName: String): String = PROMPT_TEMPLATE.replace(NAME_PLACEHOLDER, koreanName)
+    fun promptFor(koreanName: String, correction: String? = null): String {
+        val base = PROMPT_TEMPLATE.replace(NAME_PLACEHOLDER, koreanName)
+        val instruction = correction?.trim()?.takeIf { it.isNotEmpty() } ?: return base
+        return "$base\n\n$CORRECTION_HEADER $instruction\n$CORRECTION_GUARD"
+    }
 
     companion object {
-        const val PROMPT_VERSION = "v1"
+        const val PROMPT_VERSION = "v2"
+        const val LEGACY_PROMPT_VERSION = "v1"
 
         private const val NAME_PLACEHOLDER = "{음식명}"
+        private const val CORRECTION_HEADER = "이번 이미지의 관리자 수정 지시:"
+        private const val CORRECTION_GUARD = "위 지시를 이번 이미지의 음식 표현에 반영한다. 음식의 정체성과 기존 촬영·출력 형식 규칙을 유지한다."
 
         val PROMPT_TEMPLATE = """
             {음식명}의 음식 사진. 실제 한국 식당에서 판매하는 {음식명}을 카메라로 촬영한 실사 사진처럼 표현한다.

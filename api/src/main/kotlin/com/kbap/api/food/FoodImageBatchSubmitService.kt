@@ -49,14 +49,14 @@ class FoodImageBatchSubmitService(
         if (itemRepository.findFoodIdsInProgress(listOf(food.id)).isNotEmpty()) {
             throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
         }
-        val batch = claim(listOf(food)) { it.regenerationIntent = intent; it.regenerationReason = reason }
+        val claimed = claim(listOf(food)) { it.regenerationIntent = intent; it.regenerationReason = reason }
         val itemId = itemRepository.findFoodIdsInProgressItemId(food.id)
             ?: throw BusinessException(ErrorCode.IMAGE_BATCH_IN_PROGRESS)
-        return FoodImageBatchClaim(batch = batch, foods = listOf(food), itemId = itemId)
+        return FoodImageBatchClaim(batch = claimed.batch, foods = listOf(food), itemId = itemId, entries = claimed.entries)
     }
 
     fun submitClaimed(claim: FoodImageBatchClaim) {
-        submitToClient(claim.batch, claim.foods)
+        submitToClient(claim.batch, claim.entries)
     }
 
     private fun claimAvailable(
@@ -67,7 +67,7 @@ class FoodImageBatchSubmitService(
         repeat(chunk.size) {
             if (targets.isEmpty()) return null
             try {
-                return FoodImageBatchClaimedChunk(claim(targets), targets)
+                return claim(targets)
             } catch (e: DataIntegrityViolationException) {
                 val survivors = available(targets, skippedIds)
                 if (survivors.size == targets.size) {
@@ -92,20 +92,21 @@ class FoodImageBatchSubmitService(
     private fun claim(
         foods: List<com.kbap.common.domain.food.model.Food>,
         describe: (ImageBatchItem) -> Unit = {},
-    ): ImageBatch =
+    ): FoodImageBatchClaimedChunk =
         metaTransaction.execute {
             val claimed = batchRepository.save(
                 ImageBatch(promptVersion = FoodImageProperties.PROMPT_VERSION, model = properties.model),
             )
-            itemRepository.saveAll(foods.map { ImageBatchItem(batchId = claimed.id, foodId = it.id).apply(describe) })
-            claimed
+            val corrections = itemRepository.saveAll(foods.map { ImageBatchItem(batchId = claimed.id, foodId = it.id).apply(describe) })
+                .associate { it.foodId to it.regenerationReason }
+            val entries = foods.map {
+                FoodImageBatchClient.Entry(customId = it.id.toString(), prompt = properties.promptFor(it.displayName(LanguageCode.KO), corrections[it.id]))
+            }
+            FoodImageBatchClaimedChunk(claimed, foods, entries)
         }!!
 
-    private fun submitToClient(batch: ImageBatch, foods: List<com.kbap.common.domain.food.model.Food>) {
+    private fun submitToClient(batch: ImageBatch, entries: List<FoodImageBatchClient.Entry>) {
         try {
-            val entries = foods.map {
-                FoodImageBatchClient.Entry(customId = it.id.toString(), prompt = properties.promptFor(it.displayName(LanguageCode.KO)))
-            }
             val openaiBatchId = client.submit(entries)
             metaTransaction.executeWithoutResult {
                 batchRepository.save(batch.apply { markSubmitted(openaiBatchId) })
@@ -127,7 +128,7 @@ class FoodImageBatchSubmitService(
         val skippedIds = skipped.toMutableList()
         candidates.chunked(properties.batchSize).forEach { chunk ->
             val claimed = claimAvailable(chunk, skippedIds) ?: return@forEach
-            submitToClient(claimed.batch, claimed.foods)
+            submitToClient(claimed.batch, claimed.entries)
             submittedBatchCount++
             submittedFoodCount += claimed.foods.size
         }
@@ -138,12 +139,14 @@ class FoodImageBatchSubmitService(
 private data class FoodImageBatchClaimedChunk(
     val batch: ImageBatch,
     val foods: List<com.kbap.common.domain.food.model.Food>,
+    val entries: List<FoodImageBatchClient.Entry>,
 )
 
 data class FoodImageBatchClaim(
     val batch: ImageBatch,
     val foods: List<com.kbap.common.domain.food.model.Food>,
     val itemId: Long,
+    val entries: List<FoodImageBatchClient.Entry>,
 )
 
 data class FoodImageSubmitResult(

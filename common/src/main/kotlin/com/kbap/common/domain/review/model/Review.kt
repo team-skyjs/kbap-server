@@ -67,6 +67,10 @@ class Review(
         requireTasteAxes(spicinessRating, sweetnessRating)
     }
 
+    fun rewriteContent(newContent: String) {
+        content = newContent
+    }
+
     fun update(
         rating: Int,
         servingSpeedRating: Int,

@@ -42,6 +42,8 @@ data class AdminFoodImageGalleryResponse(
         val source: String,
         @field:Schema(description = "등록 시각")
         val createdAt: LocalDateTime,
+        @field:Schema(description = "이 이미지를 만든 생성 입력(의도·사유·프롬프트 버전·모델·제출 시각) — 이력 없으면 null", nullable = true)
+        val generation: AdminImageGenerationResponse?,
     )
 
     companion object {
@@ -61,6 +63,7 @@ data class AdminFoodImageGalleryResponse(
                         sortOrder = it.sortOrder,
                         source = it.source,
                         createdAt = it.createdAt,
+                        generation = it.generation,
                     )
                 },
             )

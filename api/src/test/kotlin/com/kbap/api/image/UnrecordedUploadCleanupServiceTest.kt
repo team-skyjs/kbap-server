@@ -427,13 +427,13 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
 
         given("대상 접두 목록") {
             `when`("환경 접두와 업로드 용도로 목록을 만들면") {
-                then("업로드 6용도 접두만 있고, 카탈로그·기본 이미지 접두는 없다") {
+                then("업로드 7용도 접두만 있고, 카탈로그·기본 이미지 접두는 없다") {
                     val prefixes = UnrecordedUploadCleanupService.uploadPrefixes("dev")
 
                     prefixes.keys shouldContainExactlyInAnyOrder UploadPurpose.entries
                     prefixes.values shouldContainExactlyInAnyOrder listOf(
                         "dev/images/scans/", "dev/images/review/", "dev/images/profile/",
-                        "dev/images/community/", "dev/images/feedback/", "dev/images/orders/",
+                        "dev/images/community/", "dev/images/feedback/", "dev/images/orders/", "dev/images/packaged-scans/",
                     )
                     prefixes.values.none { it.contains("images/webp/") || it.contains("images/default/") } shouldBe true
                     UnrecordedUploadCleanupService.uploadPrefixes("").values.first() shouldBe "images/scans/"
@@ -444,7 +444,7 @@ class UnrecordedUploadCleanupServiceTest : BehaviorSpec() {
                 then("모든 용도의 발급 키가 그 용도의 접두로 시작한다 — 목록 키와 uploaded_image.object_path 의 형식이 발급 규칙과 같다") {
                     val issued = mutableListOf<String>()
                     val port = object : PresignedUploadPort {
-                        override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload {
+                        override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration, checksumSha256Base64: String?): PresignedUpload {
                             issued += key
                             return PresignedUpload("https://s3/$key", emptyMap(), "https://cdn.test/$key", key, Instant.EPOCH)
                         }

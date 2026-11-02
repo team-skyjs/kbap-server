@@ -15,6 +15,9 @@ data class ProcessedFoodNameScanRequest(
     val ocrText: String? = null,
     @field:Schema(description = "앱 언어 코드(분석 기록용). 미지원·생략은 en", example = "ko")
     val lang: String? = null,
+    @field:Size(max = 512, message = "imagePath 는 512자 이하여야 합니다")
+    @field:Schema(description = "앞면 사진 오브젝트 경로(PACKAGED_SCAN 목적으로 올린 본인 사진). 서버가 후보 판별을 기록만 한다 — 응답은 같다. 다른 목적 경로는 무시. 생략 가능", example = "images/packaged-scans/2026/10/12_550e8400-e29b-41d4-a716-446655440000.jpg", nullable = true)
+    val imagePath: String? = null,
 )
 
 @Schema(description = "가공식품 이름 스캔 확정 요청")

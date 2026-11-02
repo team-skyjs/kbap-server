@@ -47,7 +47,7 @@ class ProcessedFoodNameScanController(
         val language = LanguageCode.from(request.lang.orEmpty())
         return ResponseEntity.ok(
             BaseResponse.ok(
-                nameScanService.scanName(memberId, request.ocrText.orEmpty(), language.code).let {
+                nameScanService.scanName(memberId, request.ocrText.orEmpty(), language.code, request.imagePath?.trim()?.trimStart('/')?.takeIf { it.isNotEmpty() }).let {
                     it.copy(candidates = translationService.localizeSummaries(it.candidates, language))
                 },
             ),

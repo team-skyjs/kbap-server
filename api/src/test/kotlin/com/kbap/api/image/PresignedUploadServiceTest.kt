@@ -19,7 +19,7 @@ class PresignedUploadServiceTest : BehaviorSpec({
         var lastContentLength: Long? = null
         var lastTtl: Duration? = null
 
-        override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload {
+        override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration, checksumSha256Base64: String?): PresignedUpload {
             keys += key
             lastContentType = contentType
             lastContentLength = contentLength

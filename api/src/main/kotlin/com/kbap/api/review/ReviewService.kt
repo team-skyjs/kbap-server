@@ -3,6 +3,7 @@ package com.kbap.api.review
 import java.util.Optional
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.api.food.FoodService
@@ -26,7 +27,11 @@ import com.kbap.common.domain.review.model.Review
 import com.kbap.common.domain.review.model.ReviewPlace
 import com.kbap.common.domain.review.model.ReviewTargetType
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.api.processedfood.ProcessedFoodCandidateIndex
 import com.kbap.api.processedfood.ProcessedFoodService
+import com.kbap.common.domain.translation.ContentTranslationJpaRepository
+import com.kbap.common.domain.translation.ReviewTranslationSource
+import com.kbap.common.domain.translation.model.TranslationTargetType
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
@@ -52,7 +57,9 @@ class ReviewService(
     private val languageDetector: ReviewLanguageDetector,
     private val processedFoods: ProcessedFoodProductJpaRepository,
     private val processedFoodService: ProcessedFoodService,
+    private val processedFoodGroups: ProcessedFoodCandidateIndex,
     private val processedFoodReviewSwitch: ProcessedFoodReviewSwitch,
+    private val translations: ContentTranslationJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional
@@ -84,6 +91,36 @@ class ReviewService(
         if (!processedFoodReviewSwitch.writeEnabled) throw BusinessException(ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED)
         val product = processedFoodService.getAvailableProduct(processedFoodId)
         verifyImageOwnership(memberId, imagePaths)
+        return persistProcessedFoodReview(memberId, product, rating, content, imagePaths, spiciness, sweetness)
+    }
+
+    @Transactional
+    fun createBotProcessedFoodReview(
+        botId: Long,
+        processedFoodId: Long,
+        rating: Int,
+        content: String,
+        imagePaths: List<String>,
+        poolOwnerIds: Set<Long>,
+        spiciness: Int?,
+        sweetness: Int?,
+    ): ReviewResponse {
+        if (!processedFoodReviewSwitch.writeEnabled) throw BusinessException(ErrorCode.PROCESSED_FOOD_REVIEW_CLOSED)
+        val product = processedFoodService.getAvailableProduct(processedFoodId)
+        if (!memberService.getMember(botId).isBot) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        if (imagePaths.isNotEmpty()) verifyBotImages(imagePaths, poolOwnerIds)
+        return persistProcessedFoodReview(botId, product, rating, content, imagePaths.ifEmpty { null }, spiciness, sweetness)
+    }
+
+    private fun persistProcessedFoodReview(
+        memberId: Long,
+        product: ProcessedFoodProduct,
+        rating: Int,
+        content: String?,
+        imagePaths: List<String>?,
+        spiciness: Int?,
+        sweetness: Int?,
+    ): ReviewResponse {
         verifyContentLength(content)
         val authorCountryCode = memberService.getMember(memberId).profile.countryCode?.name
         if (memberRepository.increaseReviewCount(memberId) == 0) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
@@ -98,7 +135,7 @@ class ReviewService(
     fun getProcessedFoodReviewPage(viewerMemberId: Long?, processedFoodId: Long, lang: LanguageCode, cursor: Long?): Page<ReviewResponse> {
         if (!processedFoods.existsById(processedFoodId)) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
         val excluded = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L)
-        return toPage(reviewRepository.findProcessedFoodReviewPage(processedFoodId, excluded, cursor, PageRequest.of(0, PAGE_SIZE + 1)), viewerMemberId, lang)
+        return toPage(reviewRepository.findProcessedFoodReviewPage(processedFoodGroups.groupMemberIds(processedFoodId), excluded, cursor, PAGE_SIZE + 1), viewerMemberId, lang)
     }
 
     @Transactional
@@ -112,6 +149,11 @@ class ReviewService(
     ): ReviewResponse {
         foodService.getReadyFood(foodId)
         if (!memberService.getMember(botId).isBot) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+        verifyBotImages(imagePaths, poolOwnerIds)
+        return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
+    }
+
+    private fun verifyBotImages(imagePaths: List<String>, poolOwnerIds: Set<Long>) {
         val prefix = storageKeyPrefix.trim('/').let { if (it.isEmpty()) "images/review-bot/" else "$it/images/review-bot/" }
         val pattern = Regex(Regex.escape(prefix) + "[0-9a-f]{12}/[0-9]+\\.webp")
         if (imagePaths.isEmpty() || imagePaths.size > Review.MAX_IMAGE_COUNT || imagePaths.distinct().size != imagePaths.size || imagePaths.any { path ->
@@ -122,7 +164,6 @@ class ReviewService(
         if (!uploadedImageService.areAllOwnedByAnyOf(imagePaths, UploadedImage.REVIEW_BOT_SEGMENT, poolOwnerIds)) {
             throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
         }
-        return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
     }
 
     private fun persistReview(
@@ -276,13 +317,25 @@ class ReviewService(
         )
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
+        val items = toResponses(page.map { it.review }, viewerMemberId, lang, includeFood = true)
         return ReviewListPage(
-            items = toResponses(page.map { it.review }, viewerMemberId, lang, includeFood = true),
+            items = if (cursor == null && foodId == null) withStoredTranslations(page.map { it.review }, items, lang) else items,
             hasNext = hasNext,
             nextCursor = page.lastOrNull()
                 ?.takeIf { hasNext }
                 ?.let { ReviewListCursor.encode(sort, it.metric, it.review.id) },
         )
+    }
+
+    private fun withStoredTranslations(reviews: List<Review>, items: List<ReviewResponse>, lang: LanguageCode): List<ReviewResponse> {
+        val sourceHashes = reviews
+            .filter { !it.content.isNullOrBlank() && it.language != lang.code }
+            .associate { it.id to ReviewTranslationSource.hashOf(it.content!!) }
+        if (sourceHashes.isEmpty()) return items
+        val stored = translations.findAllByTargetTypeInAndTargetIdInAndLanguage(listOf(TranslationTargetType.REVIEW), sourceHashes.keys, lang.code)
+            .filter { it.targetType == TranslationTargetType.REVIEW && it.sourceHash == sourceHashes[it.targetId] }
+            .associateBy { it.targetId }
+        return items.map { item -> stored[item.reviewId]?.let { item.copy(translation = ReviewTranslationResponse(it.translatedText, it.sourceLanguage)) } ?: item }
     }
 
     @Transactional(readOnly = true)

@@ -25,6 +25,11 @@ interface FoodRatingAggregate {
     val reviewCount: Long
 }
 
+interface FoodRatingAverage {
+    val foodId: Long
+    val average: Double?
+}
+
 interface ProcessedFoodRatingAggregate {
     val processedFoodId: Long
     val average: Double?
@@ -91,22 +96,6 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
 
     @Query(
         """
-        select r from Review r
-        where r.processedFoodId = :processedFoodId
-          and r.memberId not in :excludedMemberIds
-          and (:cursor is null or r.id < :cursor)
-        order by r.id desc
-        """,
-    )
-    fun findProcessedFoodReviewPage(
-        @Param("processedFoodId") processedFoodId: Long,
-        @Param("excludedMemberIds") excludedMemberIds: List<Long>,
-        @Param("cursor") cursor: Long?,
-        pageable: Pageable,
-    ): List<Review>
-
-    @Query(
-        """
         select r.processedFoodId as processedFoodId, avg(r.rating) as average, count(r) as reviewCount
         from Review r
         where r.processedFoodId in :processedFoodIds
@@ -114,6 +103,9 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         """,
     )
     fun aggregateRatingsByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: List<Long>): List<ProcessedFoodRatingAggregate>
+
+    @Query("select r.foodId as foodId, avg(r.rating) as average from Review r where r.foodId in :foodIds group by r.foodId")
+    fun averageRatingsByFoodIds(@Param("foodIds") foodIds: Collection<Long>): List<FoodRatingAverage>
 
     @Query(
         """
@@ -123,10 +115,10 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
                avg(case when r.sweetnessRating between 1 and 5 then r.sweetnessRating end) as sweetnessAverage,
                count(case when r.sweetnessRating between 1 and 5 then 1 end) as sweetnessCount
         from Review r
-        where r.processedFoodId = :processedFoodId
+        where r.processedFoodId in :processedFoodIds
         """,
     )
-    fun aggregateAxesByProcessedFoodId(@Param("processedFoodId") processedFoodId: Long): ProcessedFoodReviewAxes
+    fun aggregateAxesByProcessedFoodIds(@Param("processedFoodIds") processedFoodIds: Collection<Long>): ProcessedFoodReviewAxes
 
     @Query(
         """
@@ -210,7 +202,7 @@ interface ReviewJpaRepository : JpaRepository<Review, Long>, ReviewRepositoryCus
         nativeQuery = true,
         value = """
             SELECT COUNT(*) FROM food_review r JOIN member m ON m.id = r.member_id
-            WHERE m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE'
+            WHERE m.is_bot = 1 AND r.created_at >= :since AND r.status = 'ACTIVE' AND r.target_type = 'FOOD'
         """,
     )
     fun countReviewBotReviewsSince(@Param("since") since: LocalDateTime): Long

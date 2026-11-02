@@ -3,6 +3,7 @@ package com.kbap.api.infra.storage
 import com.kbap.common.port.storage.PresignedUploadPort
 import com.kbap.common.port.storage.PresignedUpload
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
@@ -18,12 +19,13 @@ class S3PresignedUploadAdapter(
             S3PresignedUploadAdapter(S3Presigner.builder().region(Region.of(region)).build(), bucket, publicBaseUrl)
     }
 
-    override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload {
+    override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration, checksumSha256Base64: String?): PresignedUpload {
         val putObjectRequest = PutObjectRequest.builder()
             .bucket(bucket)
             .key(key)
             .contentType(contentType)
             .contentLength(contentLength)
+            .apply { checksumSha256Base64?.let { checksumAlgorithm(ChecksumAlgorithm.SHA256).checksumSHA256(it) } }
             .build()
         val presignRequest = PutObjectPresignRequest.builder()
             .signatureDuration(ttl)
@@ -35,7 +37,7 @@ class S3PresignedUploadAdapter(
             requiredHeaders = mapOf(
                 "Content-Type" to contentType,
                 "Content-Length" to contentLength.toString(),
-            ),
+            ) + checksumSha256Base64?.let { mapOf("x-amz-checksum-sha256" to it, "x-amz-sdk-checksum-algorithm" to "SHA256") }.orEmpty(),
             publicUrl = "${publicBaseUrl.trimEnd('/')}/$key",
             objectKey = key,
             expiresAt = presigned.expiration(),

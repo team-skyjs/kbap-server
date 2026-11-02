@@ -10,6 +10,7 @@ class DietCategoryMappingSyncTest : BehaviorSpec({
     val catalogResourcePaths = listOf(
         "db/migration/V2026.07.16.21.38.42__seed_avoidance_catalog.sql",
         "db/migration/V2026.10.21.10.00.40__add_avoidance_group_codes.sql",
+        "db/migration/V2026.10.29.16.52.33__add_coriander_code.sql",
     )
     val sql = catalogResourcePaths.joinToString("\n") { Thread.currentThread().contextClassLoader.getResource(it)?.readText() ?: "" }
 
@@ -21,8 +22,8 @@ class DietCategoryMappingSyncTest : BehaviorSpec({
 
     given("diet 카테고리별 회피 재료 번호표(기획 확정)") {
         `when`("시드 SQL 을 파싱하면") {
-            then("재료 87종이 행 순서대로 읽힌다(경로 파손·빈 파일 감지)") {
-                seedCodesInOrder.size shouldBe 87
+            then("재료 88종이 행 순서대로 읽힌다(경로 파손·빈 파일 감지)") {
+                seedCodesInOrder.size shouldBe 88
             }
         }
 

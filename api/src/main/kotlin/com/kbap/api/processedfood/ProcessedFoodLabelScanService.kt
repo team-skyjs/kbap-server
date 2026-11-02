@@ -1,5 +1,6 @@
 package com.kbap.api.processedfood
 
+import com.kbap.common.domain.LanguageCode
 import java.time.Instant
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
@@ -49,7 +50,7 @@ class ProcessedFoodLabelScanService(
             operations.findForUpdate(memberId, NAMESPACE, ProcessedFoodNameScanService.bytesOf(key))?.let { replayed ->
                 if (!now.isBefore(replayed.resultExpiresAt)) throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_NOT_FOUND)
                 if (!replayed.manifestHash.contentEquals(manifestHash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
-                return responseOf(memberId, key, text, reading, charged = false, freeHour.freeUntil(memberId))
+                return responseOf(memberId, key, text, reading, charged = false, freeHour.freeUntil(memberId), language)
             }
         }
         val hangulTokens = unmappedOf(reading).count { token -> token.count { it in '가'..'힣' } >= 2 }
@@ -89,10 +90,10 @@ class ProcessedFoodLabelScanService(
         target.requestDocument = target.requestDocument + mapOf(
             "label" to mapOf("rawText" to text.rawText, "pageCount" to pages.size, "firstSucceededAt" to firstSucceededAt, "recallCount" to recallCount),
         )
-        return responseOf(memberId, key, text, reading, charged, freeUntil)
+        return responseOf(memberId, key, text, reading, charged, freeUntil, language)
     }
 
-    private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean, freeUntil: Instant?): ProcessedFoodLabelScanResponse {
+    private fun responseOf(memberId: Long, key: UUID, text: ProcessedFoodLabelText, reading: IngredientLabelReading, charged: Boolean, freeUntil: Instant?, language: String): ProcessedFoodLabelScanResponse {
         val mayContain = text.mayContain?.let { IngredientLabelReader.read(null, it).detections }.orEmpty()
         val avoidance = memberService.getAvoidance(memberId)
         val judgement = ProcessedFoodJudge.judge(reading, mayContain, withoutHeadings(text.rawMaterials).ifBlank { null }, avoidance)
@@ -110,6 +111,7 @@ class ProcessedFoodLabelScanService(
             avoidMatches = judgement.avoidMatches,
             mayContainMatches = judgement.mayContainMatches,
             unclearIngredients = judgement.unclearIngredients,
+            unclearIngredientLabels = UnclearIngredientLabels.labelsOf(judgement.unclearTerms, LanguageCode.from(language)),
             majorAllergens = judgement.majorAllergens,
             freeUntil = freeUntil,
         )

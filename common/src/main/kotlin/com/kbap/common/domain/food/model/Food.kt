@@ -111,6 +111,16 @@ class Food(
 
     fun isFailedRegeneration(): Boolean = contentStatus == FoodContentStatus.PENDING_IMAGE && !imageRef.isNullOrBlank()
 
+    fun reopenRejectedForImageRegeneration() {
+        contentFailureKind = null
+    }
+
+    fun isWrongImageRegenerable(): Boolean =
+        !imageRef.isNullOrBlank() && (
+            contentStatus == FoodContentStatus.PENDING_REVIEW ||
+                (contentStatus == FoodContentStatus.FAILED && contentFailureKind == FoodContentFailureKind.ADMIN_REJECTED)
+            )
+
     fun effectivePublishedAt(): LocalDateTime? = publishedAt ?: createdAt.takeIf { isReady() }
 
     fun freezePublishedAtIfLegacy() {
@@ -200,6 +210,10 @@ class Food(
 
     fun ingredientsByProbability(): List<FoodIngredient> =
         ingredients.orEmpty().sortedByDescending { it.inclusionPercent }
+
+    fun rename(refinedDisplayName: String?) {
+        refinedDisplayName?.trim()?.takeIf { it.isNotEmpty() && it.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH }?.let { displayName = it }
+    }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady() || ingredients == null) return RiskLevel.UNKNOWN

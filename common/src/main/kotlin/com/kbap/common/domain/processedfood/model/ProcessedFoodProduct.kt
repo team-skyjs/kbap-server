@@ -3,12 +3,17 @@ package com.kbap.common.domain.processedfood.model
 import com.kbap.common.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import org.hibernate.annotations.DynamicUpdate
+import java.math.BigDecimal
 import java.time.Duration
 import java.time.LocalDateTime
 
 @Entity
+@DynamicUpdate
 @Table(
     name = "processed_food_product",
     uniqueConstraints = [UniqueConstraint(name = "uq_processed_food_product_report_no", columnNames = ["report_no"])],
@@ -77,11 +82,86 @@ class ProcessedFoodProduct(
     @Column(name = "last_seen_at", nullable = false)
     var lastSeenAt: LocalDateTime = LocalDateTime.MIN,
 ) : BaseEntity() {
+    @Column(name = "cutout_image_url", length = URL_LENGTH)
+    var cutoutImageUrl: String? = null
+        protected set
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cutout_review_status", length = 16)
+    var cutoutReviewStatus: CutoutReviewStatus? = null
+        protected set
+
+    @Column(name = "cutout_route", length = 16)
+    var cutoutRoute: String? = null
+        protected set
+
+    @Column(name = "cutout_coverage", precision = 5, scale = 4)
+    var cutoutCoverage: BigDecimal? = null
+        protected set
+
+    @Column(name = "cutout_reviewed_at")
+    var cutoutReviewedAt: LocalDateTime? = null
+        protected set
+
+    @Column(name = "cutout_reviewed_by")
+    var cutoutReviewedBy: Long? = null
+        protected set
+
+    @Column(name = "cutout_review_reason", length = CUTOUT_REVIEW_REASON_LENGTH)
+    var cutoutReviewReason: String? = null
+        protected set
+
+    fun displayImageUrl(): String? =
+        secureImageUrl(cutoutImageUrl.takeIf { cutoutReviewStatus == CutoutReviewStatus.APPROVED } ?: imageUrl)
+
+    fun registerCutout(url: String, route: String, coverage: BigDecimal?) {
+        cutoutRoute = route
+        cutoutCoverage = coverage
+        if (url == cutoutImageUrl) return
+        cutoutImageUrl = url
+        markCutoutReviewed(CutoutReviewStatus.PENDING, reviewedBy = null, reviewedAt = null, reason = null)
+    }
+
+    fun saveApprovedCutout(url: String, adminId: Long, reviewedAt: LocalDateTime) {
+        cutoutImageUrl = url
+        markCutoutReviewed(CutoutReviewStatus.APPROVED, adminId, reviewedAt, reason = null)
+    }
+
+    fun reviewCutout(approved: Boolean, reason: String?, adminId: Long, reviewedAt: LocalDateTime) {
+        check(cutoutImageUrl != null) { "검수할 누끼 이미지가 없습니다" }
+        if (approved) {
+            markCutoutReviewed(CutoutReviewStatus.APPROVED, adminId, reviewedAt, reason = null)
+        } else {
+            markCutoutReviewed(CutoutReviewStatus.REJECTED, adminId, reviewedAt, reason?.trim()?.takeIf { it.isNotEmpty() })
+        }
+    }
+
+    fun clearCutout() {
+        cutoutImageUrl = null
+        cutoutRoute = null
+        cutoutCoverage = null
+        markCutoutReviewed(null, reviewedBy = null, reviewedAt = null, reason = null)
+    }
+
+    private fun markCutoutReviewed(status: CutoutReviewStatus?, reviewedBy: Long?, reviewedAt: LocalDateTime?, reason: String?) {
+        cutoutReviewStatus = status
+        cutoutReviewedBy = reviewedBy
+        cutoutReviewedAt = reviewedAt
+        cutoutReviewReason = reason
+    }
+
     fun promoteToHaccp(snapshot: ProcessedFoodSnapshot, seenAt: LocalDateTime) {
         require(source == SOURCE_C002) { "C002 행만 HACCP 로 승격할 수 있습니다" }
         require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 승격할 수 없습니다" }
         source = SOURCE_HACCP
         lastSeenAt = seenAt
+        copyFrom(snapshot)
+        contentHash = snapshot.contentHash()
+    }
+
+    fun correctManually(snapshot: ProcessedFoodSnapshot) {
+        require(source == SOURCE_MANUAL) { "수동 등록 행만 수동으로 고칠 수 있습니다" }
+        require(snapshot.reportNo == reportNo) { "품목보고번호가 다른 스냅샷으로 고칠 수 없습니다" }
         copyFrom(snapshot)
         contentHash = snapshot.contentHash()
     }
@@ -127,6 +207,7 @@ class ProcessedFoodProduct(
         tracksDiscontinuation(source) && lastCompletedMirrorAt != null && lastSeenAt.isBefore(lastCompletedMirrorAt.minus(DISCONTINUED_AFTER))
 
     companion object {
+        const val CUTOUT_REVIEW_REASON_LENGTH = 200
         val DISCONTINUED_AFTER: Duration = Duration.ofDays(3)
         private val COMPANY_FORMS = Regex("""농업회사법인|주식회사|유한회사|㈜|\(주\)|\(유\)""")
         private val MAKER_CUT = Regex("""[_/:,(]""")
@@ -147,6 +228,7 @@ class ProcessedFoodProduct(
         }
         const val SOURCE_HACCP = "HACCP"
         const val SOURCE_C002 = "C002"
+        const val SOURCE_MANUAL = "MANUAL"
 
         fun tracksDiscontinuation(source: String): Boolean = source == SOURCE_HACCP
         const val REPORT_NO_LENGTH = 20

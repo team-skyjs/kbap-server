@@ -8,7 +8,11 @@ storage_key_prefix = "prod"
 # 콘텐츠 생성 요청 큐는 환경별(KB-547) — 생략하면 기본값(dev 공유 큐 kbap-generate-content-queue)으로 떨어져 prod 요청이 dev 로 샌다
 food_content_queue_name = "kbap-prod-generate-content-queue"
 
-# 2026-08-31 배치 가동 결정 — 구 kbap-prod-cluster 는 INACTIVE 라 이중 운영 사유 소멸
+# 비용 축소(2026-10-28): api 인스턴스·태스크 1 — 카나리 중에만 인스턴스당 2 태스크(512 cpu / 1536 MiB 유지 전제)
+api_instance_count = 1
+api_desired_count  = 1
+
+# 2026-08-31 배치 가동 결정 — 구 kbap-prod-cluster 는 INACTIVE 라 이중 운영 사유 소멸. dev 배치는 0 이라 prod 배치가 유일
 batch_instance_count = 1
 batch_desired_count  = 1
 

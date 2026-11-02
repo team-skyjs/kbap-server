@@ -99,7 +99,7 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     ): List<ScanPhotoFeedRow>
 
     companion object {
-        val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/")
+        val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/", "images/packaged-scans/")
 
         fun isCleanupTarget(path: String): Boolean = !BotImagePaths.isProtected(path) && CLEANUP_SEGMENTS.any { path.contains(it) }
 
@@ -107,7 +107,8 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
             "(locate('images/review/', u.object_path) > 0 " +
                 "or locate('images/community/', u.object_path) > 0 " +
                 "or locate('images/feedback/', u.object_path) > 0 " +
-                "or locate('images/orders/', u.object_path) > 0)"
+                "or locate('images/orders/', u.object_path) > 0 " +
+                "or locate('images/packaged-scans/', u.object_path) > 0)"
 
         private const val UNREFERENCED =
             "not exists (select 1 from food_review r " +

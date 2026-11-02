@@ -32,7 +32,7 @@ class ProcessedFoodTranslationBudgetTest : BehaviorSpec({
                     mock(ProcessedFoodService::class.java), redis, transactions,
                     dailyBudgetKrw = 5000.0, estimatedKrwPerCall = 0.4, syncDeadlineMillis = 3000L,
                 )
-                val item = ProcessedFoodSummaryResponse(1L, "R-1", "동네과자", "㈜동네식품", "과자", null)
+                val item = ProcessedFoodSummaryResponse(1L, "R-1", "동네과자", "㈜동네식품", "과자", null, labelKnown = true)
 
                 service.localizeSummaries(listOf(item), LanguageCode.EN).single().name shouldBe "동네과자"
                 service.awaitIdle()

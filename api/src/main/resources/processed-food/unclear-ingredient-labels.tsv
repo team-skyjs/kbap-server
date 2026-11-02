@@ -1,0 +1,11 @@
+# 확인 안 된 원재료 사전 용어(unclear-ingredients.tsv)의 사용자 언어 라벨(KB-936) — 용어<TAB>ko<TAB>en<TAB>ja<TAB>zh-Hans<TAB>zh-Hant<TAB>vi<TAB>id<TAB>th<TAB>ru<TAB>es
+# 사전 용어를 더하면 여기도 한 줄 더한다(빠지면 라벨은 한국어 용어로 떨어진다). 번역 초안 — Codex 검수 K-항목.
+혼합제제	혼합제제	Additive blend	混合製剤	混合制剂	混合製劑	Chế phẩm phụ gia hỗn hợp	Campuran bahan tambahan	สารเจือปนผสม	Смесь добавок	Mezcla de aditivos
+가공품	가공품	Processed ingredient	加工品	加工制品	加工製品	Thành phần chế biến	Bahan olahan	ส่วนผสมแปรรูป	Переработанный ингредиент	Ingrediente procesado
+복합원재료	복합원재료	Compound ingredient	複合原材料	复合原料	複合原料	Nguyên liệu hỗn hợp	Bahan campuran	วัตถุดิบผสม	Составной ингредиент	Ingrediente compuesto
+복합조미식품	복합조미식품	Compound seasoning	複合調味食品	复合调味料	複合調味料	Gia vị hỗn hợp	Bumbu campuran	เครื่องปรุงรสผสม	Сложная приправа	Condimento compuesto
+시즈닝	시즈닝	Seasoning	シーズニング	调味粉	調味粉	Bột gia vị	Bumbu tabur	ผงปรุงรส	Приправа	Sazonador
+조미료	조미료	Flavoring	調味料	调味料	調味料	Chất điều vị	Penyedap rasa	สารปรุงแต่งรส	Вкусовая добавка	Saborizante
+양념	양념	Seasoning sauce	合わせ調味料	调味酱	調味醬	Gia vị ướp	Bumbu	เครื่องปรุง	Соус-приправа	Aderezo
+믹스	믹스	Mix	ミックス	预拌粉	預拌粉	Hỗn hợp	Campuran	มิกซ์	Смесь	Mezcla
+베이스	베이스	Base	ベース	底料	底料	Nền	Bahan dasar	เบส	Основа	Base

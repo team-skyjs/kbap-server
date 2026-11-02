@@ -44,7 +44,7 @@ enum class ErrorCode(
     FOOD_NOT_REVIEWABLE("FOOD-008", 400, "검수 대상(PENDING_REVIEW)이 아닙니다"),
     FOOD_RESTORE_NAME_CONFLICT("FOOD-009", 409, "같은 이름의 음식이 새로 등록되어 복원할 수 없습니다. 새 음식의 이름을 바꾼 뒤 다시 시도해 주세요"),
     FOOD_READY_TRANSITION_FORBIDDEN("FOOD-010", 400, "READY 전이는 검수 승인 API 로만 가능합니다"),
-    FOOD_STATUS_NOT_READY("FOOD-011", 409, "공개(READY) 상태인 음식만 이미지를 재생성할 수 있습니다"),
+    FOOD_STATUS_NOT_READY("FOOD-011", 409, "공개(READY) 상태인 음식만 이미지를 재생성할 수 있습니다(잘못된 이미지 재생성은 검수 대기·관리자 반려 음식도 가능)"),
     FOOD_IMAGE_REF_NOT_EDITABLE("FOOD-012", 400, "대표 이미지는 대표 지정 API 로만 바꿀 수 있습니다"),
     FOOD_TOO_MANY_INGREDIENTS("FOOD-013", 400, "음식 한 건의 재료는 21개까지 저장할 수 있습니다"),
     FOOD_DUPLICATE_INGREDIENT("FOOD-014", 400, "같은 재료를 한 음식에 두 번 넣을 수 없습니다"),
@@ -56,6 +56,8 @@ enum class ErrorCode(
     FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT("FOOD-020", 409, "같은 음식에 이미지 재생성과 콘텐츠 재수집을 동시에 진행할 수 없습니다"),
     FOOD_CONTENT_DRAFT_NOT_FOUND("FOOD-021", 404, "검수 대기 중인 콘텐츠 초안이 없습니다"),
     FOOD_LISTING_STALE("FOOD-022", 409, "음식 목록이 변경되었습니다. 첫 페이지부터 다시 조회해 주세요"),
+    FOOD_INGREDIENT_RETRO_IN_PROGRESS("FOOD-023", 409, "같은 재료 코드의 소급 판정이 이미 진행 중입니다"),
+    FOOD_INGREDIENT_RETRO_JOB_NOT_FOUND("FOOD-024", 404, "소급 판정 작업을 찾을 수 없거나 기록이 만료되었습니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
@@ -100,6 +102,8 @@ enum class ErrorCode(
     REVIEW_IMAGE_NOT_VERIFIED("REVIEW-003", 400, "검증되지 않았거나 본인이 업로드하지 않은 이미지입니다"),
     REVIEW_NOT_ELIGIBLE("REVIEW-004", 403, "스캔 이력이 있는 음식에만 리뷰를 작성할 수 있습니다"),
     REVIEW_BODY_TOO_SHORT("REVIEW-005", 400, "리뷰 본문은 10자 이상이어야 해요"),
+    REVIEW_BOT_ENVIRONMENT_MISMATCH("REVIEW-006", 409, "요청 환경이 서버 환경과 다릅니다"),
+    REVIEW_BOT_BUSY("REVIEW-007", 409, "리뷰 봇이 다른 작업 중입니다. 잠시 후 다시 시도해 주세요"),
 
     PLACE_SEARCH_FAILED("PLACE-001", 502, "식당 검색에 실패했습니다. 잠시 후 다시 시도해 주세요"),
 
@@ -138,4 +142,9 @@ enum class ErrorCode(
     PROCESSED_FOOD_REVIEW_CLOSED("PFOOD-005", 403, "가공식품 리뷰는 아직 열리지 않았습니다"),
     PROCESSED_FOOD_LABEL_NOT_READ("PFOOD-006", 400, "성분표를 읽지 못했어요. 원재료명이 잘 보이게 다시 찍어 주세요"),
     PROCESSED_FOOD_LABEL_NOT_ALLOWED("PFOOD-007", 409, "이 분석에는 성분표를 이어 붙일 수 없습니다"),
+    PROCESSED_FOOD_CUTOUT_NOT_UPLOADED("PFOOD-008", 400, "누끼 이미지 업로드를 확인하지 못했습니다"),
+    PROCESSED_FOOD_CUTOUT_NOT_FOUND("PFOOD-009", 404, "검수할 누끼 이미지가 없습니다"),
+    PROCESSED_FOOD_CUTOUT_CHANGED("PFOOD-010", 409, "검수하는 사이 누끼 이미지가 바뀌었습니다. 새 이미지를 보고 다시 검수해 주세요"),
+    PROCESSED_FOOD_NOT_MANUAL("PFOOD-011", 409, "수동 등록 상품만 고칠 수 있습니다"),
+    PROCESSED_FOOD_ENVIRONMENT_MISMATCH("PFOOD-012", 409, "요청 환경이 서버 환경과 다릅니다"),
 }

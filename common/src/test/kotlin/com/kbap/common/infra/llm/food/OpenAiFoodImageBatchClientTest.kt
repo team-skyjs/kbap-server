@@ -38,6 +38,17 @@ class OpenAiFoodImageBatchClientTest : BehaviorSpec({
             }
         }
 
+        `when`("여러 줄짜리 prompt(관리자 수정 지시 블록 포함)로 요청 줄을 만들면 — KB-928") {
+            then("JSONL 한 줄로 직렬화되고 body.prompt 는 수정 지시까지 원문 그대로다") {
+                val prompt = "막국수의 음식 사진.\n\n이번 이미지의 관리자 수정 지시: 막국수는 보통 \"빨간\" 비빔 양념으로 되어있음.\n위 지시를 이번 이미지의 음식 표현에 반영한다."
+
+                val line = client.requestLineOf(FoodImageBatchClient.Entry("453", prompt))
+
+                line.contains('\n') shouldBe false
+                mapper.readTree(line).path("body").path("prompt").asText() shouldBe prompt
+            }
+        }
+
         `when`("출력 포맷이 설정돼 있으면") {
             then("body 에 output_format·output_compression 을 실어 webp 원본을 받는다") {
                 val node = mapper.readTree(client.requestLineOf(FoodImageBatchClient.Entry("42", "p")))

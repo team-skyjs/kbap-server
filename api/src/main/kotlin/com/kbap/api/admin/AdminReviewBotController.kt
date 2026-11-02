@@ -5,11 +5,17 @@ import com.kbap.api.core.BaseResponse
 import com.kbap.api.reviewbot.ReviewBotAccountService
 import com.kbap.api.reviewbot.ReviewBotPhotoService
 import com.kbap.api.reviewbot.ReviewBotPhotoInventory
+import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodService
+import com.kbap.api.reviewbot.ReviewBotRewriteResult
+import com.kbap.api.reviewbot.ReviewBotRewriteService
 import org.springframework.web.bind.annotation.GetMapping
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -19,7 +25,24 @@ import org.springframework.web.bind.annotation.RestController
 class AdminReviewBotController(
     private val accountService: ReviewBotAccountService,
     private val photos: ReviewBotPhotoService,
+    private val rewriter: ReviewBotRewriteService,
+    private val processedFoodBot: ReviewBotProcessedFoodService,
 ) : AdminReviewBotApi {
+    @PostMapping("/processed-foods/photos/dedupe")
+    override fun dedupeProcessedFoodPhotos(
+        @RequestHeader("X-Target-Environment") target: String,
+        @RequestBody request: AdminReviewBotPhotoDedupeRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotPhotoDedupeResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(processedFoodBot.dedupePhotos(target, request.dryRun)))
+
+    @PostMapping("/processed-foods/reviews")
+    override fun writeProcessedFoodReviews(
+        @RequestHeader("X-Target-Environment") target: String,
+        @Valid @RequestBody request: AdminReviewBotProcessedFoodRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotProcessedFoodRunResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store")
+            .body(BaseResponse.ok(processedFoodBot.run(target, request.dryRun, request.limit, request.ids, request.topLines, request.seed)))
+
     @GetMapping("/images")
     override fun getPhotoInventory(): ResponseEntity<BaseResponse<ReviewBotPhotoInventory>> =
         ResponseEntity.ok(BaseResponse.ok(photos.getInventory()))
@@ -29,6 +52,14 @@ class AdminReviewBotController(
         @RequestParam(defaultValue = "false") force: Boolean,
     ): ResponseEntity<BaseResponse<AdminReviewBotPhotoSyncResponse>> =
         ResponseEntity.ok(BaseResponse.ok(AdminReviewBotPhotoSyncResponse.from(photos.sync())))
+
+    @PostMapping("/reviews/rewrite")
+    override fun rewriteReviews(
+        @RequestHeader("X-Target-Environment") target: String,
+        @Valid @RequestBody request: AdminReviewBotRewriteRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotRewriteResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store")
+            .body(BaseResponse.ok(rewriter.rewrite(target, request.ratio!!, request.dryRun, request.limit, request.seed, request.afterId)))
 
     @PostMapping
     override fun ensureBots(

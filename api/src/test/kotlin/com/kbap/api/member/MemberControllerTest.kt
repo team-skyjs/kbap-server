@@ -11,6 +11,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldMatch
+import io.kotest.matchers.string.shouldStartWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -226,12 +227,13 @@ class MemberControllerTest : BehaviorSpec() {
                 `when`(label + "을 제출하면") {
                     then("400 으로 거절되고 프로필·온보딩 상태가 변하지 않는다") {
                         val token = loginAccessToken()
+                        val nicknameBefore = memberColumn("google-sub-fixed", "nickname")
 
                         val result = submitOnboarding(token, body).andReturn().response
 
                         result.status shouldBe 400
                         result.contentAsString shouldContain "\"success\":false"
-                        memberColumn("google-sub-fixed", "nickname") shouldBe null
+                        memberColumn("google-sub-fixed", "nickname") shouldBe nicknameBefore
                         memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                     }
                 }
@@ -291,7 +293,8 @@ class MemberControllerTest : BehaviorSpec() {
                     result.status shouldBe 200
                     val payload = objectMapper.readTree(result.contentAsString).path("payload")
                     payload.path("onboardingCompleted").asBoolean() shouldBe false
-                    payload.path("nickname").isNull shouldBe true
+                    payload.path("nickname").asText() shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                    payload.path("profileImageUrl").asText() shouldStartWith "https://cdn.test/images/webp/default_profile/"
                     payload.path("provider").asText() shouldBe "GOOGLE"
                 }
             }
@@ -1043,12 +1046,13 @@ class MemberControllerTest : BehaviorSpec() {
             `when`("버전 헤더 없이 닉네임을 생략하고 온보딩하면") {
                 then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
                     val token = loginAccessToken()
+                    val nicknameBefore = memberColumn("google-sub-fixed", "nickname")
 
                     val result = submitOnboarding(token, validBody() - "nickname").andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "COMMON-002"
-                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "nickname") shouldBe nicknameBefore
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
@@ -1056,13 +1060,14 @@ class MemberControllerTest : BehaviorSpec() {
             `when`("버전 헤더 없이 닉네임에 null 을 명시해 온보딩하면") {
                 then("400 과 COMMON-002 로 거절되고 온보딩·닉네임이 저장되지 않는다") {
                     val token = loginAccessToken()
+                    val nicknameBefore = memberColumn("google-sub-fixed", "nickname")
 
                     val result = submitOnboarding(token, validBody() + ("nickname" to null))
                         .andReturn().response
 
                     result.status shouldBe 400
                     result.contentAsString shouldContain "COMMON-002"
-                    memberColumn("google-sub-fixed", "nickname") shouldBe null
+                    memberColumn("google-sub-fixed", "nickname") shouldBe nicknameBefore
                     memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                 }
             }
@@ -1110,6 +1115,36 @@ class MemberControllerTest : BehaviorSpec() {
                     memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
                     val stored = memberColumn("google-sub-fixed", "profile_image_url")
                     OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(stored) shouldBe true
+                }
+            }
+
+            `when`("로그인 때 받은 기본 닉네임·사진이 있는 회원이 1.1 로 온보딩하면") {
+                then("가입 때 받은 닉네임·사진이 그대로 유지된다") {
+                    val token = loginAccessToken()
+                    val nicknameAtSignUp = memberColumn("google-sub-fixed", "nickname")
+                    val imageAtSignUp = memberColumn("google-sub-fixed", "profile_image_url")
+
+                    submitOnboarding(token, v2Body, apiVersion = "1.1").andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "1"
+                    memberColumn("google-sub-fixed", "nickname") shouldBe nicknameAtSignUp
+                    memberColumn("google-sub-fixed", "profile_image_url") shouldBe imageAtSignUp
+                }
+            }
+
+            `when`("기본값이 비어 있는 기존 미완료 회원이 1.1 로 온보딩하면") {
+                then("닉네임·사진이 새로 지정된다") {
+                    val token = loginAccessToken()
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute("UPDATE member SET nickname = NULL, profile_image_url = NULL WHERE provider_uid = 'google-sub-fixed'")
+                        }
+                    }
+
+                    submitOnboarding(token, v2Body, apiVersion = "1.1").andExpect { status { isOk() } }
+
+                    memberColumn("google-sub-fixed", "nickname")!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                    OnboardingProfileDefaults.PROFILE_IMAGE_PATHS.contains(memberColumn("google-sub-fixed", "profile_image_url")) shouldBe true
                 }
             }
 
@@ -1189,13 +1224,14 @@ class MemberControllerTest : BehaviorSpec() {
                 `when`(label + "을 제출하면") {
                     then("400 MEMBER-008 로 거절되고 아무것도 저장되지 않는다") {
                         val token = loginAccessToken()
+                        val nicknameBefore = memberColumn("google-sub-fixed", "nickname")
 
                         val result = submitOnboarding(token, validBody() + ("profileImageUrl" to path))
                             .andReturn().response
 
                         result.status shouldBe 400
                         result.contentAsString shouldContain "MEMBER-008"
-                        memberColumn("google-sub-fixed", "nickname") shouldBe null
+                        memberColumn("google-sub-fixed", "nickname") shouldBe nicknameBefore
                         memberColumn("google-sub-fixed", "onboarding_completed") shouldBe "0"
                     }
                 }

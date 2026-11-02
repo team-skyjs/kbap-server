@@ -24,7 +24,7 @@ class OpenAiTextTranslator(
     private val format: Format = Format.SOURCE_LANGUAGE_HEADER,
     private val newMarker: () -> String = { "LANG-" + UUID.randomUUID().toString().take(8) },
 ) : TextTranslator {
-    enum class Format { SOURCE_LANGUAGE_HEADER, PROCESSED_FOOD }
+    enum class Format { SOURCE_LANGUAGE_HEADER, PROCESSED_FOOD, PROCESSED_FOOD_NAME }
 
     override fun translate(text: String, target: LanguageCode): TranslatedText {
         val options = (chatModel.defaultOptions as? OpenAiChatOptions)?.mutate() ?: OpenAiChatOptions.builder()
@@ -33,6 +33,7 @@ class OpenAiTextTranslator(
         val systemPrompt = when (format) {
             Format.SOURCE_LANGUAGE_HEADER -> TranslationPrompt.system(target, marker)
             Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.system(target)
+            Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.system(target, text)
         }
         val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), UserMessage(text)), options.build()))
         val usage = response.metadata.usage
@@ -59,6 +60,7 @@ class OpenAiTextTranslator(
         return when (format) {
             Format.SOURCE_LANGUAGE_HEADER -> split(outputText, text, marker)
             Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.parse(outputText, text, target)
+            Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.parse(outputText, text)
         }
     }
 

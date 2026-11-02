@@ -204,6 +204,7 @@ class AdminFoodRecollectTest : BehaviorSpec() {
                 "",
                 humanReview = null,
                 regeneration = null,
+                generation = null,
                 additionalInProgress = false,
                 contentRequestPending = since != null,
                 contentRequestSince = since,

@@ -89,6 +89,22 @@ class ReviewRepositoryCustomImpl(
             .setParameter("excludedReviewIds", excludedReviewIds)
             .singleResult.let { (it as Number).toLong() > 0 }
 
+    override fun findProcessedFoodReviewPage(processedFoodIds: Collection<Long>, excludedMemberIds: List<Long>, cursor: Long?, limit: Int): List<Review> {
+        val ids = processedFoodIds.distinct()
+        if (ids.isEmpty()) return emptyList()
+        val cursorCondition = if (cursor == null) "" else " AND id < :cursor"
+        val branches = ids.indices.joinToString(" UNION ALL ") { i ->
+            "(SELECT * FROM food_review FORCE INDEX (idx_food_review_processed_food_recent) WHERE processed_food_id = :member$i AND status = 'ACTIVE'" +
+                " AND member_id NOT IN (:excludedMemberIds)$cursorCondition ORDER BY id DESC LIMIT :limit)"
+        }
+        val query = entityManager.createNativeQuery("SELECT * FROM ($branches) r ORDER BY r.id DESC LIMIT :limit", Review::class.java)
+            .setParameter("excludedMemberIds", excludedMemberIds)
+            .setParameter("limit", limit)
+        ids.forEachIndexed { i, id -> query.setParameter("member$i", id) }
+        if (cursor != null) query.setParameter("cursor", cursor)
+        return query.resultList.map { it as Review }
+    }
+
     private companion object {
         val EXCLUSIONS = listOf(
             "r.memberId not in :excludedMemberIds",

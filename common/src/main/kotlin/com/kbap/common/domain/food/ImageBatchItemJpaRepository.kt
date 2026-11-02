@@ -17,6 +17,15 @@ interface ImageBatchItemJpaRepository : JpaRepository<ImageBatchItem, Long> {
     @Query(
         """
         select i from ImageBatchItem i
+        where i.foodId = :foodId and i.itemStatus = 'DONE' and i.fileName in :fileNames
+        order by i.id desc
+        """,
+    )
+    fun findDoneByFoodIdAndFileNameIn(@Param("foodId") foodId: Long, @Param("fileNames") fileNames: Collection<String>): List<ImageBatchItem>
+
+    @Query(
+        """
+        select i from ImageBatchItem i
         where i.foodId = :foodId
           and (i.regenerationIntent is null or i.regenerationIntent <> com.kbap.common.domain.food.model.RegenerationIntent.ADDITIONAL)
         order by i.id desc

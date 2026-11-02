@@ -5,7 +5,9 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.domain.member.model.CountryCode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldMatch
 
 class MemberTest : BehaviorSpec({
 
@@ -21,11 +23,14 @@ class MemberTest : BehaviorSpec({
 
     given("Member.signUp — 최초 가입") {
         `when`("소셜 신원으로 가입하면") {
-            then("온보딩 미완료·빈 프로필·해당 신원을 보유한다") {
+            then("온보딩 미완료·기본 닉네임·기본 프로필 사진·해당 신원을 보유한다") {
                 val member = Member.signUp(googleIdentity())
 
                 member.onboardingCompleted shouldBe false
-                member.profile shouldBe MemberProfile.empty()
+                member.nickname!! shouldMatch Regex("^[A-Za-z]+_\\d{4}$")
+                OnboardingProfileDefaults.PROFILE_IMAGE_PATHS shouldContain member.profileImageUrl!!
+                member.countryCode shouldBe null
+                member.avoidanceSubstanceCodes shouldBe emptyList()
                 member.identity.providerUserId shouldBe "google-sub-1"
             }
         }

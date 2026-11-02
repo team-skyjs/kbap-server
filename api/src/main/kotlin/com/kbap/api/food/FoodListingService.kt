@@ -8,6 +8,7 @@ import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.bookmark.BookmarkJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.RiskLevel
+import com.kbap.common.domain.review.ReviewJpaRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,6 +21,7 @@ class FoodListingService(
     private val foodService: FoodService,
     private val bookmarkService: BookmarkService,
     private val memberService: MemberService,
+    private val reviewRepository: ReviewJpaRepository,
 ) {
     @Transactional(readOnly = true)
     fun getFoodListingPage(
@@ -34,6 +36,12 @@ class FoodListingService(
         val savedIds = bookmarks.map { it.foodId }.toSet()
         val names = foodRepository.findListingNames().filter { !saved || it.id in savedIds }
         val avoided = memberService.getAvoidance(memberId).codeNames
+        val averageRatings = if (sort == FoodListingSort.REVIEWS) {
+            names.filter { it.reviewCount > 0 }.map { it.id }.takeIf { it.isNotEmpty() }
+                ?.let { ids -> reviewRepository.averageRatingsByFoodIds(ids).associate { it.foodId to (it.average ?: 0.0) } }.orEmpty()
+        } else {
+            emptyMap()
+        }
         val context = FoodListingCursor.fingerprint(listOf(
             FoodListingSort.COMPARATOR_VERSION,
             lang.code,
@@ -47,6 +55,10 @@ class FoodListingService(
                 add(it.id.toString())
                 add(it.name(lang))
                 add(it.updatedAt.toString())
+                if (sort == FoodListingSort.REVIEWS) {
+                    add(it.reviewCount.toString())
+                    add(averageRatings[it.id]?.toString().orEmpty())
+                }
             }
             bookmarks.forEach {
                 add(it.id.toString())
@@ -66,7 +78,7 @@ class FoodListingService(
             return FoodListingPage(page.items, page.hasNext, encode(page.nextCursor))
         }
 
-        val orderedIds = sort.order(names, lang)
+        val orderedIds = sort.order(names, lang, averageRatings)
         val start = cursor?.let {
             val index = orderedIds.indexOf(it.lastId)
             if (index < 0) throw BusinessException(ErrorCode.INVALID_CURSOR)

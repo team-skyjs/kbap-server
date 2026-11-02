@@ -1,6 +1,6 @@
 package com.kbap.api.processedfood
 
-import com.kbap.common.domain.ingredient.label.AllergenDeclaration
+import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.ingredient.label.IngredientLabelMatch
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.ingredient.label.IngredientLabelReading
@@ -41,12 +41,15 @@ data class ProcessedFoodSummaryResponse(
     val type: ProcessedFoodType? = ProcessedFoodType.of(foodType),
     @field:Schema(description = "평점 — 목록·검색·이름 스캔 후보에서 채운다(리뷰 없으면 average null·count 0)", nullable = true)
     val rating: ProcessedFoodRatingResponse? = null,
+    @field:Schema(description = "표시 정보 유무 — 원재료 또는 알레르기 표시가 있으면 true(상세 labelSource 가 NONE 이 아니면 true, 같은 규칙). false 면 상세는 '확인 못 함'이라 카드에 Safe 리본을 붙이지 않는다", example = "true")
+    val labelKnown: Boolean,
 ) {
     companion object {
         fun from(product: ProcessedFoodProduct, avoidance: Avoidance? = null) =
             ProcessedFoodSummaryResponse(
-                product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, ProcessedFoodProduct.secureImageUrl(product.imageUrl),
+                product.id, product.reportNo, product.productName, product.displayMaker(), product.foodType, product.displayImageUrl(),
                 verdict = avoidance?.let { ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, it).verdict },
+                labelKnown = ProcessedFoodLabelSource.of(product.allergens, product.rawMaterials) != ProcessedFoodLabelSource.NONE,
             )
 
         fun withReviews(product: ProcessedFoodProduct, rating: ProcessedFoodRatingAggregate?, avoidance: Avoidance? = null) =
@@ -107,7 +110,28 @@ data class ProcessedFoodReviewSummaryResponse(
 }
 
 @Schema(description = "알레르기 판독 근거 — DECLARED: 알레르기 표시란(의무 표시)이 있다 · INGREDIENTS_ONLY: 표시란이 '알수없음'·빈 값이라 원재료 원문으로만 판독 · NONE: 둘 다 없다")
-enum class ProcessedFoodLabelSource { DECLARED, INGREDIENTS_ONLY, NONE }
+enum class ProcessedFoodLabelSource {
+    DECLARED,
+    INGREDIENTS_ONLY,
+    NONE,
+    ;
+
+    companion object {
+        fun of(allergens: String?, rawMaterials: String?): ProcessedFoodLabelSource = when {
+            IngredientLabelReader.declares(ProcessedFoodLabelText.splitMayContain(allergens, ingredientField = false).first) -> DECLARED
+            !IngredientLabelReader.isRawNotProvided(rawMaterials) -> INGREDIENTS_ONLY
+            else -> NONE
+        }
+    }
+}
+
+@Schema(description = "같은 묶음 상품(용량 선택용)")
+data class ProcessedFoodSameNameResponse(
+    @field:Schema(description = "가공식품 id", example = "1032")
+    val id: Long,
+    @field:Schema(description = "용량 표시 원문 — 없으면 null", example = "75g", nullable = true)
+    val capacity: String?,
+)
 
 @Schema(description = "가공식품 상세")
 data class ProcessedFoodDetailResponse(
@@ -147,6 +171,8 @@ data class ProcessedFoodDetailResponse(
     val mayContain: List<ProcessedFoodMayContainResponse>,
     @field:Schema(description = "내용 불명 원재료(향료·혼합제제·가공품·복합원재료 등 서버 사전) — SAFE_WITH_NOTE 근거", example = "[\"합성향료\"]")
     val unclearIngredients: List<String>,
+    @field:Schema(description = "unclearIngredients 에 걸린 서버 사전 용어(혼합제제·가공품·복합원재료·복합조미식품·시즈닝·조미료·양념·믹스·베이스)와 요청 lang 라벨 — 사전 순서, 없으면 빈 배열. 원문 토큰은 unclearIngredients 그대로")
+    val unclearIngredientLabels: List<UnclearIngredientLabel> = emptyList(),
     @field:Schema(description = "한국 표시 의무 알레르기(식품표시광고법 시행규칙 별표 2) 중 들어 있는 코드 — 혼입 가능 표기는 빼고. 비회원·회피 0개 화면용")
     val majorAllergens: List<IngredientCode>,
     @field:Schema(description = "표시 이름 — 요청 lang 번역(실패·상한 초과면 한국어 원문)", example = "Banana Flavored Milk")
@@ -157,9 +183,11 @@ data class ProcessedFoodDetailResponse(
     val ingredients: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "알레르기 표시 — translated·original. 표시가 없거나 '알수없음' 등이면 null", nullable = true)
     val allergenStatement: ProcessedFoodLocalizedText? = null,
+    @field:Schema(description = "같은 묶음(정규화 이름 + 제조사) 상품 — 용량만 다른 별도 등록 등. 자기 자신 포함, id 순. 목록·검색은 이 중 대표 1개만 보인다(KB-950)")
+    val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes): ProcessedFoodDetailResponse {
+        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes, sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList()): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
             return ProcessedFoodDetailResponse(
@@ -171,25 +199,25 @@ data class ProcessedFoodDetailResponse(
                 capacity = product.capacity,
                 rawMaterials = product.rawMaterials,
                 allergens = product.allergens,
-                labelSource = when {
-                    reading.declaration == AllergenDeclaration.LISTED -> ProcessedFoodLabelSource.DECLARED
-                    !IngredientLabelReader.isRawNotProvided(product.rawMaterials) -> ProcessedFoodLabelSource.INGREDIENTS_ONLY
-                    else -> ProcessedFoodLabelSource.NONE
-                },
+                labelSource = ProcessedFoodLabelSource.of(product.allergens, product.rawMaterials),
                 detections = reading.detections.map { ProcessedFoodDetectionResponse(it.code, it.source, it.evidence) },
                 unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
-                image = ProcessedFoodProduct.secureImageUrl(product.imageUrl)?.let { ProcessedFoodImageResponse(it, product.source, "processedFood.image.haccp") },
+                image = product.displayImageUrl()?.let {
+                    ProcessedFoodImageResponse(it, product.source, if (product.source == ProcessedFoodProduct.SOURCE_MANUAL) "processedFood.image.manual" else "processedFood.image.haccp")
+                },
                 reviewSummary = ProcessedFoodReviewSummaryResponse.of(axes),
                 verdict = judgement.verdict,
                 avoidMatches = judgement.avoidMatches,
                 mayContainMatches = judgement.mayContainMatches,
                 mayContain = judgement.mayContain.map { ProcessedFoodMayContainResponse(it.code, it.source, it.evidence) },
                 unclearIngredients = judgement.unclearIngredients,
+                unclearIngredientLabels = UnclearIngredientLabels.labelsOf(judgement.unclearTerms, LanguageCode.KO),
                 majorAllergens = judgement.majorAllergens,
                 ingredients = product.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
+                sameNameProducts = sameNameProducts,
             )
         }
 
@@ -225,9 +253,9 @@ data class ProcessedFoodAvoidanceResponse(
 )
 
 data class ProcessedFoodSourceResponse(
-    @field:Schema(description = "데이터 출처 — HACCP(식품안전정보원 HACCP 제품정보) 또는 C002(식약처 품목제조보고)", example = "HACCP", allowableValues = ["HACCP", "C002"])
+    @field:Schema(description = "데이터 출처 — HACCP(식품안전정보원 HACCP 제품정보)·C002(식약처 품목제조보고)·MANUAL(K-Bap 이 실물 포장 표시를 보고 수동 등록, KB-952)", example = "HACCP", allowableValues = ["HACCP", "C002", "MANUAL"])
     val provider: String,
-    @field:Schema(description = "출처 고지 문구 키 — 앱이 언어별 문구로 바꾼다. processedFood.source.haccp 또는 processedFood.source.c002", example = "processedFood.source.haccp")
+    @field:Schema(description = "출처 고지 문구 키 — 앱이 언어별 문구로 바꾼다. processedFood.source.haccp·processedFood.source.c002·processedFood.source.manual(provider 를 소문자로 붙인 값)", example = "processedFood.source.haccp")
     val attributionKey: String,
     @field:Schema(description = "이 제품을 처음 수집한 시각. 원본 내용 변경 시각은 아직 기록하지 않아 내려가지 않는다(미러 확인 시각을 갱신일로 보이지 않기 위해)")
     val collectedAt: LocalDateTime,
@@ -237,6 +265,6 @@ data class ProcessedFoodImageResponse(
     val url: String,
     @field:Schema(description = "이미지 출처", example = "HACCP")
     val source: String,
-    @field:Schema(description = "이미지 저작 고지 문구 키", example = "processedFood.image.haccp")
+    @field:Schema(description = "이미지 저작 고지 문구 키 — processedFood.image.haccp, 수동 등록(MANUAL) 상품은 processedFood.image.manual", example = "processedFood.image.haccp")
     val attributionKey: String,
 )

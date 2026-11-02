@@ -15,11 +15,15 @@ jackson = "2.21.4"
 # 인증(KB-118): jjwt·firebase-admin 은 Spring Boot BOM 이 관리하지 않아 버전을 여기에 고정한다.
 jjwt = "0.12.6"
 firebase-admin = "9.4.3"
+# 가공식품 이름 스캔 그림자 판별(KB-893): Claude Haiku 호출. 키는 SDK 기본 환경변수 ANTHROPIC_API_KEY.
+anthropic-java = "2.75.0"
 # 리뷰 본문 언어 판별(KB-702): 라틴 문자 글만 Lingua 로 가른다. Boot BOM 밖이라 버전을 여기에 고정한다.
 lingua = "1.2.2"
 # 스토리지(KB-145/KB-138): AWS SDK for Java v2 — Spring Boot BOM 이 관리하지 않아 BOM 을 별도 platform 으로 고정.
 # presign(S3Presigner)·head/delete(S3Client) 모두 s3 아티팩트에 포함 — 별도 s3-presigner 의존 불필요.
 aws-sdk = "2.48.0"
+# 큐레이션 표시용 변형(KB-930): ImageIO WebP 읽기·쓰기 플러그인 — libwebp 네이티브 동봉(linux x86_64·aarch64, macOS).
+webp-imageio = "0.10.0"
 # 스케줄 중복 실행 방지(KB-226): 운영 api 2대에서 이미지 회수 틱을 1대만 실행 — Spring Boot BOM 미관리.
 shedlock = "6.9.2"
 sentry = "8.55.0"
@@ -81,6 +85,7 @@ flyway-mysql = { module = "org.flywaydb:flyway-mysql" }
 # BOM 으로 버전 정렬 — s3 만 의존(presigner·client 모두 s3 아티팩트에 포함).
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3" }
+webp-imageio = { module = "com.github.usefulness:webp-imageio", version.ref = "webp-imageio" }
 aws-sqs = { module = "software.amazon.awssdk:sqs" }
 
 # --- API docs (Swagger UI) ---
@@ -102,6 +107,7 @@ jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
+anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropic-java" }
 lingua = { module = "com.github.pemistahl:lingua", version.ref = "lingua" }
 
 # --- Test (versions managed by the Spring Boot / JUnit BOM) ---

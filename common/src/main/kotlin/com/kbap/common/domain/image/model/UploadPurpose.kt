@@ -7,6 +7,7 @@ enum class UploadPurpose(val prefix: String) {
     COMMUNITY("community"),
     FEEDBACK("feedback"),
     ORDER_ITEM("orders"),
+    PACKAGED_SCAN("packaged-scans"),
     ;
 
     val segment: String get() = "images/$prefix/"

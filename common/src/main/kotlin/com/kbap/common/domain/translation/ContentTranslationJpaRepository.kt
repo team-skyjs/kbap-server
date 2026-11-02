@@ -13,6 +13,14 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
 
     fun findAllByTargetTypeInAndTargetIdInAndLanguage(targetTypes: Collection<TranslationTargetType>, targetIds: Collection<Long>, language: String): List<ContentTranslation>
 
+    @Query(
+        nativeQuery = true,
+        value = "SELECT * FROM content_translation WHERE target_type = :targetType AND status = 'ACTIVE' AND id > :afterId ORDER BY id LIMIT :limit",
+    )
+    fun findPageByTargetType(@Param("targetType") targetType: String, @Param("afterId") afterId: Long, @Param("limit") limit: Int): List<ContentTranslation>
+
+    fun countByTargetType(targetType: TranslationTargetType): Long
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         nativeQuery = true,

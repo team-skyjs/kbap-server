@@ -7,6 +7,7 @@ dependencies {
     "implementation"(project(":common"))
 
     "implementation"(libs.firebase.admin)
+    "implementation"(libs.anthropic.java)
     "implementation"(libs.lingua)
     "implementation"(libs.jjwt.api)
     "runtimeOnly"(libs.jjwt.impl)
@@ -16,6 +17,7 @@ dependencies {
 
     "implementation"(platform(libs.aws.bom))
     "implementation"(libs.aws.s3)
+    "runtimeOnly"(libs.webp.imageio)
 
     "implementation"("tools.jackson.module:jackson-module-kotlin")
 

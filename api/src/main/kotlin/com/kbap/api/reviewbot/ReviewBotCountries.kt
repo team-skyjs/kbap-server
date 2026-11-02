@@ -43,6 +43,24 @@ object ReviewBotCountries {
         return countryCode?.let { code -> CountryCode.entries.firstOrNull { it.name == code } }?.let(LANGUAGES::get) ?: ENGLISH
     }
 
+    fun nativeLanguageOf(countryCode: String?): String =
+        countryCode?.let { code -> CountryCode.entries.firstOrNull { it.name == code } }?.let(LANGUAGES::get) ?: ENGLISH
+
+    fun languageNameOf(languageCode: String?): String? = LANGUAGE_NAMES[languageCode]
+
+    private val LANGUAGE_NAMES: Map<String, String> = mapOf(
+        "en" to ENGLISH,
+        "ja" to "Japanese",
+        "zh-Hant" to "Traditional Chinese",
+        "zh-Hans" to "Simplified Chinese",
+        "th" to "Thai",
+        "vi" to "Vietnamese",
+        "ko" to "Korean",
+        "es" to "Spanish",
+        "id" to "Indonesian",
+        "ru" to "Russian",
+    )
+
     fun rating(random: Random): Int = when (random.nextInt(10)) {
         in 0..1 -> 3
         in 2..6 -> 4

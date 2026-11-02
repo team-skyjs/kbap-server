@@ -5,6 +5,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
+import com.kbap.common.domain.translation.ReviewTranslationSource
 import com.kbap.common.domain.translation.model.TranslationTargetType
 import com.kbap.common.port.llm.TextTranslator
 import com.zaxxer.hikari.HikariDataSource
@@ -14,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
-import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.util.concurrent.Semaphore
 import javax.sql.DataSource
@@ -110,10 +110,7 @@ class TranslationService(
         }
     }
 
-    private fun hashOf(source: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest("$CACHE_VERSION\n$source".toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+    private fun hashOf(source: String): String = ReviewTranslationSource.hashOf(source)
 
     private fun clampToPool(configured: Int, dataSource: DataSource): Int {
         val poolSize = runCatching { dataSource.unwrap(HikariDataSource::class.java).maximumPoolSize }.getOrNull() ?: return configured
@@ -127,7 +124,7 @@ class TranslationService(
     }
 
     companion object {
-        const val CACHE_VERSION = "4"
+        const val CACHE_VERSION = ReviewTranslationSource.CACHE_VERSION
         const val MAX_TRANSLATED_LENGTH = 10_000
     }
 }

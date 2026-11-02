@@ -323,7 +323,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
                     result.dryRun shouldBe true
                     result.deletedCount shouldBe 0
-                    service.getLatestOrphanCounts()!!.counts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L, "orders" to 0L)
+                    service.getLatestOrphanCounts()!!.counts shouldBe mapOf("review" to 2L, "community" to 0L, "feedback" to 1L, "orders" to 0L, "packaged-scans" to 0L)
                     activePaths().size shouldBe 3
                     storage.deleted.shouldBeEmpty()
                 }
@@ -518,7 +518,7 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
 
         given("업로드 용도와 참조 검사") {
             `when`("업로드 용도마다 그 사진을 참조하는 표를 판정 쿼리와 대조하면") {
-                then("모든 용도의 참조 표가 참조 검사에 있다 — 어떤 용도를 정리 대상에 넣는 날 참조 검사 없이 지워지지 않는다") {
+                then("참조 표가 있는 모든 용도가 참조 검사에 있다 — 어떤 용도를 정리 대상에 넣는 날 참조 검사 없이 지워지지 않는다(가공식품 앞면 사진은 요청 직후 판별만 읽어 참조 표가 없다)") {
                     com.kbap.common.domain.image.model.UploadPurpose.entries.forEach { purpose ->
                         val referencingTable = when (purpose) {
                             com.kbap.common.domain.image.model.UploadPurpose.MENU_SCAN -> "orders"
@@ -527,8 +527,9 @@ class UploadedImageCleanupServiceTest : BehaviorSpec() {
                             com.kbap.common.domain.image.model.UploadPurpose.COMMUNITY -> "community_post"
                             com.kbap.common.domain.image.model.UploadPurpose.FEEDBACK -> "feedback"
                             com.kbap.common.domain.image.model.UploadPurpose.ORDER_ITEM -> "order_item"
+                            com.kbap.common.domain.image.model.UploadPurpose.PACKAGED_SCAN -> null
                         }
-                        UploadedImageJpaRepository.ORPHAN shouldContain "not exists (select 1 from $referencingTable "
+                        referencingTable?.let { UploadedImageJpaRepository.ORPHAN shouldContain "not exists (select 1 from $it " }
                     }
                 }
             }

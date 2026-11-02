@@ -30,6 +30,7 @@ class AdminFoodContentIngestController(
                 nameTranslations = request.nameTranslations!!,
                 descriptionTranslations = request.descriptionTranslations!!,
                 ingredients = request.ingredients!!,
+                displayName = request.displayName,
             )
         } else {
             adminFoodContentIngestService.ingestFailure(

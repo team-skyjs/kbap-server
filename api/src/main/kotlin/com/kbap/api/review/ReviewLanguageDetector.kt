@@ -4,12 +4,15 @@ import com.github.pemistahl.lingua.api.Language
 import com.github.pemistahl.lingua.api.LanguageDetector
 import com.github.pemistahl.lingua.api.LanguageDetectorBuilder
 import com.kbap.common.domain.LanguageCode
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.lang.Character.UnicodeScript
 import java.nio.charset.Charset
 
 @Component
-class ReviewLanguageDetector {
+class ReviewLanguageDetector(
+    @Value("\${kbap.review.language.short-latin-min-margin:0.2}") private val shortLatinMinMargin: Double = 0.2,
+) {
     private val latinDetector: LanguageDetector = LanguageDetectorBuilder
         .fromLanguages(*(LATIN_APP_LANGUAGES.keys + OTHER_LATIN_LANGUAGES).toTypedArray())
         .withLowAccuracyMode()
@@ -72,8 +75,18 @@ class ReviewLanguageDetector {
         if (words.size < MIN_LATIN_WORDS) return null
         val vietnameseWords = words.count { word -> word.any(::isVietnameseOnlyLetter) }
         if (vietnameseWords.toDouble() / words.size >= VIETNAMESE_WORD_SHARE) return LanguageCode.VI
-        if (words.size < MIN_LATIN_WORDS_FOR_MODEL) return null
+        val englishMarkers = words.count { word -> word.lowercase().trim { !it.isLetter() } in ENGLISH_MARKER_WORDS }
+        if (englishMarkers >= MIN_ENGLISH_MARKERS && englishMarkers.toDouble() / words.size >= ENGLISH_MARKER_SHARE) return LanguageCode.EN
+        if (words.size < MIN_LATIN_WORDS_FOR_MODEL) return shortLatinOf(prose)
         return LATIN_APP_LANGUAGES[latinDetector.detectLanguageOf(prose)]
+    }
+
+    private fun shortLatinOf(prose: String): LanguageCode? {
+        val confidences = latinDetector.computeLanguageConfidenceValues(prose).entries
+        val top = confidences.firstOrNull() ?: return null
+        val code = LATIN_APP_LANGUAGES[top.key] ?: return null
+        val runnerUp = confidences.firstOrNull { LATIN_APP_LANGUAGES[it.key] != code }?.value ?: 0.0
+        return code.takeIf { top.value - runnerUp >= shortLatinMinMargin }
     }
 
     private fun isVietnameseOnlyLetter(char: Char): Boolean = char in VIETNAMESE_TONE_LETTERS || char in VIETNAMESE_BASE_LETTERS
@@ -84,6 +97,14 @@ class ReviewLanguageDetector {
         const val MIN_LATIN_WORDS_FOR_MODEL = 4
         const val MIN_HAN_LETTERS = 8
         const val VIETNAMESE_WORD_SHARE = 0.4
+        const val MIN_ENGLISH_MARKERS = 2
+        const val ENGLISH_MARKER_SHARE = 0.5
+
+        val ENGLISH_MARKER_WORDS = setOf(
+            "the", "and", "but", "not", "very", "really", "ever", "good", "great", "nice", "tasty", "delicious",
+            "yummy", "amazing", "awesome", "love", "loved", "bad", "too", "would", "again", "this", "that", "with",
+            "it", "my", "you", "we", "they", "are", "were", "have", "had", "just", "food", "taste", "spicy", "lol",
+        )
 
         val NOT_PROSE = Regex("https?://\\S+|[#@]\\S+")
         val WHITESPACE = Regex("\\s+")

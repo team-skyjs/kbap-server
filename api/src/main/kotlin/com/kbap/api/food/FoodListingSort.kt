@@ -13,10 +13,16 @@ enum class FoodListingSort(val value: String) {
     DEFAULT("default"),
     NAME_ASC("name_asc"),
     NAME_DESC("name_desc"),
+    REVIEWS("reviews"),
     ;
 
-    fun order(names: List<FoodListingName>, lang: LanguageCode): List<Long> {
+    fun order(names: List<FoodListingName>, lang: LanguageCode, averageRatings: Map<Long, Double> = emptyMap()): List<Long> {
         if (this == DEFAULT) return names.map { it.id }.sortedDescending()
+        if (this == REVIEWS) {
+            return names.sortedWith(
+                compareByDescending<FoodListingName> { it.reviewCount }.thenByDescending { averageRatings[it.id] ?: 0.0 }.thenByDescending { it.id },
+            ).map { it.id }
+        }
         val locale = when (lang) {
             LanguageCode.ZH_HANS -> "zh-Hans-u-co-pinyin"
             LanguageCode.ZH_HANT -> "zh-Hant-u-co-stroke"

@@ -123,29 +123,44 @@ class ReviewBotWriter(
         val previous = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, poolOwnerIds)?.imageRefs.orEmpty().toSet()
         val photos = ReviewBotPhotoPool.pickCombination(available, previous, random)
         val rating = ReviewBotCountries.rating(random)
-        val request = ReviewDraftRequest(
-            foodName = food.displayName(LanguageCode.EN),
-            description = food.description(LanguageCode.EN),
-            ingredients = ingredientNamesOf(food.ingredientsByProbability().map { it.code }),
-            language = ReviewBotCountries.languageFor(bot.countryCode, random),
-            rating = rating,
-        )
-        val content = generateAcceptable(foodId, generator, request) ?: return null
+        val earlier = reviewRepository.findFirstByFoodIdAndMemberIdInOrderByCreatedAtDesc(foodId, bots.map { it.id })?.content
+        val request = draftRequestFor(food, ReviewBotCountries.languageFor(bot.countryCode, random), rating, random, earlier)
+        val content = generateAcceptable(foodId, generator) { attempt -> if (attempt == 0) request else ReviewBotStyles.restyle(request, random) } ?: return null
         if (!photoService.isStillUsable(photos)) return null
         return runCatching {
             reviewService.createBotReview(bot.id, foodId, rating, content, photos, poolOwnerIds).reviewId
         }.onFailure { log.warn("리뷰 봇 저장 실패 foodId={} botId={}", foodId, bot.id, it) }.getOrNull()
     }
 
-    private fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, request: ReviewDraftRequest): String? {
+    fun draftRequestFor(food: Food, language: String, rating: Int, random: Random = Random.Default, avoidSimilarTo: String? = null): ReviewDraftRequest =
+        ReviewDraftRequest(
+            foodName = food.displayName(LanguageCode.EN),
+            description = food.description(LanguageCode.EN),
+            ingredients = ingredientNamesOf(food.ingredientsByProbability().map { it.code }),
+            language = language,
+            rating = rating,
+            maxCharacters = ReviewBotContentGuard.maxLengthFor(language),
+            style = ReviewBotStyles.pick(random),
+            sentences = ReviewBotStyles.sentences(random),
+            avoidSimilarTo = avoidSimilarTo,
+        )
+
+    fun generateAcceptable(foodId: Long, generator: ReviewTextGenerator, requestFor: (attempt: Int) -> ReviewDraftRequest): String? {
+        val first = requestFor(0)
         repeat(MAX_ATTEMPTS) { attempt ->
+            val request = if (attempt == 0) first else requestFor(attempt)
             val text = runCatching { generator.generate(request) }
                 .onFailure { log.warn("리뷰 봇 생성 실패 foodId={} food={} attempt={}", foodId, request.foodName, attempt + 1, it) }
                 .getOrNull()
-            if (text != null && ReviewBotContentGuard.isAcceptable(text)) return text
-            if (text != null) log.warn("리뷰 봇 생성물이 금지어 필터에 걸려 버린다 foodId={} food={} attempt={}", foodId, request.foodName, attempt + 1)
+            if (text != null && ReviewBotContentGuard.isAcceptable(text) && ReviewBotContentGuard.fitsCard(text, request.language)) return text
+            if (text != null) {
+                log.warn(
+                    "리뷰 봇 생성물을 버린다(금지어 또는 앱 카드 상한 {}자 초과) foodId={} food={} attempt={} length={}",
+                    request.maxCharacters, foodId, request.foodName, attempt + 1, text.trim().let { it.codePointCount(0, it.length) },
+                )
+            }
         }
-        log.warn("리뷰 봇 — 이 음식은 이번 틱에서 건너뜁니다(초안 {}회 모두 생성 실패 또는 금지어) foodId={} food={}", MAX_ATTEMPTS, foodId, request.foodName)
+        log.warn("리뷰 봇 — 이 음식은 이번 틱에서 건너뜁니다(초안 {}회 모두 생성 실패·금지어·길이 초과) foodId={} food={}", MAX_ATTEMPTS, foodId, first.foodName)
         return null
     }
 

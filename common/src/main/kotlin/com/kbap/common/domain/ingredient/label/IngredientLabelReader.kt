@@ -16,7 +16,7 @@ object IngredientLabelReader {
     private val PARTICLES = setOf('을', '를', '이', '가', '은', '는', '와', '과', '의')
     private val GELATIN_SOURCE_AFTER = Regex("""젤라틴\s*[(\[]\s*(어류|생선|피쉬|식물성|한천|돈피|우피|돼지|소가죽|소)\s*[)\]]""")
     private val BEEF_GELATIN = Regex("""(?<![가-힣])소\s*(?=젤라틴)""")
-    private val SPACED_PHRASES = Regex("""(어류|생선|피쉬|식물성|돈피|우피|돼지|소가죽)\s+(젤라틴)|(소고기|쇠고기|돼지고기|닭고기|양고기|(?<!물)고기|사골|돈골|우골|소뼈|닭|돼지)\s+(육수)|(치킨|비프)\s+(스톡)|(양)\s+(갈비)""")
+    private val SPACED_PHRASES = Regex("""(어류|생선|피쉬|식물성|돈피|우피|돼지|소가죽)\s+(젤라틴)|(소고기|쇠고기|돼지고기|닭고기|양고기|(?<!물)고기|사골|돈골|우골|소뼈|닭|돼지)\s+(육수)|(치킨|비프)\s+(스톡)|(양)\s+(갈비)|(옥수수|콘)\s+(글루텐)|(글루텐)\s+(프리)""")
 
     private val mandatory: List<IngredientLabelTerm> =
         load("mandatory-allergens.tsv").map { IngredientLabelTerm(it[0], codesOf(it[1]), IngredientLabelTermMode.EXACT) }
@@ -39,8 +39,12 @@ object IngredientLabelReader {
     private fun placeholderOf(text: String?, placeholders: Set<String>): Boolean =
         text.isNullOrBlank() || Normalizer.normalize(text, Normalizer.Form.NFKC).replace(PLACEHOLDER_NOISE, "").lowercase().let { it.isEmpty() || it in placeholders }
 
+    fun declares(allergens: String?): Boolean = declaredOf(allergens) != null
+
+    private fun declaredOf(allergens: String?): String? = allergens?.let(::normalize)?.takeUnless(::isNotProvided)
+
     fun read(allergens: String?, rawMaterials: String?): IngredientLabelReading {
-        val declared = allergens?.let(::normalize)?.takeUnless(::isNotProvided)
+        val declared = declaredOf(allergens)
         val fromAllergens = declared?.let { scan(it, splitSpaces = true) }.orEmpty()
         val fromRaw = rawMaterials?.takeUnless(::isRawNotProvided)?.let { scan(normalize(it), splitSpaces = false) }.orEmpty()
         val detections = linkedMapOf<IngredientCode, IngredientLabelDetection>()

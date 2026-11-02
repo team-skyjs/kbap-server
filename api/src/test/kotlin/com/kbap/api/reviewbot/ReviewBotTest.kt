@@ -1,5 +1,7 @@
 package com.kbap.api.reviewbot
 
+import io.kotest.assertions.withClue
+import com.kbap.common.port.llm.ReviewDraftRequest
 import com.kbap.api.image.FakeStorageObjectStore
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
@@ -281,7 +283,7 @@ class ReviewBotTest : BehaviorSpec() {
                     botReviewCount() shouldBe 0
                     fakeGenerator.reply = {
                         photoStorage.heads.clear()
-                        "The noodles were warm and savory with a pleasant texture and a balanced flavor."
+                        FakeReviewTextGenerator.DEFAULT_REPLY
                     }
                     run(writer(min = 1, max = 1), todayAt(22))
                     fakeGenerator.requests.size shouldBe 1
@@ -469,11 +471,11 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
-            `when`("생성물이 금지어(가게·사진·알레르기 등)에 걸리면") {
+            `when`("생성물이 금지어(사진·알레르기 등)에 걸리면") {
                 then("재생성까지 걸리면 저장하지 않는다") {
                     accountService.ensureBots(5)
                     seedFoods(5)
-                    fakeGenerator.reply = { "Loved this place, the restaurant staff were great and the photo does not do it justice." }
+                    fakeGenerator.reply = { "Loved it, took a photo first." }
 
                     run(writer(), todayAt(22))
 
@@ -500,13 +502,38 @@ class ReviewBotTest : BehaviorSpec() {
                 then("필터가 버리고 재생성한 본문으로 저장한다") {
                     accountService.ensureBots(1)
                     seedFoods(1)
-                    val good = "The broth was deep and savory, I would order it again."
+                    val good = "Deep savory broth, would order again."
                     fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "      Tasty!!       " else good }
 
                     run(writer(), todayAt(22))
 
                     fakeGenerator.requests.size shouldBe 2
                     query("SELECT content FROM food_review").single().single() shouldBe good
+                }
+            }
+
+            `when`("생성물이 언어별 앱 카드 상한을 넘으면 — KB-943") {
+                then("재생성까지 넘으면 저장하지 않고 건너뛴다(자르지 않는다)") {
+                    accountService.ensureBots(5)
+                    seedFoods(5)
+                    fakeGenerator.reply = { "So good. ".repeat(10).trim() }
+
+                    run(writer(), todayAt(22))
+
+                    botReviewCount() shouldBe 0
+                    (fakeGenerator.requests.size > 0).shouldBeTrue()
+                }
+                then("첫 초안만 넘으면 재생성한 짧은 본문으로 저장하고, 요청에 언어별 상한을 싣는다") {
+                    accountService.ensureBots(1)
+                    seedFoods(1)
+                    val short = "Crispy edges, chewy inside lol"
+                    fakeGenerator.reply = { if (fakeGenerator.requests.size == 1) "So good. ".repeat(10).trim() else short }
+
+                    run(writer(), todayAt(22))
+
+                    fakeGenerator.requests.size shouldBe 2
+                    query("SELECT content FROM food_review").single().single() shouldBe short
+                    fakeGenerator.requests.forEach { it.maxCharacters shouldBe ReviewBotContentGuard.maxLengthFor(it.language) }
                 }
             }
 
@@ -531,8 +558,8 @@ class ReviewBotTest : BehaviorSpec() {
                     val behind = foodRepository.save(Food(koreanName = "뒷페이지음식", description = "설명", contentStatus = FoodContentStatus.READY))
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
-                        if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
-                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                        if (it.foodName.contains("가드실패")) "Loved it, took a photo first."
+                        else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
                     run(writer(min = 1, max = 1), todayAt(22))
@@ -552,8 +579,8 @@ class ReviewBotTest : BehaviorSpec() {
                     val behind = foodRepository.save(Food(koreanName = "뒷페이지음식", description = "설명", contentStatus = FoodContentStatus.READY))
                     reviewService.createReview(human.id, behind.id, 5, null, null, "사람이 쓴 리뷰입니다 아주 맛있어요", null, null)
                     fakeGenerator.reply = {
-                        if (it.foodName.contains("가드실패")) "Loved this place, the restaurant staff were great and the photo does not do it justice."
-                        else "The ${it.foodName} was warm and comforting, with a deep savory broth I kept going back to."
+                        if (it.foodName.contains("가드실패")) "Loved it, took a photo first."
+                        else FakeReviewTextGenerator.DEFAULT_REPLY
                     }
 
                     run(writer(min = 1, max = 1), todayAt(22))
@@ -581,6 +608,105 @@ class ReviewBotTest : BehaviorSpec() {
             }
         }
 
+        given("리뷰 봇 장소·가격 금지 해제(S-927)") {
+            `when`("금지 범주를 보면") {
+                then("알레르기/안전·식이·건강·사진만 남고 장소·가격은 없다 — 프롬프트 금지 줄도 함께 빠진다") {
+                    ReviewBotForbiddenCategory.entries.map { it.name } shouldBe listOf("ALLERGY_SAFETY", "DIET_SUITABILITY", "HEALTH_CLAIM", "PHOTO")
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("Never mention any restaurant") shouldBe false
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("Never mention prices") shouldBe false
+                }
+                then("가 보지 않은 식당 이름·주소·구체 가격은 지어내지 말라고 하되, 일반적인 언급은 허용한다고 말한다") {
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("Avoid inventing specific restaurant names, addresses, or exact prices") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("cheap and filling") shouldBe true
+                }
+            }
+        }
+
+        given("리뷰 봇 문구 다양화(KB-943 — 형식이 너무 똑같음)") {
+            `when`("같은 난수로 요청을 만들면") {
+                then("스타일·문장 수가 같고, 스타일은 목록 안·문장 수는 1 또는 2 다") {
+                    val food = seedFoods(1).single()
+                    val a = writerBean.draftRequestFor(food, "English", 5, Random(42), null)
+                    val b = writerBean.draftRequestFor(food, "English", 5, Random(42), null)
+                    a.style shouldBe b.style
+                    a.sentences shouldBe b.sentences
+                    (a.style in ReviewBotStyles.ALL).shouldBeTrue()
+                    (a.sentences in 1..2).shouldBeTrue()
+                    (1L..200L).map { writerBean.draftRequestFor(food, "English", 5, Random(it), null).style }.toSet() shouldBe ReviewBotStyles.ALL.toSet()
+                }
+            }
+
+            `when`("사용자 프롬프트를 만들면") {
+                then("고른 스타일·정확한 문장 수·직전 봇 리뷰(있을 때만)를 싣는다") {
+                    val request = ReviewDraftRequest("Bibimbap", "rice bowl", listOf("rice"), "English", 4, 80, ReviewBotStyles.ALL[3], 1, "Earlier bot text, fine")
+                    val prompt = OpenAiReviewTextGenerator.userPrompt(request)
+                    prompt.contains(ReviewBotStyles.ALL[3]) shouldBe true
+                    prompt.contains("exactly 1 sentence") shouldBe true
+                    prompt.contains("Earlier bot text, fine") shouldBe true
+                    OpenAiReviewTextGenerator.userPrompt(request.copy(sentences = 2, avoidSimilarTo = null)).let {
+                        it.contains("exactly 2 sentences") shouldBe true
+                        it.contains("Another traveler") shouldBe false
+                    }
+                }
+                then("시스템 프롬프트는 상투구와 형용사 셋 나열 시작을 피하라고 한다(금지 줄 형태는 쓰지 않는다)") {
+                    listOf("Loved it", "seriously", "great with rice", "perfect", "three adjectives").forEach {
+                        OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains(it) shouldBe true
+                    }
+                }
+            }
+
+            `when`("같은 음식에 이미 봇 리뷰가 있으면") {
+                then("가장 최근 봇 리뷰 본문을 '이것과 다르게' 참고로 요청에 싣는다") {
+                    accountService.ensureBots(3)
+                    val food = seedFoods(1).single()
+                    val earlier = (query("SELECT MIN(id) FROM member WHERE is_bot = 1").single().single() as Number).toLong()
+                    dataSource.connection.use { c ->
+                        c.createStatement().use {
+                            it.execute(
+                                "INSERT INTO food_review (member_id, target_type, food_id, rating, serving_speed_rating, staff_kindness_rating, content, language, status, created_at, updated_at, version) " +
+                                    "VALUES ($earlier, 'FOOD', ${food.id}, 4, 0, 0, 'Earlier bot text, fine', 'en', 'ACTIVE', NOW(6) - INTERVAL 2 DAY, NOW(6) - INTERVAL 2 DAY, 0)",
+                            )
+                        }
+                    }
+
+                    run(writer(min = 1, max = 1), todayAt(22))
+
+                    fakeGenerator.requests.first().avoidSimilarTo shouldBe "Earlier bot text, fine"
+                }
+            }
+        }
+
+        given("리뷰 봇 앱 카드 길이 상한(KB-943)") {
+            `when`("언어별 상한을 보면") {
+                then("라틴·키릴 80, 한중일 40, 태국어 60 이고 모르는 언어는 80 이다") {
+                    mapOf(
+                        "English" to 80, "Vietnamese" to 80, "Spanish" to 80, "Indonesian" to 80, "Russian" to 80,
+                        "Korean" to 40, "Japanese" to 40, "Simplified Chinese" to 40, "Traditional Chinese" to 40,
+                        "Thai" to 60, "Klingon" to 80,
+                    ).forEach { (language, limit) -> ReviewBotContentGuard.maxLengthFor(language) shouldBe limit }
+                }
+            }
+            `when`("상한 경계를 재면") {
+                then("상한 글자 수까지는 통과, 한 글자 넘으면 거절 — 코드 포인트로 센다") {
+                    ReviewBotContentGuard.fitsCard("a".repeat(80), "English") shouldBe true
+                    ReviewBotContentGuard.fitsCard("a".repeat(81), "English") shouldBe false
+                    ReviewBotContentGuard.fitsCard("美".repeat(40), "Japanese") shouldBe true
+                    ReviewBotContentGuard.fitsCard("美".repeat(41), "Japanese") shouldBe false
+                    ReviewBotContentGuard.fitsCard("𠀀".repeat(40), "Traditional Chinese") shouldBe true
+                    ReviewBotContentGuard.fitsCard("  ${"a".repeat(80)}  ", "English") shouldBe true
+                }
+            }
+            `when`("시스템 프롬프트를 보면") {
+                then("한두 문장의 가벼운 인터넷 말투를 요구하고 기존 금지 규칙은 그대로다") {
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("1 or 2 short sentences") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("without mixing in expressions from other languages") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("ㅋㅋ") shouldBe false
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("no emoji, no hashtags") shouldBe true
+                    OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains("2 to 4 sentences") shouldBe false
+                }
+            }
+        }
+
         given("리뷰 봇 언어·별점·금지어") {
             `when`("일본 봇의 언어를 많이 뽑으면") {
                 then("영어가 약 70%, 나머지는 국적 언어다") {
@@ -600,15 +726,15 @@ class ReviewBotTest : BehaviorSpec() {
                 }
             }
 
-            `when`("지원 언어 6개마다 알레르기/안전·가게·사진 금지 문장을 검사하면") {
-                then("언어별로 세 종류 모두 거절하고, 각 언어에 세 종류 키워드가 다 있다") {
+            `when`("지원 언어 6개마다 알레르기/안전·사진 금지 문장을 검사하면") {
+                then("언어별로 두 종류 모두 거절하고, 각 언어에 남은 범주 키워드가 다 있다") {
                     val sentences = mapOf(
-                        "en" to listOf("Safe to eat even with a nut allergy, the broth was rich.", "The restaurant near the station served it hot.", "I took a photo before eating, it looked amazing."),
-                        "ko" to listOf("알레르기 걱정 없이 먹었어요 국물이 진해요.", "역 근처 식당에서 먹었는데 따뜻했어요.", "먹기 전에 사진부터 찍었어요 정말 예뻐요."),
-                        "ja" to listOf("アレルギーがあっても食べても安全でした、スープが濃厚。", "駅前のお店で食べました、とても温かかった。", "食べる前に写真を撮りました、とても綺麗。"),
-                        "zh" to listOf("对海鲜过敏的人也可以安全食用，汤很浓郁。", "车站旁边的餐厅做得很地道，热乎乎的。", "吃之前先拍了照片，看起来很诱人。"),
-                        "th" to listOf("คนแพ้ถั่วก็กินได้ปลอดภัย น้ำซุปเข้มข้นมาก", "ร้านใกล้สถานีทำได้อร่อยมาก ร้อนกำลังดี", "ถ่ายรูปก่อนกิน สวยมากเลย"),
-                        "vi" to listOf("An toàn cho người bị dị ứng hải sản, nước dùng rất đậm đà.", "Quán gần ga làm món này rất ngon và nóng.", "Tôi chụp ảnh trước khi ăn, trông rất hấp dẫn."),
+                        "en" to listOf("Safe to eat even with a nut allergy, the broth was rich.", "I took a photo before eating, it looked amazing."),
+                        "ko" to listOf("알레르기 걱정 없이 먹었어요 국물이 진해요.", "먹기 전에 사진부터 찍었어요 정말 예뻐요."),
+                        "ja" to listOf("アレルギーがあっても食べても安全でした、スープが濃厚。", "食べる前に写真を撮りました、とても綺麗。"),
+                        "zh" to listOf("对海鲜过敏的人也可以安全食用，汤很浓郁。", "吃之前先拍了照片，看起来很诱人。"),
+                        "th" to listOf("คนแพ้ถั่วก็กินได้ปลอดภัย น้ำซุปเข้มข้นมาก", "ถ่ายรูปก่อนกิน สวยมากเลย"),
+                        "vi" to listOf("An toàn cho người bị dị ứng hải sản, nước dùng rất đậm đà.", "Tôi chụp ảnh trước khi ăn, trông rất hấp dẫn."),
                     )
                     sentences.keys shouldBe ReviewBotContentGuard.LANGUAGES
                     sentences.forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
@@ -655,9 +781,9 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("가드의 금지 범주와 프롬프트의 금지 문장을 대조하면") {
-                then("가드 범주 = 프롬프트 금지 범주 6종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
+                then("가드 범주 = 프롬프트 금지 범주 4종 1:1 — 프롬프트는 강제 경계가 아니므로 가드가 같은 목록에서 나와야 한다") {
                     ReviewBotContentGuard.CATEGORIES shouldBe ReviewBotForbiddenCategory.entries.toSet()
-                    ReviewBotContentGuard.CATEGORIES.size shouldBe 6
+                    ReviewBotContentGuard.CATEGORIES.size shouldBe 4
                     ReviewBotForbiddenCategory.entries.forEach { category ->
                         OpenAiReviewTextGenerator.SYSTEM_PROMPT.contains(category.promptRule).shouldBeTrue()
                     }
@@ -685,16 +811,16 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("장소·주소·위치 표현이 든 문장을 언어별로 검사하면") {
-                then("전부 거절한다") {
+                then("전부 통과한다 — 장소 언급은 더 이상 금지가 아니다(S-927)") {
                     listOf(
                         "The location near the station made it easy to find, and the soup was hot.",
                         "Ask for the address if you want it, but the noodles were the real deal.",
                         "역 근처 위치라 찾기 쉬웠고 국물이 진했어요.",
-                        "駅の近くの場所で、スープが濃厚でした。",
-                        "车站附近的位置，汤很浓郁。",
+                        "駅の近くの場所で食べました、スープがとても濃厚でした。",
+                        "车站附近的位置很好找，汤底也很浓郁，非常好喝。",
                         "ที่อยู่ใกล้สถานี น้ำซุปเข้มข้นมาก",
                         "Địa chỉ gần ga, nước dùng rất đậm đà.",
-                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                    ).forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
                 }
             }
 
@@ -712,35 +838,35 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("가격·비용·싸다·비싸다 문장을 언어별로 검사하면") {
-                then("6개 언어 3문장씩 전부 거절한다 — 통화 기호·단위 + 숫자, 어간, 언어별 대응어") {
+                then("전부 통과한다 — 가격 언급은 더 이상 금지가 아니다(S-927, 지어낸 구체 가격은 프롬프트로만 피한다)") {
                     val sentences = mapOf(
                         "en" to listOf("It was only 8,000 won and the broth was rich.", "Cheap but tasty, the noodles had a great chew.", "A bit expensive for what you get, though the sauce was lovely."),
-                        "ko" to listOf("8000원인데 국물이 진해요.", "가격 대비 양이 많고 맛도 좋아요.", "조금 비싸지만 소스가 훌륭해요."),
-                        "ja" to listOf("値段のわりにスープが濃厚でした。", "安いのに美味しい、麺のコシが最高。", "少し高いけどソースが絶品。"),
-                        "zh" to listOf("价格不贵，汤底很浓郁。", "很便宜又好吃，面条很有嚼劲。", "有点贵，但酱汁很棒。"),
+                        "ko" to listOf("8000원인데 국물이 진하고 양도 많아요.", "가격 대비 양이 많고 맛도 정말 좋아요.", "조금 비싸지만 소스가 정말 훌륭했어요."),
+                        "ja" to listOf("値段のわりにスープがとても濃厚でおいしかった。", "安いのにとても美味しい、麺のコシが本当に最高。", "少し高いけどソースが絶品で、麺もおいしかった。"),
+                        "zh" to listOf("价格不贵，汤底很浓郁，面条也很有嚼劲，好吃。", "很便宜又好吃，面条很有嚼劲，汤也很香浓。", "有点贵，但酱汁很棒，面条也很筋道，值得一试。"),
                         "th" to listOf("ราคาไม่แพง น้ำซุปเข้มข้นมาก", "ถูกและอร่อย เส้นเหนียวนุ่ม", "แพงไปหน่อย แต่ซอสอร่อยมาก"),
                         "vi" to listOf("Giá chỉ 50.000 đ mà nước dùng rất đậm đà.", "Rẻ mà ngon, sợi mì dai vừa phải.", "Hơi đắt nhưng nước sốt rất tuyệt."),
                     )
                     sentences.keys shouldBe ReviewBotContentGuard.LANGUAGES
-                    sentences.forEach { (_, list) -> list.forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false } }
+                    sentences.forEach { (_, list) -> list.forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } } }
                     listOf("\$12 for this bowl, and the kimchi was crisp.", "Paid ₩9,000 and the portion was generous.", "I paid for a second bowl because the broth was that good.")
-                        .forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                        .forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
                     listOf(
                         "Only 12€ and the broth was rich and spicy.",
                         "12000₩ for a bowl this big, the noodles were chewy.",
                         "\$12 well spent, the kimchi was crisp and tangy.",
                         "฿120 and the portion was generous, sauce was lovely.",
                         "12,000₫ for the soup, and it was deeply savory.",
-                        "8000円で、スープが濃厚でした。",
-                    ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
+                        "8000円で、スープがとても濃厚でおいしかったです。",
+                    ).forEach { withClue(it) { ReviewBotContentGuard.isAcceptable(it) shouldBe true } }
                 }
             }
 
             `when`("가치 표현이 값과 무관하게 쓰인 문장을 검사하면") {
-                then("\"worth every bite\" 는 통과하고, 값싼 뜻이 아닌 \"cheap\" 은 오탐이지만 거절한다") {
+                then("\"worth every bite\"·\"cheap\" 모두 통과한다(S-927)") {
                     ReviewBotContentGuard.isAcceptable("Worth every bite, the broth was rich and the rice cakes chewy.") shouldBe true
                     ReviewBotContentGuard.isAcceptable("Giá đỗ was crunchy and the broth deeply savory, a lovely bowl.") shouldBe true
-                    ReviewBotContentGuard.isAcceptable("The sauce tasted a little cheap, but the noodles were chewy.") shouldBe false
+                    ReviewBotContentGuard.isAcceptable("The sauce tasted a little cheap, but the noodles were chewy.") shouldBe true
                 }
             }
 
@@ -751,16 +877,16 @@ class ReviewBotTest : BehaviorSpec() {
             }
 
             `when`("금지어가 들어간 문장을 검사하면") {
-                then("가게·사진·알레르기·안전 판단·URL 은 거절하고 맛 이야기는 통과한다") {
+                then("사진·알레르기·안전 판단·URL 은 거절하고 맛·가게 이야기는 통과한다") {
                     listOf(
-                        "The restaurant was lovely and the soup was hot.",
                         "Great photo spot, and the noodles were chewy.",
                         "Safe to eat for people with a nut allergy, very tasty.",
                         "알레르기 걱정 없이 먹었어요 국물이 진해요.",
-                        "このお店のスープが美味しかったです、また来たい。",
                         "Check www.example.com for the recipe, loved the broth.",
                     ).forEach { ReviewBotContentGuard.isAcceptable(it) shouldBe false }
                     ReviewBotContentGuard.isAcceptable("The broth was rich and spicy, perfect with a bowl of rice.") shouldBe true
+                    ReviewBotContentGuard.isAcceptable("The restaurant was lovely and the soup was hot.") shouldBe true
+                    ReviewBotContentGuard.isAcceptable("このお店のスープが美味しかったです、また来たい。") shouldBe true
                 }
             }
         }

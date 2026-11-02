@@ -9,6 +9,7 @@ class IngredientCatalogSeedSyncTest : BehaviorSpec({
     val catalogResourcePaths = listOf(
         "db/migration/V2026.07.16.21.38.42__seed_avoidance_catalog.sql",
         "db/migration/V2026.10.21.10.00.40__add_avoidance_group_codes.sql",
+        "db/migration/V2026.10.29.16.52.33__add_coriander_code.sql",
     )
     val sql = catalogResourcePaths.joinToString("\n") { Thread.currentThread().contextClassLoader.getResource(it)?.readText() ?: "" }
 

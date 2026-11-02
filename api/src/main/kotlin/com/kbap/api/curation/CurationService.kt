@@ -43,7 +43,10 @@ class CurationService(
         val urls = imageUrls(row, validation.photos(doc).mapNotNull { it.photo })
         val card = card(row, doc, language, urls)
         return CurationDetail(key, card.title, card.description, card.coverImageUrl, card.coverImageAttribution, 10, row.publishedRevision, row.publishedAt ?: unavailable(), requestedLang, language, language != requestedLang,
-            doc.items.mapIndexed { index, item -> CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), urls.getValue(item.image!!.assetId), attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }, item.images.ifEmpty { listOf(item.image!!) }.map { CurationPublicImage(urls.getValue(it.assetId), attribution(it)) }, item.name[LanguageCode.KO.code], item.area[LanguageCode.KO.code]) })
+            doc.items.mapIndexed { index, item ->
+                val image = urls.getValue(item.image!!.assetId)
+                CurationPublicEntry(item.entryId, index + 1, item.name.getValue(language), item.area.getValue(language), item.introduction.getValue(language), item.recommendationReason.getValue(language), image.display, attribution(item.image!!), item.externalUrl, item.nearby.map { it.label.getValue(language) }, item.images.ifEmpty { listOf(item.image!!) }.map { CurationPublicImage(urls.getValue(it.assetId).display, attribution(it), urls.getValue(it.assetId).original) }, item.name[LanguageCode.KO.code], item.area[LanguageCode.KO.code], image.original)
+            }, card.coverOriginalImageUrl)
     }
 
     @Transactional(readOnly = true)
@@ -173,16 +176,21 @@ class CurationService(
         log.warn("Curation translation fallback requestedLang={}", requested)
         return "en"
     }
-    private fun card(row: CurationCollection, doc: CurationDocument, language: String, urls: Map<Long, String>) = CurationCard(row.collectionKey, doc.title.getValue(language), doc.description.getValue(language), urls.getValue(doc.cover!!.assetId), attribution(doc.cover!!), 10, row.publishedRevision)
+    private fun card(row: CurationCollection, doc: CurationDocument, language: String, urls: Map<Long, PhotoUrls>) = urls.getValue(doc.cover!!.assetId).let { cover ->
+        CurationCard(row.collectionKey, doc.title.getValue(language), doc.description.getValue(language), cover.display, attribution(doc.cover!!), 10, row.publishedRevision, cover.original)
+    }
     private fun attribution(photo: CurationPhoto) = photo.rights.attributionText.takeIf { photo.rights.attributionRequirement == AttributionRequirement.TEXT }
-    private fun imageUrls(row: CurationCollection, photos: List<CurationPhoto>): Map<Long, String> {
+    private fun imageUrls(row: CurationCollection, photos: List<CurationPhoto>): Map<Long, PhotoUrls> {
         val found = assets.findAllById(photos.map { it.assetId }.distinct()).associateBy { it.id }
         return photos.associate { photo ->
             val asset = found[photo.assetId] ?: unavailable()
             if (asset.collectionId != row.id || asset.assetState != "READY") unavailable()
-            photo.assetId to access.imageUrl(asset.finalKey ?: unavailable())
+            val original = access.imageUrl(asset.finalKey ?: unavailable())
+            photo.assetId to PhotoUrls(asset.displayKey?.let(access::imageUrl) ?: original, original)
         }
     }
+
+    private data class PhotoUrls(val display: String, val original: String)
     private fun invalid(errors: List<CurationIssue>, version: Long) {
         if (errors.isNotEmpty()) throw BusinessException(ErrorCode.CURATION_PUBLICATION_INVALID, mapOf("errors" to errors, "version" to version))
     }

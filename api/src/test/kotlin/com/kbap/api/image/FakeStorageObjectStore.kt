@@ -16,8 +16,8 @@ class FakeStorageObjectStore : StorageObjectStore {
     val failDeletePaths: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     val lastModified: MutableMap<String, java.time.Instant> = java.util.concurrent.ConcurrentHashMap()
 
-    fun stub(path: String, contentType: String, sizeBytes: Long, modifiedAt: java.time.Instant = java.time.Instant.now()) {
-        heads[path] = StorageObjectMetadata(contentType, sizeBytes, modifiedAt)
+    fun stub(path: String, contentType: String, sizeBytes: Long, modifiedAt: java.time.Instant = java.time.Instant.now(), sha256Hex: String? = null) {
+        heads[path] = StorageObjectMetadata(contentType, sizeBytes, modifiedAt, sha256Hex)
         lastModified[path] = modifiedAt
     }
 

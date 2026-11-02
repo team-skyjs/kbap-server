@@ -14,10 +14,11 @@ class FakePresignedUploadPortConfig {
     @Bean
     fun fakePresignedUploadPort(): PresignedUploadPort =
         object : PresignedUploadPort {
-            override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration): PresignedUpload =
+            override fun issue(key: String, contentType: String, contentLength: Long, ttl: Duration, checksumSha256Base64: String?): PresignedUpload =
                 PresignedUpload(
                     uploadUrl = "https://s3.example/$key?sig=test",
-                    requiredHeaders = mapOf("Content-Type" to contentType, "Content-Length" to contentLength.toString()),
+                    requiredHeaders = mapOf("Content-Type" to contentType, "Content-Length" to contentLength.toString()) +
+                        checksumSha256Base64?.let { mapOf("x-amz-checksum-sha256" to it, "x-amz-sdk-checksum-algorithm" to "SHA256") }.orEmpty(),
                     publicUrl = "https://cdn.test/$key",
                     objectKey = key,
                     expiresAt = Instant.parse("2026-07-15T00:05:00Z"),

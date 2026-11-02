@@ -87,6 +87,10 @@ spring:
         speech: none
 
 kbap:
+  food:
+    # 새 재료 소급 판정(KB-896) 반영 기준 — round(p×100) 이 이 값 이상이면 붙이고, rejudge 에서 미만이면 뺀다(1~100, 예진 10/30 결정 30).
+    ingredient-retro:
+      min-percent: ${INGREDIENT_RETRO_MIN_PERCENT:30}
   # 콘텐츠 아웃박스 — 회수 잡은 batch 프로세스가 돌리고 방치 카운트는 여기(api) 가 센다.
   # 두 프로세스가 yml 을 따로 읽으므로 같은 환경변수를 양쪽에 매핑해 둔다. 한쪽만 고치면
   # 잡은 새 기준으로 돌고 대시보드는 옛 기준으로 세면서 양쪽 다 "정상" 으로 보인다.
@@ -182,6 +186,19 @@ kbap:
       reasoning-effort: minimal
       max-retries: 0
       timeout: 12s
+      pricing:
+        input-usd-per-million-tokens: 0.05
+        output-usd-per-million-tokens: 0.4
+    # 새 재료 소급 판정(KB-896) — 어드민 소급 API 가 READY 음식마다 1회 호출(코드 목록 → 코드별 포함 여부·확률 구조화 출력).
+    # 가공식품 번역과 같은 저가 계열. 타임아웃은 음식당 20초, 재시도 없음(실패는 건너뛰고 재실행으로 보강 — 멱등).
+    # reasoning-effort 는 low(KB-898) — minimal 에서 근거 없는 중간 확률이 많이 나왔다(dev 10/30 실측).
+    ingredient-decision:
+      enabled: true
+      api-key: ${OPENAI_API_KEY:}
+      model: ${INGREDIENT_DECISION_MODEL:gpt-5-nano}
+      reasoning-effort: ${INGREDIENT_DECISION_REASONING_EFFORT:low}
+      max-retries: 0
+      timeout: 20s
       pricing:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.4
