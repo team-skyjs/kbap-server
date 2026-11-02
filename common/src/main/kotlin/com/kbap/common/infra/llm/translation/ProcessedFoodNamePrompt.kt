@@ -2,6 +2,7 @@ package com.kbap.common.infra.llm.translation
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.TranslatedText
+import com.kbap.common.port.llm.TranslationRejectedException
 import org.springframework.core.io.ClassPathResource
 
 object ProcessedFoodNamePrompt {
@@ -29,28 +30,32 @@ object ProcessedFoodNamePrompt {
 
     fun parse(output: String, source: String): TranslatedText {
         val name = output.trim()
-        check(name.isNotEmpty()) { "가공식품 이름 번역이 비어 있다" }
-        check('\n' !in name) { "가공식품 이름 번역이 한 줄이 아니다" }
-        check('?' !in name && '"' !in name) { "가공식품 이름 번역에 물음표·따옴표가 섞였다" }
-        val latin = LATIN_WORD.find(name)?.value
-        check(latin != null) { "가공식품 이름 번역에 라틴 표기 브랜드가 없다" }
+        reject(name.isEmpty(), "가공식품 이름 번역이 비어 있다")
+        reject('\n' in name, "가공식품 이름 번역이 한 줄이 아니다")
+        reject('?' in name || '"' in name, "가공식품 이름 번역에 물음표·따옴표가 섞였다")
+        val latinWords = LATIN_WORD.findAll(name).map { it.value.lowercase() }.toList()
+        reject(latinWords.isEmpty(), "가공식품 이름 번역에 라틴 표기 브랜드가 없다")
         val official = officialLatinOf(source)
         if (official != null) {
-            check(name.contains(official, ignoreCase = true)) { "가공식품 이름 번역이 공식 라틴 표기($official)를 쓰지 않았다" }
-        } else {
-            source.trim().firstOrNull()?.takeIf { it in HANGUL }?.let { first ->
-                check(latin.first().lowercaseChar() in INITIALS[(first - HANGUL.first) / INITIAL_STRIDE]) {
-                    "가공식품 이름 번역의 첫 라틴 단어가 원문 첫 소리와 맞지 않는다 — 뜻으로 옮겼을 수 있다"
-                }
-            }
+            reject(!name.contains(official, ignoreCase = true), "가공식품 이름 번역이 공식 라틴 표기($official)를 쓰지 않았다")
+            return TranslatedText(name, null)
         }
+        val sourceLatin = LATIN_WORD.findAll(source).map { it.value.lowercase() }.toSet()
+        val initials = source.trim().split(WHITESPACE).mapNotNull { word -> word.firstOrNull()?.takeIf { it in HANGUL }?.let { INITIALS[(it - HANGUL.first) / INITIAL_STRIDE] } }
+        val matches = latinWords.any { word -> word in sourceLatin || initials.any { word.first() in it } }
+        reject((initials.isNotEmpty() || sourceLatin.isNotEmpty()) && !matches, "가공식품 이름 번역의 라틴 단어가 원문 어느 어절의 첫 소리와도 맞지 않는다 — 뜻으로 옮겼을 수 있다")
         return TranslatedText(name, null)
+    }
+
+    private fun reject(condition: Boolean, message: String) {
+        if (condition) throw TranslationRejectedException(message)
     }
 
     private val HANGUL = '가'..'힣'
     private const val INITIAL_STRIDE = 588
     private val LATIN_WORD = Regex("\\p{IsLatin}+")
+    private val WHITESPACE = Regex("\\s+")
     private val INITIALS: List<String> = listOf(
-        "gk", "kg", "n", "dt", "td", "rl", "m", "bp", "pb", "s", "s", "aeiouyw", "jc", "jc", "cj", "kc", "t", "pf", "h",
+        "gk", "kg", "n", "dt", "td", "rl", "m", "bp", "pb", "s", "s", "aeiouyw", "jcz", "jcz", "cj", "kc", "t", "pf", "h",
     )
 }

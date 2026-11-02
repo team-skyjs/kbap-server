@@ -2,6 +2,7 @@ package com.kbap.api.processedfood
 
 import io.swagger.v3.oas.annotations.media.Schema
 import com.kbap.common.domain.LanguageCode
+import com.kbap.common.port.llm.TranslationRejectedException
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
@@ -214,7 +215,7 @@ class ProcessedFoodTranslationService(
         var budgetExhausted = false
         for (row in page) {
             val name = runCatching { processedFoodService.getAvailableProduct(row.targetId).productName }.getOrNull()
-            val attempt = name?.let { attemptTranslation(TranslationTargetType.PF_NAME, row.targetId, it, hashOf(it), LanguageCode.from(row.language)) }
+            val attempt = name?.let { attemptTranslation(TranslationTargetType.PF_NAME, row.targetId, it, hashOf(it), LanguageCode.from(row.language), keepExistingOnReject = true) }
             if (attempt?.budgetExhausted == true) {
                 budgetExhausted = true
                 break
@@ -261,7 +262,14 @@ class ProcessedFoodTranslationService(
 
     private class Attempt(val text: String?, val budgetExhausted: Boolean)
 
-    private fun attemptTranslation(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): Attempt {
+    private fun attemptTranslation(
+        type: TranslationTargetType,
+        productId: Long,
+        source: String,
+        hash: String,
+        language: LanguageCode,
+        keepExistingOnReject: Boolean = false,
+    ): Attempt {
         val translator = translatorProvider.getIfAvailable() ?: return Attempt(null, budgetExhausted = false)
         if (!withinBudget()) {
             log.warn("가공식품 번역 일일 상한(₩{})에 닿아 원문으로 둔다 — type={}, productId={}, language={}", dailyBudgetKrw, type, productId, language.code)
@@ -270,6 +278,10 @@ class ProcessedFoodTranslationService(
         engineCalls.incrementAndGet()
         val text = try {
             (if (type == TranslationTargetType.PF_NAME) translator.translateName(source, language) else translator.translate(source, language)).text.trim()
+        } catch (e: TranslationRejectedException) {
+            log.warn("가공식품 번역이 가드에 거절됐다 — 원문을 이 원문 해시의 번역으로 남겨 다시 부르지 않는다: type={}, productId={}, language={}, reason={}", type, productId, language.code, e.message)
+            if (keepExistingOnReject) return Attempt(null, budgetExhausted = false)
+            source
         } catch (e: RuntimeException) {
             log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
             ""
