@@ -95,7 +95,7 @@ interface ProcessedFoodNameScanApi {
             | INGREDIENT_LABEL | LABEL_RESULT | label — scan/label 과 같은 결과(비전이 원재료·알레르기 문장을 읽고 판정은 기존 규칙) | 같은 analysisId 로 scan/label 갱신 가능 |
             | MENU | NOT_PACKAGED | 종류만 | 같은 imagePath 로 메뉴판 스캔 v2(/api/scans, 티켓·차감은 그쪽 규칙) |
             | OTHER | NOT_PACKAGED | 종류 + reason | 재촬영 안내 |
-            멱등: clientRequestId 가 analysisId 가 된다. 같은 키·같은 imagePath 재전송은 저장된 결과를 돌려주고 비전을 다시 부르지 않는다(상한 차감 없음). 같은 키·다른 imagePath 409 SCAN-005.
+            멱등: clientRequestId 가 analysisId 가 된다. 같은 키·같은 imagePath 재전송은 저장된 결과를 돌려주고 비전을 다시 부르지 않는다(상한 차감 없음). 같은 키·다른 imagePath 409 SCAN-005. 비전이 실패한 키는 재전송하면 다시 읽되 키당 3회까지(넘으면 429 PFOOD-013 — 새 키로 다시 찍는다).
             비용 가드: 회원당 하루(KST) 비전 호출 상한(기본 30) — 넘으면 429 PFOOD-013. 사진은 본인 PACKAGED_SCAN 업로드만(SCAN-001), 2MB 이하(PFOOD-014).
             성분표 판독 실패는 400 PFOOD-006(상한은 이미 1회 쓴 것으로 센다 — 같은 키 재전송은 비전 재호출 없이 같은 실패). 비전 혼잡 503 SCAN-008, 비전 장애 503 SCAN-006.
             가공식품 스캔은 무료 스캔 횟수에서 차감하지 않는다(KB-963) — charged 는 항상 false. 검출되지 않은 재료는 UNCONFIRMED — '없음/안전'으로 단정하지 않는다.

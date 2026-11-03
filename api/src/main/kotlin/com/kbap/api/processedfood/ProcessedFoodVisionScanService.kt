@@ -79,8 +79,10 @@ class ProcessedFoodVisionScanService(
             if (existing.lifecycle == READING && now.isBefore(existing.updatedAt.plus(READING_STALE_AFTER))) {
                 throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             }
+            val attempts = (existing.requestDocument["attempts"] as? Number)?.toInt() ?: 1
+            if (attempts >= MAX_ATTEMPTS_PER_KEY) throw BusinessException(ErrorCode.PROCESSED_FOOD_PHOTO_DAILY_LIMIT)
             existing.lifecycle = READING
-            existing.requestDocument = existing.requestDocument + ("retriedAt" to now.toString())
+            existing.requestDocument = existing.requestDocument + mapOf("attempts" to attempts + 1, "retriedAt" to now.toString())
             return null
         }
         if (operations.countByMemberIdAndKeyNamespaceAndCreatedAtGreaterThanEqual(memberId, NAMESPACE, startOfTodayKst()) >= dailyLimit) {
@@ -97,7 +99,7 @@ class ProcessedFoodVisionScanService(
                     lifecycle = READING,
                     initialLanguage = language.code,
                     fxState = FX_STATE,
-                    requestDocument = mapOf("imagePath" to imagePath),
+                    requestDocument = mapOf("imagePath" to imagePath, "attempts" to 1),
                     limitsVersion = LIMITS_VERSION,
                     expiresAt = now.plus(ProcessedFoodNameScanService.RESULT_TTL),
                     resultExpiresAt = now.plus(ProcessedFoodNameScanService.RESULT_TTL),
@@ -172,6 +174,7 @@ class ProcessedFoodVisionScanService(
         private const val FAILED = "FAILED"
         private const val FX_STATE = "NONE"
         private const val LIMITS_VERSION = "pfood-vision-1"
+        private const val MAX_ATTEMPTS_PER_KEY = 3
         private val READING_STALE_AFTER: Duration = Duration.ofMinutes(2)
         private val KST: ZoneId = ZoneId.of("Asia/Seoul")
 

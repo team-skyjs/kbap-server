@@ -180,6 +180,18 @@ class ProcessedFoodVisionScanTest : BehaviorSpec() {
                     long("SELECT COUNT(*) FROM scan_operation WHERE member_id = 96908 AND key_namespace = 'PFOOD_VISION'") shouldBe 1L
                 }
             }
+            `when`("같은 키로 비전이 계속 실패하면") {
+                then("비전은 키당 3번까지만 부르고 그 뒤는 429 PFOOD-013") {
+                    val token = member(96913L)
+                    val path = photo(96913L)
+                    reader.failOn(path, MenuBoardVisionUnavailableException(RuntimeException("테스트 장애")))
+                    val key = UUID.randomUUID().toString()
+                    val before = reader.calls.get()
+                    repeat(3) { vision(token, path, key, expected = 503) }
+                    vision(token, path, key, expected = 429).path("code").asText() shouldBe "PFOOD-013"
+                    reader.calls.get() shouldBe before + 3
+                }
+            }
             `when`("사진이 남의 것·다른 목적·2MB 초과면") {
                 then("SCAN-001·PFOOD-014 이고 비전을 부르지 않는다") {
                     val token = member(96909L)
