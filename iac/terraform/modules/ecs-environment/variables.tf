@@ -38,6 +38,12 @@ variable "certificate_domain" {
 variable "instance_type" {
   description = "컨테이너 인스턴스 타입 — arm64(Graviton) 계열만. AMI 가 arm64 로 고정돼 있어 x86 타입을 넣으면 부팅하지 않는다"
   type        = string
+  default     = "t4g.medium"
+}
+
+variable "batch_instance_type" {
+  description = "batch 풀 인스턴스 타입. null 이면 instance_type 과 같다. api 는 기동만으로 1.3 GiB 를 넘어 t4g.small(2 GiB, Alloy 데몬 384 제외 1206) 에 못 들어가지만 batch 는 들어가므로 풀마다 다르게 둔다(2026-11-03 실측)"
+  type        = string
   default     = "t4g.small"
 }
 
@@ -84,7 +90,7 @@ variable "api_task_cpu" {
 variable "api_task_memory" {
   description = "태스크 하드 메모리(MiB). 인스턴스당 태스크 1개이므로 등록 메모리 − ECS_RESERVED_MEMORY(256) − Alloy 예약(128) 안에서 최대로 잡는다"
   type        = number
-  default     = 1280
+  default     = 3000
 }
 
 variable "batch_task_cpu" {
@@ -96,7 +102,7 @@ variable "batch_task_cpu" {
 variable "batch_task_memory" {
   description = "api_task_memory 와 같다"
   type        = number
-  default     = 1280
+  default     = 1200
 }
 
 variable "api_image" {

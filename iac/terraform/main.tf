@@ -7,7 +7,9 @@ module "ecs_environment" {
   subdomain        = var.subdomain
   hosted_zone_name = var.hosted_zone_name
 
-  instance_type        = var.instance_type
+  instance_type = var.instance_type
+
+  batch_instance_type  = var.batch_instance_type
   spot_instances       = var.spot_instances
   api_task_memory      = var.api_task_memory
   batch_task_memory    = var.batch_task_memory

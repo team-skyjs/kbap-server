@@ -30,6 +30,11 @@ variable "hosted_zone_name" {
 
 variable "instance_type" {
   type    = string
+  default = "t4g.medium"
+}
+
+variable "batch_instance_type" {
+  type    = string
   default = "t4g.small"
 }
 
@@ -134,12 +139,12 @@ variable "spot_instances" {
 
 variable "api_task_memory" {
   type    = number
-  default = 1280
+  default = 3000
 }
 
 variable "batch_task_memory" {
   type    = number
-  default = 1280
+  default = 1200
 }
 
 variable "api_secret_names" {
