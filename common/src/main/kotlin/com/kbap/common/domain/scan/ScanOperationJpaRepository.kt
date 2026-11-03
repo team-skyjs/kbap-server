@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.LocalDateTime
 
 interface ScanOperationJpaRepository : JpaRepository<ScanOperation, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -21,4 +22,6 @@ interface ScanOperationJpaRepository : JpaRepository<ScanOperation, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from ScanOperation o where o.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): ScanOperation?
+
+    fun countByMemberIdAndKeyNamespaceAndCreatedAtGreaterThanEqual(memberId: Long, keyNamespace: String, createdAt: LocalDateTime): Long
 }

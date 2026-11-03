@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.processedfood.model.ProcessedFoodOcrText
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.scan.ScanOperationJpaRepository
 import com.kbap.common.domain.scan.ScanUsageJpaRepository
 import com.kbap.common.domain.scan.model.ScanOperation
@@ -32,11 +33,19 @@ class ProcessedFoodNameScanService(
     private val signals: ProcessedFoodSignalRecorder,
 ) {
     @Transactional
-    fun scanName(memberId: Long, ocrText: String, language: String, imagePath: String? = null): ProcessedFoodNameScanResponse {
+    fun scanName(
+        memberId: Long,
+        ocrText: String,
+        language: String,
+        imagePath: String? = null,
+        analysisId: UUID = UUID.randomUUID(),
+        leading: ProcessedFoodProduct? = null,
+        limit: Int = MAX_CANDIDATES,
+        decide: Boolean = true,
+    ): ProcessedFoodNameScanResponse {
         memberService.getMember(memberId)
-        val ranked = processedFoodService.getNameScanCandidates(ProcessedFoodOcrText.queriesOf(ocrText), MAX_CANDIDATES)
-        val candidates = ranked.products
-        val analysisId = UUID.randomUUID()
+        val ranked = processedFoodService.getNameScanCandidates(ProcessedFoodOcrText.queriesOf(ocrText), limit)
+        val candidates = (listOfNotNull(leading) + ranked.products).distinctBy { it.id }.take(limit)
         val now = LocalDateTime.now()
         val state = if (candidates.isEmpty()) ProcessedFoodNameScanState.NO_CANDIDATE else ProcessedFoodNameScanState.CANDIDATES
         val operation = operations.save(
@@ -57,7 +66,7 @@ class ProcessedFoodNameScanService(
                 keyRetireAfter = now.plus(KEY_TTL),
             ),
         )
-        if (imagePath != null && candidates.isNotEmpty() && decisions.isEnabled()) {
+        if (decide && imagePath != null && candidates.isNotEmpty() && decisions.isEnabled()) {
             val segment = UploadPurpose.PACKAGED_SCAN.segment
             when {
                 segment !in imagePath -> decisions.recordSkipped(operation.id, "purpose")
@@ -66,6 +75,17 @@ class ProcessedFoodNameScanService(
             }
         }
         return ProcessedFoodNameScanResponse(analysisId.toString(), state, processedFoodService.getSummaries(candidates, memberId), operation.expiresAt)
+    }
+
+    @Transactional
+    fun scanFront(memberId: Long, analysisId: UUID, ocrText: String, reportNo: String?, language: String, imagePath: String): ProcessedFoodNameScanResponse {
+        operations.findForUpdate(memberId, NAMESPACE, bytesOf(analysisId))?.let { existing ->
+            val offered = (existing.requestDocument["candidates"] as? List<*>).orEmpty().filterIsInstance<String>()
+            val products = offered.mapNotNull(processedFoodService::getProductByReportNoOrNull)
+            return ProcessedFoodNameScanResponse(analysisId.toString(), ProcessedFoodNameScanState.valueOf(existing.lifecycle), processedFoodService.getSummaries(products, memberId), existing.expiresAt)
+        }
+        val leading = reportNo?.let(processedFoodService::getAvailableProductByReportNoOrNull)
+        return scanName(memberId, ocrText, language, imagePath, analysisId, leading, VISION_CANDIDATES, decide = false)
     }
 
     @Transactional
@@ -86,7 +106,7 @@ class ProcessedFoodNameScanService(
             ProcessedFoodNameScanState.REJECTED ->
                 if (reportNo == null) ProcessedFoodNameConfirmResponse(analysisId, state, false, null, null)
                 else throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
-            ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.LABEL_RESULT -> throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
+            ProcessedFoodNameScanState.NO_CANDIDATE, ProcessedFoodNameScanState.LABEL_RESULT, ProcessedFoodNameScanState.NOT_PACKAGED -> throw BusinessException(ErrorCode.PROCESSED_FOOD_SCAN_ALREADY_CONFIRMED)
         }
         return ProcessedFoodNameConfirmation(response, LanguageCode.from(operation.initialLanguage))
     }
@@ -126,6 +146,7 @@ class ProcessedFoodNameScanService(
         private const val LIMITS_VERSION = "pfood-name-1"
         const val ENTITLEMENT_NOT_CHARGED = "NOT_CHARGED"
         private const val MAX_CANDIDATES = 30
+        private const val VISION_CANDIDATES = 5
         private val CANDIDATES_TTL: Duration = Duration.ofMinutes(30)
         val RESULT_TTL: Duration = Duration.ofDays(7)
         val KEY_TTL: Duration = Duration.ofDays(30)
