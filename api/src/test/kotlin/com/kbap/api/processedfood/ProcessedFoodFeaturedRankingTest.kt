@@ -97,17 +97,45 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
             pin("BL-1", "Banana Latte")
         }
 
-        given("영어 앞부분 검색어의 추천 상품 가중(S-948)") {
+        given("영어 검색어가 별칭 일부일 때 추천 상품 가중(S-948)") {
             `when`("외국인이 영어 한 단어 'banana' 로 검색하면") {
                 then("별칭 bananamilk·bananakick 의 앞부분이라 빙그레바나나맛우유 → 바나나킥 순으로 맨 위, 이름 짧은 일반 상품은 그 뒤") {
                     seedBananaEnglishShelf()
                     reportNos(search("banana").path("items")).take(3) shouldBe listOf("BM-1", "BK-1", "BL-1")
                 }
             }
+            `when`("'almond' 로 검색하면 — 별칭 앞부분이 아니라 가운데 포함") {
+                then("허니버터아몬드(priority 4) → 아몬드빼빼로(102)가 맨 위, 이름에 almond 가 든 일반 상품은 그 아래") {
+                    seed("HA-1", "허니버터아몬드", "(주)바프")
+                    pin("HA-1", "Honey Butter Almond")
+                    seed("AP-1", "아몬드 빼빼로", "롯데웰푸드(주)")
+                    pin("AP-1", "Almond Pepero")
+                    seed("WA-1", "통아몬드", "㈜견과마을")
+                    pin("WA-1", "Whole Almonds")
+                    seed("AC-1", "아몬드쿠키", "㈜동네제과")
+                    pin("AC-1", "Almond Cookie")
+                    val ranked = reportNos(search("almond").path("items"))
+                    ranked.take(2) shouldBe listOf("HA-1", "AP-1")
+                    ranked.indexOf("WA-1") shouldBe ranked.size - 1
+                }
+            }
+            `when`("'milk' 로 검색하면") {
+                then("이름이 정확히 Milk 인 상품이 맨 위, 그다음 우유류 추천 상품이 priority 순(바나나 1 → 딸기 17 → 밀키스 25)") {
+                    seed("WM-1", "흰우유", "㈜동네목장")
+                    pin("WM-1", "Milk")
+                    seed("BM-1", "빙그레 바나나맛 우유", binggrae)
+                    pin("BM-1", "Binggrae Banana Milk")
+                    seed("SM-1", "빙그레 딸기맛 우유", binggrae)
+                    pin("SM-1", "Binggrae Strawberry Milk")
+                    seed("MK-1", "밀키스", "롯데칠성음료(주)")
+                    pin("MK-1", "Milkis")
+                    reportNos(search("milk").path("items")) shouldBe listOf("WM-1", "BM-1", "SM-1", "MK-1")
+                }
+            }
             `when`("한국어 검색어이거나 4자 미만이면") {
                 then("앞부분 가중을 걸지 않아 지금과 같다") {
-                    featuredCatalog.boostedProducts("바나나", listOf("바나나"), latinPrefix = true) shouldBe featuredCatalog.boostedProducts("바나나", listOf("바나나"))
-                    featuredCatalog.boostedProducts("ban", listOf("ban"), latinPrefix = true) shouldBe emptyList()
+                    featuredCatalog.boostedProducts("바나나", listOf("바나나"), latinPartial = true) shouldBe featuredCatalog.boostedProducts("바나나", listOf("바나나"))
+                    featuredCatalog.boostedProducts("ban", listOf("ban"), latinPartial = true) shouldBe emptyList()
                 }
             }
             `when`("이름 스캔 OCR 이 'banana' 이면") {

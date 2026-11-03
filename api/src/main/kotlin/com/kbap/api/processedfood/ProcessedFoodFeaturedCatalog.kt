@@ -14,16 +14,16 @@ class ProcessedFoodFeaturedCatalog {
     private val products: List<FeaturedProduct> = catalog.products.sortedBy { it.priority }
     private val makers: Map<String, List<String>> = catalog.makers.associate { maker -> maker.name to maker.aliases.map(::keyOf) }
 
-    fun boostedProducts(text: String, tokens: List<String>, latinPrefix: Boolean = false): List<Boost> {
+    fun boostedProducts(text: String, tokens: List<String>, latinPartial: Boolean = false): List<Boost> {
         val textKey = keyOf(text)
         val tokenKeys = tokens.map(::keyOf).toSet()
-        val prefixKey = textKey.takeIf { latinPrefix && it.length >= MIN_LATIN_PREFIX && it.all { c -> c in 'a'..'z' || c in '0'..'9' } }
+        val partialKey = textKey.takeIf { latinPartial && it.length >= MIN_LATIN_KEY && it.all { c -> c in 'a'..'z' || c in '0'..'9' } }
         val hits = products.mapNotNull { product ->
             val nameKey = keyOf(product.name)
             val aliases = product.aliases.map(::keyOf)
             val matched = (aliases.filter { alias -> alias in tokenKeys || (!tokenOnly(alias) && alias in textKey) } +
                 listOf(nameKey).filter { it in tokenKeys || it in textKey } +
-                listOfNotNull(prefixKey?.takeIf { key -> aliases.any { it.startsWith(key) } })).distinct()
+                listOfNotNull(partialKey?.takeIf { key -> aliases.any { key in it } })).distinct()
             matched.maxByOrNull { it.length }?.takeUnless { otherMakerShown(product.maker, textKey) }?.let { Hit(product, matched, it) }
         }
         return hits
@@ -63,6 +63,6 @@ class ProcessedFoodFeaturedCatalog {
         private const val SHORT_ALIAS = 2
         private const val FLAVOR_SUFFIX = "맛"
         private const val SHORT_FLAVOR = 4
-        private const val MIN_LATIN_PREFIX = 4
+        private const val MIN_LATIN_KEY = 4
     }
 }

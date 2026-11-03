@@ -49,7 +49,7 @@ class ProcessedFoodService(
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
         val nameTokens = (tokens + tokens.map(RamyeonSpelling::koreanTokenOf)).distinct()
         val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true, latinPrefix = true).products
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true, latinPartial = true).products
             .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
             .groupBy(::groupKeyOf).values.map { group -> group.sortedWith(representativeOrder) }
         val rankedById = ranked.flatten().associateBy { it.id }
@@ -247,9 +247,9 @@ class ProcessedFoodService(
         type: ProcessedFoodType? = null,
         correctedBoost: CorrectedBoost? = null,
         keepGroupMembers: Boolean = false,
-        latinPrefix: Boolean = false,
+        latinPartial: Boolean = false,
     ): RankedCandidates {
-        val plain = featuredCatalog.boostedProducts(text, tokens, latinPrefix)
+        val plain = featuredCatalog.boostedProducts(text, tokens, latinPartial)
         val corrected = correctedBoost?.let { featuredCatalog.boostedProducts(it.text, it.tokens) }.orEmpty()
             .filterNot { boost -> plain.any { it.product == boost.product } }
         val featured = plain + corrected
@@ -280,7 +280,7 @@ class ProcessedFoodService(
         val boostedNameKeys = boosted.flatMap { listOf(it.third.name, it.first.normalizedName) }.map { it.lowercase() }.toSet()
         val (exactAbove, below) = rest.partition {
             val lead = it.first.first()
-            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && lead.normalizedName.length >= longestBoost &&
+            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && it.second.nameLength >= longestBoost &&
                 lead.normalizedName.lowercase() !in boostedNameKeys
         }
         val boostedRows = if (keepGroupMembers) {

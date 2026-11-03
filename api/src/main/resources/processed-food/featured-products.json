@@ -49,6 +49,26 @@
       "priority": 4
     },
     {
+      "name": "허니버터아몬드",
+      "maker": "바프",
+      "aliases": [
+        "허니버터아몬드",
+        "honeybutteralmond",
+        "honey butter almond"
+      ],
+      "priority": 4
+    },
+    {
+      "name": "와사비맛아몬드",
+      "maker": "바프",
+      "aliases": [
+        "와사비맛아몬드",
+        "wasabialmond",
+        "wasabiflavoredalmond"
+      ],
+      "priority": 5
+    },
+    {
       "name": "초코파이",
       "maker": "오리온",
       "aliases": [
@@ -1224,6 +1244,13 @@
       "aliases": [
         "정식품",
         "베지밀"
+      ]
+    },
+    {
+      "name": "바프",
+      "aliases": [
+        "바프",
+        "hbaf"
       ]
     }
   ]
