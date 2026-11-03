@@ -5,6 +5,8 @@ interface StorageObjectStore {
 
     fun delete(path: String)
 
+    fun get(path: String): ByteArray?
+
     // 같은 path 로 다시 저장하면 덮어쓴다(멱등).
     fun put(path: String, bytes: ByteArray, contentType: String)
 

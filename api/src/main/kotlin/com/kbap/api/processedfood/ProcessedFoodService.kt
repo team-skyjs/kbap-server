@@ -11,6 +11,7 @@ import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import com.kbap.common.domain.review.ReviewJpaRepository
+import com.kbap.common.util.RamyeonSpelling
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -46,9 +47,10 @@ class ProcessedFoodService(
         val filter = verdicts.takeIf { it.isNotEmpty() }?.let { memberId }?.let { memberService.getAvoidance(it) }?.takeIf { it.chosen.isNotEmpty() }
             ?.let { VerdictFilter(it, verdicts) }
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
-        val candidates = candidatesFor(tokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, tokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
-            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+        val nameTokens = (tokens + tokens.map(RamyeonSpelling::koreanTokenOf)).distinct()
+        val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true, latinPartial = true).products
+            .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
             .groupBy(::groupKeyOf).values.map { group -> group.sortedWith(representativeOrder) }
         val rankedById = ranked.flatten().associateBy { it.id }
         return pageOf(ranked.map { group -> group.map { it.id } }, offset, size, memberId, filter) { ids -> ids.mapNotNull(rankedById::get).associateBy { it.id } }
@@ -60,9 +62,9 @@ class ProcessedFoodService(
         }
         val catalog = featuredCatalog.productsByPriority()
         val named = products.findAllByNormalizedNameIn(catalog.flatMap(::namesOf)).filterNot { it.isDiscontinued(lastMirror) }
-            .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+            .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
         val featured = catalog.mapNotNull { product -> representativeOf(product, named)?.let { it to product } }
-            .distinctBy { it.first.id }
+            .distinctBy { groupKeyOf(it.first) }
         val featuredIds = featured.map { it.first.id }.toSet()
         val featuredGroups = featured.map { (row, _) -> groupKeyOf(row) }.toSet()
         val featuredByName = featured.flatMap { (_, product) -> namesOf(product).map { it.lowercase() to product } }.groupBy({ it.first }, { it.second })
@@ -80,7 +82,7 @@ class ProcessedFoodService(
         if (cvsCatalog.reportNos.isEmpty()) return null
         val stocked = products.findAllByReportNoIn(cvsCatalog.reportNos).filterNot { it.isDiscontinued(lastMirror) }
         if (stocked.isEmpty()) return null
-        val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType) == type }.associateBy { it.reportNo }
+        val byReportNo = stocked.filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }.associateBy { it.reportNo }
         val ranked = seedLineRepresentativesOf(byReportNo)
         val used = ranked.map { it.second.id }.toSet()
         val representatives = ranked.map { it.second }
@@ -221,10 +223,11 @@ class ProcessedFoodService(
         val candidates = (candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror) + products.findAllById(typos.values.flatMap { it.ids }.distinct()))
             .distinctBy { it.id }
         val best = linkedMapOf<Long, Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>()
+        val translated = candidateIndex.translatedNamesOf(candidates.map { it.id })
         tokensByQuery.map { queryTokens ->
             queryTokens + queryTokens.flatMap { typos[it]?.corrections.orEmpty() }.distinct().filterNot { correction -> queryTokens.any { correction in it } }
         }.forEach { queryTokens ->
-            ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections).forEach { scored ->
+            ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections, translated).forEach { scored ->
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
@@ -233,7 +236,7 @@ class ProcessedFoodService(
             candidateIndex.groupMemberIds(representative.id).any { it in gatedIds }
         }.takeIf { corrections.isNotEmpty() }
         val ranked = featuredFirst(best.values.sortedWith(ProcessedFoodSearchRanker.ORDER), queries.joinToString(" "), tokens, lastMirror, correctedBoost = correctedBoost)
-        return ranked.copy(products = ranked.products.take(limit))
+        return ranked.copy(products = ranked.products.distinctBy(::groupKeyOf).take(limit))
     }
 
     private fun featuredFirst(
@@ -244,8 +247,9 @@ class ProcessedFoodService(
         type: ProcessedFoodType? = null,
         correctedBoost: CorrectedBoost? = null,
         keepGroupMembers: Boolean = false,
+        latinPartial: Boolean = false,
     ): RankedCandidates {
-        val plain = featuredCatalog.boostedProducts(text, tokens)
+        val plain = featuredCatalog.boostedProducts(text, tokens, latinPartial)
         val corrected = correctedBoost?.let { featuredCatalog.boostedProducts(it.text, it.tokens) }.orEmpty()
             .filterNot { boost -> plain.any { it.product == boost.product } }
         val featured = plain + corrected
@@ -253,7 +257,7 @@ class ProcessedFoodService(
             emptyList()
         } else {
             products.findAllByNormalizedNameIn(featured.flatMap { namesOf(it.product) }).filterNot { it.isDiscontinued(lastMirror) }
-                .filter { type == null || ProcessedFoodType.of(it.foodType) == type }
+                .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
         }
         val boosted = if (featured.isEmpty()) {
             emptyList()
@@ -276,7 +280,7 @@ class ProcessedFoodService(
         val boostedNameKeys = boosted.flatMap { listOf(it.third.name, it.first.normalizedName) }.map { it.lowercase() }.toSet()
         val (exactAbove, below) = rest.partition {
             val lead = it.first.first()
-            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && lead.normalizedName.length >= longestBoost &&
+            boosted.isNotEmpty() && ProcessedFoodSearchRanker.isExact(it.second) && it.second.nameLength >= longestBoost &&
                 lead.normalizedName.lowercase() !in boostedNameKeys
         }
         val boostedRows = if (keepGroupMembers) {

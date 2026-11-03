@@ -191,6 +191,8 @@ interface ReviewApi {
             3.2 이상 헤더의 공개 피드. 3.1 이하와 같은 파라미터·정렬이며 가공식품 리뷰가 섞인다 —
             가공식품 리뷰는 targetType=PROCESSED_FOOD, processedFood 요약이 있고 food 는 생략된다.
             foodId 를 주면 그 음식 리뷰만(가공식품 제외). 3.1 이하 응답에는 가공식품 리뷰가 나오지 않는다.
+            targetType=ALL(기본)|FOOD|PROCESSED_FOOD 로 대상을 거른다(정렬·국가·별점·커서와 조합, 그 외 값은 400).
+            최신순(latest)은 작성일(createdAt) 내림차순(같으면 id 내림차순)이다 — 3.1 이하는 그대로 id 순. 커서 형식은 같다(마지막 리뷰 id).
         """,
     )
     @ApiErrors(ErrorCode.FOOD_NOT_PUBLIC, ErrorCode.INVALID_CURSOR)
@@ -198,6 +200,7 @@ interface ReviewApi {
         memberId: Long?,
         @Parameter(description = "리뷰를 조회할 음식 id — 생략 시 전체 리뷰", example = "1") foodId: Long?,
         @ParameterObject request: ReviewListRequest,
+        @Parameter(description = "ALL(기본)·FOOD·PROCESSED_FOOD — 응답 targetType 과 같은 값", example = "ALL") targetType: ReviewTargetFilter,
     ): ResponseEntity<BaseResponse<ReviewListPage>>
 
     @Operation(

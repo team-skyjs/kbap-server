@@ -44,6 +44,7 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
     @Autowired private lateinit var adminMembers: AdminMemberQueryService
     @Autowired private lateinit var uploadedImages: UploadedImageJpaRepository
     @Autowired private lateinit var processedFoodRepository: ProcessedFoodProductJpaRepository
+    @Autowired private lateinit var pfTranslations: com.kbap.api.processedfood.ProcessedFoodTranslationService
 
     private val mapper = jacksonObjectMapper()
 
@@ -77,8 +78,8 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                 viewer?.let { header("Authorization", "Bearer ${token(it)}") }
             }.andExpect { status { isEqualTo(expected) } }.andReturn().response.getContentAsString(Charsets.UTF_8),
         )
-        fun foodReview(author: Member): Long {
-            val food = foods.save(Food(koreanName = "가공리뷰음식", description = "설명", contentStatus = FoodContentStatus.READY))
+        fun foodReview(author: Member, foodName: String = "가공리뷰음식"): Long {
+            val food = foods.save(Food(koreanName = foodName, description = "설명", contentStatus = FoodContentStatus.READY))
             return json(
                 mvc.post("/api/reviews") {
                     header("X-API-Version", "1.0")
@@ -176,6 +177,75 @@ class ProcessedFoodReviewTest : BehaviorSpec() {
                     get("/api/reviews?lang=en", "3.1").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(foodReviewId)
                     get("/api/reviews/me?lang=en", "3.2", author).path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(productReviewId, foodReviewId)
                     get("/api/reviews/me?lang=en", "3.1", author).path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe listOf(foodReviewId)
+                }
+            }
+            `when`("리뷰 카드의 가공식품 이름을 외국어로 보면(S-942)") {
+                then("name 은 요청 언어(고정 → 저장된 번역 → 없으면 원문 — 읽기 전용이라 번역을 부르지 않음)이고 productName 은 원문 그대로이며, 한국어는 원문이다") {
+                    val pinned = product("고정과자")
+                    val translated = product("번역과자")
+                    val author = member("pfr-name")
+                    write(pinned, author)
+                    write(translated, member("pfr-name-2"))
+                    sql("INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) VALUES ('PF_NAME_PINNED', $pinned, 'en', 'pin', 'Pinned Snack', NULL, 'ACTIVE', NOW(6), NOW(6))")
+                    fun cards(lang: String) = get("/api/reviews?lang=$lang", "3.2").path("payload").path("items")
+                        .associate { it.path("processedFood").path("processedFoodId").asLong() to it.path("processedFood") }
+
+                    val first = cards("en")
+                    first.getValue(pinned).path("name").asText() shouldBe "Pinned Snack"
+                    first.getValue(pinned).path("productName").asText() shouldBe "고정과자"
+                    first.getValue(translated).path("name").asText() shouldBe "번역과자"
+                    pfTranslations.awaitIdle()
+                    sql("SELECT COUNT(*) FROM content_translation WHERE target_type = 'PF_NAME' AND target_id = $translated") shouldBe 0L
+                    get("/api/processed-foods/$translated?lang=en", "3.2")
+                    pfTranslations.awaitIdle()
+                    cards("en").getValue(translated).path("name").asText() shouldBe "[en] 번역과자"
+                    cards("ko").getValue(pinned).path("name").asText() shouldBe "고정과자"
+                    get("/api/reviews/me?lang=en", "3.2", author).path("payload").path("items")[0].path("processedFood").path("name").asText() shouldBe "Pinned Snack"
+                    get("/api/processed-foods/$pinned/reviews?lang=en", "3.2").path("payload").path("items")[0].path("processedFood").path("name").asText() shouldBe "Pinned Snack"
+                }
+            }
+            `when`("3.2 피드를 targetType 으로 거르면(KB-966)") {
+                then("FOOD 는 음식 리뷰만, PROCESSED_FOOD 는 가공식품 리뷰만, ALL(기본)은 둘 다, 그 외 값은 400 이고 3.1 은 그대로다") {
+                    val author = member("pfr-target")
+                    val foodReviewId = foodReview(author)
+                    val productReviewId = write(product("거름과자"), author).path("payload").path("reviewId").asLong()
+                    fun ids(query: String, version: String = "3.2") = get("/api/reviews?lang=en$query", version).path("payload").path("items").map { it.path("reviewId").asLong() }
+                    ids("") shouldBe listOf(productReviewId, foodReviewId)
+                    ids("&targetType=ALL") shouldBe listOf(productReviewId, foodReviewId)
+                    ids("&targetType=FOOD") shouldBe listOf(foodReviewId)
+                    ids("&targetType=PROCESSED_FOOD") shouldBe listOf(productReviewId)
+                    ids("&targetType=PROCESSED_FOOD&minRating=5") shouldBe emptyList()
+                    get("/api/reviews?lang=en&targetType=PACKAGED", "3.2", expected = 400)
+                    ids("", "3.1") shouldBe listOf(foodReviewId)
+                }
+            }
+            `when`("3.2 피드를 최신순으로 보면 — 작성일을 과거로 둔 리뷰(KB-966)") {
+                then("id 가 아니라 작성일(created_at) 내림차순으로 섞이고, 리뷰 id 커서로 그 다음부터 이어진다") {
+                    val foodIds = (1..3).map { foodReview(member("pfr-latest-food-$it"), "최신음식$it") }
+                    val productId = product("최신과자")
+                    val productIds = (1..3).map { write(productId, member("pfr-latest-pf-$it")).path("payload").path("reviewId").asLong() }
+                    listOf(foodIds[0] to 1, productIds[0] to 2, foodIds[1] to 3, productIds[1] to 4, foodIds[2] to 5, productIds[2] to 6).forEach { (id, hoursAgo) ->
+                        sql("UPDATE food_review SET created_at = NOW(6) - INTERVAL ${hoursAgo * 10} HOUR, updated_at = created_at WHERE id = $id")
+                    }
+                    val expected = listOf(foodIds[0], productIds[0], foodIds[1], productIds[1], foodIds[2], productIds[2])
+                    val first = get("/api/reviews?lang=en&sort=latest", "3.2").path("payload")
+                    first.path("items").map { it.path("reviewId").asLong() } shouldBe expected
+                    get("/api/reviews?lang=en&sort=latest", "3.1").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe foodIds.reversed()
+
+                    val second = first.path("items")[1].path("reviewId").asLong()
+                    get("/api/reviews?lang=en&sort=latest&cursor=$second", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected.drop(2)
+                }
+            }
+            `when`("작성일이 같은 리뷰들 사이에서 커서로 이어 보면(KB-966 동률 경계)") {
+                then("같은 작성일은 id 내림차순이고, 커서 리뷰 다음부터 빠짐·중복 없이 이어진다") {
+                    val productId = product("동률과자")
+                    val ids = (1..4).map { write(productId, member("pfr-tie-$it")).path("payload").path("reviewId").asLong() }
+                    sql("UPDATE food_review SET created_at = '2026-10-01 12:00:00.000000', updated_at = created_at WHERE id IN (${ids.joinToString(",")})")
+                    val expected = ids.sortedDescending()
+                    get("/api/reviews?lang=en&sort=latest", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected
+                    expected.indices.forEach { i ->
+                        get("/api/reviews?lang=en&sort=latest&cursor=${expected[i]}", "3.2").path("payload").path("items").map { it.path("reviewId").asLong() } shouldBe expected.drop(i + 1)
+                    }
                 }
             }
             `when`("3.2 피드를 리뷰 많은 순(food_review_count)으로 보면 — Codex P2") {

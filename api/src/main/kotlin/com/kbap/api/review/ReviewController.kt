@@ -125,6 +125,7 @@ class ReviewController(
         @AuthMemberIdOrNull memberId: Long?,
         @RequestParam(required = false) foodId: Long?,
         @Valid @ModelAttribute request: ReviewListRequest,
+        @RequestParam(defaultValue = "ALL") targetType: ReviewTargetFilter,
     ): ResponseEntity<BaseResponse<ReviewListPage>> {
         val (sort, descending) = parseSort(request.sort)
         validateRatingRange(request.minRating, request.maxRating)
@@ -141,6 +142,7 @@ class ReviewController(
                     request.maxRating,
                     ReviewListCursor.parse(request.cursor, sort),
                     includeProcessed = true,
+                    targetType = targetType,
                 ),
             ),
         )

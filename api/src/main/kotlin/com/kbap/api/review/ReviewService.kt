@@ -29,6 +29,7 @@ import com.kbap.common.domain.review.model.ReviewTargetType
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.api.processedfood.ProcessedFoodCandidateIndex
 import com.kbap.api.processedfood.ProcessedFoodService
+import com.kbap.api.processedfood.ProcessedFoodTranslationService
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.ReviewTranslationSource
 import com.kbap.common.domain.translation.model.TranslationTargetType
@@ -59,6 +60,7 @@ class ReviewService(
     private val processedFoodService: ProcessedFoodService,
     private val processedFoodGroups: ProcessedFoodCandidateIndex,
     private val processedFoodReviewSwitch: ProcessedFoodReviewSwitch,
+    private val processedFoodTranslations: ProcessedFoodTranslationService,
     private val translations: ContentTranslationJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -299,6 +301,7 @@ class ReviewService(
         maxRating: Int?,
         cursor: ReviewListCursor.Position?,
         includeProcessed: Boolean = false,
+        targetType: ReviewTargetFilter = ReviewTargetFilter.ALL,
     ): ReviewListPage {
         foodId?.let { foodService.getReadyFood(it) }
         val rows = reviewRepository.findReviewPage(
@@ -313,7 +316,9 @@ class ReviewService(
             excludedMemberIds = viewerMemberId?.let(::excludedMemberIds) ?: listOf(-1L),
             excludedReviewIds = NO_EXCLUDED_REVIEW_IDS,
             limit = PAGE_SIZE + 1,
-            includeProcessed = includeProcessed,
+            includeProcessed = includeProcessed && targetType != ReviewTargetFilter.FOOD,
+            includeFood = !includeProcessed || targetType != ReviewTargetFilter.PROCESSED_FOOD,
+            latestByCreatedAt = includeProcessed,
         )
         val hasNext = rows.size > PAGE_SIZE
         val page = rows.take(PAGE_SIZE)
@@ -459,8 +464,9 @@ class ReviewService(
         } else {
             emptyMap()
         }
-        val productsById = processedFoods.findAllById(page.mapNotNull { it.processedFoodId }.toSet())
-            .associate { it.id to ReviewProcessedFoodResponse.from(it) }
+        val products = processedFoods.findAllById(page.mapNotNull { it.processedFoodId }.toSet())
+        val localizedNames = processedFoodTranslations.localizedNamesOf(products, lang)
+        val productsById = products.associate { it.id to ReviewProcessedFoodResponse.from(it, localizedNames[it.id] ?: it.productName) }
         val reviewIds = page.map { it.id }
         val likeCountsByReviewId = reviewLikeRepository.countByReviewIds(reviewIds)
             .associate { it.reviewId to it.likeCount }

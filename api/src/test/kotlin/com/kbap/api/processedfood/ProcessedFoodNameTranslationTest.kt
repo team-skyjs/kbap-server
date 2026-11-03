@@ -52,6 +52,13 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
             "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) " +
                 "VALUES ('PF_NAME', $id, 'en', 'stale', 'Premonition', NULL, 'ACTIVE', NOW(6), NOW(6))",
         )
+        fun seedWith(reportNo: String, name: String, maker: String, foodType: String): Long {
+            execute(
+                "INSERT INTO processed_food_product (report_no, product_name, normalized_name, food_type, manufacturer, raw_materials, allergens, source, content_hash, collected_at, last_seen_at, status, created_at, updated_at) " +
+                    "VALUES ('$reportNo', '$name', '${ProcessedFoodSnapshot.normalizeName(name)}', '$foodType', '$maker', '소맥분(밀), 설탕', '밀 함유', 'HACCP', REPEAT('a', 64), NOW(6), NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+            )
+            return dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery("SELECT id FROM processed_food_product WHERE report_no = '$reportNo'").use { r -> r.next(); r.getLong(1) } } }
+        }
         fun storedName(id: Long, language: String): String? = rows.findByTargetTypeAndTargetIdAndLanguage(TranslationTargetType.PF_NAME, id, language)?.translatedText
         fun regenerate(target: String, body: Map<String, Any?>, expected: Int = 200): JsonNode = mapper.readTree(
             mockMvc.post("/api/admin/processed-foods/translations/names/regenerate") {
@@ -110,16 +117,96 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                 }
             }
             `when`("재생성에서 거절되면") {
-                then("기존 번역을 덮어쓰지 않고 실패로 센다") {
-                    val id = seed("NT-7", "예감")
-                    staleName(id)
+                then("기존 번역이 가드를 통과하면 덮어쓰지 않고, 기존 번역도 오역(가드 거절)이면 원문으로 바꾼다 — KB-960") {
+                    val bad = seed("NT-7", "예감")
+                    val good = seed("NT-8", "예감 오리지널")
+                    staleName(bad)
+                    execute(
+                        "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) " +
+                            "VALUES ('PF_NAME', $good, 'en', 'stale', 'Yegam Original', NULL, 'ACTIVE', NOW(6), NOW(6))",
+                    )
                     translator.reply = { _, _ -> throw TranslationRejectedException("뜻 번역") }
 
                     val p = regenerate("dev", mapOf("dryRun" to false, "limit" to 20)).path("payload")
 
-                    p.path("regenerated").asInt() shouldBe 0
-                    p.path("failedProductIds").map { it.asLong() } shouldBe listOf(id)
-                    storedName(id, "en") shouldBe "Premonition"
+                    p.path("regenerated").asInt() shouldBe 1
+                    p.path("failedProductIds").map { it.asLong() } shouldBe listOf(good)
+                    storedName(bad, "en") shouldBe "예감"
+                    storedName(good, "en") shouldBe "Yegam Original"
+                }
+            }
+        }
+
+        given("제조사 접두와 스낵면 분류(KB-960)") {
+            `when`("상품명 앞에 제조사가 붙어 있으면") {
+                then("이름 번역 원문에서 제조사를 빼되, 공식 상품명에 브랜드가 들어가는 사전 항목은 그대로 둔다") {
+                    val snack = seedWith("NT-11", "오뚜기 뿌셔뿌셔 떡볶이맛", "오뚜기", "유탕면류")
+                    val milk = seedWith("NT-12", "빙그레 바나나맛 우유", "빙그레", "가공유")
+                    listOf(snack, milk).forEach { id -> mockMvc.get("/api/processed-foods/$id?lang=en") { header("X-API-Version", "3.2") }.andExpect { status { isOk() } } }
+                    translations.awaitIdle()
+
+                    translator.nameCalls.map { it.first }.toSet() shouldBe setOf("뿌셔뿌셔 떡볶이맛", "빙그레 바나나맛 우유")
+                }
+            }
+            `when`("대표 상품을 미리 번역하면 — Codex P2(#524)") {
+                then("조회 경로와 같은 원문(제조사 접두 제거)으로 번역해 캐시가 맞는다") {
+                    seedWith("NT-14", "해태 맛동산", "해태", "과자")
+                    translations.prewarmFeatured(listOf(LanguageCode.EN))
+
+                    translator.nameCalls.map { it.first } shouldBe listOf("맛동산")
+                }
+            }
+            `when`("공식 상품명에 브랜드가 붙거나 접두를 빼면 일반명사만 남으면") {
+                then("제조사를 빼지 않는다 — 삼양라면·팔도 비빔면은 브랜드가 상품명") {
+                    translations.nameSourceOf("삼양라면", "삼양") shouldBe "삼양라면"
+                    translations.nameSourceOf("팔도 비빔면", "팔도") shouldBe "팔도 비빔면"
+                    translations.nameSourceOf("오뚜기 라면", "오뚜기") shouldBe "오뚜기 라면"
+                    translations.nameSourceOf("농심 새우깡", "농심") shouldBe "새우깡"
+                }
+            }
+            `when`("라면을 영어 표기(ramen·ramyun·ramyeon)로 검색하면") {
+                then("한국어 이름의 라면 상품을 찾는다") {
+                    val shin = seedWith("NT-15", "신라면", "농심", "유탕면류")
+                    listOf("ramen", "ramyun", "Ramyeon", "shin ramen").forEach { query ->
+                        val ids = mapper.readTree(
+                            mockMvc.get("/api/processed-foods?query=$query") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                        ).path("payload").path("items").map { it.path("id").asLong() }
+                        (shin in ids) shouldBe true
+                    }
+                }
+            }
+            `when`("유탕면류로 등록된 스낵면(뿌셔뿌셔)을 보면") {
+                then("유형 칩은 라면이 아니라 과자다") {
+                    seedWith("NT-13", "오뚜기 뿌셔뿌셔 불고기맛", "오뚜기", "유탕면류")
+                    val items = mapper.readTree(
+                        mockMvc.get("/api/processed-foods?query=뿌셔뿌셔") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("items")
+                    items[0].path("type").asText() shouldBe "SNACKS"
+                    mapper.readTree(
+                        mockMvc.get("/api/processed-foods?query=뿌셔뿌셔&type=RAMEN") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("items").size() shouldBe 0
+                }
+            }
+        }
+
+        given("식품유형 사용자 언어 표시(KB-960)") {
+            `when`("상세를 영어로 보면") {
+                then("foodTypeLocalized 는 원문과 번역을 함께 주고, 같은 식품유형은 상품이 달라도 한 번만 번역한다") {
+                    val first = seed("NT-9", "예감")
+                    val second = seed("NT-10", "자가비")
+                    repeat(2) {
+                        listOf(first, second).forEach { id ->
+                            mockMvc.get("/api/processed-foods/$id?lang=en") { header("X-API-Version", "3.2") }.andExpect { status { isOk() } }
+                        }
+                        translations.awaitIdle()
+                    }
+
+                    val detail = mapper.readTree(
+                        mockMvc.get("/api/processed-foods/$first?lang=en") { header("X-API-Version", "3.2") }.andReturn().response.getContentAsString(Charsets.UTF_8),
+                    ).path("payload").path("foodTypeLocalized")
+                    detail.path("original").asText() shouldBe "과자"
+                    detail.path("translated").asText() shouldBe "[en] 과자"
+                    translator.calls.count { it.first == "과자" } shouldBe 1
                 }
             }
         }

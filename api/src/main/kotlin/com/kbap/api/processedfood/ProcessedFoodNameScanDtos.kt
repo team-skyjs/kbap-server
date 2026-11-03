@@ -29,7 +29,7 @@ data class ProcessedFoodNameConfirmRequest(
     val reportNo: String? = null,
 )
 
-@Schema(description = "분석 상태 — CANDIDATES: 후보 있음(확정 대기) · NO_CANDIDATE: 후보 없음(성분표 촬영으로 이어감) · CONFIRMED: 품목 확정(1회 차감) · REJECTED: 해당 없음(성분표 촬영으로 이어감) · LABEL_RESULT: 성분표 판독 결과(scan/label)")
+@Schema(description = "분석 상태 — CANDIDATES: 후보 있음(확정 대기) · NO_CANDIDATE: 후보 없음(성분표 촬영으로 이어감) · CONFIRMED: 품목 확정 · REJECTED: 해당 없음(성분표 촬영으로 이어감) · LABEL_RESULT: 성분표 판독 결과(scan/label)")
 enum class ProcessedFoodNameScanState { CANDIDATES, NO_CANDIDATE, CONFIRMED, REJECTED, LABEL_RESULT }
 
 @Schema(description = "가공식품 이름 스캔 결과")
@@ -47,11 +47,11 @@ data class ProcessedFoodNameScanResponse(
 data class ProcessedFoodNameConfirmResponse(
     val analysisId: String,
     val state: ProcessedFoodNameScanState,
-    @field:Schema(description = "이번 호출에서 스캔 1회를 차감했는지 — 같은 분석을 같은 품목으로 다시 확정하면 false")
+    @field:Schema(description = "이번 호출에서 스캔 1회를 차감했는지 — KB-963 부터 가공식품 스캔은 차감하지 않아 항상 false")
     val charged: Boolean,
     @field:Schema(description = "확정 품목 상세(가공식품 상세와 같은 응답). REJECTED 면 null", nullable = true)
     val product: ProcessedFoodDetailResponse?,
-    @field:Schema(description = "가공식품 1시간 무료 창이 끝나는 시각(ISO) — 차감된 가공식품 스캔 성공부터 고정 60분, 창 안의 가공식품 스캔은 차감 0(charged=false)·남은 횟수 0 이어도 통과. 창이 없으면 null", example = "2026-10-27T04:00:00Z", nullable = true)
+    @field:Schema(description = "가공식품 1시간 무료 창 — KB-963 부터 가공식품 스캔은 무료 횟수에서 차감하지 않아 창을 열지 않는다. 항상 null(호환용으로 필드만 남김)", nullable = true)
     val freeUntil: Instant? = null,
 )
 

@@ -28,6 +28,21 @@ data class AdminScanPhotoFeedItem(
     val kind: ScanPhotoKind,
     @field:Schema(description = "ORDER 면 주문 id, BATCH 면 스캔 묶음(scan_operation) id, SCAN_ONLY 면 null", nullable = true)
     val sourceId: Long?,
+    @field:Schema(description = "MENU: 메뉴판 스캔 사진 · PACKAGED: 가공식품 스캔 사진(앞면·성분표 — kind 는 SCAN_ONLY)")
+    val scanType: ScanPhotoType,
+    @field:Schema(description = "이름 스캔 확정으로 이 사진과 연결된 가공식품 id — 연결 기록이 있는 경우만(성분표 사진·확정 안 한 사진·기록 이전 사진은 null)", nullable = true)
+    val processedFoodId: Long?,
+    @field:Schema(description = "연결된 가공식품의 한국어 원명", nullable = true)
+    val processedFoodName: String?,
 )
 
 enum class ScanPhotoKind { ORDER, BATCH, SCAN_ONLY }
+
+enum class ScanPhotoType { MENU, PACKAGED }
+
+@Schema(description = "스캔 사진 종류 필터 — ALL(기본): 메뉴판·가공식품 모두")
+enum class ScanPhotoTypeFilter(val includeMenu: Boolean, val includePackaged: Boolean) {
+    ALL(true, true),
+    MENU(true, false),
+    PACKAGED(false, true),
+}

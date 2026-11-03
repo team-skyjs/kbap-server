@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
+import com.kbap.common.util.RamyeonSpelling
 import java.text.Normalizer
 
 @Component
@@ -13,13 +14,16 @@ class ProcessedFoodFeaturedCatalog {
     private val products: List<FeaturedProduct> = catalog.products.sortedBy { it.priority }
     private val makers: Map<String, List<String>> = catalog.makers.associate { maker -> maker.name to maker.aliases.map(::keyOf) }
 
-    fun boostedProducts(text: String, tokens: List<String>): List<Boost> {
+    fun boostedProducts(text: String, tokens: List<String>, latinPartial: Boolean = false): List<Boost> {
         val textKey = keyOf(text)
         val tokenKeys = tokens.map(::keyOf).toSet()
+        val partialKey = textKey.takeIf { latinPartial && it.length >= MIN_LATIN_KEY && it.all { c -> c in 'a'..'z' || c in '0'..'9' } }
         val hits = products.mapNotNull { product ->
             val nameKey = keyOf(product.name)
-            val matched = (product.aliases.map(::keyOf).filter { alias -> alias in tokenKeys || (!tokenOnly(alias) && alias in textKey) } +
-                listOf(nameKey).filter { it in tokenKeys || it in textKey }).distinct()
+            val aliases = product.aliases.map(::keyOf)
+            val matched = (aliases.filter { alias -> alias in tokenKeys || (!tokenOnly(alias) && alias in textKey) } +
+                listOf(nameKey).filter { it in tokenKeys || it in textKey } +
+                listOfNotNull(partialKey?.takeIf { key -> aliases.any { key in it } })).distinct()
             matched.maxByOrNull { it.length }?.takeUnless { otherMakerShown(product.maker, textKey) }?.let { Hit(product, matched, it) }
         }
         return hits
@@ -42,7 +46,7 @@ class ProcessedFoodFeaturedCatalog {
         return makers.any { (name, aliases) -> name != maker && aliases.any { alias -> alias in textKey && ownInText.none { alias in it } } }
     }
 
-    private fun keyOf(value: String): String = ProcessedFoodSnapshot.normalizeName(Normalizer.normalize(value, Normalizer.Form.NFKC)).lowercase()
+    private fun keyOf(value: String): String = RamyeonSpelling.fold(ProcessedFoodSnapshot.normalizeName(Normalizer.normalize(value, Normalizer.Form.NFKC)).lowercase())
 
     data class Boost(val product: FeaturedProduct, val matchLength: Int)
 
@@ -59,5 +63,6 @@ class ProcessedFoodFeaturedCatalog {
         private const val SHORT_ALIAS = 2
         private const val FLAVOR_SUFFIX = "맛"
         private const val SHORT_FLAVOR = 4
+        private const val MIN_LATIN_KEY = 4
     }
 }

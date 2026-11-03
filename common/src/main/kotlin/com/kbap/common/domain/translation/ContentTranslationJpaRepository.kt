@@ -13,6 +13,8 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
 
     fun findAllByTargetTypeInAndTargetIdInAndLanguage(targetTypes: Collection<TranslationTargetType>, targetIds: Collection<Long>, language: String): List<ContentTranslation>
 
+    fun findAllByTargetTypeInAndTargetIdIn(targetTypes: Collection<TranslationTargetType>, targetIds: Collection<Long>): List<ContentTranslation>
+
     @Query(
         nativeQuery = true,
         value = "SELECT * FROM content_translation WHERE target_type = :targetType AND status = 'ACTIVE' AND id > :afterId ORDER BY id LIMIT :limit",
@@ -20,6 +22,21 @@ interface ContentTranslationJpaRepository : JpaRepository<ContentTranslation, Lo
     fun findPageByTargetType(@Param("targetType") targetType: String, @Param("afterId") afterId: Long, @Param("limit") limit: Int): List<ContentTranslation>
 
     fun countByTargetType(targetType: TranslationTargetType): Long
+
+    @Query(
+        nativeQuery = true,
+        value = """
+        SELECT target_id AS targetId, target_type AS targetType, language, source_hash AS sourceHash, translated_text AS translatedText
+        FROM content_translation WHERE target_type IN ('PF_NAME', 'PF_NAME_PINNED') AND status = 'ACTIVE'
+        """,
+    )
+    fun findProcessedFoodNameRows(): List<ProcessedFoodNameTranslationRow>
+
+    @Query(
+        nativeQuery = true,
+        value = "SELECT CONCAT_WS('|', COUNT(*), SUM(status = 'ACTIVE'), MAX(id), MAX(updated_at)) FROM content_translation WHERE target_type IN ('PF_NAME', 'PF_NAME_PINNED')",
+    )
+    fun findProcessedFoodNameFingerprint(): String?
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(

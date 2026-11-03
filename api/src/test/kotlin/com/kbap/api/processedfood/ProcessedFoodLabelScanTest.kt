@@ -125,16 +125,16 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     val p = label(member(88417L), null, "원재료 명: 정제수\n알레르기 유발 물질 함유: 우유").path("payload")
                     p.path("unmapped").map { it.asText() }.filter { it in setOf("유발", "물질", "원재료 명", "명") } shouldBe emptyList()
                     p.path("detections").map { it.path("code").asText() } shouldBe listOf("MILK")
-                    p.path("charged").asBoolean() shouldBe true
+                    p.path("charged").asBoolean() shouldBe false
                 }
             }
             `when`("머리말 뒤 81종 밖 재료가 하나뿐이면(생수·설탕·녹차) — 공부 막음") {
-                then("머리말이 성분표임을 보여 주므로 비머리말 한글 토큰 1개로 성공·차감") {
+                then("머리말이 성분표임을 보여 주므로 비머리말 한글 토큰 1개로 성공(차감 없음 — KB-963)") {
                     listOf(88413L to "원재료명: 정제수", 88414L to "원재료명: 백설탕", 88415L to "원재료명: 녹차잎 100%").forEach { (id, ocr) ->
                         val p = label(member(id), null, ocr).path("payload")
-                        p.path("charged").asBoolean() shouldBe true
+                        p.path("charged").asBoolean() shouldBe false
                         p.path("detections").size() shouldBe 0
-                        scanCountOf(id) shouldBe 1
+                        scanCountOf(id) shouldBe 0
                     }
                 }
             }
@@ -154,7 +154,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
 
         given("성분표 분석 — 새 분석의 clientRequestId 멱등 키(KB-840)") {
             `when`("응답을 못 받은 앱이 같은 키·같은 원문으로 다시 보내면") {
-                then("같은 분석이 같은 결과로 돌아오고 차감은 처음 1회뿐이다") {
+                then("같은 분석이 같은 결과로 돌아오고 원장은 1행뿐이다(차감 없음 — KB-963)") {
                     val token = member(88401L, "SEAFOOD")
                     val key = UUID.randomUUID().toString()
                     val first = label(token, null, *shrimpLabel, clientRequestId = key).path("payload")
@@ -162,19 +162,19 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     again.path("analysisId").asText() shouldBe first.path("analysisId").asText()
                     again.path("detections") shouldBe first.path("detections")
                     again.path("avoidance") shouldBe first.path("avoidance")
-                    first.path("charged").asBoolean() shouldBe true
+                    first.path("charged").asBoolean() shouldBe false
                     again.path("charged").asBoolean() shouldBe false
-                    scanCountOf(88401L) shouldBe 1
+                    scanCountOf(88401L) shouldBe 0
                     usageCountOf(88401L) shouldBe 1
                 }
             }
             `when`("같은 키로 다른 원문을 보내면") {
-                then("409 SCAN-005, 추가 차감 없음") {
+                then("409 SCAN-005") {
                     val token = member(88402L)
                     val key = UUID.randomUUID().toString()
                     label(token, null, *shrimpLabel, clientRequestId = key)
                     label(token, null, "원재료명: 정제수, 새우", clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
-                    scanCountOf(88402L) shouldBe 1
+                    scanCountOf(88402L) shouldBe 0
                 }
             }
             `when`("같은 키로 같은 줄을 면 나눔만 달리해 보내면 — Codex P2") {
@@ -184,7 +184,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     label(token, null, *shrimpLabel, clientRequestId = key)
                     label(token, null, shrimpLabel.joinToString("\n"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
                     label(token, null, shrimpLabel.joinToString("\u0000"), clientRequestId = key, expected = 409).path("code").asText() shouldBe "SCAN-005"
-                    scanCountOf(88405L) shouldBe 1
+                    scanCountOf(88405L) shouldBe 0
                 }
             }
             `when`("새 분석에 키가 없거나 UUID 가 아니면") {
@@ -199,11 +199,11 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
 
         given("성분표 분석 — 새 분석(analysisId 없음)") {
             `when`("원재료·표시란·같은 제조시설 문구가 있는 여러 면을 보내면") {
-                then("표시란 검출·함유 가능·회피 대조가 오고 1회 차감된다") {
+                then("표시란 검출·함유 가능·회피 대조가 오고 원장 1행, 차감 없음(KB-963)") {
                     val token = member(88301L, "SEAFOOD", "PEANUT")
                     val p = label(token, null, *shrimpLabel).path("payload")
                     p.path("state").asText() shouldBe "LABEL_RESULT"
-                    p.path("charged").asBoolean() shouldBe true
+                    p.path("charged").asBoolean() shouldBe false
                     p.path("labelSource").asText() shouldBe "DECLARED"
                     p.path("detections").map { it.path("code").asText() }.toSet() shouldBe setOf("WHEAT", "SHRIMP")
                     p.path("mayContain").map { it.path("code").asText() } shouldBe listOf("PEANUT")
@@ -212,7 +212,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     avoidance.getValue("PEANUT").path("match").asText() shouldBe "UNCONFIRMED"
                     p.toString() shouldNotContain "SAFE"
                     p.path("rawText").asText().lines().size shouldBe 3
-                    scanCountOf(88301L) shouldBe 1
+                    scanCountOf(88301L) shouldBe 0
                     long("SELECT COUNT(*) FROM scan_usage") shouldBe 1
                 }
             }
@@ -277,7 +277,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                 }
             }
             `when`("같은 회원의 새 분석 두 건이 동시에 오면(더블탭) — 공부") {
-                then("교착(500) 없이 둘 다 끝나고, 차감은 무료 창(KB-876)을 연 첫 성공 1회뿐이다") {
+                then("교착(500) 없이 둘 다 끝나고 차감은 없다(KB-963)") {
                     val token = member(88314L)
                     repeat(3) {
                         val start = java.util.concurrent.CountDownLatch(1)
@@ -290,7 +290,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                         futures.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }.all { it == 200 } shouldBe true
                         pool.shutdown()
                     }
-                    scanCountOf(88314L) shouldBe 1
+                    scanCountOf(88314L) shouldBe 0
                 }
             }
             `when`("검출이 하나라도 있으면") {
@@ -299,11 +299,10 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     label(token, null, "우유 함유").path("payload").path("detections").map { it.path("code").asText() } shouldBe listOf("MILK")
                 }
             }
-            `when`("무료 횟수를 다 쓴 회원이면") {
-                then("403 SCAN-004 이고 분석을 남기지 않는다") {
+            `when`("무료 횟수를 다 쓴 회원이면 — KB-963") {
+                then("가공식품 스캔은 차감하지 않으므로 한도 오류 없이 성공하고 횟수는 그대로다") {
                     val token = member(88304L, scanCount = 3)
-                    label(token, null, *shrimpLabel, expected = 403).path("code").asText() shouldBe "SCAN-004"
-                    long("SELECT COUNT(*) FROM scan_operation") shouldBe 0
+                    label(token, null, *shrimpLabel).path("payload").path("charged").asBoolean() shouldBe false
                     scanCountOf(88304L) shouldBe 3
                 }
             }
@@ -311,12 +310,12 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
 
         given("성분표 분석 — 이름 스캔에서 이어가기") {
             `when`("후보 없음(NO_CANDIDATE) 분석 id 로 성분표를 보내면") {
-                then("같은 분석에 결과가 붙고 1회 차감, 같은 id 재호출은 갱신만(차감 0), 판독 실패 재호출은 이전 결과 유지 400") {
+                then("같은 분석에 결과가 붙고(차감 없음), 같은 id 재호출은 갱신만, 판독 실패 재호출은 이전 결과 유지 400, 3회 뒤는 409") {
                     val token = member(88305L)
                     val id = post("/api/processed-foods/scan/name", mapOf("ocrText" to "알수없는수입과자이름"), token).path("payload").path("analysisId").asText()
                     label(token, id, *shrimpLabel).path("payload").also {
                         it.path("analysisId").asText() shouldBe id
-                        it.path("charged").asBoolean() shouldBe true
+                        it.path("charged").asBoolean() shouldBe false
                     }
                     long("SELECT COUNT(*) FROM scan_operation") shouldBe 1
                     label(token, id, "원재료명: 감자, 식물성유지, 정제소금").path("payload").also {
@@ -327,17 +326,17 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     label(token, id, "원재료명: 쌀, 정제소금, 효소").path("payload").path("charged").asBoolean() shouldBe false
                     label(token, id, "원재료명: 옥수수, 정제소금, 효소").path("payload").path("charged").asBoolean() shouldBe false
                     label(token, id, "원재료명: 보리, 정제소금, 효소", expected = 409).path("code").asText() shouldBe "PFOOD-007"
-                    scanCountOf(88305L) shouldBe 1
+                    scanCountOf(88305L) shouldBe 0
                     post("/api/processed-foods/scan/confirm", mapOf("analysisId" to id, "reportNo" to "PL-1"), token, expected = 409).path("code").asText() shouldBe "PFOOD-004"
                 }
             }
             `when`("첫 성공 뒤 30분이 지나 같은 id 로 다시 보내면") {
-                then("무료 재호출 창이 끝나 409 PFOOD-007(앱은 새 분석)") {
+                then("이어 붙이기 창이 끝나 409 PFOOD-007(앱은 새 분석 — 새 분석도 무차감)") {
                     val token = member(88310L)
                     val id = label(token, null, *shrimpLabel).path("payload").path("analysisId").asText()
                     execute("UPDATE scan_operation SET request_document = JSON_SET(request_document, '$.label.firstSucceededAt', '2000-01-01T00:00:00') WHERE request_key = UUID_TO_BIN('$id')")
                     label(token, id, "원재료명: 감자, 식물성유지, 정제소금", expected = 409).path("code").asText() shouldBe "PFOOD-007"
-                    scanCountOf(88310L) shouldBe 1
+                    scanCountOf(88310L) shouldBe 0
                 }
             }
             `when`("후보 확정 대기(CANDIDATES) 분석이나 없는·남의 분석 id 면") {
@@ -349,7 +348,7 @@ class ProcessedFoodLabelScanTest : BehaviorSpec() {
                     label(token, UUID.randomUUID().toString(), *shrimpLabel, expected = 404).path("code").asText() shouldBe "PFOOD-003"
                     val mine = label(token, null, *shrimpLabel).path("payload").path("analysisId").asText()
                     label(member(88307L), mine, *shrimpLabel, expected = 404).path("code").asText() shouldBe "PFOOD-003"
-                    scanCountOf(88306L) shouldBe 1
+                    scanCountOf(88306L) shouldBe 0
                 }
             }
         }

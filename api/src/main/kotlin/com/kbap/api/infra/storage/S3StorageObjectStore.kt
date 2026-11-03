@@ -8,6 +8,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.ChecksumMode
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
+import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
@@ -63,6 +64,13 @@ class S3StorageObjectStore(
                 .overrideConfiguration { it.apiCallTimeout(LIST_TIMEOUT) }
                 .build(),
         ).contents().map { StoredObject(path = it.key(), lastModified = it.lastModified()) }
+
+    override fun get(path: String): ByteArray? =
+        try {
+            s3Client.getObjectAsBytes(GetObjectRequest.builder().bucket(bucket).key(path).build()).asByteArray()
+        } catch (e: NoSuchKeyException) {
+            null
+        }
 
     override fun put(path: String, bytes: ByteArray, contentType: String) {
         s3Client.putObject(

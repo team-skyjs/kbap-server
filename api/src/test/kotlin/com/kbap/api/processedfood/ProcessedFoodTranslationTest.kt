@@ -100,7 +100,7 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     again.path("ingredients").path("translated").asText() shouldBe "[en] 원유(국산) 85%, 정제수, 설탕"
                     again.path("ingredients").path("original").asText() shouldBe "원유(국산) 85%, 정제수, 설탕"
                     again.path("allergenStatement").path("translated").asText() shouldBe "[en] 우유 함유"
-                    translator.calls.map { it.first }.toSet() shouldBe setOf("빙그레 바나나맛 우유", "원유(국산) 85%, 정제수, 설탕", "우유 함유")
+                    translator.calls.map { it.first }.toSet() shouldBe setOf("빙그레 바나나맛 우유", "원유(국산) 85%, 정제수, 설탕", "우유 함유", "가공유")
                 }
                 then("저장된 번역은 다시 엔진을 부르지 않는다") {
                     val token = member()
@@ -243,6 +243,7 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     (1..3).forEach { seed("TR-B$it", "묶음과자$it", "㈜동네식품$it", null, null) }
                     get("/api/processed-foods?size=3&lang=en")
                     translations.awaitIdle()
+                    get("/api/processed-foods?size=3&lang=en")
 
                     val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
                     val originallyEnabled = statistics.isStatisticsEnabled

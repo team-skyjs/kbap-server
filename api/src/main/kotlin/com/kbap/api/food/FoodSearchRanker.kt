@@ -2,6 +2,7 @@ package com.kbap.api.food
 
 import com.kbap.common.domain.food.dto.FoodSearchName
 import com.kbap.common.util.KoreanMenuNameNormalizer
+import com.kbap.common.util.RamyeonSpelling
 import java.text.Normalizer
 
 data class RankedFood(val id: Long, val grade: Int, val scans: Long) {
@@ -55,5 +56,5 @@ object FoodSearchRanker {
     }
 
     private fun loose(raw: String): String =
-        Normalizer.normalize(raw, Normalizer.Form.NFKC).lowercase().filter { it.isLetterOrDigit() }
+        RamyeonSpelling.fold(Normalizer.normalize(raw, Normalizer.Form.NFKC).lowercase().filter { it.isLetterOrDigit() })
 }

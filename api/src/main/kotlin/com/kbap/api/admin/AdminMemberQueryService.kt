@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.LocalDate
+import com.kbap.common.domain.image.model.UploadPurpose
+import io.swagger.v3.oas.annotations.media.Schema
 
 @Service
 class AdminMemberQueryService(
@@ -164,11 +166,20 @@ class AdminMemberQueryService(
     }
 
     @Transactional(readOnly = true)
-    fun getScanPhotoPage(memberId: Long, page: Int): AdminScanPhotoPage {
+    fun getScanPhotoPage(memberId: Long, page: Int, type: ScanPhotoTypeFilter = ScanPhotoTypeFilter.ALL): AdminScanPhotoPage {
         requireMemberExists(memberId)
-        val result = orderRepository.findMemberScanPhotos(memberId, PageRequest.of(page - 1, 24))
+        val result = orderRepository.findMemberScanPhotos(memberId, type.includeMenu, type.includePackaged, UploadPurpose.PACKAGED_SCAN.segment, PageRequest.of(page - 1, 24))
+        val names = AdminScanPhotoFeedService.processedFoodNamesOf(processedFoods, result.content.mapNotNull { it.processedFoodId })
         return AdminScanPhotoPage(
-            result.content.map { AdminScanPhoto(ImageUrls.resolve(imagePublicBaseUrl, it.path), it.createdAt) },
+            result.content.map {
+                AdminScanPhoto(
+                    ImageUrls.resolve(imagePublicBaseUrl, it.path),
+                    it.createdAt,
+                    ScanPhotoType.valueOf(it.scanType),
+                    it.processedFoodId,
+                    it.processedFoodId?.let(names::get),
+                )
+            },
             page, result.totalPages, result.totalElements, result.hasNext(),
         )
     }
@@ -292,5 +303,14 @@ data class AdminMemberDetailView(
     }
 }
 
-data class AdminScanPhoto(val imageUrl: String?, val createdAt: LocalDateTime)
+data class AdminScanPhoto(
+    val imageUrl: String?,
+    val createdAt: LocalDateTime,
+    @field:Schema(description = "MENU: 메뉴판 스캔 사진 · PACKAGED: 가공식품 스캔 사진")
+    val scanType: ScanPhotoType,
+    @field:Schema(description = "이름 스캔 확정으로 연결된 가공식품 id(연결된 경우만)", nullable = true)
+    val processedFoodId: Long?,
+    @field:Schema(description = "연결된 가공식품의 한국어 원명", nullable = true)
+    val processedFoodName: String?,
+)
 data class AdminScanPhotoPage(val items: List<AdminScanPhoto>, val page: Int, val totalPages: Int, val totalCount: Long, val hasNext: Boolean)

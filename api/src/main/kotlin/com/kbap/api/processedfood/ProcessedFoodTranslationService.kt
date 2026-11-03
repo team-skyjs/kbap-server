@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.TranslationRejectedException
 import com.kbap.common.domain.ingredient.label.IngredientLabelReader
+import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import com.kbap.common.domain.translation.model.ContentTranslation
@@ -17,6 +19,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.LocalDate
@@ -40,6 +43,7 @@ class ProcessedFoodTranslationService(
     private val translatorProvider: ObjectProvider<ProcessedFoodTextTranslator>,
     private val featuredCatalog: ProcessedFoodFeaturedCatalog,
     private val processedFoodService: ProcessedFoodService,
+    private val products: ProcessedFoodProductJpaRepository,
     private val redis: StringRedisTemplate,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.processed-food.translation.daily-budget-krw:5000}") var dailyBudgetKrw: Double,
@@ -65,17 +69,46 @@ class ProcessedFoodTranslationService(
         if (language == LanguageCode.KO) return detail
         val unclearLabels = UnclearIngredientLabels.labelsOf(detail.unclearIngredientLabels.map { it.term }, language)
         val deadline = if (member) System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(syncDeadlineMillis) else null
-        val name = request(TranslationTargetType.PF_NAME, detail.id, detail.productName, language, deadline != null)
-        val maker = detail.maker?.let { if (brandNameOf(it) != null) null else request(TranslationTargetType.PF_MAKER, detail.id, it, language, deadline != null) }
+        val pins = pinsOf(listOf(detail.id), language)
+        val pinnedName = pins[TranslationTargetType.PF_NAME_PINNED to detail.id]
+        val pinnedMaker = pins[TranslationTargetType.PF_MAKER_PINNED to detail.id]
+        val name = if (pinnedName != null) null else request(TranslationTargetType.PF_NAME, detail.id, nameSourceOf(detail.productName, detail.maker), language, deadline != null)
+        val maker = detail.maker?.let { if (pinnedMaker != null || brandNameOf(it) != null) null else request(TranslationTargetType.PF_MAKER, detail.id, it, language, deadline != null) }
         val ingredients = request(TranslationTargetType.PF_INGREDIENTS, detail.id, detail.ingredients?.original, language, sync = false)
         val allergens = request(TranslationTargetType.PF_ALLERGENS, detail.id, detail.allergenStatement?.original, language, sync = false)
+        val foodType = detail.foodType?.let { request(TranslationTargetType.PF_FOOD_TYPE, foodTypeKeyOf(it), it, language, deadline != null) }
         return detail.copy(
-            name = name.await(deadline) ?: detail.productName,
-            maker = detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
+            name = pinnedName ?: name.await(deadline) ?: detail.productName,
+            maker = pinnedMaker ?: detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
             ingredients = detail.ingredients?.let { it.copy(translated = ingredients.await(null) ?: it.original) },
             allergenStatement = detail.allergenStatement?.let { it.copy(translated = allergens.await(null) ?: it.original) },
             unclearIngredientLabels = unclearLabels,
+            foodTypeLocalized = detail.foodType?.let { ProcessedFoodLocalizedText(foodType.await(deadline) ?: it, it) },
         )
+    }
+
+    fun translateNameInBackground(productId: Long, name: String, maker: String?) {
+        val source = nameSourceOf(name, maker)
+        val pinned = readTransaction.execute { translations.findAllByTargetTypeInAndTargetIdIn(listOf(TranslationTargetType.PF_NAME_PINNED), listOf(productId)) }!!
+            .map { it.language }.toSet()
+        LanguageCode.entries.filter { it != LanguageCode.KO && it.code !in pinned }.forEach { request(TranslationTargetType.PF_NAME, productId, source, it, sync = false) }
+    }
+
+    fun nameSourceOf(name: String, maker: String?): String = ProcessedFoodNameSource.of(name, maker, translatorProvider.getIfAvailable())
+
+    fun localizedNamesOf(products: Collection<ProcessedFoodProduct>, language: LanguageCode): Map<Long, String> {
+        if (language == LanguageCode.KO || products.isEmpty()) return emptyMap()
+        val cache = readTransaction.execute {
+            translations.findAllByTargetTypeInAndTargetIdInAndLanguage(NAME_TYPES, products.map { it.id }, language.code)
+        }!!.associateBy { it.targetType to it.targetId }
+        return products.associate { product ->
+            val hash = hashOf(nameSourceOf(product.productName, product.displayMaker()))
+            product.id to (
+                cache[TranslationTargetType.PF_NAME_PINNED to product.id]?.translatedText
+                    ?: cache[TranslationTargetType.PF_NAME to product.id]?.takeIf { it.sourceHash == hash && it.translatedText.isNotBlank() }?.translatedText
+                    ?: product.productName
+                )
+        }
     }
 
     fun localizeSummaries(items: List<ProcessedFoodSummaryResponse>, language: LanguageCode): List<ProcessedFoodSummaryResponse> {
@@ -85,10 +118,15 @@ class ProcessedFoodTranslationService(
         }!!.associateBy { it.targetType to it.targetId }
         return items.map { item ->
             item.copy(
-                name = request(TranslationTargetType.PF_NAME, item.id, item.productName, language, sync = false, cache[TranslationTargetType.PF_NAME to item.id]).await(null) ?: item.productName,
-                maker = item.maker?.let {
-                    brandNameOf(it) ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false, cache[TranslationTargetType.PF_MAKER to item.id]).await(null) ?: it
-                },
+                name = cache[TranslationTargetType.PF_NAME_PINNED to item.id]?.translatedText
+                    ?: request(TranslationTargetType.PF_NAME, item.id, nameSourceOf(item.productName, item.maker), language, sync = false, cache[TranslationTargetType.PF_NAME to item.id]).await(null)
+                    ?: item.productName,
+                maker = cache[TranslationTargetType.PF_MAKER_PINNED to item.id]?.translatedText
+                    ?: item.maker?.let {
+                        brandNameOf(it)
+                            ?: request(TranslationTargetType.PF_MAKER, item.id, it, language, sync = false, cache[TranslationTargetType.PF_MAKER to item.id]).await(null)
+                            ?: it
+                    },
             )
         }
     }
@@ -123,14 +161,15 @@ class ProcessedFoodTranslationService(
         val rows = processedFoodService.getFeaturedProducts()
         val before = engineCalls.get()
         languages.filter { it != LanguageCode.KO }.forEach { language ->
+            val pins = pinsOf(rows.map { it.id }, language)
             rows.forEach { row ->
                 if (!stillOwned()) {
                     log.warn("가공식품 미리 번역 공유 락을 잃어 멈춥니다 languages={}", languages.map { it.code })
                     return engineCalls.get() - before
                 }
                 listOf(
-                    TranslationTargetType.PF_NAME to row.productName,
-                    TranslationTargetType.PF_MAKER to row.displayMaker()?.takeIf { brandNameOf(it) == null },
+                    TranslationTargetType.PF_NAME to nameSourceOf(row.productName, row.displayMaker()).takeUnless { (TranslationTargetType.PF_NAME_PINNED to row.id) in pins },
+                    TranslationTargetType.PF_MAKER to row.displayMaker()?.takeIf { brandNameOf(it) == null && (TranslationTargetType.PF_MAKER_PINNED to row.id) !in pins },
                     TranslationTargetType.PF_INGREDIENTS to row.rawMaterials?.takeUnless(IngredientLabelReader::isRawNotProvided),
                     TranslationTargetType.PF_ALLERGENS to row.allergens?.takeUnless(IngredientLabelReader::isNotProvided),
                 ).forEach { (type, source) -> source?.takeIf { it.isNotBlank() }?.let { cachedOrNull(type, row.id, it, language) ?: translateAndStore(type, row.id, it, hashOf(it), language) } }
@@ -213,14 +252,26 @@ class ProcessedFoodTranslationService(
         var regenerated = 0
         var lastDone = afterId
         var budgetExhausted = false
+        val pinned = readTransaction.execute { translations.findAllByTargetTypeInAndTargetIdIn(listOf(TranslationTargetType.PF_NAME_PINNED), page.map { it.targetId }.distinct().ifEmpty { listOf(0L) }) }!!
+            .map { it.targetId to it.language }.toSet()
         for (row in page) {
-            val name = runCatching { processedFoodService.getAvailableProduct(row.targetId).productName }.getOrNull()
+            if ((row.targetId to row.language) in pinned) {
+                lastDone = row.id
+                continue
+            }
+            val name = runCatching { processedFoodService.getAvailableProduct(row.targetId).let { nameSourceOf(it.productName, it.displayMaker()) } }.getOrNull()
             val attempt = name?.let { attemptTranslation(TranslationTargetType.PF_NAME, row.targetId, it, hashOf(it), LanguageCode.from(row.language), keepExistingOnReject = true) }
             if (attempt?.budgetExhausted == true) {
                 budgetExhausted = true
                 break
             }
             lastDone = row.id
+            if (attempt?.rejected == true && name != null && translatorProvider.getIfAvailable()?.isAcceptableName(row.translatedText, name) == false) {
+                writeTransaction.executeWithoutResult { translations.upsert(TranslationTargetType.PF_NAME.name, row.targetId, row.language, hashOf(name), name, null, LocalDateTime.now()) }
+                regenerated++
+                if (samples.size < SAMPLE_SIZE) samples += ProcessedFoodNameRegenerationSample(row.targetId, row.language, name, row.translatedText, name)
+                continue
+            }
             val after = attempt?.text
             if (after == null || name == null) {
                 failed += row.targetId
@@ -231,6 +282,60 @@ class ProcessedFoodTranslationService(
         }
         return ProcessedFoodNameRegeneration(false, total, page.size, regenerated, failed, if (budgetExhausted) lastDone else next, estimate, samples, budgetExhausted)
     }
+
+    fun pin(kind: ProcessedFoodPinKind, dryRun: Boolean, items: List<ProcessedFoodPinItem>): ProcessedFoodPinResult {
+        val type = kind.targetType
+        val ids = items.mapNotNull { it.productId }.distinct()
+        val known = if (ids.isEmpty()) emptyMap() else readTransaction.execute { products.findAllById(ids).associateBy { it.id } }!!
+        val existing = if (ids.isEmpty()) emptyMap() else readTransaction.execute { translations.findAllByTargetTypeInAndTargetIdIn(listOf(type), ids) }!!
+            .associate { (it.targetId to it.language) to it.translatedText }
+        val rejections = mutableListOf<ProcessedFoodPinRejection>()
+        val writes = linkedMapOf<Pair<Long, String>, Pair<String, String>>()
+        var unchanged = 0
+        items.forEachIndexed { index, item ->
+            val language = LanguageCode.entries.firstOrNull { it.code == item.language && it != LanguageCode.KO }
+            val name = item.name?.trim().orEmpty()
+            val product = item.productId?.let(known::get)
+            val reason = when {
+                language == null -> "UNSUPPORTED_LANGUAGE"
+                name.isEmpty() -> "BLANK"
+                name.length > MAX_PIN_LENGTH -> "TOO_LONG"
+                product == null -> "PRODUCT_NOT_FOUND"
+                else -> null
+            }
+            if (reason != null) {
+                rejections += ProcessedFoodPinRejection(index, item.productId, item.language, reason)
+                return@forEachIndexed
+            }
+            val key = product!!.id to language!!.code
+            if (existing[key] == name && key !in writes) {
+                unchanged++
+                return@forEachIndexed
+            }
+            val source = when (kind) {
+                ProcessedFoodPinKind.NAME -> nameSourceOf(product.productName, product.displayMaker())
+                ProcessedFoodPinKind.MAKER -> product.displayMaker().orEmpty()
+            }
+            writes[key] = name to hashOf(source)
+        }
+        if (!dryRun && writes.isNotEmpty()) {
+            val now = LocalDateTime.now()
+            writeTransaction.executeWithoutResult {
+                writes.forEach { (key, value) -> translations.upsert(type.name, key.first, key.second, value.second, value.first, null, now) }
+            }
+        }
+        return ProcessedFoodPinResult(dryRun, kind, writes.size, unchanged, rejections.size, rejections)
+    }
+
+    fun getPins(productId: Long): List<ProcessedFoodPin> =
+        readTransaction.execute { translations.findAllByTargetTypeInAndTargetIdIn(PIN_TYPES, listOf(productId)) }!!
+            .map { ProcessedFoodPin(it.targetId, ProcessedFoodPinKind.of(it.targetType), it.language, it.translatedText, it.updatedAt) }
+            .sortedWith(compareBy({ it.kind }, { it.language }))
+
+    private fun pinsOf(productIds: List<Long>, language: LanguageCode): Map<Pair<TranslationTargetType, Long>, String> =
+        if (productIds.isEmpty()) emptyMap()
+        else readTransaction.execute { translations.findAllByTargetTypeInAndTargetIdInAndLanguage(PIN_TYPES, productIds, language.code) }!!
+            .associate { (it.targetType to it.targetId) to it.translatedText }
 
     private fun cachedOrNull(type: TranslationTargetType, productId: Long, source: String, language: LanguageCode): String? {
         val cached = readTransaction.execute { translations.findByTargetTypeAndTargetIdAndLanguage(type, productId, language.code) }
@@ -260,7 +365,7 @@ class ProcessedFoodTranslationService(
     private fun translateAndStore(type: TranslationTargetType, productId: Long, source: String, hash: String, language: LanguageCode): String? =
         attemptTranslation(type, productId, source, hash, language).text
 
-    private class Attempt(val text: String?, val budgetExhausted: Boolean)
+    private class Attempt(val text: String?, val budgetExhausted: Boolean, val rejected: Boolean = false)
 
     private fun attemptTranslation(
         type: TranslationTargetType,
@@ -280,7 +385,7 @@ class ProcessedFoodTranslationService(
             (if (type == TranslationTargetType.PF_NAME) translator.translateName(source, language) else translator.translate(source, language)).text.trim()
         } catch (e: TranslationRejectedException) {
             log.warn("가공식품 번역이 가드에 거절됐다 — 원문을 이 원문 해시의 번역으로 남겨 다시 부르지 않는다: type={}, productId={}, language={}, reason={}", type, productId, language.code, e.message)
-            if (keepExistingOnReject) return Attempt(null, budgetExhausted = false)
+            if (keepExistingOnReject) return Attempt(null, budgetExhausted = false, rejected = true)
             source
         } catch (e: RuntimeException) {
             log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
@@ -298,8 +403,10 @@ class ProcessedFoodTranslationService(
         { Thread(it, name).apply { isDaemon = true } },
     )
 
-    private fun hashOf(source: String): String =
-        MessageDigest.getInstance("SHA-256").digest("$CACHE_VERSION\n$source".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    private fun foodTypeKeyOf(foodType: String): Long =
+        ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(foodType.trim().toByteArray(Charsets.UTF_8))).long and Long.MAX_VALUE
+
+    private fun hashOf(source: String): String = ProcessedFoodNameSource.hashOf(source)
 
     companion object {
         fun languageOf(lang: String?): LanguageCode = lang?.takeIf { it.isNotBlank() }?.let(LanguageCode::from) ?: LanguageCode.KO
@@ -309,7 +416,11 @@ class ProcessedFoodTranslationService(
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500
-        private val SUMMARY_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER)
+        private val SUMMARY_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER, TranslationTargetType.PF_NAME_PINNED, TranslationTargetType.PF_MAKER_PINNED)
+        private val NAME_TYPES = listOf(TranslationTargetType.PF_NAME, TranslationTargetType.PF_NAME_PINNED)
+        private val PIN_TYPES = listOf(TranslationTargetType.PF_NAME_PINNED, TranslationTargetType.PF_MAKER_PINNED)
+        const val MAX_PINS_PER_REQUEST = 500
+        private const val MAX_PIN_LENGTH = 200
         private const val FOREGROUND_THREADS = 4
         private const val FOREGROUND_QUEUE = 50
         private const val BUDGET_KEY_PREFIX = "pf-translate:"
@@ -354,3 +465,43 @@ data class ProcessedFoodNameRegeneration(
 @Schema(description = "이름 번역 재생성 전·후")
 data class ProcessedFoodNameRegenerationSample(val productId: Long, val language: String, val name: String, val before: String, val after: String)
 
+enum class ProcessedFoodPinKind(val targetType: TranslationTargetType) {
+    NAME(TranslationTargetType.PF_NAME_PINNED),
+    MAKER(TranslationTargetType.PF_MAKER_PINNED),
+    ;
+
+    companion object {
+        fun of(type: TranslationTargetType): ProcessedFoodPinKind = entries.first { it.targetType == type }
+    }
+}
+
+data class ProcessedFoodPinItem(
+    @field:Schema(description = "가공식품 id — 같은 이름 다른 공장(묶음 형제)도 id 별로 따로", example = "4821")
+    val productId: Long? = null,
+    @field:Schema(description = "언어 코드(한국어 ko 제외)", example = "en")
+    val language: String? = null,
+    @field:Schema(description = "고정할 표시 이름(앞뒤 공백 제거, 200자 이하)", example = "Saeukkang")
+    val name: String? = null,
+)
+
+data class ProcessedFoodPinRejection(
+    @field:Schema(description = "요청 items 의 순번(0부터)")
+    val index: Int,
+    val productId: Long?,
+    val language: String?,
+    @field:Schema(description = "UNSUPPORTED_LANGUAGE·BLANK·TOO_LONG·PRODUCT_NOT_FOUND(없거나 삭제된 상품)")
+    val reason: String,
+)
+
+data class ProcessedFoodPinResult(
+    val dryRun: Boolean,
+    val kind: ProcessedFoodPinKind,
+    @field:Schema(description = "저장한(dryRun 이면 저장할) 수 — 같은 상품·언어가 요청에 여러 번이면 마지막 값 1건")
+    val applied: Int,
+    @field:Schema(description = "이미 같은 고정값이라 건너뛴 수")
+    val unchanged: Int,
+    val rejected: Int,
+    val rejections: List<ProcessedFoodPinRejection>,
+)
+
+data class ProcessedFoodPin(val productId: Long, val kind: ProcessedFoodPinKind, val language: String, val name: String, val updatedAt: LocalDateTime)
