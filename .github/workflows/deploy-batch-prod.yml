@@ -47,7 +47,7 @@ jobs:
           echo "::error::prod batch 빌드는 main 에서만 — 지금 ref: $GITHUB_REF. 기존 이미지를 다시 굴리려면 image_tag 를 지정한다"
           exit 1
 
-      # Deploy prod 의 결론은 뒤따르는 GitHub 릴리스 잡까지 포함하므로, 배포 잡(카나리 = Flyway 적용) 자체의 결론을 본다.
+      # Deploy prod 의 결론은 뒤따르는 GitHub 릴리스 잡까지 포함하므로, 배포 잡(롤링 = Flyway 적용) 자체의 결론을 본다. 잡 이름은 deploy-prod.yml 과 맞춘다.
       - name: Require api deploy success
         if: github.event_name == 'workflow_run'
         env:
@@ -55,7 +55,7 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           CONCLUSION=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs" \
-            --jq '.jobs[] | select(.name == "build and canary deploy to prod ECS") | .conclusion')
+            --jq '.jobs[] | select(.name == "build and rolling deploy to prod ECS") | .conclusion')
           if [ "$CONCLUSION" != "success" ]; then
             echo "::error::api 배포 잡 결론이 '${CONCLUSION:-없음}' — 마이그레이션 적용을 보장할 수 없어 batch 롤아웃을 하지 않는다"
             exit 1
