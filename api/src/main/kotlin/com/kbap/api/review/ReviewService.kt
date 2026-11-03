@@ -155,7 +155,8 @@ class ReviewService(
         return persistReview(botId, foodId, rating, null, null, content, imagePaths, null)
     }
 
-    private fun verifyBotImages(imagePaths: List<String>, poolOwnerIds: Set<Long>) {
+    @Transactional(readOnly = true)
+    fun verifyBotImages(imagePaths: List<String>, poolOwnerIds: Set<Long>) {
         val prefix = storageKeyPrefix.trim('/').let { if (it.isEmpty()) "images/review-bot/" else "$it/images/review-bot/" }
         val pattern = Regex(Regex.escape(prefix) + "[0-9a-f]{12}/[0-9]+\\.webp")
         if (imagePaths.isEmpty() || imagePaths.size > Review.MAX_IMAGE_COUNT || imagePaths.distinct().size != imagePaths.size || imagePaths.any { path ->

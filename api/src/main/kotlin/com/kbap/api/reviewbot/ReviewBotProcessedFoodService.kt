@@ -122,6 +122,66 @@ class ReviewBotProcessedFoodService(
         return ReviewBotProcessedFoodRunResult(dryRun, runSeed, targets.size, planned, written, failed.toList(), items, skippedForDays)
     }
 
+    fun compose(
+        target: String,
+        productId: Long,
+        imagePaths: List<String>,
+        createdAt: LocalDateTime?,
+        botId: Long?,
+        rating: Int?,
+        dryRun: Boolean,
+    ): ReviewBotProcessedFoodComposeResult {
+        if (target != environment) throw BusinessException(ErrorCode.REVIEW_BOT_ENVIRONMENT_MISMATCH)
+        val now = LocalDateTime.now()
+        val at = createdAt ?: now
+        if (imagePaths.size !in 1..MAX_PHOTOS_PER_REVIEW || imagePaths.distinct().size != imagePaths.size || at.isAfter(now) || (rating != null && rating !in 1..5)) {
+            throw BusinessException(ErrorCode.INVALID_REQUEST)
+        }
+        val generator = generator ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val product = processedFoods.getAvailableProduct(productId)
+        val members = candidateIndex.groupMemberIds(product.id)
+        verifyAfterLatestReview(members, at)
+        verifyComposablePhotos(imagePaths)
+        val reviewed = botReviewsOf(members)
+        val random = Random.Default
+        val eligible = accountService.getBots().filterNot { it.id in reviewed.keys }
+        val bot = (if (botId != null) eligible.firstOrNull { it.id == botId } else eligible.randomOrNull(random))
+            ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        val (draft, request) = draftFor(product, bot, reviewed.values.lastOrNull(), random, generator, rating)
+            ?: throw BusinessException(ErrorCode.INVALID_REQUEST, mapOf("reason" to "generation"))
+        if (dryRun) return ReviewBotProcessedFoodComposeResult(true, null, product.id, bot.id, request.language, request.rating, draft.text, at, imagePaths)
+        val lock = lockProvider.lock(LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, LOCK_AT_MOST_FOR, Duration.ZERO)).orElse(null)
+            ?: throw BusinessException(ErrorCode.REVIEW_BOT_BUSY)
+        try {
+            verifyComposablePhotos(imagePaths)
+            verifyAfterLatestReview(members, at)
+            if (bot.id in botReviewsOf(members).keys) throw BusinessException(ErrorCode.INVALID_REQUEST)
+            val review = reviewService.createBotProcessedFoodReview(bot.id, product.id, request.rating, draft.text, imagePaths, photoPool.ownerIds(), draft.spiciness, draft.sweetness)
+            val stamp = Timestamp.valueOf(at)
+            jdbc.update("UPDATE food_review SET created_at = ?, updated_at = ? WHERE id = ?", stamp, stamp, review.reviewId)
+            return ReviewBotProcessedFoodComposeResult(false, review.reviewId, product.id, bot.id, request.language, request.rating, draft.text, at, imagePaths)
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun verifyAfterLatestReview(members: List<Long>, at: LocalDateTime) {
+        val latest = latestReviewAtOf(members) ?: return
+        if (!at.isAfter(latest)) throw BusinessException(ErrorCode.INVALID_REQUEST, mapOf("reason" to "createdAt", "latestReviewAt" to latest.toString()))
+    }
+
+    private fun verifyComposablePhotos(imagePaths: List<String>) {
+        reviewService.verifyBotImages(imagePaths, photoPool.ownerIds())
+        if (imagePaths.any(::isUsedByReview) || !photoService.isStillUsable(imagePaths)) throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
+    }
+
+    private fun isUsedByReview(path: String): Boolean =
+        (jdbc.queryForObject(
+            "SELECT COUNT(*) FROM food_review WHERE status = 'ACTIVE' AND image_refs IS NOT NULL AND JSON_SEARCH(image_refs, 'one', CONCAT('%', ?)) IS NOT NULL",
+            Long::class.java,
+            path,
+        ) ?: 0L) > 0
+
     private fun targetsOf(ids: List<Long>?, topLines: Int?): List<Pair<Int, ProcessedFoodProduct>> {
         if (ids != null) {
             val rankByReportNo = cvsCatalog.seedLines.flatMap { line -> line.reportNos.map { it to line.rank } }.groupBy({ it.first }, { it.second }).mapValues { (_, ranks) -> ranks.min() }
@@ -144,6 +204,7 @@ class ReviewBotProcessedFoodService(
         earlier: String?,
         random: Random,
         generator: ReviewTextGenerator,
+        rating: Int? = null,
     ): Pair<ProcessedFoodReviewDraft, ProcessedFoodReviewDraftRequest>? {
         val language = ReviewBotCountries.languageFor(bot.countryCode, random)
         val base = ProcessedFoodReviewDraftRequest(
@@ -151,7 +212,7 @@ class ReviewBotProcessedFoodService(
             foodType = product.foodType,
             ingredients = product.rawMaterials.orEmpty().split(',', '，').map { it.trim() }.filter { it.isNotEmpty() }.take(MAX_INGREDIENTS),
             language = language,
-            rating = ReviewBotCountries.rating(random),
+            rating = rating ?: ReviewBotCountries.rating(random),
             maxCharacters = ReviewBotContentGuard.maxLengthFor(language),
             style = ReviewBotStyles.pick(random),
             sentences = ReviewBotStyles.sentences(random),
@@ -362,6 +423,23 @@ data class ReviewBotProcessedFoodRunResult(
     val items: List<ReviewBotProcessedFoodItem>,
     @field:Schema(description = "spreadDays 의 쓸 수 있는 날 수(상품당 하루 1건)를 넘어 이번에 쓰지 않은 리뷰 수 — 더 긴 spreadDays 로 다시 부르면 채운다")
     val skippedForDays: Int = 0,
+)
+
+@Schema(description = "지정 사진·작성일 봇 가공식품 리뷰 1건 결과")
+data class ReviewBotProcessedFoodComposeResult(
+    @field:Schema(description = "true 면 생성만 하고 저장하지 않았다")
+    val dryRun: Boolean,
+    @field:Schema(description = "저장한 리뷰 id — dryRun 이면 null", nullable = true)
+    val reviewId: Long?,
+    val productId: Long,
+    val botId: Long,
+    @field:Schema(description = "본문 언어 코드", example = "en")
+    val language: String,
+    val rating: Int,
+    val content: String,
+    @field:Schema(description = "작성일(서버 시각)")
+    val createdAt: LocalDateTime,
+    val imagePaths: List<String>,
 )
 
 @Schema(description = "가공식품 봇 리뷰 한 건(미리보기 또는 저장분)")
