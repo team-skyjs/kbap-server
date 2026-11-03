@@ -6,7 +6,7 @@ interface ProcessedFoodPhotoReader {
 
 enum class ProcessedFoodPhotoKind { MENU, PACKAGE_FRONT, INGREDIENT_LABEL, OTHER }
 
-enum class ProcessedFoodPhotoReason { BLURRY, TOO_DARK, GLARE, CROPPED, NOT_FOOD }
+enum class ProcessedFoodPhotoReason { BLURRY, TOO_DARK, GLARE, CROPPED, NOT_FOOD, UNKNOWN }
 
 data class ProcessedFoodPhotoReading(
     val kind: ProcessedFoodPhotoKind,

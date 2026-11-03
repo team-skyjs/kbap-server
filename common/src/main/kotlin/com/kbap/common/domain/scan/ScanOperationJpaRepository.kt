@@ -23,5 +23,10 @@ interface ScanOperationJpaRepository : JpaRepository<ScanOperation, Long> {
     @Query("select o from ScanOperation o where o.id = :id")
     fun findByIdForUpdate(@Param("id") id: Long): ScanOperation?
 
-    fun countByMemberIdAndKeyNamespaceAndCreatedAtGreaterThanEqual(memberId: Long, keyNamespace: String, createdAt: LocalDateTime): Long
+    @Query(
+        nativeQuery = true,
+        value = "SELECT COALESCE(SUM(CAST(JSON_EXTRACT(o.request_document, '$.attempts') AS UNSIGNED)), 0) FROM scan_operation o " +
+            "WHERE o.member_id = :memberId AND o.key_namespace = :keyNamespace AND o.created_at >= :since AND o.status = 'ACTIVE'",
+    )
+    fun sumVisionAttemptsSince(@Param("memberId") memberId: Long, @Param("keyNamespace") keyNamespace: String, @Param("since") since: LocalDateTime): Long
 }

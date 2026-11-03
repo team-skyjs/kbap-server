@@ -73,21 +73,22 @@ class ProcessedFoodVisionScanService(
         if (image.sizeBytes > maxImageBytes) throw BusinessException(ErrorCode.PROCESSED_FOOD_PHOTO_TOO_LARGE)
         val now = LocalDateTime.now()
         val hash = hashOf(imagePath)
+        val startOfToday = startOfTodayKst()
         operations.findForUpdate(memberId, NAMESPACE, ProcessedFoodNameScanService.bytesOf(key))?.let { existing ->
             if (!existing.manifestHash.contentEquals(hash)) throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
+            if (!now.isBefore(existing.resultExpiresAt)) return RETAKE
             readingOf(existing)?.let { return it }
             if (existing.lifecycle == READING && now.isBefore(existing.updatedAt.plus(READING_STALE_AFTER))) {
                 throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             }
             val attempts = (existing.requestDocument["attempts"] as? Number)?.toInt() ?: 1
-            if (attempts >= MAX_ATTEMPTS_PER_KEY) throw BusinessException(ErrorCode.PROCESSED_FOOD_PHOTO_DAILY_LIMIT)
+            if (attempts >= MAX_ATTEMPTS_PER_KEY || existing.createdAt.isBefore(startOfToday)) return RETAKE
+            verifyDailyLimit(memberId, startOfToday)
             existing.lifecycle = READING
             existing.requestDocument = existing.requestDocument + mapOf("attempts" to attempts + 1, "retriedAt" to now.toString())
             return null
         }
-        if (operations.countByMemberIdAndKeyNamespaceAndCreatedAtGreaterThanEqual(memberId, NAMESPACE, startOfTodayKst()) >= dailyLimit) {
-            throw BusinessException(ErrorCode.PROCESSED_FOOD_PHOTO_DAILY_LIMIT)
-        }
+        verifyDailyLimit(memberId, startOfToday)
         try {
             operations.saveAndFlush(
                 ScanOperation(
@@ -110,6 +111,12 @@ class ProcessedFoodVisionScanService(
             throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
         }
         return null
+    }
+
+    private fun verifyDailyLimit(memberId: Long, startOfToday: LocalDateTime) {
+        if (operations.sumVisionAttemptsSince(memberId, NAMESPACE, startOfToday) >= dailyLimit) {
+            throw BusinessException(ErrorCode.PROCESSED_FOOD_PHOTO_DAILY_LIMIT)
+        }
     }
 
     private fun readPhoto(memberId: Long, key: UUID, imagePath: String): ProcessedFoodPhotoReading {
@@ -177,6 +184,7 @@ class ProcessedFoodVisionScanService(
         private const val MAX_ATTEMPTS_PER_KEY = 3
         private val READING_STALE_AFTER: Duration = Duration.ofMinutes(2)
         private val KST: ZoneId = ZoneId.of("Asia/Seoul")
+        private val RETAKE = ProcessedFoodPhotoReading(ProcessedFoodPhotoKind.OTHER, 0.0, ProcessedFoodPhotoReason.UNKNOWN)
 
         private fun hashOf(imagePath: String): ByteArray =
             MessageDigest.getInstance("SHA-256").digest(imagePath.toByteArray(Charsets.UTF_8))

@@ -181,14 +181,17 @@ class ProcessedFoodVisionScanTest : BehaviorSpec() {
                 }
             }
             `when`("같은 키로 비전이 계속 실패하면") {
-                then("비전은 키당 3번까지만 부르고 그 뒤는 429 PFOOD-013") {
+                then("비전은 키당 3번까지만 부르고 그 뒤는 비전 없이 OTHER·reason=UNKNOWN(새 키로 다시 찍기)") {
                     val token = member(96913L)
                     val path = photo(96913L)
                     reader.failOn(path, MenuBoardVisionUnavailableException(RuntimeException("테스트 장애")))
                     val key = UUID.randomUUID().toString()
                     val before = reader.calls.get()
                     repeat(3) { vision(token, path, key, expected = 503) }
-                    vision(token, path, key, expected = 429).path("code").asText() shouldBe "PFOOD-013"
+                    val retake = vision(token, path, key).path("payload")
+                    retake.path("kind").asText() shouldBe "OTHER"
+                    retake.path("reason").asText() shouldBe "UNKNOWN"
+                    retake.path("state").asText() shouldBe "NOT_PACKAGED"
                     reader.calls.get() shouldBe before + 3
                 }
             }
@@ -205,16 +208,32 @@ class ProcessedFoodVisionScanTest : BehaviorSpec() {
                 }
             }
             `when`("하루 상한을 넘으면") {
-                then("429 PFOOD-013 이고 비전을 부르지 않는다") {
+                then("키 수가 아니라 재시도 포함 실제 비전 호출 수 합으로 세어 429 PFOOD-013 이고 비전을 부르지 않는다") {
                     val token = member(96911L)
-                    val limit = 30L
+                    val limit = 10L
                     execute(
                         "INSERT INTO scan_operation (member_id, key_namespace, request_key, manifest_hash, mode, lifecycle, initial_language, fx_state, request_document, limits_version, expires_at, result_expires_at, key_retire_after, status, created_at, updated_at) " +
-                            "SELECT 96911, 'PFOOD_VISION', UNHEX(REPLACE(UUID(), '-', '')), UNHEX(SHA2(n, 256)), 'PROCESSED_FOOD_VISION', 'READ', 'ko', 'NONE', JSON_OBJECT(), 'pfood-vision-1', NOW(6), NOW(6), NOW(6), 'ACTIVE', NOW(6), NOW(6) " +
+                            "SELECT 96911, 'PFOOD_VISION', UNHEX(REPLACE(UUID(), '-', '')), UNHEX(SHA2(n, 256)), 'PROCESSED_FOOD_VISION', 'READ', 'ko', 'NONE', JSON_OBJECT('attempts', 3), 'pfood-vision-1', NOW(6), NOW(6), NOW(6), 'ACTIVE', NOW(6), NOW(6) " +
                             "FROM (WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < $limit) SELECT n FROM seq) s",
                     )
                     val before = reader.calls.get()
                     vision(token, photo(96911L), expected = 429).path("code").asText() shouldBe "PFOOD-013"
+                    reader.calls.get() shouldBe before
+                }
+            }
+            `when`("보관 기간(7일)이 지난 키로 다시 보내면") {
+                then("저장된 판독을 돌려주지 않고 비전 없이 OTHER·reason=UNKNOWN") {
+                    val token = member(96914L)
+                    val path = photo(96914L)
+                    reader.program(path, front("새우깡"))
+                    val key = UUID.randomUUID().toString()
+                    vision(token, path, key)
+                    val past = java.time.LocalDateTime.now().minusDays(8).withNano(0)
+                    execute("UPDATE scan_operation SET expires_at = '$past', result_expires_at = '$past' WHERE member_id = 96914 AND key_namespace = 'PFOOD_VISION'")
+                    val before = reader.calls.get()
+                    val expired = vision(token, path, key).path("payload")
+                    expired.path("kind").asText() shouldBe "OTHER"
+                    expired.path("reason").asText() shouldBe "UNKNOWN"
                     reader.calls.get() shouldBe before
                 }
             }

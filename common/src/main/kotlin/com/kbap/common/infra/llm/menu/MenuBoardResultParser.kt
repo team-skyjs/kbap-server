@@ -58,7 +58,7 @@ class MenuBoardResultParser {
         return ProcessedFoodPhotoReading(
             kind = kind,
             confidence = (photo.confidence ?: 0.0).coerceIn(0.0, 1.0),
-            reason = ProcessedFoodPhotoReason.entries.firstOrNull { it.name.equals(photo.reason?.trim(), ignoreCase = true) },
+            reason = ProcessedFoodPhotoReason.entries.filterNot { it == ProcessedFoodPhotoReason.UNKNOWN }.firstOrNull { it.name.equals(photo.reason?.trim(), ignoreCase = true) },
             productName = photo.productName?.trim()?.ifBlank { null }?.takeIf { front },
             maker = photo.maker?.trim()?.ifBlank { null }?.takeIf { front },
             reportNo = photo.reportNo?.filter(Char::isDigit)?.takeIf { front && it.length in REPORT_NO_LENGTHS },

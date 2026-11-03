@@ -29,9 +29,9 @@ data class ProcessedFoodVisionScanResponse(
     val kind: ProcessedFoodPhotoKind,
     @field:Schema(description = "종류 판별 확신도 0~1", example = "0.92")
     val confidence: Double,
-    @field:Schema(description = "판단 근거(선택) — BLURRY 흐림 · TOO_DARK 어두움 · GLARE 반사 · CROPPED 잘림 · NOT_FOOD 음식 아님. 근거가 없거나 모르는 값이면 null", nullable = true)
+    @field:Schema(description = "판단 근거(선택) — BLURRY 흐림 · TOO_DARK 어두움 · GLARE 반사 · CROPPED 잘림 · NOT_FOOD 음식 아님 · UNKNOWN 서버가 이 키로 더 읽지 않음(키당 비전 3회 초과·키 만료 7일·전날 만든 키 재시도 — 새 clientRequestId 로 다시 찍는다). 근거가 없으면 null", nullable = true)
     val reason: ProcessedFoodPhotoReason?,
-    @field:Schema(description = "PACKAGE_FRONT: CANDIDATES·NO_CANDIDATE · INGREDIENT_LABEL: LABEL_RESULT · MENU·OTHER: NOT_PACKAGED")
+    @field:Schema(description = "PACKAGE_FRONT: CANDIDATES·NO_CANDIDATE(같은 키 재전송 때 그 사이 확정·해당 없음 처리했으면 CONFIRMED·REJECTED) · INGREDIENT_LABEL: LABEL_RESULT · MENU·OTHER: NOT_PACKAGED")
     val state: ProcessedFoodNameScanState,
     @field:Schema(description = "PACKAGE_FRONT 일 때만", nullable = true)
     val front: ProcessedFoodVisionFrontResponse?,
