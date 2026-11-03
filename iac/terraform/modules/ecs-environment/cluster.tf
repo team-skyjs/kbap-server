@@ -92,12 +92,13 @@ resource "aws_autoscaling_group" "pool" {
   # api 풀은 capacity provider 가 대수를 조정한다 — 태스크가 도는 인스턴스는 scale-in 에서 보호
   protect_from_scale_in = each.key == "api"
 
+  # 버전을 숫자로 참조해야 템플릿 변경이 ASG 변경으로 잡혀 instance refresh 가 걸린다 — "$Latest" 는 provider 가 변경을 못 본다
   launch_template {
     id      = aws_launch_template.pool[each.key].id
-    version = "$Latest"
+    version = aws_launch_template.pool[each.key].latest_version
   }
 
-  # 런치 템플릿(AMI 등) 변경 시 인스턴스를 순차 교체
+  # 런치 템플릿(AMI·인스턴스 타입·Spot) 변경 시 인스턴스를 순차 교체. 추천 AMI 가 갱신된 뒤의 apply 도 롤링을 유발한다(plan 의 launch_template.version 변경)
   instance_refresh {
     strategy = "Rolling"
     preferences {
