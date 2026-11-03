@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 
 interface ProcessedFoodCandidateRow {
     val id: Long
+    val productName: String
     val normalizedName: String
     val manufacturer: String?
     val seller: String?

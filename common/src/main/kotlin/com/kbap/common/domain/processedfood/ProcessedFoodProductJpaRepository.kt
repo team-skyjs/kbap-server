@@ -27,7 +27,7 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
     @Query(
         nativeQuery = true,
         value = """
-        SELECT id, normalized_name AS normalizedName, manufacturer, seller, maker_supplement AS makerSupplement, last_seen_at AS lastSeenAt, source, food_type AS foodType
+        SELECT id, product_name AS productName, normalized_name AS normalizedName, manufacturer, seller, maker_supplement AS makerSupplement, last_seen_at AS lastSeenAt, source, food_type AS foodType
         FROM processed_food_product WHERE status = 'ACTIVE'
         """,
     )

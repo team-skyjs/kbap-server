@@ -94,24 +94,7 @@ class ProcessedFoodTranslationService(
         LanguageCode.entries.filter { it != LanguageCode.KO && it.code !in pinned }.forEach { request(TranslationTargetType.PF_NAME, productId, source, it, sync = false) }
     }
 
-    fun nameSourceOf(name: String, maker: String?): String {
-        val makerKey = maker?.let { ProcessedFoodSnapshot.normalizeName(it) }?.takeIf { it.isNotEmpty() } ?: return name
-        var index = 0
-        var matched = 0
-        while (index < name.length && matched < makerKey.length) {
-            if (name[index].isWhitespace()) {
-                index++
-                continue
-            }
-            if (!name[index].equals(makerKey[matched], ignoreCase = true)) return name
-            index++
-            matched++
-        }
-        val rest = name.substring(index).trim()
-        if (matched < makerKey.length || rest.isEmpty() || ProcessedFoodSnapshot.normalizeName(rest) in GENERIC_NAMES) return name
-        val official = translatorProvider.getIfAvailable()?.officialLatinOf(name)
-        return if (official != null && official != translatorProvider.getIfAvailable()?.officialLatinOf(rest)) name else rest
-    }
+    fun nameSourceOf(name: String, maker: String?): String = ProcessedFoodNameSource.of(name, maker, translatorProvider.getIfAvailable())
 
     fun localizedNamesOf(products: Collection<ProcessedFoodProduct>, language: LanguageCode): Map<Long, String> {
         if (language == LanguageCode.KO || products.isEmpty()) return emptyMap()
@@ -423,15 +406,13 @@ class ProcessedFoodTranslationService(
     private fun foodTypeKeyOf(foodType: String): Long =
         ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(foodType.trim().toByteArray(Charsets.UTF_8))).long and Long.MAX_VALUE
 
-    private fun hashOf(source: String): String =
-        MessageDigest.getInstance("SHA-256").digest("$CACHE_VERSION\n$source".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    private fun hashOf(source: String): String = ProcessedFoodNameSource.hashOf(source)
 
     companion object {
         fun languageOf(lang: String?): LanguageCode = lang?.takeIf { it.isNotBlank() }?.let(LanguageCode::from) ?: LanguageCode.KO
 
         const val CACHE_VERSION = "pf1"
         private const val SAMPLE_SIZE = 10
-        private val GENERIC_NAMES = setOf("라면", "비빔면", "짜장면", "냉면", "우유", "식혜", "콜라", "사이다", "주스", "과자", "만두", "김치")
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500
