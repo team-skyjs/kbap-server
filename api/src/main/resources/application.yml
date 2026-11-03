@@ -1,10 +1,30 @@
-# 관측(KB-380): /actuator/prometheus 로 JVM·HikariCP·HTTP 메트릭을 같은 호스트의 수집기(Alloy, KB-381)에 제공한다.
+# 관측(KB-380→2026-11-03): JVM·HikariCP·HTTP 메트릭을 OTLP 로 홈서버 Prometheus 에 직접 푸시한다(아래 management.otlp). /actuator/prometheus 는 더 노출하지 않는다.
 # 관리 포트는 분리하지 않는다(8080 공유) — api 외 경로의 공개 차단은 ALB 리스너 규칙으로 후속 처리(specs/kb-380 research R-3).
 management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health
+  # 메트릭은 홈서버 Prometheus 의 OTLP 수신기로 15초마다 직접 푸시한다(2026-11-03, Alloy 사이드카 대체). 로컬·테스트는 꺼져 있고
+  # ECS 태스크 env(OTLP_METRICS_ENABLED=true, SSM 의 OTLP_METRICS_URL·CF_ACCESS_*)가 켠다. base-time-unit=seconds 라 메트릭 이름이
+  # 스크랩 때와 같다(http_server_requests_seconds_*). 403 은 재시도 없이 유실 — 앱 로그 경고로만 보인다.
+  otlp:
+    metrics:
+      export:
+        enabled: ${OTLP_METRICS_ENABLED:false}
+        url: ${OTLP_METRICS_URL:}
+        step: 15s
+        base-time-unit: seconds
+        headers:
+          CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID:}
+          CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET:}
+  # Prometheus 가 job=service.name(spring.application.name), instance=service.instance.id 로 올린다. env·service.version 은
+  # prometheus.yml 의 otlp.promote_resource_attributes 에 있어야 라벨이 된다. HOSTNAME 은 ECS 컨테이너 id — 태스크 단위 instance.
+  opentelemetry:
+    resource-attributes:
+      "[service.instance.id]": ${SPRING_PROFILES_ACTIVE:local}-api-${HOSTNAME:local}
+      "[service.version]": ${SENTRY_RELEASE:local}
+      env: ${SPRING_PROFILES_ACTIVE:local}
   metrics:
     tags:
       application: ${spring.application.name}

@@ -42,7 +42,7 @@ variable "instance_type" {
 }
 
 variable "batch_instance_type" {
-  description = "batch 풀 인스턴스 타입. null 이면 instance_type 과 같다. api 는 기동만으로 1.3 GiB 를 넘어 t4g.small(2 GiB, Alloy 데몬 384 제외 1206) 에 못 들어가지만 batch 는 들어가므로 풀마다 다르게 둔다(2026-11-03 실측)"
+  description = "batch 풀 인스턴스 타입. null 이면 instance_type 과 같다. api 는 기동만으로 1.3 GiB 를 넘어 t4g.small(2 GiB, 등록 1590) 에 못 들어가지만 batch 는 들어가므로 풀마다 다르게 둔다(2026-11-03 실측)"
   type        = string
   default     = "t4g.small"
 }
@@ -88,7 +88,7 @@ variable "api_task_cpu" {
 }
 
 variable "api_task_memory" {
-  description = "태스크 하드 메모리(MiB). 인스턴스당 태스크 1개이므로 등록 메모리 − ECS_RESERVED_MEMORY(256) − Alloy 예약(128) 안에서 최대로 잡는다"
+  description = "태스크 하드 메모리(MiB). 인스턴스당 태스크 1개이므로 ECS 등록 메모리(이미 ECS_RESERVED_MEMORY 256 을 뺀 값 — t4g.medium ≈3583, t4g.small 1590) 안에서 정한다"
   type        = number
   default     = 3000
 }
@@ -169,13 +169,13 @@ variable "food_content_queue_name" {
 variable "api_secret_names" {
   description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록"
   type        = list(string)
-  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY"]
+  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
   nullable    = false
 }
 
 variable "batch_secret_names" {
   type     = list(string)
-  default  = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL"]
+  default  = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
   nullable = false
 }
 
@@ -226,18 +226,6 @@ variable "bastion_key_name" {
   type        = string
 }
 
-# --- 관측: Grafana Alloy DAEMON (KB-381) ---
-variable "alloy_image" {
-  description = "Grafana Alloy 이미지 (태그 고정 — latest 금지)"
-  type        = string
-  default     = "grafana/alloy:v1.19.2"
-}
-
-variable "alloy_secret_names" {
-  description = "Alloy 태스크에 SSM 에서 주입할 환경변수 이름 — remote_write 수신 URL(REMOTE_WRITE_URL, String)과 Cloudflare Access 서비스 토큰(SecureString). 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type String|SecureString. 값이 없으면 태스크가 기동 전에 실패한다"
-  type        = list(string)
-  default     = ["REMOTE_WRITE_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
-}
 
 variable "blocked_path_patterns" {
   description = "공개 진입점(HTTPS 리스너)에서 404 로 막을 ALB path-pattern 목록(최대 5개). 허용 목록이 아니라 거부 규칙(KB-390 당시 CodeDeploy 전환과의 충돌 회피 — 롤링 전환 뒤에도 유지). `*` 는 `/` 를 포함해 //actuator/… 같은 변형도 잡는다."

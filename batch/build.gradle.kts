@@ -11,7 +11,8 @@ dependencies {
     "implementation"("org.springframework.boot:spring-boot-starter-batch")
     "implementation"(libs.spring.boot.starter.web)
     "implementation"(libs.spring.boot.starter.actuator)
-    "runtimeOnly"(libs.micrometer.registry.prometheus)
+    "runtimeOnly"(libs.micrometer.registry.otlp)
+    "runtimeOnly"(libs.spring.boot.opentelemetry)
     "implementation"(libs.sentry.spring.boot4.starter)
     "implementation"(libs.sentry.logback)
 
