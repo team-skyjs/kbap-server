@@ -47,7 +47,7 @@ class ProcessedFoodService(
         val filter = verdicts.takeIf { it.isNotEmpty() }?.let { memberId }?.let { memberService.getAvoidance(it) }?.takeIf { it.chosen.isNotEmpty() }
             ?.let { VerdictFilter(it, verdicts) }
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
-        val nameTokens = tokens.map(RamyeonSpelling::koreanTokenOf).distinct()
+        val nameTokens = (tokens + tokens.map(RamyeonSpelling::koreanTokenOf)).distinct()
         val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
         val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
             .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }

@@ -82,6 +82,14 @@ class ProcessedFoodTranslatedSearchTest : BehaviorSpec() {
                     reportNos("almondo") shouldBe listOf("TS-6", "TS-5", "TS-4")
                 }
             }
+            `when`("라면 철자(ramyeon)로 찾고 한국어 이름엔 '라면'이 없으면 — Codex #535 2차") {
+                then("영어 철자 그대로 번역 이름과도 맞춰 고정 영어 이름에 Ramyeon 이 든 상품이 나온다") {
+                    val noodle = seed("TS-8", "짜장볶음면", "팔도")
+                    pin(noodle, "en", "Jjajang Ramyeon")
+                    seed("TS-9", "참깨라면", "오뚜기")
+                    reportNos("ramyeon").toSet() shouldBe setOf("TS-8", "TS-9")
+                }
+            }
             `when`("고정 번역을 새로 넣으면") {
                 then("재기동 없이 다음 검색부터 그 이름으로 찾힌다") {
                     val pie = seed("TS-7", "몽퐁케이크", "오리온")
