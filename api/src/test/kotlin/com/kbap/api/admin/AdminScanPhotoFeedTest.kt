@@ -185,7 +185,7 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                     val schemas = docs.path("components").path("schemas")
                     schemas.path("AdminScanPhotoFeed").path("properties").fieldNames().asSequence().toSet() shouldBe setOf("items", "nextCursor", "hasNext")
                     schemas.path("AdminScanPhotoFeedItem").path("properties").fieldNames().asSequence().toSet() shouldBe
-                        setOf("imageUrl", "createdAt", "memberId", "nickname", "countryCode", "isBot", "memberStatus", "kind", "sourceId", "scanType", "processedFoodId", "processedFoodName")
+                        setOf("imageUrl", "createdAt", "memberId", "nickname", "countryCode", "isBot", "memberStatus", "kind", "sourceId", "scanType", "processedFoodId", "processedFoodName", "visionKind")
                     schemas.path("AdminScanPhotoFeedItem").path("properties").path("kind").path("enum").map { it.asText() } shouldBe
                         listOf("ORDER", "BATCH", "SCAN_ONLY")
                 }

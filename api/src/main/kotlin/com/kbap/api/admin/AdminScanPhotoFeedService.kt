@@ -6,6 +6,7 @@ import com.kbap.common.domain.image.ScanPhotoFeedRow
 import com.kbap.common.domain.image.UploadedImageJpaRepository
 import com.kbap.common.domain.image.model.UploadPurpose
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.common.port.llm.ProcessedFoodPhotoKind
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -60,6 +61,7 @@ class AdminScanPhotoFeedService(
             scanType = scanTypeOf(path),
             processedFoodId = processedFoodId,
             processedFoodName = processedFoodId?.let(names::get),
+            visionKind = visionKind?.let { kind -> ProcessedFoodPhotoKind.entries.firstOrNull { it.name == kind } },
         )
     }
 

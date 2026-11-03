@@ -205,6 +205,13 @@ class ProcessedFoodService(
         detailOf(available(products.findByReportNo(reportNo)), memberId)
 
     @Transactional(readOnly = true)
+    fun getProductByReportNoOrNull(reportNo: String): ProcessedFoodProduct? = products.findByReportNo(reportNo)
+
+    @Transactional(readOnly = true)
+    fun getAvailableProductByReportNoOrNull(reportNo: String): ProcessedFoodProduct? =
+        products.findByReportNo(reportNo)?.takeUnless { it.isDiscontinued(products.findLastCompletedMirrorStartedAt()) }
+
+    @Transactional(readOnly = true)
     fun getConfirmedProcessedFoodDetail(reportNo: String, memberId: Long?): ProcessedFoodDetailResponse =
         detailOf(products.findByReportNo(reportNo) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND), memberId)
 

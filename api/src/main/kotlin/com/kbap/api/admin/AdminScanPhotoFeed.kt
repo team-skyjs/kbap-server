@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.common.port.llm.ProcessedFoodPhotoKind
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -34,6 +35,8 @@ data class AdminScanPhotoFeedItem(
     val processedFoodId: Long?,
     @field:Schema(description = "연결된 가공식품의 한국어 원명", nullable = true)
     val processedFoodName: String?,
+    @field:Schema(description = "사진 스캔(scan/vision)이 판별한 종류 — MENU·PACKAGE_FRONT·INGREDIENT_LABEL·OTHER. 사진 스캔을 거치지 않은 사진은 null", nullable = true)
+    val visionKind: ProcessedFoodPhotoKind? = null,
 )
 
 enum class ScanPhotoKind { ORDER, BATCH, SCAN_ONLY }

@@ -84,4 +84,35 @@ interface ProcessedFoodNameScanApi {
         memberId: Long,
         @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "성분표 분석 요청") request: ProcessedFoodLabelScanRequest,
     ): ResponseEntity<BaseResponse<ProcessedFoodLabelScanResponse>>
+
+    @Operation(
+        summary = "사진 스캔 (3.2+) — 서버 비전으로 사진 종류 판별 + 앞면·성분표 판독",
+        description = """
+            PACKAGED_SCAN 으로 올린 사진 한 장을 메뉴판 스캔과 같은 비전 모델로 읽어 종류(kind)를 판별한다.
+            | kind | state | 내용 | 다음 단계 |
+            |---|---|---|---|
+            | PACKAGE_FRONT | CANDIDATES·NO_CANDIDATE(같은 키 재전송이고 그 사이 확정·해당 없음 처리했으면 CONFIRMED·REJECTED) | front — 읽은 이름·제조사·품목보고번호 + 후보 최대 5 | scan/confirm(analysisId) · 후보 없으면 scan/label 이어가기 |
+            | INGREDIENT_LABEL | LABEL_RESULT | label — scan/label 과 같은 결과(비전이 원재료·알레르기 문장을 읽고 판정은 기존 규칙) | 같은 analysisId 로 scan/label 갱신 가능 |
+            | MENU | NOT_PACKAGED | 종류만 | 같은 imagePath 로 메뉴판 스캔 v2(/api/scans, 티켓·차감은 그쪽 규칙) |
+            | OTHER | NOT_PACKAGED | 종류 + reason | 재촬영 안내 — reason=UNKNOWN 은 이 키로 더 읽지 않는다는 뜻(새 clientRequestId) |
+            멱등: clientRequestId 가 analysisId 가 된다. 같은 키·같은 imagePath 재전송은 저장된 결과를 돌려주고 비전을 다시 부르지 않는다(상한 차감 없음). 같은 키·다른 imagePath 409 SCAN-005. 비전이 실패한 키는 재전송하면 다시 읽되 키당 3회까지 — 넘었거나 만료(7일)·전날 만든 키면 비전을 부르지 않고 OTHER·reason=UNKNOWN(새 키로 다시 찍기). 성분표 키 재전송은 이어가기 갱신 결과(LABEL_RESULT)를 준다.
+            비용 가드: 회원당 하루(KST) 실제 비전 호출 수(재시도 포함) 상한(기본 30) — 넘으면 429 PFOOD-013. 사진은 본인 PACKAGED_SCAN 업로드만(SCAN-001), 2MB 이하(PFOOD-014).
+            성분표 판독 실패는 400 PFOOD-006(상한은 이미 1회 쓴 것으로 센다 — 같은 키 재전송은 비전 재호출 없이 같은 실패). 비전 혼잡 503 SCAN-008, 비전 장애 503 SCAN-006.
+            가공식품 스캔은 무료 스캔 횟수에서 차감하지 않는다(KB-963) — charged 는 항상 false. 검출되지 않은 재료는 UNCONFIRMED — '없음/안전'으로 단정하지 않는다.
+        """,
+    )
+    @ApiErrors(
+        ErrorCode.SCAN_IMAGE_NOT_VERIFIED,
+        ErrorCode.PROCESSED_FOOD_PHOTO_TOO_LARGE,
+        ErrorCode.PROCESSED_FOOD_PHOTO_DAILY_LIMIT,
+        ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ,
+        ErrorCode.DUPLICATE_SCAN_REQUEST,
+        ErrorCode.SCAN_RATE_LIMITED,
+        ErrorCode.SCAN_VISION_UNAVAILABLE,
+        ErrorCode.INVALID_REQUEST,
+    )
+    fun scanVision(
+        memberId: Long,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "사진 스캔 요청") request: ProcessedFoodVisionScanRequest,
+    ): ResponseEntity<BaseResponse<ProcessedFoodVisionScanResponse>>
 }

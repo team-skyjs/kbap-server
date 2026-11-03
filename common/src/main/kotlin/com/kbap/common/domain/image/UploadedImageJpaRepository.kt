@@ -87,7 +87,12 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
             (SELECT pf.id FROM scan_operation so JOIN processed_food_product pf ON pf.report_no = JSON_UNQUOTE(JSON_EXTRACT(so.request_document, '$.selectedReportNo'))
                 WHERE so.member_id = u.member_id AND so.key_namespace = 'PFOOD_NAME' AND so.lifecycle = 'CONFIRMED'
                   AND JSON_UNQUOTE(JSON_EXTRACT(so.request_document, '$.imagePath')) = u.object_path
-                ORDER BY so.id DESC LIMIT 1) AS processedFoodId
+                ORDER BY so.id DESC LIMIT 1) AS processedFoodId,
+            (SELECT JSON_UNQUOTE(JSON_EXTRACT(v.request_document, '$.visionKind')) FROM scan_operation v
+                WHERE v.member_id = u.member_id AND v.key_namespace = 'PFOOD_VISION'
+                  AND JSON_UNQUOTE(JSON_EXTRACT(v.request_document, '$.imagePath')) = u.object_path
+                  AND JSON_EXTRACT(v.request_document, '$.visionKind') IS NOT NULL
+                ORDER BY v.id DESC LIMIT 1) AS visionKind
         FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id
         WHERE u.status = 'ACTIVE' AND u.id < :beforeId
           AND ((:includeMenu AND locate(:menuSegment, u.object_path) > 0)
@@ -150,4 +155,5 @@ interface ScanPhotoFeedRow {
     val orderId: Long?
     val operationId: Long?
     val processedFoodId: Long?
+    val visionKind: String?
 }

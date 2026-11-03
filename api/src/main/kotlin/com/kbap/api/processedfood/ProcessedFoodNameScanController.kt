@@ -21,7 +21,24 @@ class ProcessedFoodNameScanController(
     private val nameScanService: ProcessedFoodNameScanService,
     private val labelScanService: ProcessedFoodLabelScanService,
     private val translationService: ProcessedFoodTranslationService,
+    private val visionScanService: ProcessedFoodVisionScanService,
 ) : ProcessedFoodNameScanApi {
+    @PostMapping("/vision", version = ApiVersions.PROCESSED_FOOD + "+")
+    override fun scanVision(
+        @AuthMemberId memberId: Long,
+        @Valid @RequestBody request: ProcessedFoodVisionScanRequest,
+    ): ResponseEntity<BaseResponse<ProcessedFoodVisionScanResponse>> =
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                visionScanService.scanVision(
+                    memberId,
+                    request.imagePath!!.trim().trimStart('/'),
+                    uuidOrInvalid(request.clientRequestId),
+                    LanguageCode.from(request.lang ?: "en"),
+                ),
+            ),
+        )
+
     @PostMapping("/label", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun scanLabel(
         @AuthMemberId memberId: Long,
