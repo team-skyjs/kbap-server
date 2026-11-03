@@ -115,10 +115,10 @@ interface AdminReviewBotApi {
         description = """
             운영 데이터용 — 직접 찍은 사진(봇 사진 풀에 등록된 것)으로 가공식품 봇 리뷰 1건을 쓴다. 본문·맛 축은 일괄 작성과 같은 생성기가 만든다.
             - imagePaths: 1~2장, `{prefix}/images/review-bot/<key>/<n>.webp` 로 images/sync 가 활성 봇 소유로 등록한 것만. 이미 다른 리뷰(봇·사람 모두)에 붙은 사진은 거절(400 REVIEW-003).
-            - createdAt: 생략하면 지금. 미래는 400 COMMON-002.
+            - createdAt: 생략하면 지금. 미래는 400 COMMON-002. 상품 묶음의 마지막 ACTIVE 리뷰(사람·봇 모두) 작성일보다 뒤가 아니면 400 COMMON-002(payload reason=createdAt, latestReviewAt) — 리뷰 목록이 최신 id 순이라 과거 날짜 리뷰가 맨 위에 뜨지 않게.
             - botId: 생략하면 그 상품 묶음에 아직 리뷰를 안 쓴 봇 중 무작위. 지정한 봇이 이미 썼거나 봇이 아니면 400 COMMON-002.
             - rating: 생략하면 생성기 규칙(1~5). 생성 실패·가드 거절이면 400 COMMON-002(payload reason=generation).
-            - `dryRun=true`(기본): 생성한 본문만 주고 저장하지 않는다. 실행은 리뷰 봇 분산 락을 잡는다(못 잡으면 409 REVIEW-007).
+            - `dryRun=true`(기본): 생성한 본문만 주고 저장하지 않는다. 본문은 예시다 — 실행은 매번 새로 생성하므로 본문이 달라지고, botId 를 생략하면 봇도 달라진다. 같은 봇을 원하면 botId 를 지정한다. 실행은 리뷰 봇 분산 락을 잡는다(못 잡으면 409 REVIEW-007).
             - `X-Target-Environment` 가 서버 환경과 다르면 409 REVIEW-006. prod 허용. **ADMIN 역할 JWT 전용**. 가공식품 리뷰 쓰기가 꺼진 환경은 403 PFOOD-005.
         """,
     )

@@ -139,8 +139,9 @@ class ReviewBotProcessedFoodService(
         }
         val generator = generator ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         val product = processedFoods.getAvailableProduct(productId)
-        verifyComposablePhotos(imagePaths)
         val members = candidateIndex.groupMemberIds(product.id)
+        verifyAfterLatestReview(members, at)
+        verifyComposablePhotos(imagePaths)
         val reviewed = botReviewsOf(members)
         val random = Random.Default
         val eligible = accountService.getBots().filterNot { it.id in reviewed.keys }
@@ -153,6 +154,7 @@ class ReviewBotProcessedFoodService(
             ?: throw BusinessException(ErrorCode.REVIEW_BOT_BUSY)
         try {
             verifyComposablePhotos(imagePaths)
+            verifyAfterLatestReview(members, at)
             if (bot.id in botReviewsOf(members).keys) throw BusinessException(ErrorCode.INVALID_REQUEST)
             val review = reviewService.createBotProcessedFoodReview(bot.id, product.id, request.rating, draft.text, imagePaths, photoPool.ownerIds(), draft.spiciness, draft.sweetness)
             val stamp = Timestamp.valueOf(at)
@@ -161,6 +163,11 @@ class ReviewBotProcessedFoodService(
         } finally {
             lock.unlock()
         }
+    }
+
+    private fun verifyAfterLatestReview(members: List<Long>, at: LocalDateTime) {
+        val latest = latestReviewAtOf(members) ?: return
+        if (!at.isAfter(latest)) throw BusinessException(ErrorCode.INVALID_REQUEST, mapOf("reason" to "createdAt", "latestReviewAt" to latest.toString()))
     }
 
     private fun verifyComposablePhotos(imagePaths: List<String>) {

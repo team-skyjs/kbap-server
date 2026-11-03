@@ -121,6 +121,19 @@ class ReviewBotProcessedFoodComposeTest : BehaviorSpec() {
                     rows("SELECT COUNT(*) FROM food_review").single().single().toString() shouldBe "1"
                 }
             }
+            `when`("작성일이 묶음 마지막 리뷰보다 뒤가 아니면") {
+                then("400 COMMON-002(reason=createdAt) 이고, 뒤면 저장된다") {
+                    val first = compose(mapOf("productId" to noodle, "imagePaths" to listOf(poolPath(1)), "dryRun" to false)).path("payload")
+                    val firstAt = rows("SELECT created_at FROM food_review WHERE id = ${first.path("reviewId").asLong()}").single().single() as java.time.LocalDateTime
+                    val before = firstAt.minusHours(1).atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString()
+                    val rejected = compose(mapOf("productId" to noodle, "imagePaths" to listOf(poolPath(2)), "createdAt" to before, "dryRun" to false), 400)
+                    rejected.path("code").asText() shouldBe "COMMON-002"
+                    rejected.path("payload").path("reason").asText() shouldBe "createdAt"
+                    rows("SELECT COUNT(*) FROM food_review").single().single().toString() shouldBe "1"
+                    compose(mapOf("productId" to noodle, "imagePaths" to listOf(poolPath(2)), "dryRun" to false))
+                    rows("SELECT COUNT(*) FROM food_review").single().single().toString() shouldBe "2"
+                }
+            }
             `when`("작성일이 미래면") {
                 then("400 COMMON-002 이고 저장하지 않는다") {
                     val future = OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).toString()
