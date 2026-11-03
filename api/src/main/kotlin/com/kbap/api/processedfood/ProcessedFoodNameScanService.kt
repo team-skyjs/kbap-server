@@ -6,6 +6,7 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodOcrText
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.scan.ScanOperationJpaRepository
@@ -31,6 +32,7 @@ class ProcessedFoodNameScanService(
     private val decisions: ProcessedFoodNameDecisionService,
     private val uploadedImages: UploadedImageService,
     private val signals: ProcessedFoodSignalRecorder,
+    private val members: MemberJpaRepository,
 ) {
     @Transactional
     fun scanName(
@@ -79,6 +81,7 @@ class ProcessedFoodNameScanService(
 
     @Transactional
     fun scanFront(memberId: Long, analysisId: UUID, ocrText: String, reportNo: String?, language: String, imagePath: String): ProcessedFoodNameScanResponse {
+        members.findByIdForUpdate(memberId)
         operations.findForUpdate(memberId, NAMESPACE, bytesOf(analysisId))?.let { existing ->
             val offered = (existing.requestDocument["candidates"] as? List<*>).orEmpty().filterIsInstance<String>()
             val products = offered.mapNotNull(processedFoodService::getProductByReportNoOrNull)
