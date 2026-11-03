@@ -29,8 +29,8 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
         )
         fun idOf(reportNo: String): Long = dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery("SELECT id FROM processed_food_product WHERE report_no = '$reportNo'").use { it.next(); it.getLong(1) } } }
 
-        beforeSpec { execute("DELETE FROM processed_food_product") }
-        afterSpec { execute("DELETE FROM processed_food_product") }
+        beforeSpec { execute("DELETE FROM content_translation"); execute("DELETE FROM processed_food_product") }
+        afterSpec { execute("DELETE FROM content_translation"); execute("DELETE FROM processed_food_product") }
 
         given("가공식품 후보 색인(S-848)") {
             `when`("적재 뒤 미러가 새 제품을 넣고 갱신 확인 시점이 지나면") {
@@ -74,6 +74,20 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
 
                     failing = false
                     index.nameCandidateIds("꼬깔", since, 300).toSet() shouldBe setOf(idOf("IDX-8"), idOf("IDX-9"))
+                }
+            }
+            `when`("다른 언어의 자동 번역과 고정 번역이 정규화 뒤 같은 이름이면 — Codex #535 P2") {
+                then("먼저 읽힌 행과 상관없이 고정 번역으로 남긴다") {
+                    seed("IDX-10", "몽퐁쿠키", "롯데")
+                    val id = idOf("IDX-10")
+                    val hash = ProcessedFoodNameSource.hashOf(ProcessedFoodNameSource.of("몽퐁쿠키", "롯데", null))
+                    execute(
+                        "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) VALUES " +
+                            "('PF_NAME', $id, 'ja', '$hash', 'Mongpong Cookie', 'ko', 'ACTIVE', NOW(6), NOW(6)), " +
+                            "('PF_NAME_PINNED', $id, 'en', 'pinned', 'Mongpong cookie', 'ko', 'ACTIVE', NOW(6), NOW(6))",
+                    )
+                    ProcessedFoodCandidateIndex(products, translations, null, Duration.ZERO).translatedNamesOf(listOf(id))[id] shouldBe
+                        listOf(ProcessedFoodCandidateIndex.TranslatedName("mongpongcookie", ProcessedFoodCandidateIndex.PINNED))
                 }
             }
             `when`("이름이 정확히 같거나 앞이 같거나 짧은 순") {

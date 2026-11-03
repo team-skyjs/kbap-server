@@ -154,6 +154,7 @@ class ProcessedFoodCandidateIndex(
         }
             .map { (text, source) -> TranslatedName(ProcessedFoodSnapshot.normalizeName(text).lowercase(), source) }
             .filter { it.name.isNotEmpty() && it.name != row.normalizedName.lowercase() }
+            .sortedBy { it.source }
             .distinctBy { it.name }
     }
 
