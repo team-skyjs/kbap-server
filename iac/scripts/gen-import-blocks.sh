@@ -35,14 +35,6 @@ for svc in api batch; do
   add "aws_ecs_task_definition.$svc" "$(one "$(aws ecs describe-task-definition --task-definition "$P-$svc" --query taskDefinition.taskDefinitionArn)" "taskdef $svc")"
 done
 
-# Alloy DAEMON(KB-381)은 이미 적용된 환경(dev)에서만 존재 — 있으면 import, 없으면(prod 첫 적용) plan 의 "3 to add" 로 생성된다
-if [ -n "$(aws ecs describe-services --cluster "$CLUSTER" --services "$P-alloy" --query 'services[?status==`ACTIVE`].serviceName')" ]; then
-  add aws_ecs_service.alloy "$CLUSTER/$P-alloy"
-  add aws_ecs_task_definition.alloy "$(one "$(aws ecs describe-task-definition --task-definition "$P-alloy" --query taskDefinition.taskDefinitionArn)" "taskdef alloy")"
-  add aws_cloudwatch_log_group.alloy "/kbap/$ENV/alloy"
-else
-  echo "  (alloy 없음 — plan 에서 3 to add 로 생성됨)" >&2
-fi
 
 # --- CloudWatch ---
 for lg in api batch; do

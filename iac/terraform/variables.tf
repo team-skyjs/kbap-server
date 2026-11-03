@@ -176,11 +176,6 @@ variable "bastion_key_name" {
   type = string
 }
 
-variable "alloy_image" {
-  type    = string
-  default = "grafana/alloy:v1.19.2"
-}
-
 variable "blocked_path_patterns" {
   description = "공개 진입점에서 404 로 막을 ALB path-pattern (prod 는 swagger·api-docs 도 추가)"
   type        = list(string)

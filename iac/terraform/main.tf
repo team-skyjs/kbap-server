@@ -43,8 +43,6 @@ module "ecs_environment" {
   bastion_instance_type = var.bastion_instance_type
   bastion_key_name      = var.bastion_key_name
 
-  alloy_image = var.alloy_image
-
   blocked_path_patterns = var.blocked_path_patterns
 
   api_extra_env      = var.api_extra_env

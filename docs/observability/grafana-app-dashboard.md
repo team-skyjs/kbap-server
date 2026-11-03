@@ -19,7 +19,7 @@
 
 | 이름 | 질의 | 의미 |
 |------|------|------|
-| `env` | `label_values(http_server_requests_seconds_count, env)` | Alloy `external_labels` 가 모든 시계열에 붙이는 환경 라벨(`dev`·`prod`). All 이면 `.*` 로 풀려 두 환경이 함께 그려진다. 모든 패널이 `env=~"$env"` 로 이 변수를 따른다. |
+| `env` | `label_values(http_server_requests_seconds_count, env)` | 리소스 속성 `env`(2026-11-03 부터 앱 OTLP 푸시, 그 전엔 Alloy external_labels)가 모든 시계열에 붙이는 환경 라벨(`dev`·`prod`). All 이면 `.*` 로 풀려 두 환경이 함께 그려진다. 모든 패널이 `env=~"$env"` 로 이 변수를 따른다. |
 
 ## 패널별 PromQL
 

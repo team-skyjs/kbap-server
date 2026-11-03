@@ -67,7 +67,7 @@ resource "aws_lb_listener" "https" {
 # (aws_route53_record 를 두면 apply 때마다 <subdomain>.kbap.site 로 되돌려 cutover 를 되돌린다)
 
 # 관리 경로 공개 차단(KB-390). 거부 규칙이지 허용 목록이 아니다(당시 CodeDeploy blue/green 전환과의 충돌을 피한 선택 — 롤링 전환 뒤에도 그대로 둔다).
-# ALB 헬스체크는 리스너 규칙을 거치지 않고, Alloy 는 호스트 docker 네트워크로 긁으므로 둘 다 영향 없다.
+# ALB 헬스체크는 리스너 규칙을 거치지 않고, 앱 메트릭은 OTLP 로 직접 푸시하므로 둘 다 영향 없다.
 # 퍼센트 인코딩 우회(/%61ctuator)는 dev 실측으로 판정 — 새면 WAF 승격(specs/kb-390 research R-6).
 resource "aws_lb_listener_rule" "block_paths" {
   listener_arn = aws_lb_listener.https.arn
