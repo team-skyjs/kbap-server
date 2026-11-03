@@ -243,6 +243,7 @@ class ProcessedFoodTranslationTest : BehaviorSpec() {
                     (1..3).forEach { seed("TR-B$it", "묶음과자$it", "㈜동네식품$it", null, null) }
                     get("/api/processed-foods?size=3&lang=en")
                     translations.awaitIdle()
+                    get("/api/processed-foods?size=3&lang=en")
 
                     val statistics = entityManagerFactory.unwrap(SessionFactory::class.java).statistics
                     val originallyEnabled = statistics.isStatisticsEnabled

@@ -2,6 +2,7 @@ package com.kbap.api.processedfood
 
 import com.kbap.api.IntegrationTest
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
+import com.kbap.common.domain.translation.ContentTranslationJpaRepository
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -16,6 +17,7 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
 
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var products: ProcessedFoodProductJpaRepository
+    @Autowired private lateinit var translations: ContentTranslationJpaRepository
 
     init {
         val since = LocalDateTime.of(1970, 1, 1, 0, 0)
@@ -34,7 +36,7 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
             `when`("적재 뒤 미러가 새 제품을 넣고 갱신 확인 시점이 지나면") {
                 then("다시 적재해 새 제품이 이름·제조사 후보로 나온다") {
                     seed("IDX-1", "바나나킥", "농심")
-                    val index = ProcessedFoodCandidateIndex(products, Duration.ZERO)
+                    val index = ProcessedFoodCandidateIndex(products, translations, null, Duration.ZERO)
                     index.nameCandidateIds("바나나", since, 300) shouldBe listOf(idOf("IDX-1"))
 
                     seed("IDX-2", "바나나맛우유", "빙그레")
@@ -44,11 +46,11 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
             }
             `when`("갱신 확인 간격이 아직 지나지 않았으면") {
                 then("DB 를 다시 보지 않고 적재해 둔 목록을 쓴다") {
-                    val index = ProcessedFoodCandidateIndex(products, Duration.ofHours(1))
+                    val index = ProcessedFoodCandidateIndex(products, translations, null, Duration.ofHours(1))
                     val before = index.nameCandidateIds("새우", since, 300)
                     seed("IDX-3", "새우깡", "농심")
                     index.nameCandidateIds("새우", since, 300) shouldBe before
-                    ProcessedFoodCandidateIndex(products, Duration.ZERO).nameCandidateIds("새우", since, 300) shouldBe listOf(idOf("IDX-3"))
+                    ProcessedFoodCandidateIndex(products, translations, null, Duration.ZERO).nameCandidateIds("새우", since, 300) shouldBe listOf(idOf("IDX-3"))
                 }
             }
             `when`("재적재·지문 조회가 실패하면 — 공부(가용성)") {
@@ -62,13 +64,13 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
                         try { method.invoke(products, *(args ?: emptyArray())) } catch (e: java.lang.reflect.InvocationTargetException) { throw e.targetException }
                     } as ProcessedFoodProductJpaRepository
                     seed("IDX-8", "꼬깔콘", "롯데")
-                    val index = ProcessedFoodCandidateIndex(flaky, Duration.ZERO)
+                    val index = ProcessedFoodCandidateIndex(flaky, translations, null, Duration.ZERO)
                     index.nameCandidateIds("꼬깔", since, 300) shouldBe listOf(idOf("IDX-8"))
 
                     failing = true
                     seed("IDX-9", "꼬깔콘매콤", "롯데")
                     index.nameCandidateIds("꼬깔", since, 300) shouldBe listOf(idOf("IDX-8"))
-                    io.kotest.assertions.throwables.shouldThrow<IllegalStateException> { ProcessedFoodCandidateIndex(flaky, Duration.ZERO).nameCandidateIds("꼬깔", since, 300) }
+                    io.kotest.assertions.throwables.shouldThrow<IllegalStateException> { ProcessedFoodCandidateIndex(flaky, translations, null, Duration.ZERO).nameCandidateIds("꼬깔", since, 300) }
 
                     failing = false
                     index.nameCandidateIds("꼬깔", since, 300).toSet() shouldBe setOf(idOf("IDX-8"), idOf("IDX-9"))
@@ -80,7 +82,7 @@ class ProcessedFoodCandidateIndexTest : BehaviorSpec() {
                     seed("IDX-5", "포카칩", "오리온")
                     seed("IDX-6", "감자칩", "오리온")
                     seed("IDX-7", "왕감자칩", "오리온")
-                    ProcessedFoodCandidateIndex(products, Duration.ZERO).nameCandidateIds("감자칩", since, 2) shouldBe listOf(idOf("IDX-6"), idOf("IDX-4"))
+                    ProcessedFoodCandidateIndex(products, translations, null, Duration.ZERO).nameCandidateIds("감자칩", since, 2) shouldBe listOf(idOf("IDX-6"), idOf("IDX-4"))
                 }
             }
         }

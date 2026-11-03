@@ -49,7 +49,7 @@ class ProcessedFoodService(
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
         val nameTokens = tokens.map(RamyeonSpelling::koreanTokenOf).distinct()
         val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
             .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
             .groupBy(::groupKeyOf).values.map { group -> group.sortedWith(representativeOrder) }
         val rankedById = ranked.flatten().associateBy { it.id }
@@ -223,10 +223,11 @@ class ProcessedFoodService(
         val candidates = (candidatesFor(tokens, (tokens + rawTokens).distinct(), lastMirror) + products.findAllById(typos.values.flatMap { it.ids }.distinct()))
             .distinctBy { it.id }
         val best = linkedMapOf<Long, Pair<ProcessedFoodProduct, ProcessedFoodSearchScore>>()
+        val translated = candidateIndex.translatedNamesOf(candidates.map { it.id })
         tokensByQuery.map { queryTokens ->
             queryTokens + queryTokens.flatMap { typos[it]?.corrections.orEmpty() }.distinct().filterNot { correction -> queryTokens.any { correction in it } }
         }.forEach { queryTokens ->
-            ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections).forEach { scored ->
+            ProcessedFoodSearchRanker.scored(candidates, queryTokens, corrections, translated).forEach { scored ->
                 best.merge(scored.first.id, scored) { kept, next -> if (ProcessedFoodSearchRanker.ORDER.compare(kept, next) <= 0) kept else next }
             }
         }
