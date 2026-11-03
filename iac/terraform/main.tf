@@ -43,6 +43,10 @@ module "ecs_environment" {
   bastion_instance_type = var.bastion_instance_type
   bastion_key_name      = var.bastion_key_name
 
+  canary_percentage             = var.canary_percentage
+  canary_interval_minutes       = var.canary_interval_minutes
+  blue_termination_wait_minutes = var.blue_termination_wait_minutes
+
   blocked_path_patterns = var.blocked_path_patterns
 
   api_extra_env      = var.api_extra_env
