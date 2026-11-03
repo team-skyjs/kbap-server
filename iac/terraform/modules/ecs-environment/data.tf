@@ -29,8 +29,9 @@ data "aws_acm_certificate" "this" {
   most_recent = true
 }
 
+# 컨테이너 인스턴스는 Graviton(t4g) — arm64 AMI. 태스크 정의의 runtime_platform(ARM64)·CI 의 arm64 이미지 빌드와 한 세트다.
 data "aws_ssm_parameter" "ecs_ami" {
-  name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/recommended/image_id"
+  name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id"
 }
 
 data "aws_sqs_queue" "food_content" {

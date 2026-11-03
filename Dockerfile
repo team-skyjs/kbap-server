@@ -3,7 +3,9 @@
 # 빌드 대상은 web 앱(:api). 테스트는 CI 에서 별도 수행하므로 여기선 제외.
 # 배치 앱 이미지는 Dockerfile.batch 로 별도 빌드·관리한다.
 
-FROM eclipse-temurin:21-jdk AS build
+# 빌드 스테이지는 빌드 머신 네이티브 아키텍처(BUILDPLATFORM)로 돈다 — jar 는 아키텍처 무관이라, x86 러너에서 arm64 이미지를 만들 때
+# Gradle 컴파일을 QEMU 로 에뮬레이션하지 않는다(10배 느림). 런타임 스테이지만 --platform 대상(arm64)으로 뽑힌다.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 COPY . .
 RUN chmod +x gradlew \

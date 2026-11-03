@@ -36,12 +36,19 @@ variable "certificate_domain" {
 }
 
 variable "instance_type" {
-  type    = string
-  default = "t3.medium"
+  description = "컨테이너 인스턴스 타입 — arm64(Graviton) 계열만. AMI 가 arm64 로 고정돼 있어 x86 타입을 넣으면 부팅하지 않는다"
+  type        = string
+  default     = "t4g.small"
+}
+
+variable "spot_instances" {
+  description = "컨테이너 인스턴스를 Spot 으로 띄운다(dev 전용). 회수 2분 전 ECS 가 인스턴스를 드레인한다(ECS_ENABLE_SPOT_INSTANCE_DRAINING)"
+  type        = bool
+  default     = false
 }
 
 variable "api_instance_count" {
-  description = "api 전용 컨테이너 인스턴스 수 (블루/그린 중 구·신 태스크가 공존하므로 인스턴스당 태스크 2개 여유 필요)"
+  description = "api 전용 컨테이너 인스턴스 수 — 인스턴스당 태스크 1개. 롤링(min 50%/max 100%)은 구 태스크를 먼저 내리고 같은 자리에 신 태스크를 올리므로 2대 이상이어야 무중단"
   type        = number
   default     = 2
 }
@@ -69,24 +76,27 @@ variable "api_desired_count" {
 }
 
 variable "api_task_cpu" {
-  type    = number
-  default = 512
+  description = "태스크 CPU 예약(유닛). null = 상한 없음 — 인스턴스 CPU 전부를 쓴다"
+  type        = number
+  default     = null
 }
 
 variable "api_task_memory" {
-  description = "태스크 하드 메모리(MiB). t3.medium 에서 블루/그린 중 인스턴스당 2개가 올라가야 하므로 1536 이하 유지"
+  description = "태스크 하드 메모리(MiB). 인스턴스당 태스크 1개이므로 등록 메모리 − ECS_RESERVED_MEMORY(256) − Alloy 예약(128) 안에서 최대로 잡는다"
   type        = number
-  default     = 1536
+  default     = 1280
 }
 
 variable "batch_task_cpu" {
-  type    = number
-  default = 512
+  description = "api_task_cpu 와 같다"
+  type        = number
+  default     = null
 }
 
 variable "batch_task_memory" {
-  type    = number
-  default = 1536
+  description = "api_task_memory 와 같다"
+  type        = number
+  default     = 1280
 }
 
 variable "api_image" {
@@ -154,11 +164,13 @@ variable "api_secret_names" {
   description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록"
   type        = list(string)
   default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY"]
+  nullable    = false
 }
 
 variable "batch_secret_names" {
-  type    = list(string)
-  default = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL"]
+  type     = list(string)
+  default  = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL"]
+  nullable = false
 }
 
 variable "api_extra_env" {
@@ -185,24 +197,6 @@ variable "api_execute_command_enabled" {
 variable "performance_artifact_retention_days" {
   type    = number
   default = 7
-}
-
-variable "canary_percentage" {
-  description = "카나리 단계에서 신버전으로 보낼 트래픽 비율(%)"
-  type        = number
-  default     = 20
-}
-
-variable "canary_interval_minutes" {
-  description = "카나리 비율을 유지한 뒤 100% 로 전환하기까지의 시간(분)"
-  type        = number
-  default     = 15
-}
-
-variable "blue_termination_wait_minutes" {
-  description = "100% 전환 후 구버전 태스크를 유지하는 시간(분) — 이 안에는 즉시 롤백 가능"
-  type        = number
-  default     = 15
 }
 
 variable "batch_http_port" {
@@ -240,7 +234,7 @@ variable "alloy_secret_names" {
 }
 
 variable "blocked_path_patterns" {
-  description = "공개 진입점(HTTPS 리스너)에서 404 로 막을 ALB path-pattern 목록(최대 5개). 허용 목록이 아니라 거부 규칙인 이유: CodeDeploy 가 blue/green 전환 때 리스너의 기본 액션만 바꾸므로 forward 규칙을 따로 두면 전환을 못 따라간다. `*` 는 `/` 를 포함해 //actuator/… 같은 변형도 잡는다."
+  description = "공개 진입점(HTTPS 리스너)에서 404 로 막을 ALB path-pattern 목록(최대 5개). 허용 목록이 아니라 거부 규칙(KB-390 당시 CodeDeploy 전환과의 충돌 회피 — 롤링 전환 뒤에도 유지). `*` 는 `/` 를 포함해 //actuator/… 같은 변형도 잡는다."
   type        = list(string)
   default     = ["*actuator*"]
 }

@@ -21,9 +21,9 @@ permissions:
 
 jobs:
   deploy:
-    name: build and canary deploy to dev ECS
+    name: build and rolling deploy to dev ECS
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 40
     environment: dev
     env:
       ECS_NAME: kbap-dev-ecs
@@ -68,13 +68,22 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "uri=${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:$TAG" >> "$GITHUB_OUTPUT"
 
+      # 컨테이너 인스턴스가 Graviton(arm64) 이라 arm64 이미지를 만든다. Gradle 빌드 스테이지는 러너 네이티브(x86)로 돌고
+      # (Dockerfile 의 FROM --platform=$BUILDPLATFORM) 런타임 스테이지만 arm64 로 뽑히므로 QEMU 에뮬레이션은 jar 복사 정도다.
+      - name: Set up QEMU
+        if: steps.image.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.image.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push image
         if: steps.image.outputs.build == 'true'
         # dev 는 profile-runtime 스테이지(JDK jcmd·jfr + aws CLI + kbap-profile.jfc)로 배포해
         # k6+JFR 성능 캠페인(#206)을 언제든 붙일 수 있게 한다. prod(deploy-prod.yml)는 슬림 runtime(JRE) 유지.
         run: |
-          docker build --platform linux/amd64 --target profile-runtime -t "${{ steps.image.outputs.uri }}" .
-          docker push "${{ steps.image.outputs.uri }}"
+          docker buildx build --platform linux/arm64 --target profile-runtime -t "${{ steps.image.outputs.uri }}" --push .
 
       # 태스크정의 원본(env·secrets·헬스체크·로그 구성)은 Terraform 소유(iac/terraform) —
       # 파이프라인은 최신 리비전을 복제해 이미지만 교체한다.
@@ -98,108 +107,53 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=$NEW_ARN" >> "$GITHUB_OUTPUT"
 
-      - name: Create CodeDeploy canary deployment
-        id: canary
+      - name: Roll the service
+        id: roll
         env:
           NEW_ARN: ${{ steps.taskdef.outputs.arn }}
-          IMAGE: ${{ steps.image.outputs.uri }}
         run: |
-          # CapacityProviderStrategy — 그린 태스크셋을 api capacity provider 로 띄워야 자리 부족 시 인스턴스가 늘어난다
-          APPSPEC=$(jq -n --arg arn "$NEW_ARN" --arg cp "$ECS_NAME-api" '{
-            version: 0.0,
-            Resources: [{ TargetService: { Type: "AWS::ECS::Service",
-              Properties: { TaskDefinition: $arn,
-                LoadBalancerInfo: { ContainerName: "api", ContainerPort: 8080 },
-                CapacityProviderStrategy: [{ CapacityProvider: $cp, Base: 0, Weight: 1 }] } } }]
-          }')
-          DEPLOYMENT_ID=$(aws deploy create-deployment \
-            --application-name "$ECS_NAME-api" \
-            --deployment-group-name "$ECS_NAME-api" \
-            --revision "{\"revisionType\":\"AppSpecContent\",\"appSpecContent\":{\"content\":$(jq -Rs . <<<"$APPSPEC")}}" \
-            --description "deploy $IMAGE" \
-            --query deploymentId --output text)
+          # 롤링(min 50% / max 100%): 한 인스턴스씩 구 태스크를 내리고 같은 자리에 신 태스크를 올린다 — 나머지 인스턴스가 트래픽을 받는다.
+          # 기동 실패·헬스체크 탈락은 ECS 서킷브레이커가 이전 리비전으로 되돌린다(그때 이 배포의 rolloutState 는 FAILED).
+          DEPLOYMENT_ID=$(aws ecs update-service --cluster "$ECS_NAME-cluster" --service "$ECS_NAME-api" \
+            --task-definition "$NEW_ARN" \
+            --query 'service.deployments[?status==`PRIMARY`]|[0].id' --output text)
           echo "deployment: $DEPLOYMENT_ID"
           echo "id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
-          STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
-            --query deploymentInfo.status --output text)
-          {
-            echo "CodeDeploy 카나리 배포 생성: \`$DEPLOYMENT_ID\` (status: $STATUS)"
-            echo '```'
-            echo "watch:    aws deploy get-deployment --deployment-id $DEPLOYMENT_ID --query 'deploymentInfo.[status,deploymentOverview]'"
-            echo "rollback: aws deploy stop-deployment --deployment-id $DEPLOYMENT_ID --auto-rollback-enabled"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Wait for canary completion
-        id: canary_wait
-        env:
-          DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
-        run: |
-          STATUS=InProgress
+          echo "롤링 배포 시작: \`$DEPLOYMENT_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          STATE=IN_PROGRESS
           for i in $(seq 1 120); do
-            STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
-              --query deploymentInfo.status --output text)
-            case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
+            STATE=$(aws ecs describe-services --cluster "$ECS_NAME-cluster" --services "$ECS_NAME-api" \
+              --query "services[0].deployments[?id=='$DEPLOYMENT_ID']|[0].rolloutState" --output text)
+            case "$STATE" in COMPLETED|FAILED|None) break ;; esac
             sleep 10
           done
-          case "$STATUS" in
-            Succeeded|Failed|Stopped) ;;
-            *)
-              echo "::warning::폴링 상한 초과 — 배포를 중단(자동 롤백)하고 종료를 기다립니다: $DEPLOYMENT_ID"
-              aws deploy stop-deployment --deployment-id "$DEPLOYMENT_ID" --auto-rollback-enabled || true
-              for j in $(seq 1 60); do
-                STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
-                  --query deploymentInfo.status --output text)
-                case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
-                sleep 10
-              done
-              ;;
-          esac
-          if [ "$STATUS" != "Succeeded" ]; then
-            ROLLBACK_ID=""
-            for j in $(seq 1 12); do
-              ROLLBACK_ID=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
-                --query deploymentInfo.rollbackInfo.rollbackDeploymentId --output text)
-              [ -n "$ROLLBACK_ID" ] && [ "$ROLLBACK_ID" != "None" ] && break
-              sleep 5
-            done
-            if [ -n "$ROLLBACK_ID" ] && [ "$ROLLBACK_ID" != "None" ]; then
-              echo "롤백 배포 종료 대기: $ROLLBACK_ID" >> "$GITHUB_STEP_SUMMARY"
-              for j in $(seq 1 60); do
-                RB_STATUS=$(aws deploy get-deployment --deployment-id "$ROLLBACK_ID" \
-                  --query deploymentInfo.status --output text)
-                case "$RB_STATUS" in Succeeded|Failed|Stopped) break ;; esac
-                sleep 10
-              done
-            fi
-          fi
           ELAPSED=$((i * 10))
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
           echo "elapsed=$((ELAPSED / 60))m $((ELAPSED % 60))s" >> "$GITHUB_OUTPUT"
-          echo "카나리 종료: $STATUS (약 ${ELAPSED}s)" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$STATUS" != "Succeeded" ]; then
-            echo "::error::카나리가 성공으로 끝나지 않았습니다: $STATUS"
+          echo "롤링 종료: $STATE (약 ${ELAPSED}s)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATE" != "COMPLETED" ]; then
+            echo "::error::롤링이 완료되지 않았습니다: $STATE — 서킷브레이커 롤백 여부는 ECS 콘솔의 배포 탭에서 확인"
             exit 1
           fi
 
       - name: Notify Slack
-        if: always() && steps.canary.outputs.id != ''
+        if: always() && steps.roll.outputs.id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK_URL }}
           DEPLOY_SHA: ${{ steps.image.outputs.tag }}
-          DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
-          STATUS: ${{ steps.canary_wait.outputs.status || 'UNKNOWN' }}
-          ELAPSED: ${{ steps.canary_wait.outputs.elapsed || '-' }}
+          DEPLOYMENT_ID: ${{ steps.roll.outputs.id }}
+          STATUS: ${{ steps.roll.outputs.state || 'UNKNOWN' }}
+          ELAPSED: ${{ steps.roll.outputs.elapsed || '-' }}
         run: |
           if [ -z "$WEBHOOK" ]; then echo "SLACK_RELEASE_WEBHOOK_URL 미설정 — 통지 생략"; exit 0; fi
           AUTHOR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$DEPLOY_SHA/pulls" \
             --jq '.[0].user.login // empty' 2>/dev/null || true)
           AUTHOR=${AUTHOR:-$GITHUB_ACTOR}
           SHORT=${DEPLOY_SHA::7}
-          if [ "$STATUS" = "Succeeded" ]; then ICON="✅"; TITLE="DEV 배포 완료"
+          if [ "$STATUS" = "COMPLETED" ]; then ICON="✅"; TITLE="DEV 배포 완료"
           else ICON="🚨"; TITLE="DEV 배포 실패 — $STATUS"; fi
-          CONSOLE="https://ap-northeast-2.console.aws.amazon.com/codesuite/codedeploy/deployments/$DEPLOYMENT_ID?region=ap-northeast-2"
+          CONSOLE="https://ap-northeast-2.console.aws.amazon.com/ecs/v2/clusters/$ECS_NAME-cluster/services/$ECS_NAME-api/deployments?region=ap-northeast-2"
           RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           jq -n --arg icon "$ICON" --arg title "$TITLE" --arg sha "$SHORT" \
             --arg sha_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$DEPLOY_SHA" \
@@ -214,7 +168,7 @@ jobs:
                 { type: "mrkdwn", text: ("*상태*\n" + $status) }
               ] },
               { type: "context", elements: [
-                { type: "mrkdwn", text: ("<" + $console + "|CodeDeploy 콘솔> · <" + $run + "|Actions 실행> · `" + $dep + "`") }
+                { type: "mrkdwn", text: ("<" + $console + "|ECS 배포 콘솔> · <" + $run + "|Actions 실행> · `" + $dep + "`") }
               ] }
             ] }' \
           | curl -sf -X POST -H 'Content-Type: application/json' -d @- "$WEBHOOK" >/dev/null \
