@@ -12,6 +12,7 @@ locals {
     FOOD_CONTENT_QUEUE_URL = data.aws_sqs_queue.food_content.url
     JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
     SENTRY_RELEASE         = element(split(":", var.batch_image), 1)
+    OTLP_METRICS_ENABLED   = "true"
   }, local.vector_env, var.batch_extra_env)
 }
 

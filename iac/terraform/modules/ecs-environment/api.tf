@@ -15,6 +15,7 @@ locals {
     IMAGE_PUBLIC_BASE_URL  = var.image_public_base_url
     JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
     SENTRY_RELEASE         = element(split(":", var.api_image), 1)
+    OTLP_METRICS_ENABLED   = "true" # 앱이 /api/v1/otlp/v1/metrics 로 15초마다 직접 푸시(Alloy 대체, 2026-11-03). URL·Access 토큰은 secrets
   }, local.vector_env, var.api_extra_env)
 }
 
