@@ -27,7 +27,7 @@ performance_artifact_retention_days = 7
 admin_cidr       = "<your-public-ip>/32"
 bastion_key_name = "kbpa-devstg"
 
-# 관측(KB-381): 각 EC2 의 Alloy DAEMON 이 앱·호스트 메트릭을 홈서버 Prometheus 로 push 한다.
+# 관측: 앱이 OTLP 로 홈서버 Prometheus 에 직접 푸시한다(SSM OTLP_METRICS_URL·CF_ACCESS_*). Alloy DAEMON 은 2026-11-03 제거.
 # 토큰은 SSM /kbap/<env>/CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (SecureString) 에 미리 등록.
 
 # 공개 진입점 차단(KB-390): /actuator 류만. dev 는 Swagger 를 공개한다.
@@ -48,5 +48,5 @@ batch_extra_env = {
   PROCESSED_FOOD_MIRROR_ENABLED = "true"
   REVIEW_BOT_PHOTO_SYNC_ENABLED = "true"
 }
-# batch 는 모듈 기본 목록 + dev 전용 시크릿(SSM /kbap/dev/<NAME> 에 값이 있어야 태스크가 뜬다). api 는 기본 목록 그대로
-batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY"]
+# batch 는 모듈 기본 목록(OTLP 3종 포함) + dev 전용 시크릿(SSM /kbap/dev/<NAME> 에 값이 있어야 태스크가 뜬다). api 는 기본 목록 그대로
+batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
