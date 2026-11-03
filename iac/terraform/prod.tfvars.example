@@ -8,8 +8,8 @@ storage_key_prefix = "prod"
 # 콘텐츠 생성 요청 큐는 환경별(KB-547) — 생략하면 기본값(dev 공유 큐 kbap-generate-content-queue)으로 떨어져 prod 요청이 dev 로 샌다
 food_content_queue_name = "kbap-prod-generate-content-queue"
 
-# t4g.small(arm64) 온디맨드 — api 2대(인스턴스당 태스크 1, ECS 롤링 min 50%/max 100%) + batch 1대. Spot 은 dev 만.
-# 2026-10-28 비용 축소로 api 1대였던 것을 t4g 전환(2026-11)과 함께 2대로 되돌린다 — t4g.small 2대가 t3.medium 1대보다 싸다.
+# arm64 온디맨드 — api 풀 t4g.medium 2대(인스턴스당 태스크 1, ECS 롤링 min 50%/max 100%) + batch 풀 t4g.small 1대. Spot 은 dev 만.
+# 2026-10-28 비용 축소로 api 1대였던 것을 arm64 전환(2026-11)과 함께 2대로 되돌린다.
 api_instance_count = 2
 api_desired_count  = 2
 
@@ -48,3 +48,7 @@ api_extra_env = {
   REVIEW_BOT_ENABLED            = "true"
   REVIEW_BOT_PHOTO_SYNC_ENABLED = "true"
 }
+
+# 실행 중 batch 리비전에만 있던 값(2026-11-03) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다
+batch_extra_env    = { PROCESSED_FOOD_MIRROR_ENABLED = "true" }
+batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY"]

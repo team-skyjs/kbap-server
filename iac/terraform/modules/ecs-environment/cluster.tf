@@ -28,7 +28,7 @@ resource "aws_launch_template" "pool" {
 
   name_prefix   = "${local.name_prefix}-${each.key}-"
   image_id      = data.aws_ssm_parameter.ecs_ami.value
-  instance_type = var.instance_type
+  instance_type = each.key == "batch" ? coalesce(var.batch_instance_type, var.instance_type) : var.instance_type
 
   dynamic "instance_market_options" {
     for_each = var.spot_instances ? [1] : []

@@ -30,6 +30,11 @@ variable "hosted_zone_name" {
 
 variable "instance_type" {
   type    = string
+  default = "t4g.medium"
+}
+
+variable "batch_instance_type" {
+  type    = string
   default = "t4g.small"
 }
 

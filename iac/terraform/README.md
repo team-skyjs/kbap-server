@@ -6,8 +6,8 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 
 | 항목 | 값 |
 |---|---|
-| 컨테이너 인스턴스 | **t4g.small(arm64 Graviton)** — prod 는 api 2대(AZ 분산) + batch 1대, dev 는 api 2대(배치 없음). dev 는 Spot(`spot_instances`), prod 온디맨드. 2026-10-28 비용 축소 때 api 1대로 줄였던 것을 t4g 전환과 함께 2대로 되돌렸다. ECS 인스턴스 속성 `workload=api|batch` 로 배치 분리 |
-| api 태스크 | bridge 모드·동적 호스트 포트, CPU 상한 없음 / 1280 MiB(인스턴스당 1개 — 인스턴스 자원을 전부 쓴다), desired 2, `runtime_platform ARM64`, `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=70` |
+| 컨테이너 인스턴스 | **arm64 Graviton** — api 풀 t4g.medium 2대(AZ 분산, dev 는 Spot `spot_instances`, prod 온디맨드), prod batch 풀 t4g.small 1대(`batch_instance_type`), dev 배치 없음. 2026-10-28 비용 축소 때 api 1대로 줄였던 것을 전환과 함께 2대로 되돌렸다. ECS 인스턴스 속성 `workload=api|batch` 로 배치 분리 |
+| api 태스크 | bridge 모드·동적 호스트 포트, CPU 상한 없음 / 3000 MiB(인스턴스당 1개 — 인스턴스 자원을 전부 쓴다), desired 2, `runtime_platform ARM64`, `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=70` |
 | batch 태스크 | 단일 태스크, 잡 트리거 HTTP 는 배치 인스턴스 8080 고정(클러스터 내부만) |
 | 배포 | **ECS 롤링(min 50% / max 100%)** — 인스턴스 한 대씩 구 태스크 종료 → 같은 자리에 신 태스크. 기동 실패는 서킷브레이커가 이전 리비전으로 롤백 |
 | 진입 | ALB(80→443 리다이렉트, `*.kbap.site` ACM) + Route53 alias `<subdomain>.kbap.site` |
@@ -100,8 +100,8 @@ x86 t3.medium + CodeDeploy 카나리에서 arm64 t4g.small(dev Spot) + ECS 롤�
    terraform workspace select <env>
    terraform apply -var-file=<env>.tfvars -replace=module.ecs_environment.aws_ecs_service.api
    ```
-   서비스 삭제가 CODE_DEPLOY 태스크셋 때문에 막히면 `aws ecs delete-service --force` 로 지우고 다시 apply. 적용되는 것: 런치 템플릿(arm64 AMI·t4g.small·Spot) → ASG 가 템플릿 버전을 숫자로 참조하므로 instance refresh 가 자동으로 걸린다(api 는 min healthy 50% 로 한 대씩, batch 는 1대라 몇 분 다운 — 진행은 `aws autoscaling describe-instance-refreshes --auto-scaling-group-name kbap-<env>-ecs-<api|batch>-asg`), 태스크 정의 리비전(runtime_platform ARM64·메모리 1280·CPU 상한 없음·tfvars env), 타깃그룹 blue/green → `-api` 하나, CodeDeploy 앱·배포 그룹·IAM 롤·5xx 알람 삭제, api 서비스 재생성(롤링 50/100·서킷브레이커·capacity provider).
-4. **메모리 상한 재조정**: 새 인스턴스가 등록되면 `aws ecs describe-container-instances … --query 'containerInstances[].registeredResources[?name==\`MEMORY\`].integerValue'` 로 등록 메모리를 읽고, `등록 − 256(ECS_RESERVED_MEMORY) − 128(Alloy)` 까지 `api_task_memory`·`batch_task_memory` 를 올려 한 번 더 apply(태스크 정의만 리비전 교체 — 서비스는 `ignore_changes` 라 CI 다음 배포부터 승계). 올리기 전 리비전으로 서비스를 올리려면 `deploy-api.sh` 로 한 번 굴린다.
+   서비스 삭제가 CODE_DEPLOY 태스크셋 때문에 막히면 `aws ecs delete-service --force` 로 지우고 다시 apply. green 타깃그룹 삭제가 "in use by a listener" 로 실패하면(2026-11-03 dev 에서 발생 — 옛 서비스는 이미 지워져 그 사이 다운) 리스너 443 기본 액션을 새 `kbap-<env>-ecs-api` 로 `aws elbv2 modify-listener` 한 뒤 다시 apply 한다. 적용되는 것: 런치 템플릿(arm64 AMI·t4g.small·Spot) → ASG 가 템플릿 버전을 숫자로 참조하므로 instance refresh 가 자동으로 걸린다(api 는 min healthy 50% 로 한 대씩, batch 는 1대라 몇 분 다운 — 진행은 `aws autoscaling describe-instance-refreshes --auto-scaling-group-name kbap-<env>-ecs-<api|batch>-asg`), 태스크 정의 리비전(runtime_platform ARM64·메모리 1280·CPU 상한 없음·tfvars env), 타깃그룹 blue/green → `-api` 하나, CodeDeploy 앱·배포 그룹·IAM 롤·5xx 알람 삭제, api 서비스 재생성(롤링 50/100·서킷브레이커·capacity provider).
+4. **메모리 상한 재조정**: 새 인스턴스가 등록되면 `aws ecs describe-container-instances … --query 'containerInstances[].registeredResources[?name==\`MEMORY\`].integerValue'` 로 등록 메모리를 읽고, `등록 − 384(Alloy 데몬 태스크)` 까지(등록값은 이미 ECS_RESERVED_MEMORY 를 뺀 값) `api_task_memory`·`batch_task_memory` 를 올려 한 번 더 apply(태스크 정의만 리비전 교체 — 서비스는 `ignore_changes` 라 CI 다음 배포부터 승계). 올리기 전 리비전으로 서비스를 올리려면 `deploy-api.sh` 로 한 번 굴린다.
 5. **워크플로와 순서**: `deploy-<env>.yml` 이 `update-service` 로 바뀐 커밋이 CODE_DEPLOY 서비스에 배포되면 실패한다(컨트롤러가 태스크 정의 변경을 거부). 반대로 구 워크플로가 ECS 서비스에 돌면 CodeDeploy 앱이 없어 실패한다. **그 env 에 apply 한 직후 같은 커밋을 workflow_dispatch 로 배포**해 둘을 같은 날 맞춘다.
 6. 확인: `describe-services … deployments[].rolloutState` 가 COMPLETED, 타깃그룹 `kbap-<env>-ecs-api` healthy 2, `aws ecs describe-container-instances` 의 `ecs.cpu-architecture = arm64`.
 
@@ -202,7 +202,7 @@ aws ecs execute-command --cluster kbap-dev-ecs-cluster --task "$TASK" --containe
 ## 알아둘 것
 
 - **NAT 게이트웨이가 없다** — 인스턴스는 퍼블릭 서브넷 + 퍼블릭 IP 로 ECR·SSM 에 나간다. 인바운드는 ALB 보안그룹에서만 열려 있다.
-- 인스턴스 사이징: **api 인스턴스당 컨테이너 1개**(desired 2 / 인스턴스 2대 spread), 롤링 중에도 인스턴스당 1개를 넘지 않는다. t4g.small(2 GiB) 등록 메모리 − `ECS_RESERVED_MEMORY=256` − Alloy 예약 128 이 태스크 상한이다(`api_task_memory`, 기본 1280 — 등록 메모리를 확인하고 올릴 수 있다). **상한을 넘기면 태스크가 배치되지 않아 배포가 멈춘다**.
+- 인스턴스 사이징: **api 인스턴스당 컨테이너 1개**(desired 2 / 인스턴스 2대 spread), 롤링 중에도 인스턴스당 1개를 넘지 않는다. 태스크 상한 = ECS 등록 메모리(이미 `ECS_RESERVED_MEMORY=256` 을 뺀 값 — t4g.small 1590, t4g.medium ≈3583) − Alloy 데몬 **태스크** 384. api 는 기동만으로 1.2 GiB 를 넘고 prod 실사용 최대가 1.5 GiB 라 t4g.small 에 못 들어간다(2026-11-03 1200 MiB 에서 기동 중 OOM-kill 실측) — api 풀 t4g.medium·`api_task_memory` 3000, batch 풀 t4g.small·`batch_task_memory` 1200. **상한을 넘기면 태스크가 PROVISIONING 에 걸려 배포가 멈춘다**(그 태스크가 max 100% 를 차지해 다음 배포도 못 뜬다 — `aws ecs stop-task` 로 치운다).
 - **tfvars 가 태스크 정의 env 의 단일 출처다.** 리비전에 콘솔로 env 를 넣어 두면 Terraform 이 태스크 정의를 다시 만들 때(`-replace`, `runtime_platform`·메모리 변경) 사라진다 — 토글은 `api_extra_env`·`batch_extra_env`, 시크릿은 `api_secret_names`·`batch_secret_names` 로 넣는다(2026-11-01 REVIEW_BOT_*·ADS_REWARD_UNIT_IDS 가 그렇게 들어가 있던 것을 tfvars 로 옮김).
 - **런치 템플릿이 바뀌는 apply 는 EC2 를 롤링한다.** ASG 가 템플릿 버전을 숫자로 참조해 instance refresh 가 자동으로 걸린다(api min healthy 50%, batch 는 1대라 몇 분 다운). 추천 AMI(SSM 파라미터)가 갱신된 뒤에는 무관한 apply 에서도 걸린다 — plan 에 `launch_template.version` 변경이 보이면 그 뜻이고, 지금 롤링하면 안 되면 그 apply 를 미룬다.
 - dev 인스턴스는 Spot — 회수되면 `ECS_ENABLE_SPOT_INSTANCE_DRAINING` 으로 2분 전 드레인되고 ASG 가 새로 띄운다(몇 분 1대). 부하 테스트 중 수치가 튀면 ASG 활동 이력에서 회수 시각을 먼저 확인한다.
