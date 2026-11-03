@@ -40,7 +40,7 @@ variable "batch_instance_type" {
 
 variable "api_instance_count" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "batch_instance_count" {
@@ -56,7 +56,7 @@ variable "batch_desired_count" {
 
 variable "api_desired_count" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "api_image" {
@@ -139,7 +139,7 @@ variable "spot_instances" {
 
 variable "api_task_memory" {
   type    = number
-  default = 3000
+  default = 1750
 }
 
 variable "batch_task_memory" {
@@ -174,6 +174,21 @@ variable "bastion_instance_type" {
 
 variable "bastion_key_name" {
   type = string
+}
+
+variable "canary_percentage" {
+  type    = number
+  default = 20
+}
+
+variable "canary_interval_minutes" {
+  type    = number
+  default = 15
+}
+
+variable "blue_termination_wait_minutes" {
+  type    = number
+  default = 15
 }
 
 variable "blocked_path_patterns" {
