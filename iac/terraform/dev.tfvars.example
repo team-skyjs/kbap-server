@@ -13,8 +13,8 @@ redis_host              = "kbap-devstg-redis-0001-001.kbap-devstg-redis.fu1mox.a
 rds_security_group_id   = "sg-00be0b3653aa0b87f"
 redis_security_group_id = "sg-0de1e4bfcad5ec753"
 
-# 기본값: api 풀 t4g.medium × 2(인스턴스당 태스크 1, 메모리 3000), batch 풀 t4g.small(메모리 1200), 로그 7일. 배포는 ECS 롤링(min 50%/max 100%).
-# 2026-10-28 비용 축소로 api 1대였던 것을 t4g 전환(2026-11)과 함께 2대로 되돌린다 — Spot t4g.medium 2대가 t3.medium 1대보다 싸다.
+# 기본값: api 풀 t4g.medium × 1(카나리 중 태스크 2개 × 1,750 MiB 공존, 상한 1대), batch 풀 t4g.small(메모리 1200), 로그 7일. 배포는 CodeDeploy 카나리 20%·15분.
+# dev 는 Spot 1대 — 회수되면 ASG 가 새로 띄울 때까지 몇 분 다운(2026-11-03 결정: 감수).
 # dev 는 Spot — 회수(월 0~몇 번) 땐 2분 전 드레인 후 ASG 가 새로 띄운다. prod 는 온디맨드
 spot_instances = true
 # batch 는 prod 만 운영 — dev 0(음식 콘텐츠 적재는 prod 배치가 담당)
@@ -27,7 +27,7 @@ performance_artifact_retention_days = 7
 admin_cidr       = "<your-public-ip>/32"
 bastion_key_name = "kbpa-devstg"
 
-# 관측(KB-381): 각 EC2 의 Alloy DAEMON 이 앱·호스트 메트릭을 홈서버 Prometheus 로 push 한다.
+# 관측: 앱이 OTLP 로 홈서버 Prometheus 에 직접 푸시한다(SSM OTLP_METRICS_URL·CF_ACCESS_*). Alloy DAEMON 은 2026-11-03 제거.
 # 토큰은 SSM /kbap/<env>/CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (SecureString) 에 미리 등록.
 
 # 공개 진입점 차단(KB-390): /actuator 류만. dev 는 Swagger 를 공개한다.
@@ -48,5 +48,5 @@ batch_extra_env = {
   PROCESSED_FOOD_MIRROR_ENABLED = "true"
   REVIEW_BOT_PHOTO_SYNC_ENABLED = "true"
 }
-# batch 는 모듈 기본 목록 + dev 전용 시크릿(SSM /kbap/dev/<NAME> 에 값이 있어야 태스크가 뜬다). api 는 기본 목록 그대로
-batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY"]
+# batch 는 모듈 기본 목록(OTLP 3종 포함) + dev 전용 시크릿(SSM /kbap/dev/<NAME> 에 값이 있어야 태스크가 뜬다). api 는 기본 목록 그대로
+batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]

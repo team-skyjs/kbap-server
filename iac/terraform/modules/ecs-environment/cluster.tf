@@ -128,7 +128,7 @@ resource "aws_autoscaling_group" "pool" {
 # target_capacity 100 = 빈 인스턴스를 두지 않는다. ECS 는 태스크가 하나라도 있는 인스턴스를 "사용 중"으로 세므로
 # 50 은 "인스턴스마다 절반"이 아니라 "빈 인스턴스를 같은 수만큼 더"다(dev 에서 2 → 4대로 확인).
 # 평시 인스턴스당 태스크 1개(spread). 롤링(min 50/max 100)은 자리를 더 쓰지 않으므로 태스크 스케일 아웃으로 자리가 모자랄 때만 인스턴스가 는다.
-# batch·alloy 는 launch type EC2 그대로(기본 전략 없음).
+# batch 는 launch type EC2 그대로(기본 전략 없음).
 resource "aws_ecs_capacity_provider" "api" {
   name = "${local.name_prefix}-api"
 

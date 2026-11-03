@@ -38,6 +38,14 @@ output "batch_task_family" {
   value = aws_ecs_task_definition.batch.family
 }
 
+output "codedeploy_app_name" {
+  value = aws_codedeploy_app.api.name
+}
+
+output "codedeploy_deployment_group_name" {
+  value = aws_codedeploy_deployment_group.api.deployment_group_name
+}
+
 output "instance_security_group_id" {
   value = aws_security_group.instance.id
 }
@@ -60,8 +68,4 @@ output "dashboard_name" {
 
 output "bastion_public_ip" {
   value = aws_instance.bastion.public_ip
-}
-
-output "alloy_service_name" {
-  value = aws_ecs_service.alloy.name
 }

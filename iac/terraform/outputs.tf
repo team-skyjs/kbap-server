@@ -38,6 +38,14 @@ output "batch_task_family" {
   value = module.ecs_environment.batch_task_family
 }
 
+output "codedeploy_app_name" {
+  value = module.ecs_environment.codedeploy_app_name
+}
+
+output "codedeploy_deployment_group_name" {
+  value = module.ecs_environment.codedeploy_deployment_group_name
+}
+
 output "ssm_secret_parameters" {
   value = module.ecs_environment.ssm_secret_parameters
 }

@@ -35,14 +35,6 @@ for svc in api batch; do
   add "aws_ecs_task_definition.$svc" "$(one "$(aws ecs describe-task-definition --task-definition "$P-$svc" --query taskDefinition.taskDefinitionArn)" "taskdef $svc")"
 done
 
-# Alloy DAEMON(KB-381)은 이미 적용된 환경(dev)에서만 존재 — 있으면 import, 없으면(prod 첫 적용) plan 의 "3 to add" 로 생성된다
-if [ -n "$(aws ecs describe-services --cluster "$CLUSTER" --services "$P-alloy" --query 'services[?status==`ACTIVE`].serviceName')" ]; then
-  add aws_ecs_service.alloy "$CLUSTER/$P-alloy"
-  add aws_ecs_task_definition.alloy "$(one "$(aws ecs describe-task-definition --task-definition "$P-alloy" --query taskDefinition.taskDefinitionArn)" "taskdef alloy")"
-  add aws_cloudwatch_log_group.alloy "/kbap/$ENV/alloy"
-else
-  echo "  (alloy 없음 — plan 에서 3 to add 로 생성됨)" >&2
-fi
 
 # --- CloudWatch ---
 for lg in api batch; do
@@ -51,11 +43,23 @@ for lg in api batch; do
 done
 one "$(aws cloudwatch get-dashboard --dashboard-name "$P" --query DashboardName)" dashboard >/dev/null
 add aws_cloudwatch_dashboard.this "$P"
+one "$(aws cloudwatch describe-alarms --alarm-names "$P-api-5xx" --query 'MetricAlarms[].AlarmName')" alarm >/dev/null
+add aws_cloudwatch_metric_alarm.api_5xx "$P-api-5xx"
+
+# --- CodeDeploy ---
+one "$(aws deploy get-application --application-name "$P-api" --query application.applicationName)" "codedeploy app" >/dev/null
+add aws_codedeploy_app.api "$P-api"
+CFG=$(one "$(aws deploy list-deployment-configs --query "deploymentConfigsList[?starts_with(@, '$P-canary-')]" | tr '\t' '\n')" "deployment config")
+add aws_codedeploy_deployment_config.canary "$CFG"
+DG=$(aws deploy get-deployment-group --application-name "$P-api" --deployment-group-name "$P-api" \
+  --query 'deploymentGroupInfo.[deploymentGroupName,blueGreenDeploymentConfiguration.terminateBlueInstancesOnDeploymentSuccess.terminationWaitTimeInMinutes]')
+add aws_codedeploy_deployment_group.api "$P-api:$P-api"
+BLUE_WAIT=$(printf '%s' "$DG" | awk '{print $2}')
 
 # --- IAM ---
 # macOS 기본 bash 3.2 — 연관 배열 없이 함수로
-role_name() { case "$1" in instance) echo "$P-container-instance-role";; task_execution) echo "$P-task-exec-role";; api_task) echo "$P-api-task-role";; batch_task) echo "$P-batch-task-role";; esac; }
-for k in instance task_execution api_task batch_task; do
+role_name() { case "$1" in instance) echo "$P-container-instance-role";; task_execution) echo "$P-task-exec-role";; api_task) echo "$P-api-task-role";; batch_task) echo "$P-batch-task-role";; codedeploy) echo "$P-codedeploy-role";; esac; }
+for k in instance task_execution api_task batch_task codedeploy; do
   one "$(aws iam get-role --role-name "$(role_name $k)" --query Role.RoleName)" "role $k" >/dev/null
   add "aws_iam_role.$k" "$(role_name $k)"
 done
@@ -67,6 +71,7 @@ add aws_iam_role_policy.batch_task "$(role_name batch_task):sqs-s3"
 add aws_iam_role_policy_attachment.instance_ecs "$(role_name instance)/arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
 add aws_iam_role_policy_attachment.instance_ssm "$(role_name instance)/arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 add aws_iam_role_policy_attachment.task_execution_managed "$(role_name task_execution)/arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+add aws_iam_role_policy_attachment.codedeploy_ecs "$(role_name codedeploy)/arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
 # 배치 운영자 IAM 사용자(KB-374)는 그 이후에 만든 환경에만 있다 — 없으면 plan 의 "to add" 로 생성된다
 if [ -n "$(aws iam get-user --user-name "$P-batch-operator" --query User.UserName 2>/dev/null)" ]; then
   add aws_iam_user.batch_operator "$P-batch-operator"
@@ -79,7 +84,9 @@ fi
 ALB=$(one "$(aws elbv2 describe-load-balancers --names "$P-alb" --query 'LoadBalancers[0].[LoadBalancerArn,VpcId]' | tr '\t' '\n' | head -1)" alb)
 VPC_ID=$(aws elbv2 describe-load-balancers --names "$P-alb" --query 'LoadBalancers[0].VpcId')
 add aws_lb.this "$ALB"
-add aws_lb_target_group.api "$(one "$(aws elbv2 describe-target-groups --names "$P-api" --query 'TargetGroups[0].TargetGroupArn')" "tg api")"
+for color in blue green; do
+  add "aws_lb_target_group.api[\"$color\"]" "$(one "$(aws elbv2 describe-target-groups --names "$P-api-$color" --query 'TargetGroups[0].TargetGroupArn')" "tg $color")"
+done
 add aws_lb_listener.http  "$(one "$(aws elbv2 describe-listeners --load-balancer-arn "$ALB" --query 'Listeners[?Port==`80`].ListenerArn')" "listener 80")"
 add aws_lb_listener.https "$(one "$(aws elbv2 describe-listeners --load-balancer-arn "$ALB" --query 'Listeners[?Port==`443`].ListenerArn')" "listener 443")"
 
@@ -160,6 +167,7 @@ BATCH_ASG=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-na
 API_DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$P-api" --query 'services[0].desiredCount')
 BATCH_DESIRED=$(aws ecs describe-services --cluster "$CLUSTER" --services "$P-batch" --query 'services[0].desiredCount')
 RETENTION=$(aws logs describe-log-groups --log-group-name-prefix "/kbap/$ENV/api" --query "logGroups[?logGroupName=='/kbap/$ENV/api'].retentionInDays")
+CANARY_PCT=$(printf '%s' "$CFG" | sed -E 's/.*-canary-([0-9]+)p-([0-9]+)m/\1/'); CANARY_MIN=$(printf '%s' "$CFG" | sed -E 's/.*-canary-([0-9]+)p-([0-9]+)m/\2/')
 GEN="$TF_DIR/$ENV.tfvars.generated"
 cat > "$GEN" <<TFV
 # generated by gen-import-blocks.sh $ENV — AWS 실값 기준 초안. 검토 후 $ENV.tfvars 로 복사 (gitignore, 커밋 금지)
@@ -188,6 +196,9 @@ batch_instance_count = $BATCH_ASG
 api_desired_count    = $API_DESIRED
 batch_desired_count  = $BATCH_DESIRED
 log_retention_days   = ${RETENTION:-7}
+canary_percentage       = $CANARY_PCT
+canary_interval_minutes = $CANARY_MIN
+blue_termination_wait_minutes = ${BLUE_WAIT:-15}
 
 admin_cidr       = "$ADMIN_CIDR"
 bastion_key_name = "$BASTION_KEY"

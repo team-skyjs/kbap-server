@@ -50,6 +50,9 @@ run "api_scales_tasks_at_80_percent_and_instances_via_capacity_provider" {
 
   variables {
     env = "dev"
+    # 2026-11-03 기본값은 1대 고정(api_instance_max_count 1) — 풀 확장 규칙 자체는 입력을 주고 검증한다
+    api_instance_count     = 2
+    api_instance_max_count = 4
   }
 
   assert {

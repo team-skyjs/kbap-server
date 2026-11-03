@@ -13,8 +13,9 @@ locals {
     STORAGE_REGION         = var.region
     CDN_BASE_URL           = var.cdn_base_url
     IMAGE_PUBLIC_BASE_URL  = var.image_public_base_url
-    JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
+    JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=60" # 1,750 MiB 컨테이너: 힙 1,050 + 비힙 ≈600. 70% 면 넘친다(2026-11-03 실측)
     SENTRY_RELEASE         = element(split(":", var.api_image), 1)
+    OTLP_METRICS_ENABLED   = "true" # 앱이 /api/v1/otlp/v1/metrics 로 15초마다 직접 푸시(Alloy 대체, 2026-11-03). URL·Access 토큰은 secrets
   }, local.vector_env, var.api_extra_env)
 }
 
@@ -81,28 +82,11 @@ resource "aws_ecs_service" "api" {
   cluster                = aws_ecs_cluster.this.id
   task_definition        = aws_ecs_task_definition.api.arn
   desired_count          = var.api_desired_count
+  launch_type            = "EC2"
   enable_execute_command = local.performance_profiling_enabled
 
-  # 컨트롤러 전환(CODE_DEPLOY → ECS)은 제자리 변경이 안 돼 서비스가 재생성된다(잠깐 다운) — 2026-11-01 1회성
   deployment_controller {
-    type = "ECS"
-  }
-
-  # 롤링 — 인스턴스당 태스크 1개라 신 태스크를 미리 올릴 자리가 없다. 한 대씩 구 태스크를 내리고(드레인 30초) 같은 자리에 신 태스크를 올린다.
-  # 그 사이 나머지 인스턴스가 트래픽을 받는다. 기동 실패·헬스체크 탈락은 서킷브레이커가 이전 리비전으로 되돌린다.
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 100
-
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
-  }
-
-  # 태스크 스케일 아웃(api-autoscaling.tf)으로 자리가 모자라면 capacity provider 가 인스턴스를 늘린다
-  capacity_provider_strategy {
-    capacity_provider = aws_ecs_capacity_provider.api.name
-    weight            = 1
-    base              = 0
+    type = "CODE_DEPLOY"
   }
 
   placement_constraints {
@@ -116,7 +100,7 @@ resource "aws_ecs_service" "api" {
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.api.arn
+    target_group_arn = aws_lb_target_group.api["blue"].arn
     container_name   = local.api_container_name
     container_port   = 8080
   }
@@ -125,9 +109,11 @@ resource "aws_ecs_service" "api" {
 
   tags = local.common_tags
 
-  # 태스크 정의 리비전은 CI 가 등록해 update-service 로 올리고, desired_count 는 오토스케일링이 움직인다 — Terraform 은 초기값만 소유한다.
+  # CodeDeploy 가 태스크 정의·타깃그룹을 바꾸므로 Terraform 은 초기 상태만 소유한다.
+  # capacity provider 전략도 배포 appspec(CapacityProviderStrategy)이 태스크셋에 건다 —
+  # CODE_DEPLOY 서비스는 UpdateService 로 못 바꾸고, Terraform 으로 바꾸면 서비스가 재생성된다.
   lifecycle {
-    ignore_changes = [task_definition, desired_count]
+    ignore_changes = [task_definition, load_balancer, desired_count, launch_type, capacity_provider_strategy]
 
     precondition {
       condition     = !var.api_execute_command_enabled || var.env == "dev"
@@ -135,5 +121,5 @@ resource "aws_ecs_service" "api" {
     }
   }
 
-  depends_on = [aws_lb_listener.https, aws_autoscaling_group.pool, aws_ecs_cluster_capacity_providers.this]
+  depends_on = [aws_lb_listener.https, aws_autoscaling_group.pool]
 }

@@ -42,7 +42,7 @@ variable "instance_type" {
 }
 
 variable "batch_instance_type" {
-  description = "batch 풀 인스턴스 타입. null 이면 instance_type 과 같다. api 는 기동만으로 1.3 GiB 를 넘어 t4g.small(2 GiB, Alloy 데몬 384 제외 1206) 에 못 들어가지만 batch 는 들어가므로 풀마다 다르게 둔다(2026-11-03 실측)"
+  description = "batch 풀 인스턴스 타입. null 이면 instance_type 과 같다. api 는 기동만으로 1.3 GiB 를 넘어 t4g.small(2 GiB, 등록 1590) 에 못 들어가지만 batch 는 들어가므로 풀마다 다르게 둔다(2026-11-03 실측)"
   type        = string
   default     = "t4g.small"
 }
@@ -54,15 +54,15 @@ variable "spot_instances" {
 }
 
 variable "api_instance_count" {
-  description = "api 전용 컨테이너 인스턴스 수 — 인스턴스당 태스크 1개. 롤링(min 50%/max 100%)은 구 태스크를 먼저 내리고 같은 자리에 신 태스크를 올리므로 2대 이상이어야 무중단"
+  description = "api 전용 컨테이너 인스턴스 수. 2026-11-03 부터 1대 — 카나리 중 구·신 태스크 2개가 한 인스턴스에 공존한다(api_task_memory × 2 ≤ 등록 메모리)"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "api_instance_max_count" {
-  description = "api 인스턴스 풀 상한 — capacity provider 가 api_instance_count ~ 이 값 사이에서 조정"
+  description = "api 인스턴스 풀 상한. 1 이면 capacity provider 가 대수를 늘리지 못해 비용이 고정된다(2026-11-03 결정)"
   type        = number
-  default     = 4
+  default     = 1
 }
 
 variable "batch_instance_count" {
@@ -78,7 +78,7 @@ variable "batch_desired_count" {
 
 variable "api_desired_count" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "api_task_cpu" {
@@ -88,9 +88,9 @@ variable "api_task_cpu" {
 }
 
 variable "api_task_memory" {
-  description = "태스크 하드 메모리(MiB). 인스턴스당 태스크 1개이므로 등록 메모리 − ECS_RESERVED_MEMORY(256) − Alloy 예약(128) 안에서 최대로 잡는다"
+  description = "태스크 하드 메모리(MiB). 카나리 중 한 인스턴스에 2개가 공존하므로 ECS 등록 메모리(이미 ECS_RESERVED_MEMORY 256 을 뺀 값) ÷ 2 이하 — t4g.medium 3,579 ÷ 2 = 1,789 → 1,750"
   type        = number
-  default     = 3000
+  default     = 1750
 }
 
 variable "batch_task_cpu" {
@@ -169,13 +169,13 @@ variable "food_content_queue_name" {
 variable "api_secret_names" {
   description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록"
   type        = list(string)
-  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY"]
+  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
   nullable    = false
 }
 
 variable "batch_secret_names" {
   type     = list(string)
-  default  = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL"]
+  default  = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
   nullable = false
 }
 
@@ -226,17 +226,23 @@ variable "bastion_key_name" {
   type        = string
 }
 
-# --- 관측: Grafana Alloy DAEMON (KB-381) ---
-variable "alloy_image" {
-  description = "Grafana Alloy 이미지 (태그 고정 — latest 금지)"
-  type        = string
-  default     = "grafana/alloy:v1.19.2"
+
+variable "canary_percentage" {
+  description = "카나리 단계에서 신버전으로 보낼 트래픽 비율(%)"
+  type        = number
+  default     = 20
 }
 
-variable "alloy_secret_names" {
-  description = "Alloy 태스크에 SSM 에서 주입할 환경변수 이름 — remote_write 수신 URL(REMOTE_WRITE_URL, String)과 Cloudflare Access 서비스 토큰(SecureString). 등록: aws ssm put-parameter --name /kbap/<env>/<NAME> --type String|SecureString. 값이 없으면 태스크가 기동 전에 실패한다"
-  type        = list(string)
-  default     = ["REMOTE_WRITE_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+variable "canary_interval_minutes" {
+  description = "카나리 비율을 유지한 뒤 100% 로 전환하기까지의 시간(분)"
+  type        = number
+  default     = 15
+}
+
+variable "blue_termination_wait_minutes" {
+  description = "100% 전환 후 구버전 태스크를 유지하는 시간(분) — 이 안에는 즉시 롤백 가능"
+  type        = number
+  default     = 15
 }
 
 variable "blocked_path_patterns" {
@@ -252,9 +258,9 @@ variable "vector_enabled" {
 }
 
 variable "api_max_count" {
-  description = "api 서비스 오토스케일링 최대 태스크 수"
+  description = "api 태스크 수 상한(서비스 오토스케일링). 인스턴스 1대·태스크 1,750 에선 2개가 되면 카나리 그린 태스크셋 자리가 없어 배포가 막히므로 1 로 고정(2026-11-03)"
   type        = number
-  default     = 4
+  default     = 1
 }
 
 variable "api_cpu_target_percent" {
