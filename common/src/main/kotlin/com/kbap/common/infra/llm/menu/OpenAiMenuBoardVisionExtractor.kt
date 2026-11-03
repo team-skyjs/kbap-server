@@ -9,6 +9,8 @@ import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
 import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import com.kbap.common.port.llm.OcrItem
+import com.kbap.common.port.llm.ProcessedFoodPhotoReader
+import com.kbap.common.port.llm.ProcessedFoodPhotoReading
 import com.kbap.common.infra.llm.model.LlmPricing
 import com.openai.core.http.Headers
 import com.openai.errors.InternalServerException
@@ -41,7 +43,7 @@ class OpenAiMenuBoardVisionExtractor(
     private val retryBudget: Duration = Duration.ofSeconds(10),
     private val sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
     private val now: () -> Instant = Instant::now,
-) : MenuBoardVisionExtractor, MenuBoardLineExtractor {
+) : MenuBoardVisionExtractor, MenuBoardLineExtractor, ProcessedFoodPhotoReader {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
@@ -49,6 +51,9 @@ class OpenAiMenuBoardVisionExtractor(
 
     override fun extractLines(imagePath: String): List<MenuBoardLine> =
         parser.parseLines(ask(imagePath, BATCH_LINE_SYSTEM_PROMPT, "이 메뉴판 사진의 메뉴 행을 메뉴판에 적힌 그대로 옮겨 적어라."))
+
+    override fun read(imagePath: String): ProcessedFoodPhotoReading =
+        parser.parsePhoto(ask(imagePath, PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT, "이 사진의 종류를 판별하고, 가공식품 앞면이면 제품명·제조사·품목보고번호를, 성분표면 원재료·알레르기 문장을 읽어라."))
 
     private fun ask(imagePath: String, systemPrompt: String, userText: String): String {
         val imageUrl = URI.create("${imageBaseUrl.trimEnd('/')}/${imagePath.trimStart('/')}")
@@ -218,6 +223,35 @@ class OpenAiMenuBoardVisionExtractor(
             - option: 메뉴판에 적힌 크기·양·구성 옵션 표기 그대로(예: "대", "곱빼기", "2인분"). 표기가 없으면 null — 추측해 채우지 않는다.
             - 한 메뉴에 크기별 가격이 여럿이면 크기마다 행을 나눈다(각 행의 option 에 그 크기, rawName 에 메뉴명과 크기 표기).
             - 메뉴가 아닌 텍스트(상호·전화번호·원산지·영업안내 등)는 제외한다.
+        """.trimIndent()
+
+        private val PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT = """
+            너는 한국 편의점·마트 가공식품 사진을 읽는 도구다. 반드시 JSON 객체 하나로만 응답한다 — 설명·마크다운·코드펜스 없이.
+            형식: {"kind":"PACKAGE_FRONT","confidence":0.9,"reason":null,"productName":"...","maker":"...","reportNo":null,"labelText":null,"warnings":[]}
+
+            [kind — 사진 종류 하나]
+            - PACKAGE_FRONT: 포장 가공식품의 앞면·옆면(제품명·브랜드가 보이는 면).
+            - INGREDIENT_LABEL: 포장 뒷면의 원재료명·알레르기 표시·영양정보 표가 보이는 면.
+            - MENU: 식당 메뉴판·차림표(음식 이름과 가격 목록).
+            - OTHER: 위 어디에도 해당하지 않거나 너무 흐리거나 어둡거나 잘려 읽을 수 없는 사진.
+            - confidence: 종류 판별 확신도 0~1 숫자.
+            - reason: 판단 근거 하나 또는 null — BLURRY(흐림) · TOO_DARK(어두움) · GLARE(빛 반사) · CROPPED(잘림) · NOT_FOOD(음식·식품 아님). OTHER 면 반드시 하나를 고른다.
+
+            [한국 포장 특성]
+            - 제품명은 로고체·손글씨체·장식 글꼴, 곡면(캔·컵·병)·비닐 반사, 세로쓰기로 적힌 경우가 많다. 글자 모양을 끝까지 판독해 한국어 제품명 그대로 적는다(예: 로고체 "바나나맛우유"를 "b나나"처럼 깨진 글자로 적지 않는다).
+            - 사진에 보이지 않는 글자를 추측해 지어내지 않는다. 확실하지 않은 부분은 warnings 에 짧게 적는다.
+
+            [PACKAGE_FRONT 일 때]
+            - productName: 포장에 적힌 제품명(한국어 표기 우선, 맛·종류 표기 포함). 용량(g·ml)·"NEW"·홍보 문구는 뺀다.
+            - maker: 보이는 제조사·브랜드명(예: 농심, 빙그레). 안 보이면 null.
+            - reportNo: "품목보고번호" 옆 숫자(보통 10~16자리, 숫자만). 안 보이면 null.
+            - labelText 는 null.
+
+            [INGREDIENT_LABEL 일 때]
+            - labelText: 원재료명(및 함량) 문장과 알레르기 유발물질 표시 문장, "같은 제조시설에서…" 문장을 포장에 적힌 그대로 옮겨 적는다. 각 문장은 제목("원재료명:", "알레르기 유발물질:")까지 포함해 줄을 나눈다. 영양정보 수치·보관방법·주소는 적지 않는다. 고치거나 번역하거나 요약하지 않는다.
+            - productName·maker·reportNo 는 null.
+
+            [MENU·OTHER 일 때] productName·maker·reportNo·labelText 모두 null.
         """.trimIndent()
 
         private val SERVER_OCR_SYSTEM_PROMPT = """

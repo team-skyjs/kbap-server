@@ -29,8 +29,8 @@ data class ProcessedFoodNameConfirmRequest(
     val reportNo: String? = null,
 )
 
-@Schema(description = "분석 상태 — CANDIDATES: 후보 있음(확정 대기) · NO_CANDIDATE: 후보 없음(성분표 촬영으로 이어감) · CONFIRMED: 품목 확정 · REJECTED: 해당 없음(성분표 촬영으로 이어감) · LABEL_RESULT: 성분표 판독 결과(scan/label)")
-enum class ProcessedFoodNameScanState { CANDIDATES, NO_CANDIDATE, CONFIRMED, REJECTED, LABEL_RESULT }
+@Schema(description = "분석 상태 — CANDIDATES: 후보 있음(확정 대기) · NO_CANDIDATE: 후보 없음(성분표 촬영으로 이어감) · CONFIRMED: 품목 확정 · REJECTED: 해당 없음(성분표 촬영으로 이어감) · LABEL_RESULT: 성분표 판독 결과(scan/label) · NOT_PACKAGED: 사진 스캔(scan/vision)이 가공식품 앞면·성분표가 아니라고 판별(MENU·OTHER)")
+enum class ProcessedFoodNameScanState { CANDIDATES, NO_CANDIDATE, CONFIRMED, REJECTED, LABEL_RESULT, NOT_PACKAGED }
 
 @Schema(description = "가공식품 이름 스캔 결과")
 data class ProcessedFoodNameScanResponse(
