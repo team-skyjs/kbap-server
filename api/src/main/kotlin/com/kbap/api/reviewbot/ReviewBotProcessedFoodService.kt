@@ -139,7 +139,7 @@ class ReviewBotProcessedFoodService(
         }
         val generator = generator ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
         val product = processedFoods.getAvailableProduct(productId)
-        if (imagePaths.any(::isUsedByReview)) throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
+        verifyComposablePhotos(imagePaths)
         val members = candidateIndex.groupMemberIds(product.id)
         val reviewed = botReviewsOf(members)
         val random = Random.Default
@@ -152,7 +152,8 @@ class ReviewBotProcessedFoodService(
         val lock = lockProvider.lock(LockConfiguration(Instant.now(), ReviewBotWriter.LOCK_NAME, LOCK_AT_MOST_FOR, Duration.ZERO)).orElse(null)
             ?: throw BusinessException(ErrorCode.REVIEW_BOT_BUSY)
         try {
-            if (imagePaths.any(::isUsedByReview)) throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
+            verifyComposablePhotos(imagePaths)
+            if (bot.id in botReviewsOf(members).keys) throw BusinessException(ErrorCode.INVALID_REQUEST)
             val review = reviewService.createBotProcessedFoodReview(bot.id, product.id, request.rating, draft.text, imagePaths, photoPool.ownerIds(), draft.spiciness, draft.sweetness)
             val stamp = Timestamp.valueOf(at)
             jdbc.update("UPDATE food_review SET created_at = ?, updated_at = ? WHERE id = ?", stamp, stamp, review.reviewId)
@@ -160,6 +161,11 @@ class ReviewBotProcessedFoodService(
         } finally {
             lock.unlock()
         }
+    }
+
+    private fun verifyComposablePhotos(imagePaths: List<String>) {
+        reviewService.verifyBotImages(imagePaths, photoPool.ownerIds())
+        if (imagePaths.any(::isUsedByReview) || !photoService.isStillUsable(imagePaths)) throw BusinessException(ErrorCode.REVIEW_IMAGE_NOT_VERIFIED)
     }
 
     private fun isUsedByReview(path: String): Boolean =

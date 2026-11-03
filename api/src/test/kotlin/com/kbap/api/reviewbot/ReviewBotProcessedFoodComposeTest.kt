@@ -103,6 +103,17 @@ class ReviewBotProcessedFoodComposeTest : BehaviorSpec() {
                     rows("SELECT COUNT(*) FROM food_review").single().single().toString() shouldBe "0"
                 }
             }
+            `when`("dryRun 이어도 사진이 풀 밖이거나 저장소에서 사라졌으면") {
+                then("미리보기도 400 REVIEW-003 이고 생성기를 부르지 않는다") {
+                    val outside = uploadProperties.keyPrefix.trim('/') + "/images/review/2026/11/1_abc.webp"
+                    compose(mapOf("productId" to noodle, "imagePaths" to listOf(outside)), 400).path("code").asText() shouldBe "REVIEW-003"
+                    photoStorage.heads.remove(poolPath(1))
+                    compose(mapOf("productId" to noodle, "imagePaths" to listOf(poolPath(1)), "dryRun" to false), 400).path("code").asText() shouldBe "REVIEW-003"
+                    compose(mapOf("productId" to noodle, "imagePaths" to listOf(poolPath(1))), 400).path("code").asText() shouldBe "REVIEW-003"
+                    fakeGenerator.processedRequests.size shouldBe 0
+                    rows("SELECT COUNT(*) FROM food_review").single().single().toString() shouldBe "0"
+                }
+            }
             `when`("이미 다른 리뷰에 쓰인 사진이면") {
                 then("두 번째 작성은 400 REVIEW-003") {
                     compose(mapOf("productId" to noodle, "imagePaths" to listOf(poolPath(2)), "dryRun" to false))
