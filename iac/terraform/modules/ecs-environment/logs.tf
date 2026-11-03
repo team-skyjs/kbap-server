@@ -46,7 +46,8 @@ locals {
         stat   = "Average"
         period = 60
         metrics = [
-          ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", aws_lb_target_group.api.arn_suffix, "LoadBalancer", aws_lb.this.arn_suffix, { label = "healthy", color = "#1f77b4" }],
+          ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", aws_lb_target_group.api["blue"].arn_suffix, "LoadBalancer", aws_lb.this.arn_suffix, { label = "blue", color = "#1f77b4" }],
+          [".", ".", ".", aws_lb_target_group.api["green"].arn_suffix, ".", ".", { label = "green", color = "#2ca02c" }],
         ]
       }
     },

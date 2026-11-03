@@ -176,6 +176,21 @@ variable "bastion_key_name" {
   type = string
 }
 
+variable "canary_percentage" {
+  type    = number
+  default = 20
+}
+
+variable "canary_interval_minutes" {
+  type    = number
+  default = 15
+}
+
+variable "blue_termination_wait_minutes" {
+  type    = number
+  default = 15
+}
+
 variable "blocked_path_patterns" {
   description = "공개 진입점에서 404 로 막을 ALB path-pattern (prod 는 swagger·api-docs 도 추가)"
   type        = list(string)

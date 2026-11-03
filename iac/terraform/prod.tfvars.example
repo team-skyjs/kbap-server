@@ -8,10 +8,10 @@ storage_key_prefix = "prod"
 # 콘텐츠 생성 요청 큐는 환경별(KB-547) — 생략하면 기본값(dev 공유 큐 kbap-generate-content-queue)으로 떨어져 prod 요청이 dev 로 샌다
 food_content_queue_name = "kbap-prod-generate-content-queue"
 
-# arm64 온디맨드 — api 풀 t4g.medium 2대(인스턴스당 태스크 1, ECS 롤링 min 50%/max 100%) + batch 풀 t4g.small 1대. Spot 은 dev 만.
-# 2026-10-28 비용 축소로 api 1대였던 것을 arm64 전환(2026-11)과 함께 2대로 되돌린다.
-api_instance_count = 2
-api_desired_count  = 2
+# arm64 온디맨드 — api 풀 t4g.medium 1대(카나리 중 태스크 2개 × 1,750 MiB 공존, 상한 1대 고정) + batch 풀 t4g.small 1대. Spot 은 dev 만.
+# 2026-11-03 결정: 비용 고정 우선 — 인스턴스 장애·교체 땐 ASG 가 새로 띄울 때까지 몇 분 다운을 감수한다.
+api_instance_count = 1
+api_desired_count  = 1
 
 # 2026-08-31 배치 가동 결정 — 구 kbap-prod-cluster 는 INACTIVE 라 이중 운영 사유 소멸. dev 배치는 0 이라 prod 배치가 유일
 batch_instance_count = 1

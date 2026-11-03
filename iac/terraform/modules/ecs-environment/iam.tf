@@ -18,6 +18,16 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
   }
 }
 
+data "aws_iam_policy_document" "codedeploy_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["codedeploy.amazonaws.com"]
+    }
+  }
+}
+
 # --- 컨테이너 인스턴스 (EC2) ---
 resource "aws_iam_role" "instance" {
   name               = "${local.name_prefix}-container-instance-role"
@@ -225,4 +235,16 @@ resource "aws_iam_user_policy" "batch_operator" {
   name   = "batch-remote-run"
   user   = aws_iam_user.batch_operator.name
   policy = data.aws_iam_policy_document.batch_operator.json
+}
+
+# --- CodeDeploy (ECS 블루/그린) ---
+resource "aws_iam_role" "codedeploy" {
+  name               = "${local.name_prefix}-codedeploy-role"
+  assume_role_policy = data.aws_iam_policy_document.codedeploy_assume.json
+  tags               = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "codedeploy_ecs" {
+  role       = aws_iam_role.codedeploy.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
 }
