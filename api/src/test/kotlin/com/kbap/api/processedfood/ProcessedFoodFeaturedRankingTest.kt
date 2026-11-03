@@ -25,6 +25,7 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
+    @Autowired private lateinit var featuredCatalog: ProcessedFoodFeaturedCatalog
 
     private val mapper = jacksonObjectMapper()
 
@@ -82,6 +83,41 @@ class ProcessedFoodFeaturedRankingTest : BehaviorSpec() {
             execute("DELETE FROM processed_food_product")
         }
         afterSpec { execute("DELETE FROM processed_food_product") }
+
+        fun pin(reportNo: String, text: String) = execute(
+            "INSERT INTO content_translation (target_type, target_id, language, source_hash, translated_text, source_language, status, created_at, updated_at) " +
+                "SELECT 'PF_NAME_PINNED', id, 'en', 'pinned', '$text', 'ko', 'ACTIVE', NOW(6), NOW(6) FROM processed_food_product WHERE report_no = '$reportNo'",
+        )
+        fun seedBananaEnglishShelf() {
+            seed("BM-1", "빙그레 바나나맛 우유", binggrae)
+            pin("BM-1", "Binggrae Banana Milk")
+            seed("BK-1", "바나나킥", "농심㈜")
+            pin("BK-1", "Banana Kick")
+            seed("BL-1", "바나나라떼", "㈜동네카페")
+            pin("BL-1", "Banana Latte")
+        }
+
+        given("영어 앞부분 검색어의 추천 상품 가중(S-948)") {
+            `when`("외국인이 영어 한 단어 'banana' 로 검색하면") {
+                then("별칭 bananamilk·bananakick 의 앞부분이라 빙그레바나나맛우유 → 바나나킥 순으로 맨 위, 이름 짧은 일반 상품은 그 뒤") {
+                    seedBananaEnglishShelf()
+                    reportNos(search("banana").path("items")).take(3) shouldBe listOf("BM-1", "BK-1", "BL-1")
+                }
+            }
+            `when`("한국어 검색어이거나 4자 미만이면") {
+                then("앞부분 가중을 걸지 않아 지금과 같다") {
+                    featuredCatalog.boostedProducts("바나나", listOf("바나나"), latinPrefix = true) shouldBe featuredCatalog.boostedProducts("바나나", listOf("바나나"))
+                    featuredCatalog.boostedProducts("ban", listOf("ban"), latinPrefix = true) shouldBe emptyList()
+                }
+            }
+            `when`("이름 스캔 OCR 이 'banana' 이면") {
+                then("스캔 경로는 앞부분 가중을 쓰지 않아 올린 품목이 없다") {
+                    seedBananaEnglishShelf()
+                    val p = scan(member(94801L), "banana")
+                    boostedOf(p.path("analysisId").asText()) shouldBe emptyList()
+                }
+            }
+        }
 
         given("가공식품 이름 스캔 대표 상품 우선(KB-858)") {
             `when`("흘림 로고가 깨지고 '바나나맛'만 읽힌 OCR 을 스캔하면(10/22 실기)") {

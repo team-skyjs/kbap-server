@@ -49,7 +49,7 @@ class ProcessedFoodService(
         if (tokens.isEmpty()) return listPage(type, offset, size, lastMirror, memberId, filter)
         val nameTokens = (tokens + tokens.map(RamyeonSpelling::koreanTokenOf)).distinct()
         val candidates = candidatesFor(nameTokens, (tokens + ProcessedFoodSearchRanker.rawTokensOf(query.orEmpty())).distinct(), lastMirror, type)
-        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true).products
+        val ranked = featuredFirst(ProcessedFoodSearchRanker.scored(candidates, nameTokens, translated = candidateIndex.translatedNamesOf(candidates.map { it.id })).sortedWith(ProcessedFoodSearchRanker.ORDER), tokens.joinToString(" "), tokens, lastMirror, type, keepGroupMembers = true, latinPrefix = true).products
             .filter { type == null || ProcessedFoodType.of(it.foodType, it.normalizedName) == type }
             .groupBy(::groupKeyOf).values.map { group -> group.sortedWith(representativeOrder) }
         val rankedById = ranked.flatten().associateBy { it.id }
@@ -247,8 +247,9 @@ class ProcessedFoodService(
         type: ProcessedFoodType? = null,
         correctedBoost: CorrectedBoost? = null,
         keepGroupMembers: Boolean = false,
+        latinPrefix: Boolean = false,
     ): RankedCandidates {
-        val plain = featuredCatalog.boostedProducts(text, tokens)
+        val plain = featuredCatalog.boostedProducts(text, tokens, latinPrefix)
         val corrected = correctedBoost?.let { featuredCatalog.boostedProducts(it.text, it.tokens) }.orEmpty()
             .filterNot { boost -> plain.any { it.product == boost.product } }
         val featured = plain + corrected
