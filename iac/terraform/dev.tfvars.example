@@ -48,5 +48,5 @@ batch_extra_env = {
   PROCESSED_FOOD_MIRROR_ENABLED = "true"
   REVIEW_BOT_PHOTO_SYNC_ENABLED = "true"
 }
-# batch 는 모듈 기본 목록 + dev 전용 시크릿(SSM /kbap/dev/<NAME> 에 값이 있어야 태스크가 뜬다). api 는 기본 목록 그대로
-batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY"]
+# batch 는 모듈 기본 목록(OTLP 3종 포함) + dev 전용 시크릿(SSM /kbap/dev/<NAME> 에 값이 있어야 태스크가 뜬다). api 는 기본 목록 그대로
+batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]

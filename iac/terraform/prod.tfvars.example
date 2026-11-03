@@ -51,4 +51,4 @@ api_extra_env = {
 
 # 실행 중 batch 리비전에만 있던 값(2026-11-03) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다
 batch_extra_env    = { PROCESSED_FOOD_MIRROR_ENABLED = "true" }
-batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY"]
+batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
