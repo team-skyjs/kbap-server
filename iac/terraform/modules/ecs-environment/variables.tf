@@ -258,9 +258,9 @@ variable "vector_enabled" {
 }
 
 variable "api_max_count" {
-  description = "api 서비스 오토스케일링 최대 태스크 수"
+  description = "api 태스크 수 상한(서비스 오토스케일링). 인스턴스 1대·태스크 1,750 에선 2개가 되면 카나리 그린 태스크셋 자리가 없어 배포가 막히므로 1 로 고정(2026-11-03)"
   type        = number
-  default     = 4
+  default     = 1
 }
 
 variable "api_cpu_target_percent" {
