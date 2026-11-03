@@ -1,5 +1,8 @@
 package com.kbap.api.admin
 
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodComposeResult
+import java.time.OffsetDateTime
+import jakarta.validation.constraints.Size
 import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
 import com.kbap.api.reviewbot.ReviewBotRedistributeResult
@@ -108,6 +111,28 @@ interface AdminReviewBotApi {
     fun dedupeProcessedFoodPhotos(target: String, request: AdminReviewBotPhotoDedupeRequest): ResponseEntity<BaseResponse<ReviewBotPhotoDedupeResult>>
 
     @Operation(
+        summary = "지정 사진·작성일로 봇 가공식품 리뷰 1건 작성",
+        description = """
+            운영 데이터용 — 직접 찍은 사진(봇 사진 풀에 등록된 것)으로 가공식품 봇 리뷰 1건을 쓴다. 본문·맛 축은 일괄 작성과 같은 생성기가 만든다.
+            - imagePaths: 1~2장, `{prefix}/images/review-bot/<key>/<n>.webp` 로 images/sync 가 활성 봇 소유로 등록한 것만. 이미 다른 리뷰(봇·사람 모두)에 붙은 사진은 거절(400 REVIEW-003).
+            - createdAt: 생략하면 지금. 미래는 400 COMMON-002.
+            - botId: 생략하면 그 상품 묶음에 아직 리뷰를 안 쓴 봇 중 무작위. 지정한 봇이 이미 썼거나 봇이 아니면 400 COMMON-002.
+            - rating: 생략하면 생성기 규칙(1~5). 생성 실패·가드 거절이면 400 COMMON-002(payload reason=generation).
+            - `dryRun=true`(기본): 생성한 본문만 주고 저장하지 않는다. 실행은 리뷰 봇 분산 락을 잡는다(못 잡으면 409 REVIEW-007).
+            - `X-Target-Environment` 가 서버 환경과 다르면 409 REVIEW-006. prod 허용. **ADMIN 역할 JWT 전용**. 가공식품 리뷰 쓰기가 꺼진 환경은 403 PFOOD-005.
+        """,
+    )
+    @ApiResponses(
+        ApiResponse(responseCode = "200", description = "작성(또는 dryRun) 결과"),
+        ApiResponse(responseCode = "400", description = "사진·작성일·봇·별점 검증 실패(REVIEW-003·COMMON-002)"),
+        ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)·가공식품 리뷰 닫힘(PFOOD-005)"),
+        ApiResponse(responseCode = "404", description = "상품 없음(PFOOD-001)"),
+        ApiResponse(responseCode = "409", description = "환경 불일치(REVIEW-006)·리뷰 봇 작업 중(REVIEW-007)"),
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    fun composeProcessedFoodReview(target: String, request: AdminReviewBotComposeRequest): ResponseEntity<BaseResponse<ReviewBotProcessedFoodComposeResult>>
+
+    @Operation(
         summary = "봇 가공식품 리뷰 작성일 재분산(KB-966)",
         description = """
             봇 회원의 ACTIVE 가공식품 리뷰 작성일을 spreadDays 와 같은 규칙으로 다시 배정한다 — 상품별로 최근 days 일(KST, 오늘 포함) 안 하루 한 건·KST 08~23시·미래 없음, 리뷰 id 순서를 유지하며 updated_at 도 같은 값.
@@ -214,6 +239,25 @@ data class AdminReviewBotProcessedFoodRequest(
         nullable = true,
     )
     val spreadDays: Int? = null,
+)
+
+@Schema(description = "지정 사진·작성일 봇 가공식품 리뷰 1건 요청")
+data class AdminReviewBotComposeRequest(
+    @field:NotNull(message = "productId 는 필수입니다")
+    @field:Schema(description = "가공식품 id", example = "2408", requiredMode = Schema.RequiredMode.REQUIRED)
+    val productId: Long? = null,
+    @field:NotNull(message = "imagePaths 는 필수입니다")
+    @field:Size(min = 1, max = 2, message = "imagePaths 는 1~2장이어야 합니다")
+    @field:Schema(description = "봇 사진 풀에 등록된 사진 경로 1~2장", example = "[\"prod/images/review-bot/1fef5e4f88d6/1.webp\"]", requiredMode = Schema.RequiredMode.REQUIRED)
+    val imagePaths: List<String>? = null,
+    @field:Schema(description = "작성일(오프셋 포함 ISO-8601) — 생략하면 지금, 미래 금지", example = "2026-11-03T21:30:00+09:00", nullable = true)
+    val createdAt: OffsetDateTime? = null,
+    @field:Schema(description = "봇 회원 id — 생략하면 그 상품에 아직 안 쓴 봇 무작위", nullable = true)
+    val botId: Long? = null,
+    @field:Schema(description = "별점 1~5 — 생략하면 생성기 규칙", example = "5", nullable = true)
+    val rating: Int? = null,
+    @field:Schema(description = "true(기본)면 생성만", example = "true")
+    val dryRun: Boolean = true,
 )
 
 @Schema(description = "봇 가공식품 리뷰 작성일 재분산 요청(KB-966)")

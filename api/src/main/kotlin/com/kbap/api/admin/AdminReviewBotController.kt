@@ -6,6 +6,7 @@ import com.kbap.api.reviewbot.ReviewBotAccountService
 import com.kbap.api.reviewbot.ReviewBotPhotoService
 import com.kbap.api.reviewbot.ReviewBotPhotoInventory
 import com.kbap.api.reviewbot.ReviewBotPhotoDedupeResult
+import com.kbap.api.reviewbot.ReviewBotProcessedFoodComposeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodRunResult
 import com.kbap.api.reviewbot.ReviewBotRedistributeResult
 import com.kbap.api.reviewbot.ReviewBotProcessedFoodService
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.ZoneId
 
 @RestController
 @RequestMapping(ApiPaths.ADMIN + "/review-bots", version = "1.0+")
@@ -43,6 +45,25 @@ class AdminReviewBotController(
     ): ResponseEntity<BaseResponse<ReviewBotProcessedFoodRunResult>> =
         ResponseEntity.ok().header("Cache-Control", "no-store")
             .body(BaseResponse.ok(processedFoodBot.run(target, request.dryRun, request.limit, request.ids, request.topLines, request.seed, request.spreadDays)))
+
+    @PostMapping("/processed-foods/reviews/compose")
+    override fun composeProcessedFoodReview(
+        @RequestHeader("X-Target-Environment") target: String,
+        @Valid @RequestBody request: AdminReviewBotComposeRequest,
+    ): ResponseEntity<BaseResponse<ReviewBotProcessedFoodComposeResult>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(
+            BaseResponse.ok(
+                processedFoodBot.compose(
+                    target,
+                    request.productId!!,
+                    request.imagePaths!!,
+                    request.createdAt?.atZoneSameInstant(ZoneId.systemDefault())?.toLocalDateTime(),
+                    request.botId,
+                    request.rating,
+                    request.dryRun,
+                ),
+            ),
+        )
 
     @PostMapping("/processed-foods/reviews/redistribute")
     override fun redistributeProcessedFoodReviewDates(
