@@ -65,12 +65,20 @@ jobs:
           fi
           echo "uri=$REPO:$TAG" >> "$GITHUB_OUTPUT"
 
+      # arm64 이미지 — 사유는 deploy-dev.yml 의 같은 단계 주석
+      - name: Set up QEMU
+        if: steps.image.outputs.build == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.image.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push batch image
         if: steps.image.outputs.build == 'true'
         run: |
-          docker build --platform linux/amd64 -f Dockerfile.batch \
-            -t "${{ steps.image.outputs.uri }}" .
-          docker push "${{ steps.image.outputs.uri }}"
+          docker buildx build --platform linux/arm64 -f Dockerfile.batch \
+            -t "${{ steps.image.outputs.uri }}" --push .
 
       # 태스크정의 원본은 Terraform 소유 — 최신 리비전 복제 후 이미지만 교체(api 배포와 동일 패턴).
       - name: Register task definition and roll the service

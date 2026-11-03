@@ -30,7 +30,12 @@ variable "hosted_zone_name" {
 
 variable "instance_type" {
   type    = string
-  default = "t3.medium"
+  default = "t4g.medium"
+}
+
+variable "batch_instance_type" {
+  type    = string
+  default = "t4g.small"
 }
 
 variable "api_instance_count" {
@@ -126,19 +131,36 @@ variable "performance_artifact_retention_days" {
   default = 7
 }
 
-variable "canary_percentage" {
-  type    = number
-  default = 20
+variable "spot_instances" {
+  description = "컨테이너 인스턴스를 Spot 으로 (dev 전용)"
+  type        = bool
+  default     = false
 }
 
-variable "canary_interval_minutes" {
+variable "api_task_memory" {
   type    = number
-  default = 15
+  default = 3000
 }
 
-variable "blue_termination_wait_minutes" {
+variable "batch_task_memory" {
   type    = number
-  default = 15
+  default = 1200
+}
+
+variable "api_secret_names" {
+  description = "api 태스크에 주입할 SSM 시크릿 이름 — null 이면 모듈 기본 목록"
+  type        = list(string)
+  default     = null
+}
+
+variable "batch_secret_names" {
+  type    = list(string)
+  default = null
+}
+
+variable "batch_extra_env" {
+  type    = map(string)
+  default = {}
 }
 
 variable "admin_cidr" {

@@ -8,9 +8,10 @@ storage_key_prefix = "prod"
 # 콘텐츠 생성 요청 큐는 환경별(KB-547) — 생략하면 기본값(dev 공유 큐 kbap-generate-content-queue)으로 떨어져 prod 요청이 dev 로 샌다
 food_content_queue_name = "kbap-prod-generate-content-queue"
 
-# 비용 축소(2026-10-28): api 인스턴스·태스크 1 — 카나리 중에만 인스턴스당 2 태스크(512 cpu / 1536 MiB 유지 전제)
-api_instance_count = 1
-api_desired_count  = 1
+# arm64 온디맨드 — api 풀 t4g.medium 2대(인스턴스당 태스크 1, ECS 롤링 min 50%/max 100%) + batch 풀 t4g.small 1대. Spot 은 dev 만.
+# 2026-10-28 비용 축소로 api 1대였던 것을 arm64 전환(2026-11)과 함께 2대로 되돌린다.
+api_instance_count = 2
+api_desired_count  = 2
 
 # 2026-08-31 배치 가동 결정 — 구 kbap-prod-cluster 는 INACTIVE 라 이중 운영 사유 소멸. dev 배치는 0 이라 prod 배치가 유일
 batch_instance_count = 1
@@ -38,12 +39,16 @@ bastion_key_name = "kbap-prod"
 blocked_path_patterns = ["*actuator*", "*swagger*", "*api-docs*"]
 
 # Langfuse(관리자 페이지 LLM 지표 프록시용). 키는 SSM /kbap/<env>/LANGFUSE_PUBLIC_KEY · LANGFUSE_SECRET_KEY (SecureString), host 만 평문.
+# 앱 토글은 전부 여기 — 리비전에 손으로 넣으면 Terraform 이 태스크 정의를 다시 만들 때 사라진다.
 # ADS_REWARD_UNIT_IDS(KB-740): 보상형 광고 적립 API 가 받는 AdMob 보상형 단위 허용 목록(쉼표 구분, 비밀 아님 — 앱 바이너리에 들어가는 값).
 #   prod 실단위 scan_unlock_rewarded Android·iOS(spec admob-ids-2026-10-12.md). dev 는 넣지 않는다(yml 기본 = Google 데모 단위).
-#   2026-10-13 예진이 live taskdef 에 수동 등록한 값을 IaC 에 기록한다. api 태스크 정의는 ignore_changes = [container_definitions] 라
-#   일반 apply 로는 반영도 되돌림도 없다 — IaC 리비전에 넣으려면 apply -replace=module.ecs_environment.aws_ecs_task_definition.api(README 절차).
-#   그 전까지 live 값은 deploy-prod 가 직전 리비전을 복제해 유지한다(2026-10-27 기준 kbap-prod-ecs-api:13).
 api_extra_env = {
-  LANGFUSE_HOST       = "https://cloud.langfuse.com"
-  ADS_REWARD_UNIT_IDS = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
+  LANGFUSE_HOST                 = "https://cloud.langfuse.com"
+  ADS_REWARD_UNIT_IDS           = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
+  REVIEW_BOT_ENABLED            = "true"
+  REVIEW_BOT_PHOTO_SYNC_ENABLED = "true"
 }
+
+# 실행 중 batch 리비전에만 있던 값(2026-11-03) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다
+batch_extra_env    = { PROCESSED_FOOD_MIRROR_ENABLED = "true" }
+batch_secret_names = ["DB_PASSWORD", "OPENAI_API_KEY", "BATCH_SENTRY_DSN", "SLACK_STATS_WEBHOOK_URL", "DATA_GO_KR_SERVICE_KEY"]

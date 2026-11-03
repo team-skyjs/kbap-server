@@ -11,6 +11,7 @@ locals {
     AWS_REGION             = var.region
     FOOD_CONTENT_QUEUE_URL = data.aws_sqs_queue.food_content.url
     JAVA_TOOL_OPTIONS      = "-XX:MaxRAMPercentage=70"
+    SENTRY_RELEASE         = element(split(":", var.batch_image), 1)
   }, local.vector_env, var.batch_extra_env)
 }
 
@@ -22,6 +23,11 @@ resource "aws_ecs_task_definition" "batch" {
   memory                   = var.batch_task_memory
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.batch_task.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
 
   container_definitions = jsonencode([
     {

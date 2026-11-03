@@ -47,7 +47,7 @@ resource "aws_ecs_task_definition" "alloy" {
       name      = local.alloy_container_name
       image     = var.alloy_image
       essential = true
-      # 카나리 중 api 1536 × 2 와 공존해야 하므로 예약은 작게, 상한은 WAL 스파이크 대비
+      # api 태스크가 인스턴스 메모리를 거의 다 쓰므로 예약은 작게(배치 계산에서 이만큼 빠진다), 상한은 WAL 스파이크 대비
       memoryReservation = 128
       # docker.sock(root:docker 660) 을 읽어야 한다 — 이미지 기본 사용자(alloy)로는 불가
       user = "0"
