@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class AdminFoodContentReviewService(
     private val foodRepository: FoodJpaRepository,
     private val vectorOutboxRepository: FoodVectorOutboxJpaRepository,
+    private val adminFoodService: AdminFoodService,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
@@ -40,6 +41,11 @@ class AdminFoodContentReviewService(
             }
         } else {
             food.reject(reason)
+            if (food.contentReviewAttempts <= MAX_AUTO_REGENERATIONS &&
+                adminFoodService.recollectLockedFood(food, food.contentReviewRejectionReason) == AdminFoodService.RecollectOutcome.REGENERATING
+            ) {
+                throw BusinessException(ErrorCode.FOOD_CONTENT_AND_IMAGE_JOBS_CONFLICT)
+            }
         }
         return AdminFoodContentReviewResultResponse.from(food)
     }
@@ -48,5 +54,7 @@ class AdminFoodContentReviewService(
         const val DEFAULT_CONTENT_REVIEW_TARGETS = 50
 
         const val MAX_CONTENT_REVIEW_TARGETS = 200
+
+        const val MAX_AUTO_REGENERATIONS = 2
     }
 }

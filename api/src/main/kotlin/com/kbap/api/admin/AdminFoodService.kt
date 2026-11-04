@@ -304,17 +304,21 @@ class AdminFoodService(
 
     private fun recollectUnderFoodLock(id: Long): RecollectOutcome {
         val food = foodRepository.findByIdForUpdate(id) ?: return RecollectOutcome.NOT_FOUND
+        return recollectLockedFood(food, rejectionReason = null)
+    }
+
+    fun recollectLockedFood(food: Food, rejectionReason: String?): RecollectOutcome {
         if (outboxRepository.findInFlightRequest(food.id)?.outboxStatus == FoodContentOutboxStatus.PENDING) {
             return RecollectOutcome.ALREADY_PENDING
         }
         if (imageBatchItemRepository.findFoodIdsInRegeneration(listOf(food.id)).isNotEmpty()) {
             return RecollectOutcome.REGENERATING
         }
-        outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName))
+        outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName, rejectionReason))
         return RecollectOutcome.CREATED
     }
 
-    private enum class RecollectOutcome { NOT_FOUND, ALREADY_PENDING, REGENERATING, CREATED }
+    enum class RecollectOutcome { NOT_FOUND, ALREADY_PENDING, REGENERATING, CREATED }
 
     private fun countRecollectTargets(keyword: String?, status: FoodContentStatus?): Long = when {
         keyword == null && status == null -> foodRepository.count()
