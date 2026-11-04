@@ -24,7 +24,7 @@ class FoodImage(
     var isPrimary: Boolean = false,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "source", nullable = false, columnDefinition = "ENUM('GENERATED')")
+    @Column(name = "source", nullable = false, columnDefinition = "ENUM('GENERATED','UPLOADED')")
     var source: FoodImageSource = FoodImageSource.GENERATED,
 
     @Column(name = "sort_order", nullable = false)
