@@ -1,5 +1,8 @@
 package com.kbap.api.admin
 
+import com.kbap.api.scanlog.ScanMode
+import com.kbap.api.scanlog.ScanOutcome
+import com.kbap.api.scanlog.ScanUiKind
 import com.kbap.common.port.llm.ProcessedFoodPhotoKind
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
@@ -14,6 +17,8 @@ data class AdminScanPhotoFeed(
 
 @Schema(description = "스캔 사진 한 장 — 스캔 업로드 기록(uploaded_image) 한 행당 1건")
 data class AdminScanPhotoFeedItem(
+    @field:Schema(description = "업로드 기록 id — 스캔 결과 상세(GET /api/admin/scan-photos/{uploadedImageId}/scan-results)의 경로 값")
+    val uploadedImageId: Long,
     @field:Schema(description = "사진 URL", nullable = true)
     val imageUrl: String?,
     val createdAt: LocalDateTime,
@@ -37,6 +42,10 @@ data class AdminScanPhotoFeedItem(
     val processedFoodName: String?,
     @field:Schema(description = "사진 스캔(scan/vision)이 판별한 종류 — MENU·PACKAGE_FRONT·INGREDIENT_LABEL·OTHER. 사진 스캔을 거치지 않은 사진은 null", nullable = true)
     val visionKind: ProcessedFoodPhotoKind? = null,
+    @field:Schema(description = "이 사진의 최신 스캔 결과 기록(KB-983) — SUCCESS·EMPTY·RETAKE·ERROR. 기록 이전 사진·기록 없는 사진은 null", nullable = true)
+    val scanOutcome: ScanOutcome? = null,
+    @field:Schema(description = "최신 기록 기준 앱이 띄운 화면 종류 — MENU_LIST·EMPTY·PFOOD_CANDIDATES·PFOOD_NO_CANDIDATE·LABEL_RESULT·NOT_PACKAGED·RETAKE·ERROR", nullable = true)
+    val uiKind: ScanUiKind? = null,
 )
 
 enum class ScanPhotoKind { ORDER, BATCH, SCAN_ONLY }
@@ -49,3 +58,34 @@ enum class ScanPhotoTypeFilter(val includeMenu: Boolean, val includePackaged: Bo
     MENU(true, false),
     PACKAGED(false, true),
 }
+
+@Schema(description = "사진 한 장의 스캔 결과 기록 전체 — 최신순(최대 50건)")
+data class AdminScanResults(
+    val records: List<AdminScanResultRecord>,
+)
+
+@Schema(description = "스캔 요청 1건의 결과 기록(scan_result_log 한 행)")
+data class AdminScanResultRecord(
+    val id: Long,
+    val memberId: Long,
+    @field:Schema(description = "MENU_V1(/api/scans 무버전)·MENU_V2(/api/scans 2.0+)·PFOOD_NAME·PFOOD_LABEL·PFOOD_VISION")
+    val scanMode: ScanMode,
+    val outcome: ScanOutcome,
+    @field:Schema(description = "실패 응답의 에러 코드(예: SCAN-003). 비즈니스 예외가 아닌 실패는 예외 클래스 이름", nullable = true)
+    val errorCode: String?,
+    val uiKind: ScanUiKind,
+    @field:Schema(description = "사진 스캔(PFOOD_VISION)이 판별한 종류", nullable = true)
+    val visionKind: String?,
+    @field:Schema(description = "X-App-Version 헤더", nullable = true)
+    val appVersion: String?,
+    @field:Schema(description = "X-API-Version 헤더", nullable = true)
+    val apiVersion: String?,
+    @field:Schema(
+        description = "응답 요약. 메뉴판: degraded·items/photoOnly(name·matched·foodId·riskLevel·substituted — matched=false·foodId null = DB 에 준비된 음식이 없는 메뉴)·itemCount/photoOnlyCount. " +
+            "이름 스캔: state·candidates(id·reportNo·productName). 성분표: state·labelSource·verdict·detections·unmapped. 사진 스캔: kind·confidence·reason·state·front·label. " +
+            "16,000자를 넘으면 목록을 빼고 truncated=true 를 단다. 실패 기록은 null",
+        nullable = true,
+    )
+    val responseSummary: Map<String, Any?>?,
+    val createdAt: LocalDateTime,
+)

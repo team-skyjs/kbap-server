@@ -4,6 +4,9 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.scanlog.ScanMode
+import com.kbap.api.scanlog.ScanResultRecorder
+import com.kbap.api.scanlog.ScanResultSummaries
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
@@ -22,6 +25,7 @@ class ProcessedFoodNameScanController(
     private val labelScanService: ProcessedFoodLabelScanService,
     private val translationService: ProcessedFoodTranslationService,
     private val visionScanService: ProcessedFoodVisionScanService,
+    private val scanResultRecorder: ScanResultRecorder,
 ) : ProcessedFoodNameScanApi {
     @PostMapping("/vision", version = ApiVersions.PROCESSED_FOOD + "+")
     override fun scanVision(
@@ -30,12 +34,14 @@ class ProcessedFoodNameScanController(
     ): ResponseEntity<BaseResponse<ProcessedFoodVisionScanResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                visionScanService.scanVision(
-                    memberId,
-                    request.imagePath!!.trim().trimStart('/'),
-                    uuidOrInvalid(request.clientRequestId),
-                    LanguageCode.from(request.lang ?: "en"),
-                ),
+                scanResultRecorder.record(memberId, ScanMode.PFOOD_VISION, request.imagePath, ScanResultSummaries::vision) {
+                    visionScanService.scanVision(
+                        memberId,
+                        request.imagePath!!.trim().trimStart('/'),
+                        uuidOrInvalid(request.clientRequestId),
+                        LanguageCode.from(request.lang ?: "en"),
+                    )
+                },
             ),
         )
 
@@ -46,13 +52,15 @@ class ProcessedFoodNameScanController(
     ): ResponseEntity<BaseResponse<ProcessedFoodLabelScanResponse>> =
         ResponseEntity.ok(
             BaseResponse.ok(
-                labelScanService.scanLabel(
-                    memberId,
-                    request.analysisId,
-                    if (request.analysisId == null) uuidOrInvalid(request.clientRequestId) else null,
-                    request.pages!!.map { it.ocrText!! },
-                    LanguageCode.from(request.lang ?: "en").code,
-                ),
+                scanResultRecorder.record(memberId, ScanMode.PFOOD_LABEL, null, ScanResultSummaries::label) {
+                    labelScanService.scanLabel(
+                        memberId,
+                        request.analysisId,
+                        if (request.analysisId == null) uuidOrInvalid(request.clientRequestId) else null,
+                        request.pages!!.map { it.ocrText!! },
+                        LanguageCode.from(request.lang ?: "en").code,
+                    )
+                },
             ),
         )
 
@@ -62,12 +70,12 @@ class ProcessedFoodNameScanController(
         @Valid @RequestBody request: ProcessedFoodNameScanRequest,
     ): ResponseEntity<BaseResponse<ProcessedFoodNameScanResponse>> {
         val language = LanguageCode.from(request.lang.orEmpty())
+        val imagePath = request.imagePath?.trim()?.trimStart('/')?.takeIf { it.isNotEmpty() }
+        val scanned = scanResultRecorder.record(memberId, ScanMode.PFOOD_NAME, imagePath, ScanResultSummaries::nameScan) {
+            nameScanService.scanName(memberId, request.ocrText.orEmpty(), language.code, imagePath)
+        }
         return ResponseEntity.ok(
-            BaseResponse.ok(
-                nameScanService.scanName(memberId, request.ocrText.orEmpty(), language.code, request.imagePath?.trim()?.trimStart('/')?.takeIf { it.isNotEmpty() }).let {
-                    it.copy(candidates = translationService.localizeSummaries(it.candidates, language))
-                },
-            ),
+            BaseResponse.ok(scanned.copy(candidates = translationService.localizeSummaries(scanned.candidates, language))),
         )
     }
 
