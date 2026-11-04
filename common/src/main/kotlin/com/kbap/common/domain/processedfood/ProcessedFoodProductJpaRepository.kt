@@ -19,6 +19,16 @@ interface ProcessedFoodProductJpaRepository : JpaRepository<ProcessedFoodProduct
 
     fun findByReportNo(reportNo: String): ProcessedFoodProduct?
 
+    @Query(nativeQuery = true, value = "SELECT report_no FROM processed_food_product WHERE report_no IN (:reportNos) AND status = 'DELETED'")
+    fun findDeletedReportNos(@Param("reportNos") reportNos: Collection<String>): List<String>
+
+    @Query(nativeQuery = true, value = "SELECT status FROM processed_food_product WHERE id = :id FOR UPDATE")
+    fun findStatusForUpdateById(@Param("id") id: Long): String?
+
+    @Modifying(flushAutomatically = true)
+    @Query(nativeQuery = true, value = "UPDATE processed_food_product SET status = :status, updated_at = NOW(6) WHERE id = :id")
+    fun updateStatus(@Param("id") id: Long, @Param("status") status: String): Int
+
     fun findAllByNormalizedNameIn(normalizedNames: Collection<String>): List<ProcessedFoodProduct>
 
     @Query(nativeQuery = true, value = "SELECT MAX(report_no) FROM processed_food_product WHERE report_no BETWEEN 'M000000' AND 'M999999'")

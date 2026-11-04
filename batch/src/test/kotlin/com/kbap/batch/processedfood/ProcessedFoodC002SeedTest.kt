@@ -128,5 +128,19 @@ class ProcessedFoodC002SeedTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("어드민이 숨긴(DELETED) 상품 — S-958") {
+            `when`("C002 적재 목록에 같은 품목보고번호가 있으면") {
+                then("새로 넣지 않고 건너뛰며 숨김 상태도 그대로이고, 다른 행은 적재된다") {
+                    seed(listOf(angry)).seed()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE processed_food_product SET status = 'DELETED' WHERE report_no = '${angry.reportNo}'") } }
+
+                    seed(listOf(angry, yeomyung)).seed()
+
+                    rows("SELECT status FROM processed_food_product WHERE report_no = '${angry.reportNo}'") shouldBe listOf(listOf("DELETED"))
+                    rows("SELECT status FROM processed_food_product WHERE report_no = '${yeomyung.reportNo}'") shouldBe listOf(listOf("ACTIVE"))
+                }
+            }
+        }
     }
 }
