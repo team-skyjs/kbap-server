@@ -383,6 +383,7 @@ class ProcessedFoodService(
                 .sortedWith(compareBy<ProcessedFoodImage>({ it.processedFoodId != product.id }, { it.processedFoodId }, { it.sortOrder }, { it.id })),
             imageOwnerOf(product, group),
             (group.ifEmpty { listOf(product) }).map { it.capacity to it.kcalTotal }.distinct().singleOrNull()?.second,
+            product.recipe() ?: group.sortedWith(compareBy<ProcessedFoodProduct>({ it.normalizedName.length }, { it.id })).firstNotNullOfOrNull { it.recipe() },
         )
     }
 

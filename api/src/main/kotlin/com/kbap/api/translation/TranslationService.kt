@@ -65,7 +65,7 @@ class TranslationService(
         when (targetType) {
             TranslationTargetType.REVIEW -> reviewService.getVisibleReview(viewerMemberId, targetId).content.orEmpty()
             TranslationTargetType.PF_NAME, TranslationTargetType.PF_MAKER, TranslationTargetType.PF_INGREDIENTS, TranslationTargetType.PF_ALLERGENS, TranslationTargetType.PF_FOOD_TYPE,
-            TranslationTargetType.PF_NAME_PINNED, TranslationTargetType.PF_MAKER_PINNED ->
+            TranslationTargetType.PF_NAME_PINNED, TranslationTargetType.PF_MAKER_PINNED, TranslationTargetType.PF_RECIPE_STEP, TranslationTargetType.PF_RECIPE_CAUTION ->
                 throw BusinessException(ErrorCode.INVALID_REQUEST)
         }
 
