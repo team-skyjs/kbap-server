@@ -3,15 +3,21 @@ package com.kbap.api.processedfood
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 
 object ProcessedFoodGrouping {
-    private val SIZE_SUFFIXES = listOf("큰사발면", "사발면", "큰사발", "미니컵", "큰컵", "왕컵", "소컵", "멀티팩", "파우치", "봉지", "번들", "점보", "cup", "컵", "팩")
+    private val SIZE_SUFFIXES = listOf("업소용", "큰사발면", "사발면", "큰사발", "미니컵", "큰컵", "왕컵", "소컵", "멀티팩", "파우치", "봉지", "번들", "점보", "cup", "컵", "팩")
     private val QUANTITY_SUFFIX = Regex("(?i)(\\d+(\\.\\d+)?(kg|g|ml|mℓ|㎖|l|ℓ)|\\d+(개입|입|개|봉|팩)|[x*×]\\d+)$")
     private val GENERIC_NAMES = setOf("라면", "우동", "짜장", "짬뽕", "카레", "국수", "냉면", "면", "밥", "죽", "국", "탕", "김치", "만두", "떡볶이")
     private const val MIN_NAME_LENGTH = 2
 
     fun keyOf(normalizedName: String, displayMaker: String?, ignoreSize: Boolean = true): String {
         val maker = makerKeyOf(displayMaker)
-        val name = normalizedName.removePrefix(maker).ifEmpty { normalizedName }
+        val name = withoutBrand(normalizedName, maker)
         return (if (ignoreSize) withoutSize(name) else name) + "|" + maker
+    }
+
+    fun withoutBrand(name: String, makerKey: String): String {
+        val shared = name.commonPrefixWith(makerKey, ignoreCase = true)
+        val rest = name.substring(shared.length)
+        return rest.takeIf { shared.codePointCount(0, shared.length) >= MIN_NAME_LENGTH && it.isNotEmpty() } ?: name
     }
 
     fun makerKeyOf(displayMaker: String?): String = displayMaker?.let(ProcessedFoodSnapshot::normalizeName).orEmpty()

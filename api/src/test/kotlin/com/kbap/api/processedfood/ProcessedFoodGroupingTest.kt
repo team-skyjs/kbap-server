@@ -39,4 +39,38 @@ class ProcessedFoodGroupingTest : BehaviorSpec({
             }
         }
     }
+    given("브랜드 접두·업소용만 다른 가공식품 묶음(S-954, 운영 진라면 8건)") {
+        val ottogi = "오뚜기라면"
+        `when`("이름 앞부분이 제조사 이름과 2자 이상 겹치면") {
+            then("그 접두를 떼고 같은 맛끼리 묶는다 — 제조사 오뚜기라면의 '오뚜기진라면' = '진라면'") {
+                key("오뚜기 진라면 순한맛", ottogi) shouldBe key("진라면(순한맛)", ottogi)
+                key("오뚜기진라면매운맛", ottogi) shouldBe key("진라면(매운맛)", ottogi)
+                key("농심신라면", "농심") shouldBe key("신라면", "농심")
+            }
+        }
+        `when`("이름 끝이 업소용이면") {
+            then("용량 낱말처럼 떼고 묶는다") {
+                key("진라면 매운맛 업소용", ottogi) shouldBe key("진라면(매운맛)", ottogi)
+            }
+        }
+        `when`("Cup·Plus 처럼 이름 가운데 낱말이 다르면") {
+            then("다른 상품으로 남긴다 — 컵라면(65g)·Plus 는 포장 단위가 아니라 다른 제품") {
+                key("진라면Cup매운맛", ottogi) shouldNotBe key("진라면(매운맛)", ottogi)
+                key("진라면Plus순한맛", ottogi) shouldNotBe key("진라면(순한맛)", ottogi)
+                key("진라면(매운맛)", ottogi) shouldNotBe key("진라면(순한맛)", ottogi)
+            }
+        }
+        `when`("겹치는 앞부분이 1자뿐이거나 이름 전체면") {
+            then("떼지 않는다") {
+                key("오징어짬뽕", "오뚜기") shouldNotBe key("징어짬뽕", "오뚜기")
+                key("오뚜기", "오뚜기") shouldNotBe key("", "오뚜기")
+            }
+        }
+        `when`("제조사 표기가 공백·회사 형태만 다르면") {
+            then("제조사 키가 같아 한 묶음이다 — (주)팔도 / (주) 팔도") {
+                fun maker(raw: String) = com.kbap.common.domain.processedfood.model.ProcessedFoodProduct.displayMakerOf(raw, null, null)
+                key("팔도비빔면매운맛", maker("(주)팔도")!!) shouldBe key("팔도비빔면매운맛", maker("(주) 팔도")!!)
+            }
+        }
+    }
 })
