@@ -7,7 +7,7 @@ dev·prod 를 **같은 모듈(`modules/ecs-environment`) + 환경별 tfvars** �
 | 항목 | 값 |
 |---|---|
 | 컨테이너 인스턴스 | **arm64 Graviton** — api 풀 t4g.medium **1대**(dev 는 Spot `spot_instances`, prod 온디맨드, 상한 1대 고정 `api_instance_max_count`), prod batch 풀 t4g.small 1대(`batch_instance_type`), dev 배치 없음. 2026-11-03 비용 고정 결정 — 인스턴스 장애·Spot 회수 땐 ASG 가 새로 띄울 때까지 몇 분 다운. ECS 인스턴스 속성 `workload=api|batch` 로 배치 분리 |
-| api 태스크 | bridge 모드·동적 호스트 포트, CPU 상한 없음 / **1,750 MiB**(카나리 중 구·신 2개가 한 인스턴스에 공존 — 3,579 ÷ 2), desired 1, `runtime_platform ARM64`, `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=60`(힙 1,050 + 비힙 ≈600 — 70% 면 OOM-kill) |
+| api 태스크 | bridge 모드·동적 호스트 포트, CPU 상한 없음 / **1,750 MiB**(카나리 중 구·신 2개가 한 인스턴스에 공존 — 3,579 ÷ 2), desired 1, `runtime_platform ARM64`, `JAVA_TOOL_OPTIONS=-Xmx1100m -XX:MaxDirectMemorySize=64m -XX:ReservedCodeCacheSize=96m`·`MALLOC_ARENA_MAX=2` — 태스크 단위 memory 만 있어 `MaxRAMPercentage` 는 호스트(4 GB) 기준으로 계산돼 힙 상한이 1,918 MB 였다(+ 비힙 ≈290 MB 로 1,750 MiB 초과 → 2026-11-04 prod OOM exit 137 두 번). 힙을 1,100 MB 로 고정한다(td `:34`) |
 | batch 태스크 | 단일 태스크, 잡 트리거 HTTP 는 배치 인스턴스 8080 고정(클러스터 내부만) |
 | 배포 | **CodeDeploy 블루/그린 카나리** — 20% 트래픽 15분 → 100% → 구버전 15분 유지 후 종료. 5xx 알람 시 자동 롤백. 2026-11-01~03 사흘간 ECS 롤링이었다가 1대 구성과 함께 복귀 |
 | 진입 | ALB(80→443 리다이렉트, `*.kbap.site` ACM) + Route53 alias `<subdomain>.kbap.site` |

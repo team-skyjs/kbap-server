@@ -138,13 +138,15 @@ variable "spot_instances" {
 }
 
 variable "api_task_memory" {
-  type    = number
-  default = 1750
+  description = "api 태스크 하드 메모리(MiB). 바꾸면 Xmx도 같이 — modules/ecs-environment/api.tf JAVA_TOOL_OPTIONS -Xmx"
+  type        = number
+  default     = 1750
 }
 
 variable "batch_task_memory" {
-  type    = number
-  default = 1200
+  description = "batch 태스크 하드 메모리(MiB). 바꾸면 Xmx도 같이 — modules/ecs-environment/batch.tf JAVA_TOOL_OPTIONS -Xmx"
+  type        = number
+  default     = 1200
 }
 
 variable "api_secret_names" {

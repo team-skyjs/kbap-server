@@ -4,6 +4,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.BaseResponse
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -22,4 +23,10 @@ class AdminScanPhotoController(
         @RequestParam(defaultValue = "ALL") type: ScanPhotoTypeFilter,
     ): ResponseEntity<BaseResponse<AdminScanPhotoFeed>> =
         ResponseEntity.ok(BaseResponse.ok(feedService.getScanPhotoFeed(isBot, memberId, excludeMemberIds.orEmpty(), cursor, type)))
+
+    @GetMapping("/{uploadedImageId}/scan-results")
+    override fun getScanResults(
+        @PathVariable uploadedImageId: Long,
+    ): ResponseEntity<BaseResponse<AdminScanResults?>> =
+        ResponseEntity.ok(BaseResponse.ok(feedService.getScanResultsOrNull(uploadedImageId)))
 }

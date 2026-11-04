@@ -6,6 +6,7 @@ import com.kbap.common.core.error.ErrorCode
 object ApiHeaders {
     const val API_VERSION = "X-API-Version"
     const val INSTALLATION_ID = "X-Installation-Id"
+    const val APP_VERSION = "X-App-Version"
 
     private const val INSTALLATION_ID_MAX_LENGTH = 36
 

@@ -26,7 +26,7 @@ redis_host              = "kbap-prod-redis-0001-001.kbap-prod-redis.fu1mox.apn2.
 rds_security_group_id   = "sg-0ae5dcd7bd3580cb3"
 redis_security_group_id = "sg-0fd902271294eb663"
 
-api_execute_command_enabled          = false
+api_execute_command_enabled         = false
 performance_artifact_retention_days = 7
 
 admin_cidr       = "<your-public-ip>/32"
@@ -42,11 +42,13 @@ blocked_path_patterns = ["*actuator*", "*swagger*", "*api-docs*"]
 # 앱 토글은 전부 여기 — 리비전에 손으로 넣으면 Terraform 이 태스크 정의를 다시 만들 때 사라진다.
 # ADS_REWARD_UNIT_IDS(KB-740): 보상형 광고 적립 API 가 받는 AdMob 보상형 단위 허용 목록(쉼표 구분, 비밀 아님 — 앱 바이너리에 들어가는 값).
 #   prod 실단위 scan_unlock_rewarded Android·iOS(spec admob-ids-2026-10-12.md). dev 는 넣지 않는다(yml 기본 = Google 데모 단위).
+# PROCESSED_FOOD_REVIEW_WRITE_ENABLED: 실행 중 api 리비전(:34)에만 있던 값(2026-11-04 대조) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다.
 api_extra_env = {
-  LANGFUSE_HOST                 = "https://cloud.langfuse.com"
-  ADS_REWARD_UNIT_IDS           = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
-  REVIEW_BOT_ENABLED            = "true"
-  REVIEW_BOT_PHOTO_SYNC_ENABLED = "true"
+  LANGFUSE_HOST                       = "https://cloud.langfuse.com"
+  ADS_REWARD_UNIT_IDS                 = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
+  REVIEW_BOT_ENABLED                  = "true"
+  REVIEW_BOT_PHOTO_SYNC_ENABLED       = "true"
+  PROCESSED_FOOD_REVIEW_WRITE_ENABLED = "true"
 }
 
 # 실행 중 batch 리비전에만 있던 값(2026-11-03) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다

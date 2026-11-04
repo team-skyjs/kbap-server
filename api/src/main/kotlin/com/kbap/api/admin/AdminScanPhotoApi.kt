@@ -28,4 +28,20 @@ interface AdminScanPhotoApi {
         @Parameter(description = "이전 응답의 nextCursor") cursor: String?,
         @Parameter(description = "ALL(기본)·MENU·PACKAGED — 그 외 값은 400") type: ScanPhotoTypeFilter,
     ): ResponseEntity<BaseResponse<AdminScanPhotoFeed>>
+
+    @Operation(
+        summary = "스캔 사진 한 장의 스캔 결과 기록",
+        description = """
+            업로드 기록 id(피드 항목의 uploadedImageId)로 그 사진의 스캔 결과 기록(scan_result_log, KB-983)을 스캔 완료 시각(scannedAt) 최신순으로 최대 50건 준다. 적재가 비동기라 id 순서는 스캔 순서와 다를 수 있다.
+            - 한 사진이 여러 번 스캔될 수 있다 — 예: 사진 스캔(PFOOD_VISION)이 메뉴판으로 판별해 앱이 같은 사진으로 메뉴판 스캔(MENU_V2)을 이어 부르면 2건이다. 피드의 scanOutcome·uiKind 는 이 중 최신 1건이다.
+            - outcome: SUCCESS(결과를 보여 줌)·EMPTY(결과 0건 — 메뉴 없음·후보 없음)·RETAKE(다시 찍기 — SCAN-003·PFOOD-006·사진 스캔 OTHER)·ERROR(그 밖의 실패, errorCode 에 코드).
+            - uiKind 는 응답으로 유도한 화면 종류다. 메뉴판: 결과 1건↑ MENU_LIST, 0건 EMPTY. 이름 스캔·사진 스캔 앞면: 후보 있으면 PFOOD_CANDIDATES, 없으면 PFOOD_NO_CANDIDATE. 성분표: LABEL_RESULT. 사진 스캔 MENU: NOT_PACKAGED(앱이 메뉴판 스캔으로 넘김).
+            - responseSummary 의 메뉴판 항목 중 matched=false·foodId null 인 메뉴가 DB 에 준비된(READY) 음식이 없는 메뉴다(서버가 만든 대기 음식 id 는 남기지 않는다). items 는 OCR 좌표와 맞은 결과(v1), photoOnly 는 사진에서만 나온 결과(v2 는 전부 photoOnly)다.
+            - 기록은 KB-983 배포 이후 스캔부터 남는다. 기록이 없거나 없는 id 면 payload 는 null 이다.
+            - **ADMIN 역할 JWT 전용** — USER 토큰은 403(AUTH-008).
+        """,
+    )
+    fun getScanResults(
+        @Parameter(description = "업로드 기록 id — 피드 항목의 uploadedImageId") uploadedImageId: Long,
+    ): ResponseEntity<BaseResponse<AdminScanResults?>>
 }

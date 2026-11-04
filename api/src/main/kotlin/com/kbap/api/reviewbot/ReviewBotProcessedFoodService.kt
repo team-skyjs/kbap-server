@@ -219,7 +219,7 @@ class ReviewBotProcessedFoodService(
             avoidSimilarTo = earlier,
         )
         repeat(MAX_ATTEMPTS) { attempt ->
-            val request = if (attempt == 0) base else base.copy(style = ReviewBotStyles.pick(random), sentences = ReviewBotStyles.sentences(random))
+            val request = if (attempt == 0) base else base.copy(style = ReviewBotStyles.pick(random, base.style), sentences = ReviewBotStyles.sentences(random))
             val draft = runCatching { generator.generateProcessedFood(request) }
                 .onFailure { log.warn("가공식품 리뷰 봇 생성 실패 productId={} attempt={}", product.id, attempt + 1, it) }
                 .getOrNull()
