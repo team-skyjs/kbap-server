@@ -111,6 +111,9 @@ class ProcessedFoodProduct(
     var cutoutReviewReason: String? = null
         protected set
 
+    @Column(name = "kcal_total")
+    var kcalTotal: Int? = null
+
     fun hasApprovedCutout(): Boolean = cutoutImageUrl != null && cutoutReviewStatus == CutoutReviewStatus.APPROVED
 
     fun displayImageUrl(): String? =

@@ -71,4 +71,7 @@ data class AdminProcessedFoodManualRequest(
     val allergens: String? = null,
     @field:Schema(description = "영양 정보 문구(선택)", nullable = true)
     val nutrients: String? = null,
+    @field:jakarta.validation.constraints.Min(value = 0, message = "kcalTotal 은 0 이상이어야 합니다")
+    @field:Schema(description = "포장 전체 칼로리(kcal, 선택) — 정정에서 빼면 지워진다(S-957)", example = "520", nullable = true)
+    val kcalTotal: Int? = null,
 )

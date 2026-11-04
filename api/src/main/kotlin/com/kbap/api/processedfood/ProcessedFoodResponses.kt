@@ -191,6 +191,8 @@ data class ProcessedFoodDetailResponse(
     val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
     @field:Schema(description = "상세 사진(KB-965) — 맨 앞은 image.url 과 같은 대표 사진(검수 승인된 누끼면 CUTOUT, 아니면 HACCP 원본 FRONT), 그 뒤는 관리자가 올린 추가 사진을 정한 순서대로. 추가 사진이 없으면 image.url 한 장, 사진이 전혀 없으면 빈 배열. 2장 이상이면 캐러셀")
     val images: List<ProcessedFoodGalleryImageResponse> = emptyList(),
+    @field:Schema(description = "포장 전체 칼로리(kcal, S-957) — 사람이 넣은 값만. 없거나, 같은 묶음 안 상품의 (용량, kcal) 이 둘 이상으로 갈리면 null", example = "520", nullable = true)
+    val kcal: Int? = null,
 ) {
     companion object {
         fun of(
@@ -200,6 +202,7 @@ data class ProcessedFoodDetailResponse(
             sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
             gallery: List<ProcessedFoodImage> = emptyList(),
             imageOwner: ProcessedFoodProduct = product,
+            kcal: Int? = product.kcalTotal,
         ): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
@@ -233,6 +236,7 @@ data class ProcessedFoodDetailResponse(
                 sameNameProducts = sameNameProducts,
                 foodTypeLocalized = product.foodType?.let { ProcessedFoodLocalizedText(it, it) },
                 images = imagesOf(imageOwner, gallery),
+                kcal = kcal,
             )
         }
 
