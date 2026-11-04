@@ -92,7 +92,7 @@ class MenuNameEstimateTest : BehaviorSpec() {
         given("메뉴판 스캔 v2 — DB 에 없는 메뉴의 LLM 추정(S-959)") {
             `when`("매칭·대체가 안 된 메뉴가 있으면") {
                 then("응답에 scanId·pendingId 가 붙고, pending 이 완료된 항목을 원래 순서로 준다") {
-                    seedMember(95901)
+                    seedMember(95901, avoid = listOf("BEEF"))
                     vision.program("scans/mne-1.jpg", listOf(ExtractedMenu("Galbitang", "추정갈비탕", 15000, null), ExtractedMenu("Store", "추정식당", null, null)))
                     estimator.answer = { names -> names.map { if (it == "추정식당") estimation(it, MenuNameKind.NOT_FOOD) else estimation(it, MenuNameKind.DISH, listOf(IngredientCode.BEEF), 1) } }
 
@@ -332,6 +332,33 @@ class MenuNameEstimateTest : BehaviorSpec() {
                     estimator.answer = { names -> names.map { estimation(it, MenuNameKind.DISH, listOf(IngredientCode.SHRIMP)) } }
 
                     pollUntilDone(95915, scan(95915, "scans/mne-15.jpg").path("scanId").asText()).path("items").single().path("riskLevel").asText() shouldBe "CAUTION"
+                }
+            }
+
+            `when`("추정 재료가 회원 기피와 겹치지 않으면 — QA(SHRIMP 회원·올갱이국 MOLLUSK)") {
+                then("avoidances 는 빈 배열·riskLevel UNKNOWN 이고, 캐시에는 추정 코드 전체가 남는다") {
+                    seedMember(95917, avoid = listOf("SHRIMP"))
+                    vision.program("scans/mne-17.jpg", listOf(ExtractedMenu("Olgaengi", "추정올갱이국", null, null)))
+                    estimator.answer = { names -> names.map { estimation(it, MenuNameKind.DISH, listOf(IngredientCode.MOLLUSK)) } }
+
+                    pollUntilDone(95917, scan(95917, "scans/mne-17.jpg").path("scanId").asText()).path("items").single().let {
+                        it.path("avoidances").map { c -> c.asText() } shouldBe emptyList()
+                        it.path("riskLevel").asText() shouldBe "UNKNOWN"
+                    }
+                    longOf("SELECT COUNT(*) FROM menu_name_estimate WHERE name_key = '추정올갱이국' AND JSON_CONTAINS(avoidance_codes, '\"MOLLUSK\"')") shouldBe 1
+                }
+            }
+
+            `when`("추정 재료가 회원 기피와 겹치면") {
+                then("겹치는 추정 코드만 avoidances 로 내리고 riskLevel CAUTION 이다") {
+                    seedMember(95918, avoid = listOf("MOLLUSK"))
+                    vision.program("scans/mne-18.jpg", listOf(ExtractedMenu("Gizzard", "추정연체볶음", null, null)))
+                    estimator.answer = { names -> names.map { estimation(it, MenuNameKind.DISH, listOf(IngredientCode.MOLLUSK, IngredientCode.WHEAT, IngredientCode.EGG)) } }
+
+                    pollUntilDone(95918, scan(95918, "scans/mne-18.jpg").path("scanId").asText()).path("items").single().let {
+                        it.path("avoidances").map { c -> c.asText() } shouldBe listOf("MOLLUSK")
+                        it.path("riskLevel").asText() shouldBe "CAUTION"
+                    }
                 }
             }
 

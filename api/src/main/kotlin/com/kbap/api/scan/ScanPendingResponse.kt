@@ -25,7 +25,7 @@ data class ScanPendingItemResponse(
     val description: String?,
     @field:Schema(description = "CAUTION(추정 재료 또는 그 하위 재료가 회원 회피 재료와 겹침) 또는 UNKNOWN(판정 불가). LLM 추정이라 SAFE 는 타입상 내려갈 수 없다", example = "UNKNOWN")
     val riskLevel: EstimatedRisk,
-    @field:Schema(description = "추정 주재료의 회피 코드(IngredientCode)", example = "[\"BEEF\"]")
+    @field:Schema(description = "추정 주재료 코드(IngredientCode) 중 회원 회피 재료와 겹치는 것만(riskLevel 과 같은 판정 — 추정 코드나 그 하위가 회원 회피 closure 에 들면 포함). 겹치지 않거나 회피 재료가 없는 회원·게스트는 빈 배열. 비어 있지 않으면 riskLevel=CAUTION", example = "[\"BEEF\"]")
     val avoidances: List<String>,
     @field:Schema(description = "매운 정도 0~10, 판단 불가 -1", example = "1")
     val spiciness: Int,

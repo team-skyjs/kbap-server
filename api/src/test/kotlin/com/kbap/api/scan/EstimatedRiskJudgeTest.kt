@@ -20,6 +20,17 @@ class EstimatedRiskJudgeTest : BehaviorSpec({
                 EstimatedRiskJudge.judge(listOf("SHRIMP"), Avoidance(setOf(IngredientCode.SALTED_SHRIMP))) shouldBe EstimatedRisk.CAUTION
             }
         }
+        `when`("내려 줄 추정 코드를 고르면") {
+            then("회원 기피 closure 와 겹치는 추정 코드만 남긴다(직접·회원 상위의 하위·추정 상위의 하위) — 기피가 없으면 빈 목록") {
+                EstimatedRiskJudge.matchedCodes(listOf("MOLLUSK"), Avoidance(setOf(IngredientCode.SHRIMP))) shouldBe emptyList()
+                EstimatedRiskJudge.matchedCodes(listOf("CHICKEN", "WHEAT", "EGG"), Avoidance(setOf(IngredientCode.SHRIMP))) shouldBe emptyList()
+                EstimatedRiskJudge.matchedCodes(listOf("MOLLUSK", "WHEAT"), Avoidance(setOf(IngredientCode.MOLLUSK))) shouldBe listOf("MOLLUSK")
+                EstimatedRiskJudge.matchedCodes(listOf("SALTED_SHRIMP"), Avoidance(setOf(IngredientCode.SHRIMP))) shouldBe listOf("SALTED_SHRIMP")
+                EstimatedRiskJudge.matchedCodes(listOf("SHRIMP", "BEEF"), Avoidance(setOf(IngredientCode.SALTED_SHRIMP))) shouldBe listOf("SHRIMP")
+                EstimatedRiskJudge.matchedCodes(listOf("BEEF", "NOT_A_CODE"), Avoidance.NONE) shouldBe emptyList()
+            }
+        }
+
         `when`("모르는 코드 문자열이면") {
             then("무시하고 UNKNOWN 이다") {
                 EstimatedRiskJudge.judge(listOf("NOT_A_CODE"), Avoidance(setOf(IngredientCode.BEEF))) shouldBe EstimatedRisk.UNKNOWN
