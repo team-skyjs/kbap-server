@@ -149,4 +149,6 @@ enum class ErrorCode(
     PROCESSED_FOOD_ENVIRONMENT_MISMATCH("PFOOD-012", 409, "요청 환경이 서버 환경과 다릅니다"),
     PROCESSED_FOOD_PHOTO_DAILY_LIMIT("PFOOD-013", 429, "오늘은 사진 스캔을 더 할 수 없어요. 내일 다시 시도해 주세요"),
     PROCESSED_FOOD_PHOTO_TOO_LARGE("PFOOD-014", 400, "사진이 너무 커요. 2MB 이하로 올려 주세요"),
+    PROCESSED_FOOD_IMAGE_NOT_UPLOADED("PFOOD-015", 400, "가공식품 사진 업로드를 확인하지 못했습니다"),
+    PROCESSED_FOOD_IMAGE_NOT_FOUND("PFOOD-016", 404, "가공식품 사진을 찾을 수 없습니다"),
 }
