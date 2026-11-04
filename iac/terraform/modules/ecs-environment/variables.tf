@@ -88,7 +88,7 @@ variable "api_task_cpu" {
 }
 
 variable "api_task_memory" {
-  description = "태스크 하드 메모리(MiB). 카나리 중 한 인스턴스에 2개가 공존하므로 ECS 등록 메모리(이미 ECS_RESERVED_MEMORY 256 을 뺀 값) ÷ 2 이하 — t4g.medium 3,579 ÷ 2 = 1,789 → 1,750"
+  description = "태스크 하드 메모리(MiB). 카나리 중 한 인스턴스에 2개가 공존하므로 ECS 등록 메모리(이미 ECS_RESERVED_MEMORY 256 을 뺀 값) ÷ 2 이하 — t4g.medium 3,579 ÷ 2 = 1,789 → 1,750. 바꾸면 Xmx도 같이 — api.tf JAVA_TOOL_OPTIONS -Xmx(힙 + 비힙 ≈300 MB 가 이 값 안에 들어가야 한다)"
   type        = number
   default     = 1750
 }
@@ -100,7 +100,7 @@ variable "batch_task_cpu" {
 }
 
 variable "batch_task_memory" {
-  description = "api_task_memory 와 같다"
+  description = "태스크 하드 메모리(MiB). 바꾸면 Xmx도 같이 — batch.tf JAVA_TOOL_OPTIONS -Xmx(힙 + 비힙이 이 값 안에 들어가야 한다)"
   type        = number
   default     = 1200
 }
