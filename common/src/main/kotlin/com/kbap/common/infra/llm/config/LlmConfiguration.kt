@@ -3,6 +3,8 @@ package com.kbap.common.infra.llm.config
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.FoodImageBatchClient
 import com.kbap.common.port.llm.IngredientDecider
+import com.kbap.common.port.llm.MenuNameEstimator
+import com.kbap.common.infra.llm.menu.OpenAiMenuNameEstimator
 import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import com.kbap.common.port.llm.ReviewTextGenerator
 import com.kbap.common.port.llm.TextEmbeddingClient
@@ -145,6 +147,29 @@ class LlmConfiguration {
             .httpClientBuilderCustomizer { it.timeout(props.timeout) }
             .build()
         return OpenAiIngredientDecider(
+            chatModel = chatModel,
+            pricing = LlmPricing(
+                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+                usdToKrw = properties.usdToKrw,
+            ),
+            configuredModelName = props.model.orEmpty(),
+            eventPublisher = eventPublisher,
+        )
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "kbap.llm.menu-estimate", name = ["enabled"], havingValue = "true")
+    fun menuNameEstimator(
+        properties: LlmModelProperties,
+        eventPublisher: ApplicationEventPublisher,
+    ): MenuNameEstimator {
+        val props = properties.menuEstimate
+        val chatModel = OpenAiChatModel.builder()
+            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
+            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
+            .build()
+        return OpenAiMenuNameEstimator(
             chatModel = chatModel,
             pricing = LlmPricing(
                 inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,

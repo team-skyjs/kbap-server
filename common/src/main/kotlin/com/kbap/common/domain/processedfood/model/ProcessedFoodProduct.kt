@@ -114,6 +114,11 @@ class ProcessedFoodProduct(
     @Column(name = "kcal_total")
     var kcalTotal: Int? = null
 
+    @Column(name = "recipe", columnDefinition = "json")
+    var recipeJson: String? = null
+
+    fun recipe(): ProcessedFoodRecipe? = ProcessedFoodRecipe.fromJsonOrNull(recipeJson)
+
     fun hasApprovedCutout(): Boolean = cutoutImageUrl != null && cutoutReviewStatus == CutoutReviewStatus.APPROVED
 
     fun displayImageUrl(): String? =

@@ -4,4 +4,5 @@ data class FoodContentEvent(
     val outboxId: Long,
     val foodId: Long,
     val scannedName: String,
+    val rejectionReason: String? = null,
 )

@@ -39,6 +39,7 @@ class FoodContentOutboxPublisher(
                         outboxId = it.id,
                         foodId = it.foodId,
                         scannedName = it.displayName,
+                        rejectionReason = it.rejectionReason,
                     )
                 },
             )

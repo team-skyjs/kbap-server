@@ -32,7 +32,7 @@ class SqsFoodContentEventPublisher(
                             batch.map {
                                 SendMessageBatchRequestEntry.builder()
                                     .id(it.outboxId.toString())
-                                    .messageBody(objectMapper.writeValueAsString(it))
+                                    .messageBody(objectMapper.writeValueAsString(bodyOf(it)))
                                     .build()
                             },
                         )
@@ -51,6 +51,13 @@ class SqsFoodContentEventPublisher(
             succeededOutboxIds = succeeded,
             failedOutboxIds = failed,
         )
+    }
+
+    private fun bodyOf(event: FoodContentEvent): Map<String, Any> = buildMap {
+        put("outboxId", event.outboxId)
+        put("foodId", event.foodId)
+        put("scannedName", event.scannedName)
+        event.rejectionReason?.let { put("rejectionReason", it) }
     }
 
     private companion object {

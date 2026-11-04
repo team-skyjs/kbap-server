@@ -32,6 +32,9 @@ class FoodContentOutbox(
 
     @Column(name = "last_error", length = 500)
     var lastError: String? = null,
+
+    @Column(name = "rejection_reason", length = MAX_REJECTION_REASON_LENGTH)
+    var rejectionReason: String? = null,
 ) : BaseEntity() {
     fun markDead(reason: String) {
         deadAt = LocalDateTime.now()
@@ -54,10 +57,11 @@ class FoodContentOutbox(
 
     companion object {
         const val MAX_ERROR_LENGTH = 500
+        const val MAX_REJECTION_REASON_LENGTH = 1000
 
-        fun pending(foodId: Long, displayName: String): FoodContentOutbox {
+        fun pending(foodId: Long, displayName: String, rejectionReason: String? = null): FoodContentOutbox {
             require(displayName.isNotBlank()) { "foodContentOutbox.displayName 은 blank 일 수 없습니다" }
-            return FoodContentOutbox(foodId = foodId, displayName = displayName)
+            return FoodContentOutbox(foodId = foodId, displayName = displayName, rejectionReason = rejectionReason?.takeIf { it.isNotBlank() }?.take(MAX_REJECTION_REASON_LENGTH))
         }
     }
 }

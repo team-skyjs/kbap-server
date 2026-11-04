@@ -33,6 +33,7 @@ interface AdminFoodContentReviewApi {
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공 — 대상이 없으면 빈 배열"),
             ApiResponse(responseCode = "400", description = "limit 이 1..200 범위 밖(COMMON-002)"),
+            ApiResponse(responseCode = "409", description = "이미지 재생성 진행 중이라 반려 뒤 자동 재수집을 쌓을 수 없음(FOOD-020) — 반려도 반영하지 않는다"),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "ADMIN 역할이 아닌 토큰(AUTH-008)"),
         ],
@@ -50,6 +51,10 @@ interface AdminFoodContentReviewApi {
             - `passed=true` → **READY**(사용자 조회 노출). 이미 READY 면 멱등 성공.
             - `passed=false` → **FAILED**(관리자 확인 필요). 콘텐츠는 그대로 보존하고 반려 횟수를 1 올린 뒤
               `reason` 을 최대 10줄·1000자까지 저장한다(넘치면 잘라서 보관).
+              반려 1·2회째에는 그 사유를 실은 콘텐츠 재수집 요청을 자동으로 쌓는다(S-964 — 랭체인이 rejectionReason 을 반영해 다시 생성,
+              결과는 PENDING_REVIEW 로 돌아온다). 콘텐츠 상태는 FAILED 그대로이고 "재생성 중" 은 대기 요청(contentRequestAgeSeconds)으로 보인다.
+              3회째 반려는 자동 재수집 없이 멈춘다. 이미 대기 중인 요청이 있으면 겹쳐 쌓지 않는다.
+              이미지 재생성이 진행 중이면 409(FOOD-020)이고 반려도 반영하지 않는다(콘텐츠 재수집과 상호 배제).
             - PENDING_REVIEW 가 아닌 음식이면 400(FOOD-008) 이다 — 다른 관리자가 먼저 처리한 stale 항목 분기용 전용 코드.
         """,
     )

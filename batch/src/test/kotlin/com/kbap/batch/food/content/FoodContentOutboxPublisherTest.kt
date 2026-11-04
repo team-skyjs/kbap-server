@@ -145,5 +145,31 @@ class FoodContentOutboxPublisherTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("반려 사유를 실은 재수집 요청 — S-964") {
+            `when`("아웃박스에 반려 사유가 있으면") {
+                then("발행 이벤트에 rejectionReason 으로 싣는다(없으면 null)") {
+                    clear()
+                    val food = foodRepository.save(Food.failed("사유국수"))
+                    val withReason = outboxRepository.save(FoodContentOutbox.pending(food.id, food.displayName, rejectionReason = "설명이 너무 짧음"))
+                    val other = foodRepository.save(Food.failed("보통국수"))
+                    val plain = outboxRepository.save(FoodContentOutbox.pending(other.id, other.displayName))
+                    val published = mutableListOf<FoodContentEvent>()
+                    val outboxPublisher = FoodContentOutboxPublisher(
+                        outboxRepository,
+                        { events ->
+                            published += events
+                            FoodContentPublishResult(succeededOutboxIds = events.map { it.outboxId }.toSet(), failedOutboxIds = emptySet())
+                        },
+                        transactionManager,
+                        pageSize = 10,
+                    )
+
+                    outboxPublisher.publishAll()
+
+                    published.associate { it.outboxId to it.rejectionReason } shouldBe mapOf(withReason.id to "설명이 너무 짧음", plain.id to null)
+                }
+            }
+        }
     }
 }

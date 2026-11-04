@@ -1,6 +1,7 @@
 package com.kbap.api.admin
 
 import com.kbap.api.IntegrationTest
+import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -27,15 +28,21 @@ class AdminFoodContentReviewVectorOutboxTest : BehaviorSpec() {
     @Autowired
     private lateinit var vectorOutboxRepository: FoodVectorOutboxJpaRepository
 
+    @Autowired
+    private lateinit var contentOutboxRepository: FoodContentOutboxJpaRepository
+
     init {
         val namePrefix = "벡터아웃박스검수-"
 
         fun clear() {
             vectorOutboxRepository.deleteAll()
-            foodRepository.findByDisplayNameContainingOrderByIdAsc(namePrefix).forEach {
-                foodRepository.delete(it)
-            }
+            val foods = foodRepository.findByDisplayNameContainingOrderByIdAsc(namePrefix)
+            val foodIds = foods.map { it.id }.toSet()
+            contentOutboxRepository.deleteAll(contentOutboxRepository.findAll().filter { it.foodId in foodIds })
+            foods.forEach { foodRepository.delete(it) }
         }
+
+        afterSpec { clear() }
 
         fun saveFood(rawName: String, contentStatus: FoodContentStatus): Food = foodRepository.save(
             Food(

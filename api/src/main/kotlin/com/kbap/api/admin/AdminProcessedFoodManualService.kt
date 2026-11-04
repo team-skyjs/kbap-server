@@ -7,6 +7,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.processedfood.model.ProcessedFoodRecipe
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
@@ -55,6 +56,13 @@ class AdminProcessedFoodManualService(
             val product = products.findById(id).orElse(null) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
             product.kcalTotal = kcalTotal
             AdminProcessedFoodKcalResponse(product.id, product.kcalTotal)
+        }!!
+
+    fun putRecipe(id: Long, recipe: ProcessedFoodRecipe?): AdminProcessedFoodRecipePutResponse =
+        transaction.execute {
+            val product = products.findById(id).orElse(null) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
+            product.recipeJson = recipe?.toJson()
+            AdminProcessedFoodRecipePutResponse(product.id, recipe != null)
         }!!
 
     private fun snapshotOf(reportNo: String, request: AdminProcessedFoodManualRequest) = ProcessedFoodSnapshot(
