@@ -43,6 +43,7 @@ class AdminProcessedFoodImageService(
     }
 
     fun confirm(productId: Long, key: String, kind: ProcessedFoodImageKind): AdminProcessedFoodImagesResponse {
+        if (kind == ProcessedFoodImageKind.CUTOUT) throw BusinessException(ErrorCode.INVALID_REQUEST)
         val keyBase = readTransaction.execute { keyBaseOf(product(productId)) }!!
         val extension = key.takeIf { it.startsWith(keyBase) }?.removePrefix(keyBase)?.let(KEY_HASH_PART::matchEntire)?.groupValues?.get(2)
             ?: throw BusinessException(ErrorCode.INVALID_REQUEST)

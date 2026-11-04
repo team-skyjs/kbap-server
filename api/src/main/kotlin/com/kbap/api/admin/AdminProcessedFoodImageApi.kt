@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 
-@Tag(name = "관리자 가공식품 사진", description = "관리자 전용 — 상품당 여러 장(누끼·앞면·윗면·성분표 등) 업로드·순서 변경·삭제(KB-965)")
+@Tag(name = "관리자 가공식품 사진", description = "관리자 전용 — 상품당 추가 사진 여러 장(앞면·윗면·성분표 등) 업로드·순서 변경·삭제(KB-965). 누끼는 cutout-image API")
 @SecurityRequirement(name = "bearerAuth")
 interface AdminProcessedFoodImageApi {
     @Operation(summary = "가공식품 사진 목록", description = "추가 사진을 표시 순서(sort_order)대로 준다. 기존 HACCP 원본·누끼 컬럼은 포함하지 않는다.\n- **ADMIN 역할 JWT 전용**.")
@@ -42,14 +42,15 @@ interface AdminProcessedFoodImageApi {
         summary = "가공식품 사진 저장(업로드 확인)",
         description = """
             S3 오브젝트가 있고 Content-Type 이 키 확장자와 맞고 5MB 이하이며 SHA-256 앞 16자가 키 해시와 같으면, 맨 뒤 순서로 추가한다.
-            같은 사진(같은 키)을 다시 확인해도 한 장이다(멱등). 앱 상세 `images` 는 누끼(CUTOUT)가 먼저, 그다음 이 순서다.
+            같은 사진(같은 키)을 다시 확인해도 한 장이다(멱등). 앱 상세 `images` 는 대표 사진(승인 누끼 또는 HACCP 원본)이 먼저, 그다음 이 순서다.
+            누끼는 검수 상태가 있는 누끼 API(`cutout-image`)로 올린다 — 여기서 kind=CUTOUT 은 COMMON-002 다.
             - **ADMIN 역할 JWT 전용**.
         """,
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "저장 — 저장 뒤 사진 목록"),
-            ApiResponse(responseCode = "400", description = "이 제품의 해시 키가 아님·kind 누락(COMMON-002) · 오브젝트 없음·형식/크기/체크섬 불일치(PFOOD-015)"),
+            ApiResponse(responseCode = "400", description = "이 제품의 해시 키가 아님·kind 누락·kind=CUTOUT(COMMON-002) · 오브젝트 없음·형식/크기/체크섬 불일치(PFOOD-015)"),
             ApiResponse(responseCode = "404", description = "가공식품 없음(PFOOD-001)"),
         ],
     )

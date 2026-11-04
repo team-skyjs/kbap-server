@@ -79,7 +79,7 @@ data class AdminProcessedFoodImageConfirmRequest(
     @field:Schema(description = "presign 응답의 key", requiredMode = Schema.RequiredMode.REQUIRED)
     val key: String? = null,
     @field:NotNull(message = "kind 는 필수입니다")
-    @field:Schema(description = "사진 종류 — CUTOUT(누끼)·FRONT(앞면)·TOP(윗면)·LABEL(성분표)·OTHER", example = "FRONT", requiredMode = Schema.RequiredMode.REQUIRED)
+    @field:Schema(description = "사진 종류 — FRONT(앞면)·TOP(윗면)·LABEL(성분표)·OTHER. 누끼(CUTOUT)는 검수 상태가 있는 누끼 API(cutout-image)로 올린다 — 여기서 CUTOUT 은 COMMON-002", example = "FRONT", requiredMode = Schema.RequiredMode.REQUIRED)
     val kind: ProcessedFoodImageKind? = null,
 )
 

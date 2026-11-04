@@ -189,7 +189,7 @@ data class ProcessedFoodDetailResponse(
     val foodTypeLocalized: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "같은 묶음(정규화 이름 + 제조사) 상품 — 용량만 다른 별도 등록 등. 자기 자신 포함, id 순. 목록·검색은 이 중 대표 1개만 보인다(KB-950)")
     val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
-    @field:Schema(description = "상세 사진 — 누끼(CUTOUT)가 먼저, 그다음 관리자가 정한 순서(KB-965). 추가 사진 중 누끼가 없으면 image.url(승인 누끼 또는 HACCP 원본)을 맨 앞에 둔다. 추가 사진이 없으면 image.url 한 장, 사진이 전혀 없으면 빈 배열. 2장 이상이면 캐러셀")
+    @field:Schema(description = "상세 사진(KB-965) — 맨 앞은 image.url 과 같은 대표 사진(검수 승인된 누끼면 CUTOUT, 아니면 HACCP 원본 FRONT), 그 뒤는 관리자가 올린 추가 사진을 정한 순서대로. 추가 사진이 없으면 image.url 한 장, 사진이 전혀 없으면 빈 배열. 2장 이상이면 캐러셀")
     val images: List<ProcessedFoodGalleryImageResponse> = emptyList(),
 ) {
     companion object {
@@ -236,12 +236,11 @@ data class ProcessedFoodDetailResponse(
         }
 
         fun imagesOf(product: ProcessedFoodProduct, gallery: List<ProcessedFoodImage>): List<ProcessedFoodGalleryImageResponse> {
-            val (cutouts, rest) = gallery.partition { it.kind == ProcessedFoodImageKind.CUTOUT }
-            val lead = product.displayImageUrl().takeIf { cutouts.isEmpty() }?.let {
+            val lead = product.displayImageUrl()?.let {
                 ProcessedFoodGalleryImageResponse(it, if (product.hasApprovedCutout()) ProcessedFoodImageKind.CUTOUT else ProcessedFoodImageKind.FRONT)
             }
-            return (cutouts.map { ProcessedFoodGalleryImageResponse(it.imageUrl, it.kind) } + listOfNotNull(lead) + rest.map { ProcessedFoodGalleryImageResponse(it.imageUrl, it.kind) })
-                .distinctBy { it.url }
+            val rest = gallery.filter { it.kind != ProcessedFoodImageKind.CUTOUT }.map { ProcessedFoodGalleryImageResponse(it.imageUrl, it.kind) }
+            return (listOfNotNull(lead) + rest).distinctBy { it.url }
         }
 
         fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =

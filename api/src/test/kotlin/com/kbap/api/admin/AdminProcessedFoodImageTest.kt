@@ -146,6 +146,18 @@ class AdminProcessedFoodImageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("kind 가 CUTOUT 이면") {
+                then("400 COMMON-002 이고 저장하지 않는다 — 누끼는 검수가 있는 cutout-image API 로 올린다") {
+                    val id = seedProduct()
+                    val sha256 = sha256Of("cutout")
+                    val key = keyOf(sha256, "png")
+                    storage.stub(key, "image/png", 1000, sha256Hex = sha256)
+
+                    confirm(id, key, "CUTOUT", 400).path("code").asText() shouldBe "COMMON-002"
+                    longOf("SELECT COUNT(*) FROM processed_food_image") shouldBe 0
+                }
+            }
+
             `when`("다른 제품의 키면") {
                 then("400 COMMON-002 다") {
                     val id = seedProduct()
@@ -180,27 +192,27 @@ class AdminProcessedFoodImageTest : BehaviorSpec() {
                 }
             }
 
-            `when`("누끼 사진이 있으면") {
-                then("누끼가 먼저, 나머지는 sort_order 순이고 image 는 그대로다") {
+            `when`("누끼 컬럼이 검수 대기·반려면") {
+                then("누끼는 images 에 나오지 않고 HACCP 원본이 FRONT 로 먼저다") {
                     val id = seedProduct()
                     val front = upload(id, "front", "FRONT")
-                    val label = upload(id, "label", "LABEL")
-                    val cutout = upload(id, "cutout", "CUTOUT", "image/png", "png")
+                    listOf("PENDING", "REJECTED").forEach { review ->
+                        execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.test/c.png', cutout_review_status = '$review' WHERE id = $id")
 
-                    val detail = appDetail(id)
-
-                    pairs(detail.path("images")) shouldBe listOf(cutout to "CUTOUT", front to "FRONT", label to "LABEL")
-                    detail.path("image").path("url").asText() shouldBe haccpSecure
+                        pairs(appDetail(id).path("images")) shouldBe listOf(haccpSecure to "FRONT", front to "FRONT")
+                    }
                 }
             }
 
-            `when`("기존 누끼 컬럼이 승인돼 있고 추가 사진에 누끼가 없으면") {
-                then("승인 누끼가 CUTOUT 으로 먼저다") {
+            `when`("누끼 컬럼이 승인돼 있으면") {
+                then("승인 누끼가 CUTOUT 으로 먼저, 그 뒤 추가 사진이고 image 도 누끼다") {
                     val id = seedProduct()
                     execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.test/c.png', cutout_review_status = 'APPROVED' WHERE id = $id")
                     val top = upload(id, "top", "TOP")
 
-                    pairs(appDetail(id).path("images")) shouldBe listOf("https://cdn.test/c.png" to "CUTOUT", top to "TOP")
+                    val detail = appDetail(id)
+                    pairs(detail.path("images")) shouldBe listOf("https://cdn.test/c.png" to "CUTOUT", top to "TOP")
+                    detail.path("image").path("url").asText() shouldBe "https://cdn.test/c.png"
                 }
             }
 
