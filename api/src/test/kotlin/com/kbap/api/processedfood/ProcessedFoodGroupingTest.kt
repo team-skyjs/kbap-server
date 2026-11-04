@@ -81,4 +81,21 @@ class ProcessedFoodGroupingTest : BehaviorSpec({
             }
         }
     }
+    given("포장 형태·용량만 다른 가공식품(예진 11/4 — 용량이 달라도 하나로)") {
+        `when`("앞이나 뒤에 큰컵·컵·큰사발·사발이 붙으면") {
+            then("떼고 같은 상품으로 묶는다") {
+                key("불닭볶음면", "삼양식품") shouldBe key("큰컵 불닭볶음면", "삼양식품")
+                key("불닭볶음면", "삼양식품") shouldBe key("컵불닭볶음면", "삼양식품")
+                key("치즈불닭볶음면 5입", "삼양식품") shouldBe key("큰컵 치즈불닭볶음면", "삼양식품")
+                key("육개장", "농심") shouldBe key("사발 육개장", "농심")
+            }
+        }
+        `when`("컵으로 시작하는 브랜드거나 이름 가운데 컵이면") {
+            then("떼지 않는다 — 컵누들·컵반·컵밥, 진라면Cup매운맛") {
+                key("컵누들 매콤한맛", "오뚜기") shouldNotBe key("누들 매콤한맛", "오뚜기")
+                key("컵반 미역국밥", "CJ") shouldNotBe key("반 미역국밥", "CJ")
+                key("진라면Cup매운맛", "오뚜기라면") shouldNotBe key("진라면매운맛", "오뚜기라면")
+            }
+        }
+    }
 })
