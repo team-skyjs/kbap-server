@@ -380,6 +380,7 @@ class ProcessedFoodService(
             siblings,
             images.findAllByProcessedFoodIdOrderBySortOrderAscIdAsc(product.id),
             imageOwnerOf(product, group),
+            (group.ifEmpty { listOf(product) }).map { it.capacity to it.kcalTotal }.distinct().singleOrNull()?.second,
         )
     }
 

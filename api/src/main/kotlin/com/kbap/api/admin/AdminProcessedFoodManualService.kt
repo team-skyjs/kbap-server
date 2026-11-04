@@ -28,7 +28,7 @@ class AdminProcessedFoodManualService(
             val id = try {
                 transaction.execute {
                     val reportNo = nextReportNo(products.findLatestManualReportNo())
-                    products.saveAndFlush(ProcessedFoodProduct.collect(snapshotOf(reportNo, request), LocalDateTime.now(), ProcessedFoodProduct.SOURCE_MANUAL)).id
+                    products.saveAndFlush(ProcessedFoodProduct.collect(snapshotOf(reportNo, request), LocalDateTime.now(), ProcessedFoodProduct.SOURCE_MANUAL).apply { kcalTotal = request.kcalTotal }).id
                 }!!
             } catch (e: DataIntegrityViolationException) {
                 return@repeat
@@ -44,10 +44,18 @@ class AdminProcessedFoodManualService(
             val product = products.findById(id).orElse(null) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
             if (product.source != ProcessedFoodProduct.SOURCE_MANUAL) throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_MANUAL)
             product.correctManually(snapshotOf(product.reportNo, request))
+            product.kcalTotal = request.kcalTotal
         }
         translations.translateNameInBackground(id, request.productName!!.trim(), ProcessedFoodProduct.displayMakerOf(request.manufacturer, null, null))
         return processedFoods.getProcessedFoodDetail(id, null)
     }
+
+    fun updateKcal(id: Long, kcalTotal: Int?): AdminProcessedFoodKcalResponse =
+        transaction.execute {
+            val product = products.findById(id).orElse(null) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
+            product.kcalTotal = kcalTotal
+            AdminProcessedFoodKcalResponse(product.id, product.kcalTotal)
+        }!!
 
     private fun snapshotOf(reportNo: String, request: AdminProcessedFoodManualRequest) = ProcessedFoodSnapshot(
         reportNo = reportNo,
