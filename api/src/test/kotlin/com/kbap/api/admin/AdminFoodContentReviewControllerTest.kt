@@ -267,5 +267,75 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("반려 사유로 콘텐츠 자동 재생성 — S-964") {
+            fun outboxes(foodId: Long): List<Pair<String, String?>> = dataSource.connection.use { c ->
+                c.createStatement().use { st ->
+                    st.executeQuery("SELECT outbox_status, rejection_reason FROM food_content_outbox WHERE food_id = $foodId ORDER BY id").use { rs ->
+                        generateSequence { if (rs.next()) rs.getString(1) to rs.getString(2) else null }.toList()
+                    }
+                }
+            }
+            fun execute(sql: String) = dataSource.connection.use { c -> c.createStatement().use { it.execute(sql) } }
+
+            `when`("1회·2회째 반려하면") {
+                then("사유를 실은 재수집 요청(PENDING)을 쌓고 콘텐츠 상태는 FAILED 그대로다") {
+                    clearFoods()
+                    val first = saveFood("김치찌개")
+                    val second = saveFood("된장찌개", contentReviewAttempts = 1)
+
+                    postResult(first.id, mapOf("passed" to false, "reason" to "설명이 너무 짧음")).andExpect { status { isOk() } }
+                    postResult(second.id, mapOf("passed" to false, "reason" to "재료가 틀림")).andExpect { status { isOk() } }
+
+                    outboxes(first.id) shouldBe listOf("PENDING" to "설명이 너무 짧음")
+                    outboxes(second.id) shouldBe listOf("PENDING" to "재료가 틀림")
+                    reloaded(first.id).contentStatus shouldBe FoodContentStatus.FAILED
+                    reloaded(second.id).contentReviewAttempts shouldBe 2
+                }
+            }
+
+            `when`("3회째 반려하면") {
+                then("재수집을 쌓지 않고 멈춘다") {
+                    clearFoods()
+                    val food = saveFood("비빔밥", contentReviewAttempts = 2)
+
+                    postResult(food.id, mapOf("passed" to false, "reason" to "세 번째")).andExpect { status { isOk() } }
+
+                    outboxes(food.id) shouldBe emptyList()
+                    reloaded(food.id).contentReviewAttempts shouldBe 3
+                }
+            }
+
+            `when`("이미 대기 중인 재수집 요청이 있으면") {
+                then("반려는 반영하고 요청을 겹쳐 쌓지 않는다") {
+                    clearFoods()
+                    val food = saveFood("잡채")
+                    execute("INSERT INTO food_content_outbox (food_id, display_name, outbox_status, attempts, status, created_at, updated_at) VALUES (${food.id}, '잡채', 'PENDING', 0, 'ACTIVE', NOW(6), NOW(6))")
+
+                    postResult(food.id, mapOf("passed" to false, "reason" to "중복")).andExpect { status { isOk() } }
+
+                    outboxes(food.id) shouldBe listOf("PENDING" to null)
+                    reloaded(food.id).contentStatus shouldBe FoodContentStatus.FAILED
+                }
+            }
+
+            `when`("이미지 재생성이 진행 중이면") {
+                then("409 FOOD-020 이고 반려도 반영하지 않는다(콘텐츠 재수집과 상호 배제)") {
+                    clearFoods()
+                    val food = saveFood("떡볶이")
+                    execute("INSERT INTO image_batch (openai_batch_id, batch_status, prompt_version, model, submitted_at, status, created_at, updated_at) VALUES ('b_s964', 'SUBMITTED', 'v2', 'gpt-image-2', NOW(6), 'ACTIVE', NOW(6), NOW(6))")
+                    val batchId = dataSource.connection.use { c -> c.createStatement().use { st -> st.executeQuery("SELECT id FROM image_batch WHERE openai_batch_id = 'b_s964'").use { rs -> rs.next(); rs.getLong(1) } } }
+                    execute("INSERT INTO image_batch_item (batch_id, food_id, item_status, file_name, regeneration_intent, status, created_at, updated_at) VALUES ($batchId, ${food.id}, 'PENDING', 'x.webp', 'WRONG_IMAGE', 'ACTIVE', NOW(6), NOW(6))")
+
+                    postResult(food.id, mapOf("passed" to false, "reason" to "충돌")).andExpect {
+                        status { isConflict() }
+                        jsonPath("$.code") { value("FOOD-020") }
+                    }
+
+                    outboxes(food.id) shouldBe emptyList()
+                    reloaded(food.id).contentStatus shouldBe FoodContentStatus.PENDING_REVIEW
+                }
+            }
+        }
     }
 }
