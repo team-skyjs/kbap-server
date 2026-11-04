@@ -1,5 +1,6 @@
 package com.kbap.api.image
 
+import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tags
 import org.springframework.stereotype.Component
@@ -22,8 +23,11 @@ class UploadCleanupMetrics(private val registry: MeterRegistry) {
     fun markRun(cleanup: String) = set(LAST_RUN, Tags.of("cleanup", cleanup), Instant.now().epochSecond.toDouble())
 
     private fun set(name: String, tags: Tags, value: Double) =
-        values.computeIfAbsent(name to tags) { registry.gauge(name, tags, AtomicLong()) { Double.fromBits(it.get()) }!! }
-            .set(value.toRawBits())
+        values.computeIfAbsent(name to tags) { key ->
+            AtomicLong().also { state ->
+                Gauge.builder(key.first, state) { Double.fromBits(it.get()) }.tags(key.second).strongReference(true).register(registry)
+            }
+        }.set(value.toRawBits())
 
     companion object {
         const val NAME = "kbap.upload.cleanup"
