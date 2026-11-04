@@ -17,10 +17,10 @@ object ReviewBotStyles {
         "Comment on how filling the portion felt.",
     )
 
-    fun pick(random: Random): String = ALL.random(random)
+    fun pick(random: Random, except: String? = null): String = ALL.filter { it != except }.random(random)
 
     fun sentences(random: Random): Int = random.nextInt(1, 3)
 
     fun restyle(request: ReviewDraftRequest, random: Random): ReviewDraftRequest =
-        request.copy(style = pick(random), sentences = sentences(random))
+        request.copy(style = pick(random, request.style), sentences = sentences(random))
 }
