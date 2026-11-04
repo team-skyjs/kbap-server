@@ -38,6 +38,28 @@ class SqsFoodContentEventPublisherTest : BehaviorSpec({
             }
         }
 
+        `when`("반려 사유가 실린 이벤트면 — S-964") {
+            then("계약 JSON 에 rejectionReason 을 더하고, 사유 없는 이벤트는 기존 3키 그대로다") {
+                val sqsClient = mock(SqsClient::class.java)
+                `when`(sqsClient.sendMessageBatch(any(SendMessageBatchRequest::class.java))).thenReturn(success(listOf("1", "2")))
+                val publisher = SqsFoodContentEventPublisher(sqsClient, mapper, "queue-url")
+
+                publisher.publish(
+                    listOf(
+                        FoodContentEvent(outboxId = 1, foodId = 101, scannedName = "스캔-1", rejectionReason = "설명이 너무 짧음"),
+                        FoodContentEvent(outboxId = 2, foodId = 102, scannedName = "스캔-2"),
+                    ),
+                )
+
+                val captor = ArgumentCaptor.forClass(SendMessageBatchRequest::class.java)
+                verify(sqsClient).sendMessageBatch(captor.capture())
+                captor.value.entries().map { mapper.readTree(it.messageBody()) } shouldBe listOf(
+                    mapper.readTree("""{"outboxId":1,"foodId":101,"scannedName":"스캔-1","rejectionReason":"설명이 너무 짧음"}"""),
+                    mapper.readTree("""{"outboxId":2,"foodId":102,"scannedName":"스캔-2"}"""),
+                )
+            }
+        }
+
         `when`("11건 이상을 발행하면") {
             then("SQS 제한에 맞춰 10건씩 나누고 계약 JSON을 보낸다") {
                 val sqsClient = mock(SqsClient::class.java)

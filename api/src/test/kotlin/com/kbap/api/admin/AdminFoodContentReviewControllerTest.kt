@@ -94,6 +94,8 @@ class AdminFoodContentReviewControllerTest : BehaviorSpec() {
 
         fun reloaded(id: Long): Food = foodJpaRepository.findById(id).orElseThrow()
 
+        afterSpec { clearFoods() }
+
         given("검수 대상 조회 API") {
             `when`("PENDING_REVIEW 음식과 다른 상태 음식이 섞여 있으면") {
                 then("PENDING_REVIEW 건만 콘텐츠 필드와 함께 반환한다") {
