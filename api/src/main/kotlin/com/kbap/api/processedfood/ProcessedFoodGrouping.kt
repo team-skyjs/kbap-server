@@ -7,6 +7,7 @@ object ProcessedFoodGrouping {
     private val QUANTITY_SUFFIX = Regex("(?i)(\\d+(\\.\\d+)?(kg|g|ml|mℓ|㎖|l|ℓ)|\\d+(개입|입|개|봉|팩)|[x*×]\\d+)$")
     private val GENERIC_NAMES = setOf("라면", "우동", "짜장", "짬뽕", "카레", "국수", "냉면", "면", "밥", "죽", "국", "탕", "김치", "만두", "떡볶이")
     private const val MIN_NAME_LENGTH = 2
+    private val BRAND_PREFIXES = listOf("해태", "롯데", "남양", "일동", "진주", "성원", "사조", "오뚜기", "맛찬들")
     private val COMPANY_SUFFIXES = listOf("식품공업", "식품", "제과", "라면", "푸드", "유업", "음료", "제약", "산업", "에프앤비", "F&B", "f&b")
 
     fun keyOf(normalizedName: String, displayMaker: String?, ignoreSize: Boolean = true): String {
@@ -19,7 +20,7 @@ object ProcessedFoodGrouping {
         brandsOf(makerKey).firstOrNull { name.startsWith(it, ignoreCase = true) && name.length > it.length }?.let { name.substring(it.length) } ?: name
 
     private fun brandsOf(makerKey: String): List<String> =
-        (listOf(makerKey) + COMPANY_SUFFIXES.filter { makerKey.endsWith(it) }.map { makerKey.dropLast(it.length) })
+        (listOf(makerKey) + COMPANY_SUFFIXES.filter { makerKey.endsWith(it) }.map { makerKey.dropLast(it.length) } + BRAND_PREFIXES.filter { makerKey.startsWith(it) })
             .filter { it.codePointCount(0, it.length) >= MIN_NAME_LENGTH }
             .sortedByDescending { it.length }
 
