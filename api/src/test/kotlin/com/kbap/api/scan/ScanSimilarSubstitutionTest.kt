@@ -67,5 +67,31 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("유사 음식 대체 — 행은 있으나 READY 가 아닌 이름(S-959)") {
+            `when`("스캔한 이름의 음식 행이 FAILED 로만 있으면") {
+                then("벡터 대체에도 보내 공개 음식으로 대체한다(예전엔 새 이름만 보내 matched=false 로 끝났다)") {
+                    val target = foodRepository.save(Food(koreanName = "공개김치찌개", description = "설명", contentStatus = FoodContentStatus.READY))
+                    foodRepository.save(Food(koreanName = "실패김치찌개", description = "", contentStatus = FoodContentStatus.FAILED))
+                    val member = memberRepository.save(Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "similar-${System.nanoTime()}", null)))
+                    val vision = object : MenuBoardVisionExtractor {
+                        override fun extract(imagePath: String, ocrItems: List<OcrItem>) = listOf(ExtractedMenu("Kimchi stew", "실패김치찌개", 9000, null))
+                    }
+                    val embedded = mutableListOf<String>()
+                    val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
+                    val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.9)) }
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService)
+
+                    val result = service.scan(member, "scans/y.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
+
+                    embedded shouldBe listOf("실패김치찌개")
+                    result.items.single().let {
+                        it.substituted shouldBe true
+                        it.matched shouldBe true
+                        it.foodId shouldBe target.id
+                    }
+                }
+            }
+        }
     }
 }

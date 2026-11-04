@@ -104,6 +104,7 @@ class ScanService(
                 avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
                 substituted = similar != null,
                 originalScannedName = menu.koreanName.takeIf { similar != null },
+                pendingNameKey = KoreanMenuNameNormalizer.matchKey(menu.koreanName).takeIf { !matched && similar == null && it.isNotBlank() },
             )
         }
 
@@ -146,9 +147,10 @@ class ScanService(
             .toMap()
         val known = foodService.getFoodsByKoreanNames(displayNamesByMatchKey.keys)
         val newlyRegistered = displayNamesByMatchKey - known.keys
+        val knownNotReady = displayNamesByMatchKey.filterKeys { known[it]?.isReady() == false }
         return ResolvedFoods(
             foods = known + foodService.createIncomplete(newlyRegistered),
-            registeredNames = newlyRegistered.values.toList(),
+            registeredNames = (newlyRegistered + knownNotReady).values.toList(),
         )
     }
 
