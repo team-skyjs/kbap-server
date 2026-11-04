@@ -39,28 +39,37 @@ private fun codes(vararg chosen: IngredientCode): Set<String> = Avoidance(chosen
 class FoodDiscoveryCandidatesTest : BehaviorSpec({
     val ko = setOf(LanguageCode.KO)
 
-    given("회피 재료 판정") {
-        `when`("돼지고기 회피 회원에게 돼지고기가 1% 든 음식과 안전한 음식이 있으면") {
+    given("회피 재료 판정 (overallRisk == SAFE)") {
+        `when`("돼지고기 회피 회원에게 돼지고기 1%·10%·60% 음식과 무관 음식이 있으면") {
             val porkTrace = food(1, IngredientCode.PORK to 1, IngredientCode.WHEAT to 90)
-            val safe = food(2, IngredientCode.WHEAT to 90)
-            val candidates = FoodDiscoveryCandidates(listOf(porkTrace, safe))
+            val porkCaution = food(2, IngredientCode.PORK to 10)
+            val porkDanger = food(3, IngredientCode.PORK to 60)
+            val unrelated = food(4, IngredientCode.WHEAT to 90)
+            val candidates = FoodDiscoveryCandidates(listOf(porkTrace, porkCaution, porkDanger, unrelated))
+            val pork = codes(IngredientCode.PORK)
 
-            then("위험도 집계로는 SAFE 인 음식이지만 후보에서 빠지고 어떤 시드로도 선택되지 않는다") {
-                porkTrace.overallRisk(codes(IngredientCode.PORK)) shouldBe RiskLevel.SAFE
-                candidates.safeFor(codes(IngredientCode.PORK)).map { it.id } shouldBe listOf(2L)
-                (0 until 200).forEach { seed ->
-                    candidates.pick(codes(IngredientCode.PORK), ko, emptySet(), Random(seed))?.id shouldBe 2L
-                }
+            then("SAFE 인 1% 음식과 무관 음식만 후보이고 CAUTION·DANGER 음식은 어떤 시드로도 선택되지 않는다") {
+                porkTrace.overallRisk(pork) shouldBe RiskLevel.SAFE
+                porkCaution.overallRisk(pork) shouldBe RiskLevel.CAUTION
+                porkDanger.overallRisk(pork) shouldBe RiskLevel.DANGER
+                candidates.safeFor(pork).map { it.id } shouldBe listOf(1L, 4L)
+                val picks = (0 until 200).map { seed -> candidates.pick(pork, ko, emptySet(), Random(seed))?.id }
+                picks shouldNotContain 2L
+                picks shouldNotContain 3L
+                picks.toSet() shouldBe setOf(1L, 4L)
             }
         }
 
-        `when`("상위 묶음(육류)을 고른 회원에게 하위 재료(라드)만 든 음식이 있으면") {
-            val lardOnly = food(1, IngredientCode.LARD to 5)
-            val candidates = FoodDiscoveryCandidates(listOf(lardOnly))
+        `when`("상위 묶음(육류)을 고른 회원에게 하위 재료만 CAUTION 이상 든 음식이 있으면") {
+            val lard = food(1, IngredientCode.LARD to 10)
+            val chicken = food(2, IngredientCode.CHICKEN to 80)
+            val lardTrace = food(3, IngredientCode.LARD to 5)
+            val candidates = FoodDiscoveryCandidates(listOf(lard, chicken, lardTrace))
 
-            then("묶음 확장으로 겹쳐 선택되지 않는다") {
-                candidates.pick(codes(IngredientCode.MEAT), ko, emptySet(), Random(0)) shouldBe null
-                candidates.pick(emptySet(), ko, emptySet(), Random(0))?.id shouldBe 1L
+            then("묶음 확장(MEAT→PORK→LARD, MEAT→POULTRY→CHICKEN)으로 위험도가 매겨져 SAFE 인 음식만 남는다") {
+                val picks = (0 until 200).map { seed -> candidates.pick(codes(IngredientCode.MEAT), ko, emptySet(), Random(seed))?.id }.toSet()
+                picks shouldBe setOf(3L)
+                candidates.safeFor(emptySet()).map { it.id } shouldBe listOf(1L, 2L, 3L)
             }
         }
     }

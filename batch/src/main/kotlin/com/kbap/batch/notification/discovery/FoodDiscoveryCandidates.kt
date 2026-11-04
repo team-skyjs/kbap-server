@@ -2,6 +2,7 @@ package com.kbap.batch.notification.discovery
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.RiskLevel
 import kotlin.random.Random
 
 class FoodDiscoveryCandidates(foods: Collection<Food>) {
@@ -25,7 +26,7 @@ class FoodDiscoveryCandidates(foods: Collection<Food>) {
     val ids: Set<Long> get() = all.map { it.id }.toSet()
 
     fun safeFor(avoidedCodes: Set<String>): List<Candidate> =
-        memo.getOrPut(avoidedCodes) { all.filter { it.food.overlappedIngredients(avoidedCodes).isEmpty() } }
+        memo.getOrPut(avoidedCodes) { all.filter { it.food.overallRisk(avoidedCodes) == RiskLevel.SAFE } }
 
     fun pick(avoidedCodes: Set<String>, langs: Set<LanguageCode>, excludedFoodIds: Set<Long>, random: Random): Candidate? =
         safeFor(avoidedCodes)

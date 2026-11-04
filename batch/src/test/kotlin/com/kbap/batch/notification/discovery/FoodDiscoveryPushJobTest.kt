@@ -150,10 +150,10 @@ class FoodDiscoveryPushJobTest : BehaviorSpec() {
 
     init {
         given("음식 발견 발송 잡") {
-            `when`("09:30 에 돼지고기 회피 회원과 돼지고기 1% 음식·안전 음식이 있으면") {
+            `when`("09:30 에 돼지고기 회피 회원과 돼지고기 10%(CAUTION) 음식·안전 음식이 있으면") {
                 clear()
                 clock.setSeoul(2026, 11, 4, 9, 30)
-                food("돼지국밥", IngredientCode.PORK to 1, IngredientCode.WHEAT to 10)
+                food("돼지국밥", IngredientCode.PORK to 10, IngredientCode.WHEAT to 10)
                 val safe = food("삼계탕", IngredientCode.POULTRY to 80)
                 val memberId = member(IngredientCode.PORK)
                 val before = sentCounter()
@@ -201,7 +201,7 @@ class FoodDiscoveryPushJobTest : BehaviorSpec() {
             `when`("후보가 회피·번역 누락·90일 이력·북마크로 모두 빠지는 회원이 있으면") {
                 clear()
                 clock.setSeoul(2026, 11, 4, 12, 0)
-                food("돼지국밥", IngredientCode.PORK to 1, translations = mapOf("th" to "th 설명"))
+                food("돼지국밥", IngredientCode.PORK to 10, translations = mapOf("th" to "th 설명"))
                 val noThai = food("비빔밥")
                 val recent = food("삼계탕", translations = mapOf("th" to "th 설명"))
                 val bookmarked = food("김밥", translations = mapOf("th" to "th 설명"))
