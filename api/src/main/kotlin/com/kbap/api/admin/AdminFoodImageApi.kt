@@ -94,4 +94,38 @@ interface AdminFoodImageApi {
     fun generateAdditionalImage(
         @Parameter(description = "음식 id", required = true, example = "42") foodId: Long,
     ): ResponseEntity<BaseResponse<AdminFoodImageRegenerateResponse>>
+
+    @Operation(
+        summary = "음식 실물 사진 업로드 URL 발급",
+        description = """
+            키 `{key-prefix}/images/foods/{음식 id}/{sha256 앞 16자}.{png|jpg|webp}` 로 PUT 할 presigned URL(10분)을 준다 — 음식 id 접두가 고정이라 다른 음식 키는 confirm 에서 거절된다.
+            `contentType` 은 image/png · image/jpeg · image/webp, `contentLength` 는 실제 파일 크기(최대 5MB), `contentSha256` 으로 S3 체크섬을 서명에 넣는다.
+            `requiredHeaders` 를 그대로 붙여 PUT 한 뒤 `POST .../photos/confirm` 으로 저장해야 갤러리에 붙는다(가공식품 누끼 업로드와 같은 방식).
+            - **ADMIN 역할 JWT 전용**, `X-Target-Environment` 가 서버 환경과 같아야 한다.
+        """,
+    )
+    @ApiErrors(ErrorCode.INVALID_REQUEST, ErrorCode.IMAGE_TOO_LARGE, ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_ENVIRONMENT_MISMATCH)
+    fun presignPhoto(
+        @Parameter(description = "음식 id", required = true, example = "42") foodId: Long,
+        @Parameter(description = "대상 환경(dev·prod) — 서버 환경과 다르면 409") target: String,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "올릴 파일 정보")
+        request: AdminFoodPhotoPresignRequest,
+    ): ResponseEntity<BaseResponse<AdminFoodPhotoPresignResponse>>
+
+    @Operation(
+        summary = "음식 실물 사진 저장(업로드 확인)",
+        description = """
+            S3 오브젝트가 있고 Content-Type 이 키 확장자와 맞고 5MB 이하이며 SHA-256 앞 16자가 키 해시와 같으면 food_image 에 source=UPLOADED 로 맨 뒤 순서에 추가한다.
+            같은 키를 다시 확인해도 한 장이다(멱등). `setPrimary=true` 면 그 사진을 유일한 대표로 바꾸고 `image_ref` 를 교체하며 벡터 갱신을 쌓는다(대표 지정 API 와 같은 규칙, 버전 확인 없음).
+            콘텐츠 상태(contentStatus)는 바꾸지 않는다. 응답은 저장 뒤 갤러리다.
+            - **ADMIN 역할 JWT 전용**, `X-Target-Environment` 가 서버 환경과 같아야 한다.
+        """,
+    )
+    @ApiErrors(ErrorCode.INVALID_REQUEST, ErrorCode.FOOD_PHOTO_NOT_UPLOADED, ErrorCode.FOOD_NOT_FOUND, ErrorCode.FOOD_ENVIRONMENT_MISMATCH)
+    fun confirmPhoto(
+        @Parameter(description = "음식 id", required = true, example = "42") foodId: Long,
+        @Parameter(description = "대상 환경(dev·prod) — 서버 환경과 다르면 409") target: String,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "presign 응답의 key 와 대표 지정 여부")
+        request: AdminFoodPhotoConfirmRequest,
+    ): ResponseEntity<BaseResponse<AdminFoodImageGalleryResponse>>
 }

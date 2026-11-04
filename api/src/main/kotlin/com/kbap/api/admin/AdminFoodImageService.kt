@@ -12,14 +12,21 @@ import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.food.model.FoodImage
+import com.kbap.common.domain.food.model.FoodImageSource
 import com.kbap.common.domain.food.model.FoodVectorOutboxOperation
 import com.kbap.common.domain.food.model.FoodVectorOutboxStatus
 import com.kbap.common.domain.food.model.RegenerationIntent
+import com.kbap.common.port.storage.PresignedUpload
+import com.kbap.common.port.storage.PresignedUploadPort
+import com.kbap.common.port.storage.StorageObjectStore
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Duration
+import java.util.Base64
 
 @Service
 class AdminFoodImageService(
@@ -31,7 +38,10 @@ class AdminFoodImageService(
     private val batchSubmitService: FoodImageBatchSubmitService,
     private val imageBatchItemRepository: ImageBatchItemJpaRepository,
     private val regenerationStateResolver: RegenerationStateResolver,
+    private val uploads: PresignedUploadPort,
+    private val store: StorageObjectStore,
     transactionManager: PlatformTransactionManager,
+    @Value("\${kbap.storage.key-prefix:}") private val keyPrefix: String,
 ) {
     private val transaction = TransactionTemplate(transactionManager)
 
@@ -59,6 +69,51 @@ class AdminFoodImageService(
         foodRepository.flush()
         return galleryOf(foodId)
     }
+
+    fun presignPhoto(foodId: Long, contentType: String, contentLength: Long, contentSha256: String): PresignedUpload {
+        val extension = PHOTO_EXTENSIONS[contentType] ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (contentLength > PHOTO_MAX_BYTES) throw BusinessException(ErrorCode.IMAGE_TOO_LARGE)
+        val sha256 = contentSha256.lowercase().takeIf { SHA256_HEX.matches(it) } ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (!foodRepository.existsById(foodId)) throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        val checksum = Base64.getEncoder().encodeToString(sha256.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+        return uploads.issue(photoKeyBaseOf(foodId) + sha256.take(PHOTO_HASH_LENGTH) + "." + extension, contentType, contentLength, PHOTO_UPLOAD_TTL, checksum)
+    }
+
+    fun confirmPhoto(foodId: Long, key: String, setPrimary: Boolean): AdminFoodImageGalleryResult {
+        val keyBase = photoKeyBaseOf(foodId)
+        val (hash, extension) = key.takeIf { it.startsWith(keyBase) }?.removePrefix(keyBase)?.let(PHOTO_KEY_PART::matchEntire)?.destructured
+            ?: throw BusinessException(ErrorCode.INVALID_REQUEST)
+        if (!foodRepository.existsById(foodId)) throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+        runCatching { store.head(key) }.getOrNull()
+            ?.takeIf { PHOTO_EXTENSIONS[it.contentType] == extension && it.sizeBytes in 1..PHOTO_MAX_BYTES && it.sha256Hex?.take(PHOTO_HASH_LENGTH) == hash }
+            ?: throw BusinessException(ErrorCode.FOOD_PHOTO_NOT_UPLOADED)
+        return transaction.execute {
+            val food = foodRepository.findByIdForUpdate(foodId) ?: throw BusinessException(ErrorCode.FOOD_NOT_FOUND)
+            val image = foodImageRepository.findByFoodIdAndImageKey(foodId, key)
+                ?: foodImageRepository.save(
+                    FoodImage(
+                        foodId = foodId,
+                        imageKey = key,
+                        source = FoodImageSource.UPLOADED,
+                        sortOrder = (foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId).maxOfOrNull { it.sortOrder } ?: -1) + 1,
+                    ),
+                )
+            if (setPrimary && (!image.isPrimary || food.imageRef != key)) {
+                if (!image.isPrimary) {
+                    foodImageRepository.findByFoodIdAndIsPrimaryTrue(foodId)?.isPrimary = false
+                    foodImageRepository.flush()
+                    image.isPrimary = true
+                }
+                food.imageRef = key
+                vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
+            }
+            foodRepository.flush()
+            galleryOf(foodId)
+        }!!
+    }
+
+    private fun photoKeyBaseOf(foodId: Long): String =
+        listOf(keyPrefix.trim('/'), "images/foods/$foodId/").filter { it.isNotEmpty() }.joinToString("/")
 
     fun regenerateImage(foodId: Long, intent: RegenerationIntent?, reason: String?): AdminFoodImageRegenerateResult {
         val claim = claimForRegeneration(foodId, intent, reason)
@@ -166,6 +221,14 @@ class AdminFoodImageService(
             items = items,
         )
     }
+    companion object {
+        const val PHOTO_MAX_BYTES = 5L * 1024 * 1024
+        private val PHOTO_EXTENSIONS = mapOf("image/png" to "png", "image/jpeg" to "jpg", "image/webp" to "webp")
+        private val PHOTO_UPLOAD_TTL = Duration.ofMinutes(10)
+        private const val PHOTO_HASH_LENGTH = 16
+        private val PHOTO_KEY_PART = Regex("([0-9a-f]{16})\\.(png|jpg|webp)")
+        private val SHA256_HEX = Regex("[0-9a-f]{64}")
+    }
 }
 
 data class AdminFoodImageRegenerateResult(
@@ -192,4 +255,5 @@ data class AdminFoodImageGalleryResult(
         val createdAt: java.time.LocalDateTime,
         val generation: AdminImageGenerationResponse?,
     )
+
 }

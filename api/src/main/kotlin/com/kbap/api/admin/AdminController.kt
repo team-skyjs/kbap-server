@@ -22,7 +22,7 @@ class AdminController(
     override fun seed(
         @Valid @RequestBody request: AdminFoodSeedRequest,
     ): ResponseEntity<BaseResponse<AdminFoodSeedResponse>> {
-        val result = adminFoodService.seedIncomplete(request.koreanNames.orEmpty().toSet())
+        val result = adminFoodService.seedIncomplete(request.koreanNames.orEmpty().toSet(), skipPipeline = request.skipPipeline == true)
         return ResponseEntity.ok(BaseResponse.ok(AdminFoodSeedResponse.from(result)))
     }
 

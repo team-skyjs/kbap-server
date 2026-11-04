@@ -249,12 +249,12 @@ class FoodService(
     }
 
     @Transactional
-    fun createIncomplete(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
+    fun createIncomplete(displayNamesByMatchKey: Map<String, String>, requestContent: Boolean = true): Map<String, Food> {
         if (displayNamesByMatchKey.isEmpty()) return emptyMap()
-        return upsertAndResolve(displayNamesByMatchKey)
+        return upsertAndResolve(displayNamesByMatchKey, requestContent)
     }
 
-    private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>): Map<String, Food> {
+    private fun upsertAndResolve(displayNamesByMatchKey: Map<String, String>, requestContent: Boolean): Map<String, Food> {
         foodRepository.upsertIncomplete(displayNamesByMatchKey.map { (matchKey, displayName) -> Food.failed(matchKey, displayName) })
 
         val matchKeys = displayNamesByMatchKey.keys
@@ -263,7 +263,7 @@ class FoodService(
         if (unresolved.isNotEmpty()) {
             log.warn("미완성 음식 등록 누락 — 소프트 삭제된 동명 음식이 있습니다: {}", unresolved)
         }
-        enqueueContentRequests(resolved.values)
+        if (requestContent) enqueueContentRequests(resolved.values)
         return resolved
     }
 
