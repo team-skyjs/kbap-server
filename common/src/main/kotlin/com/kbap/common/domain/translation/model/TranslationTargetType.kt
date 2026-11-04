@@ -9,4 +9,6 @@ enum class TranslationTargetType {
     PF_ALLERGENS,
     PF_NAME_PINNED,
     PF_MAKER_PINNED,
+    PF_RECIPE_STEP,
+    PF_RECIPE_CAUTION,
 }

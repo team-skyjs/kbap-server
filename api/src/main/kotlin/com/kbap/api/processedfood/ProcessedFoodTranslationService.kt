@@ -77,6 +77,8 @@ class ProcessedFoodTranslationService(
         val ingredients = request(TranslationTargetType.PF_INGREDIENTS, detail.id, detail.ingredients?.original, language, sync = false)
         val allergens = request(TranslationTargetType.PF_ALLERGENS, detail.id, detail.allergenStatement?.original, language, sync = false)
         val foodType = detail.foodType?.let { request(TranslationTargetType.PF_FOOD_TYPE, foodTypeKeyOf(it), it, language, deadline != null) }
+        val recipeSteps = detail.recipe?.lines { it.steps }?.let { request(TranslationTargetType.PF_RECIPE_STEP, detail.id, it.joinToString("\n"), language, sync = false) }
+        val recipeCautions = detail.recipe?.lines { it.cautions }?.takeIf { it.isNotEmpty() }?.let { request(TranslationTargetType.PF_RECIPE_CAUTION, detail.id, it.joinToString("\n"), language, sync = false) }
         return detail.copy(
             name = pinnedName ?: name.await(deadline) ?: detail.productName,
             maker = pinnedMaker ?: detail.maker?.let { brandNameOf(it) ?: maker.await(deadline) ?: it },
@@ -84,8 +86,17 @@ class ProcessedFoodTranslationService(
             allergenStatement = detail.allergenStatement?.let { it.copy(translated = allergens.await(null) ?: it.original) },
             unclearIngredientLabels = unclearLabels,
             foodTypeLocalized = detail.foodType?.let { ProcessedFoodLocalizedText(foodType.await(deadline) ?: it, it) },
+            recipe = detail.recipe?.let { recipe ->
+                recipe.withTexts(
+                    steps = linesMatching(recipeSteps.await(null), recipe.lines { it.steps }.size),
+                    cautions = linesMatching(recipeCautions.await(null), recipe.lines { it.cautions }.size),
+                )
+            },
         )
     }
+
+    private fun linesMatching(translated: String?, expected: Int): List<String>? =
+        translated?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.size == expected }
 
     fun translateNameInBackground(productId: Long, name: String, maker: String?) {
         val source = nameSourceOf(name, maker)

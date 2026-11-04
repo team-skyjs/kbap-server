@@ -10,8 +10,12 @@ import com.kbap.common.domain.ingredient.model.IngredientCode
 import com.kbap.common.domain.processedfood.model.ProcessedFoodImage
 import com.kbap.common.domain.processedfood.model.ProcessedFoodImageKind
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.processedfood.model.ProcessedFoodRecipe
+import com.kbap.common.domain.processedfood.model.RecipeMethodType
+import com.kbap.common.domain.processedfood.model.RecipeWaterLine
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import com.kbap.common.domain.review.ProcessedFoodReviewAxes
+import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -193,6 +197,9 @@ data class ProcessedFoodDetailResponse(
     val images: List<ProcessedFoodGalleryImageResponse> = emptyList(),
     @field:Schema(description = "포장 전체 칼로리(kcal, S-957) — 사람이 넣은 값만. 없거나, 같은 묶음 안 상품의 (용량, kcal) 이 둘 이상으로 갈리면 null", example = "520", nullable = true)
     val kcal: Int? = null,
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "조리법(S-961, D-34) — 없으면 필드 자체가 없다. 단계·주의는 요청 lang 번역(실패·대기 중이면 한국어 원문). 묶음 상품이면 대표 상품의 조리법", nullable = true)
+    val recipe: ProcessedFoodRecipeResponse? = null,
 ) {
     companion object {
         fun of(
@@ -203,6 +210,7 @@ data class ProcessedFoodDetailResponse(
             gallery: List<ProcessedFoodImage> = emptyList(),
             imageOwner: ProcessedFoodProduct = product,
             kcal: Int? = product.kcalTotal,
+            recipe: ProcessedFoodRecipe? = product.recipe(),
         ): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
@@ -237,6 +245,7 @@ data class ProcessedFoodDetailResponse(
                 foodTypeLocalized = product.foodType?.let { ProcessedFoodLocalizedText(it, it) },
                 images = imagesOf(imageOwner, gallery),
                 kcal = kcal,
+                recipe = recipe?.let(ProcessedFoodRecipeResponse::from),
             )
         }
 
@@ -287,6 +296,64 @@ data class ProcessedFoodSourceResponse(
     @field:Schema(description = "이 제품을 처음 수집한 시각. 원본 내용 변경 시각은 아직 기록하지 않아 내려가지 않는다(미러 확인 시각을 갱신일로 보이지 않기 위해)")
     val collectedAt: LocalDateTime,
 )
+
+@Schema(description = "조리법")
+data class ProcessedFoodRecipeResponse(
+    @field:Schema(description = "출처 — LABEL(포장 표시)", example = "LABEL")
+    val source: String,
+    @field:Schema(description = "조리 방법 — 포장 표시 순서")
+    val methods: List<ProcessedFoodRecipeMethodResponse>,
+) {
+    fun lines(pick: (ProcessedFoodRecipeMethodResponse) -> List<String>): List<String> = methods.flatMap(pick)
+
+    fun withTexts(steps: List<String>?, cautions: List<String>?): ProcessedFoodRecipeResponse {
+        var stepIndex = 0
+        var cautionIndex = 0
+        return copy(
+            methods = methods.map { method ->
+                method.copy(
+                    steps = method.steps.map { original -> steps?.getOrNull(stepIndex++) ?: original },
+                    cautions = method.cautions.map { original -> cautions?.getOrNull(cautionIndex++) ?: original },
+                )
+            },
+        )
+    }
+
+    companion object {
+        fun from(recipe: ProcessedFoodRecipe) = ProcessedFoodRecipeResponse(
+            source = recipe.source,
+            methods = recipe.methods.map {
+                ProcessedFoodRecipeMethodResponse(it.type, it.water?.let { w -> ProcessedFoodRecipeWaterResponse(w.ml, w.line) }, it.power.map { p -> ProcessedFoodRecipePowerResponse(p.watt, p.seconds) }, it.waitSeconds, it.drainKeepMl, it.steps.map { s -> s.ko }, it.cautions)
+            },
+        )
+    }
+}
+
+data class ProcessedFoodRecipeMethodResponse(
+    @field:Schema(description = "MICROWAVE·BOILING_WATER")
+    val type: RecipeMethodType,
+    @field:Schema(description = "물 — ml·선(INNER·OUTER·COVER_NOODLES), 둘 다 null 가능", nullable = true)
+    val water: ProcessedFoodRecipeWaterResponse?,
+    @field:Schema(description = "와트별 시간(전자레인지) — 표시 순서")
+    val power: List<ProcessedFoodRecipePowerResponse>,
+    @field:Schema(description = "기다리는 시간(초, 끓는 물)", nullable = true)
+    val waitSeconds: Int?,
+    @field:Schema(description = "물을 버릴 때 남길 양(ml)", nullable = true)
+    val drainKeepMl: Int?,
+    @field:Schema(description = "단계 — 요청 lang 번역(없으면 한국어 원문)")
+    val steps: List<String>,
+    @field:Schema(description = "주의 — 요청 lang 번역(없으면 한국어 원문), 포장에 있을 때만")
+    val cautions: List<String>,
+)
+
+data class ProcessedFoodRecipeWaterResponse(
+    @field:Schema(nullable = true)
+    val ml: Int?,
+    @field:Schema(nullable = true)
+    val line: RecipeWaterLine?,
+)
+
+data class ProcessedFoodRecipePowerResponse(val watt: Int, val seconds: Int)
 
 @Schema(description = "가공식품 상세 사진 한 장")
 data class ProcessedFoodGalleryImageResponse(
