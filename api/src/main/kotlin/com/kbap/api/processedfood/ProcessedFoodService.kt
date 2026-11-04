@@ -157,7 +157,10 @@ class ProcessedFoodService(
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(members.values.flatten().distinct()).associateBy { it.processedFoodId }
         val avoidance = memberId?.let { memberService.getAvoidance(it) }
         val imageless = products.filter { it.displayImageUrl() == null }
-        val siblings = if (imageless.isEmpty()) emptyMap() else this.products.findAllById(imageless.flatMap { members.getValue(it.id) }.distinct()).associateBy { it.id }
+        val siblings = if (imageless.isEmpty()) emptyMap() else {
+            val lastMirror = this.products.findLastCompletedMirrorStartedAt()
+            this.products.findAllById(imageless.flatMap { members.getValue(it.id) }.distinct()).filterNot { it.isDiscontinued(lastMirror) }.associateBy { it.id }
+        }
         return products.map { product ->
             val summary = ProcessedFoodSummaryResponse.withReviews(product, GroupRating.of(product.id, members.getValue(product.id).mapNotNull(ratings::get)), avoidance)
             if (summary.imageUrl != null) summary

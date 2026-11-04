@@ -98,4 +98,19 @@ class ProcessedFoodGroupingTest : BehaviorSpec({
             }
         }
     }
+    given("제조사 모름 행을 브랜드 접두를 떼고 접을 때 — Codex P2(#557 2차)") {
+        fun row(name: String, maker: String?) = ProcessedFoodGrouping.GroupRow(name, maker, ProcessedFoodGrouping.keyOf(name, maker))
+        `when`("뗀 브랜드가 대상 묶음 제조사와 다르면") {
+            then("접지 않는다 — 롯데런천미트(모름)는 동원F&B 런천미트에 붙지 않는다") {
+                val keys = ProcessedFoodGrouping.foldUnknownMakers(listOf(row("런천미트", "동원F&B"), row("롯데런천미트", null)))
+                keys[1] shouldNotBe keys[0]
+            }
+        }
+        `when`("뗀 브랜드가 대상 묶음 제조사와 맞으면") {
+            then("접는다 — 롯데런천미트(모름) → 롯데푸드 런천미트") {
+                val keys = ProcessedFoodGrouping.foldUnknownMakers(listOf(row("런천미트", "롯데푸드"), row("롯데런천미트", null)))
+                keys[1] shouldBe keys[0]
+            }
+        }
+    }
 })

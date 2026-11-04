@@ -37,14 +37,18 @@ object ProcessedFoodGrouping {
             .mapValues { (_, keys) -> keys.toSet() }
         return rows.map { row ->
             if (makerKeyOf(row.displayMaker).isNotEmpty()) return@map row.groupKey
-            val name = row.groupKey.substringBeforeLast('|')
-            listOf(name, withoutSize(withoutKnownBrand(row.normalizedName)))
-                .firstNotNullOfOrNull { knownByName[it]?.singleOrNull() } ?: row.groupKey
+            knownByName[row.groupKey.substringBeforeLast('|')]?.singleOrNull()
+                ?: knownBrandOf(row.normalizedName)?.let { brand ->
+                    knownByName[withoutSize(row.normalizedName.substring(brand.length))]
+                        ?.filter { key -> brand in brandsOf(key.substringAfterLast('|')) }
+                        ?.singleOrNull()
+                }
+                ?: row.groupKey
         }
     }
 
-    private fun withoutKnownBrand(name: String): String =
-        BRAND_PREFIXES.sortedByDescending { it.length }.firstOrNull { name.startsWith(it) && name.length > it.length }?.let { name.substring(it.length) } ?: name
+    private fun knownBrandOf(name: String): String? =
+        BRAND_PREFIXES.sortedByDescending { it.length }.firstOrNull { name.startsWith(it) && name.length > it.length }
 
     data class GroupRow(val normalizedName: String, val displayMaker: String?, val groupKey: String)
 

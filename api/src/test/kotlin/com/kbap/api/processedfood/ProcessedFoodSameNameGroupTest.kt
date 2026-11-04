@@ -250,6 +250,25 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                     get("/api/processed-foods/$plain").path("image").path("url").asText() shouldBe "https://cdn.test/approved.png"
                 }
             }
+            `when`("사진 있는 형제가 단종(마지막 미러에서 안 보인 지 3일 넘음)뿐이면 — Codex P2(#557 2차)") {
+                then("카드·상세 모두 폴백하지 않는다(상세와 같은 가용성 기준)") {
+                    execute("DELETE FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID = 995401")
+                    execute("DELETE FROM BATCH_JOB_INSTANCE WHERE JOB_INSTANCE_ID = 995401")
+                    execute("INSERT INTO BATCH_JOB_INSTANCE (JOB_INSTANCE_ID, VERSION, JOB_NAME, JOB_KEY) VALUES (995401, 0, 'processedFoodMirrorJob', 's954-995401')")
+                    execute("INSERT INTO BATCH_JOB_EXECUTION (JOB_EXECUTION_ID, VERSION, JOB_INSTANCE_ID, CREATE_TIME, START_TIME, END_TIME, STATUS, EXIT_CODE, LAST_UPDATED) VALUES (995401, 0, 995401, NOW(6), NOW(6), NOW(6), 'COMPLETED', 'COMPLETED', NOW(6))")
+                    try {
+                        val alive = seed("IMG-1", "단종폴백라면", "농심")
+                        seed("IMG-2", "단종폴백라면컵", "농심")
+                        execute("UPDATE processed_food_product SET image_url = 'https://img.test/discontinued.jpg', last_seen_at = NOW(6) - INTERVAL 10 DAY WHERE report_no = 'IMG-2'")
+
+                        get("/api/processed-foods?query=단종폴백라면").path("items").single().path("imageUrl").isNull shouldBe true
+                        get("/api/processed-foods/$alive").path("image").isNull shouldBe true
+                    } finally {
+                        execute("DELETE FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID = 995401")
+                        execute("DELETE FROM BATCH_JOB_INSTANCE WHERE JOB_INSTANCE_ID = 995401")
+                    }
+                }
+            }
             `when`("대표 상품 자기 사진이 있으면") {
                 then("형제 사진으로 바꾸지 않는다") {
                     val own = seed("IMG-1", "자기사진라면", "농심")
