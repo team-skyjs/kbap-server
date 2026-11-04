@@ -37,4 +37,6 @@ data class ScanPendingItemResponse(
     val existsNotReady: Boolean,
     @field:Schema(description = "existsNotReady 일 때 그 음식 행 id", nullable = true)
     val foodId: Long?,
+    @field:Schema(description = "15초 마감까지 추정이 없어 서버가 kind=DISH·UNKNOWN 으로 채운 항목이면 true, LLM 추정 결과면 false")
+    val filled: Boolean = false,
 )

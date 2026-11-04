@@ -79,7 +79,13 @@ class MenuNameEstimateService(
             log.warn("메뉴 추정 대기 상태 저장 실패 — scanId 없이 현행 응답", e)
             return result
         }
-        if (!member.isBot) schedule(member.id, state.items.distinctBy { it.nameKey })
+        if (!member.isBot) {
+            try {
+                schedule(member.id, state.items.distinctBy { it.nameKey })
+            } catch (e: RuntimeException) {
+                log.warn("메뉴 추정 예약 실패 — 추정 없이 마감 뒤 UNKNOWN 으로 끝난다 scanId={}", scanId, e)
+            }
+        }
         val pendingIdByIndex = pending.associate { (index, _) -> index to "p$index" }
         return result.copy(scanId = scanId, items = result.items.mapIndexed { index, item -> item.copy(pendingId = pendingIdByIndex[index]) })
     }
@@ -89,12 +95,25 @@ class MenuNameEstimateService(
             ?.let { runCatching { mapper.readValue<PendingScan>(it) }.getOrNull() }
             ?.takeIf { it.memberId == memberId }
             ?: throw BusinessException(ErrorCode.SCAN_PENDING_NOT_FOUND)
+        finalOrNull(scanId)?.let { return it }
         val cached = readTransaction.execute { estimates.findAllByNameKeyIn(state.items.map { it.nameKey }.distinct()) }!!.associateBy { it.nameKey }
         val expired = System.currentTimeMillis() >= state.deadlineMillis
         val items = state.items.mapNotNull { item ->
             cached[item.nameKey]?.let { estimatedItem(item, it, avoidance) } ?: unknownItem(item).takeIf { expired }
         }
-        return ScanPendingResponse(items, done = expired || items.size == state.items.size)
+        val response = ScanPendingResponse(items, done = expired || items.size == state.items.size)
+        return if (response.done) finalize(scanId, response) else response
+    }
+
+    private fun finalOrNull(scanId: String): ScanPendingResponse? =
+        runCatching { redis.opsForValue().get(FINAL_PREFIX + scanId) }.getOrNull()?.let { runCatching { mapper.readValue<ScanPendingResponse>(it) }.getOrNull() }
+
+    private fun finalize(scanId: String, response: ScanPendingResponse): ScanPendingResponse = try {
+        redis.opsForValue().setIfAbsent(FINAL_PREFIX + scanId, mapper.writeValueAsString(response), STATE_TTL)
+        finalOrNull(scanId) ?: response
+    } catch (e: RuntimeException) {
+        log.warn("메뉴 추정 최종 응답 저장 실패 — 이번 응답을 그대로 준다 scanId={}", scanId, e)
+        response
     }
 
     fun deleteEstimate(nameKey: String): Boolean = writeTransaction.execute { estimates.deleteByNameKey(nameKey) }!! > 0
@@ -104,26 +123,29 @@ class MenuNameEstimateService(
         meters.counter("menu_estimate.cache", "result", "hit").increment(items.count { it.nameKey in known }.toDouble())
         val missing = items.filter { it.nameKey !in known && it.nameKey.length <= MAX_NAME_KEY_LENGTH && !failedRecently(it.nameKey) }
         meters.counter("menu_estimate.cache", "result", "miss").increment(missing.size.toDouble())
-        if (missing.isEmpty()) return
-        val owned = missing.filter { acquireInflight(it.nameKey) }
+        missing.chunked(MAX_NAMES_PER_CALL).forEach { chunk ->
+            try {
+                executor.execute { runChunk(memberId, chunk) }
+            } catch (e: RejectedExecutionException) {
+                meters.counter("menu_estimate.skipped", "reason", "queue_full").increment(chunk.size.toDouble())
+            }
+        }
+    }
+
+    private fun runChunk(memberId: Long, queued: List<PendingItem>) {
+        val estimator = estimator ?: return
+        val cachedNow = readTransaction.execute { estimates.findAllByNameKeyIn(queued.map { it.nameKey }) }!!.map { it.nameKey }.toSet()
+        val owned = queued.filter { it.nameKey !in cachedNow && !failedRecently(it.nameKey) && acquireInflight(it.nameKey) }
         if (owned.isEmpty()) return
         if (!withinDailyLimits(memberId, owned.size)) {
             meters.counter("menu_estimate.skipped", "reason", "limit").increment(owned.size.toDouble())
             owned.forEach { releaseInflight(it.nameKey) }
             return
         }
-        owned.chunked(MAX_NAMES_PER_CALL).forEach { chunk ->
-            try {
-                executor.execute { estimateChunk(chunk) }
-            } catch (e: RejectedExecutionException) {
-                meters.counter("menu_estimate.skipped", "reason", "queue_full").increment(chunk.size.toDouble())
-                chunk.forEach { releaseInflight(it.nameKey) }
-            }
-        }
+        estimateChunk(estimator, owned)
     }
 
-    private fun estimateChunk(chunk: List<PendingItem>) {
-        val estimator = estimator ?: return chunk.forEach { releaseInflight(it.nameKey) }
+    private fun estimateChunk(estimator: MenuNameEstimator, chunk: List<PendingItem>) {
         val names = chunk.map { it.nameKey }
         meters.counter("menu_estimate.calls").increment()
         meters.summary("menu_estimate.names_per_call").record(names.size.toDouble())
@@ -204,6 +226,7 @@ class MenuNameEstimateService(
         confidence = null,
         existsNotReady = item.foodId != null,
         foodId = item.foodId,
+        filled = true,
     )
 
     private fun failedRecently(nameKey: String): Boolean =
@@ -259,6 +282,7 @@ class MenuNameEstimateService(
         const val STATE_PREFIX = "scan:"
         const val DAILY_PREFIX = "menu-estimate:"
         const val FAIL_PREFIX = "menu-estimate:fail:"
+        const val FINAL_PREFIX = "scan-final:"
         private const val FAIL_COUNT_PREFIX = "menu-estimate:fail-count:"
         private const val INFLIGHT_PREFIX = "menu-estimate:inflight:"
         private val mapper = jacksonObjectMapper()

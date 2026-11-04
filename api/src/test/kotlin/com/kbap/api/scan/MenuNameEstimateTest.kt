@@ -112,6 +112,7 @@ class MenuNameEstimateTest : BehaviorSpec() {
                         it.path("avoidances").map { c -> c.asText() } shouldBe listOf("BEEF")
                         it.path("spiciness").asInt() shouldBe 1
                         it.path("aiEstimated").asBoolean() shouldBe true
+                        it.path("filled").asBoolean() shouldBe false
                         it.path("existsNotReady").asBoolean() shouldBe true
                         it.path("foodId").asLong() shouldBe longOf("SELECT id FROM food WHERE korean_name = '추정갈비탕'")
                     }
@@ -270,7 +271,43 @@ class MenuNameEstimateTest : BehaviorSpec() {
                         it.path("kind").asText() shouldBe "DISH"
                         it.path("riskLevel").asText() shouldBe "UNKNOWN"
                         it.path("name").asText() shouldBe "추정늦은탕"
+                        it.path("filled").asBoolean() shouldBe true
                     }
+                }
+            }
+
+            `when`("마감 뒤 확정한 다음에 추정이 늦게 캐시되면 — Codex P2(#565)") {
+                then("이미 확정한 응답(UNKNOWN)은 바뀌지 않는다 — 늦은 추정은 캐시에만 남는다") {
+                    seedMember(95917)
+                    vision.program("scans/mne-17.jpg", listOf(ExtractedMenu("Late2", "추정늦은찜", null, null)))
+                    estimator.answer = { emptyList() }
+                    val scanId = scan(95917, "scans/mne-17.jpg").path("scanId").asText()
+                    val key = "scan:$scanId"
+                    val state = mapper.readTree(redis.opsForValue().get(key)) as com.fasterxml.jackson.databind.node.ObjectNode
+                    state.put("deadlineMillis", System.currentTimeMillis() - 1)
+                    redis.opsForValue().set(key, mapper.writeValueAsString(state))
+                    val first = pending(95917, scanId).path("payload")
+
+                    execute("INSERT INTO menu_name_estimate (name_key, kind, english_name, description, avoidance_codes, spiciness, confidence, model, prompt_version, status, created_at, updated_at) VALUES ('추정늦은찜', 'DRINK', 'Late', 'late', '[\"BEEF\"]', 2, 0.9, 'gpt-5-nano', 'v1', 'ACTIVE', NOW(6), NOW(6))")
+                    val again = pending(95917, scanId).path("payload")
+
+                    again shouldBe first
+                    again.path("items").single().path("kind").asText() shouldBe "DISH"
+                }
+            }
+
+            `when`("같은 이름을 다른 작업이 이미 추정 중이면(inflight) — Codex P2(#565)") {
+                then("작업이 시작될 때 소유를 다시 확인해 LLM 을 부르지 않는다") {
+                    seedMember(95918)
+                    redis.opsForValue().set("menu-estimate:inflight:추정동시탕", "1", java.time.Duration.ofSeconds(30))
+                    vision.program("scans/mne-18.jpg", listOf(ExtractedMenu("Busy", "추정동시탕", null, null)))
+                    estimator.answer = { names -> names.map { estimation(it, MenuNameKind.DISH) } }
+
+                    scan(95918, "scans/mne-18.jpg")
+                    Thread.sleep(300)
+
+                    estimator.calls.size shouldBe 0
+                    redis.delete("menu-estimate:inflight:추정동시탕")
                 }
             }
 
