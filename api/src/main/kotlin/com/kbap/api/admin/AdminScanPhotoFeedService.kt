@@ -14,11 +14,14 @@ import com.kbap.common.port.llm.ProcessedFoodPhotoKind
 import com.kbap.common.util.ImageUrls
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.jdbc.core.JdbcTemplate
+import com.kbap.common.domain.scan.MenuNameEstimateJpaRepository
+import com.kbap.common.util.KoreanMenuNameNormalizer
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AdminScanPhotoFeedService(
+    private val menuNameEstimates: MenuNameEstimateJpaRepository,
     private val uploads: UploadedImageJpaRepository,
     private val processedFoods: ProcessedFoodProductJpaRepository,
     private val jdbc: JdbcTemplate,
@@ -72,8 +75,26 @@ class AdminScanPhotoFeedService(
             uploadedImageId,
             SCAN_RESULTS_LIMIT,
         )
-        return records.takeIf { it.isNotEmpty() }?.let(::AdminScanResults)
+        if (records.isEmpty()) return null
+        val unmatchedNames = records.associate { it.id to unmatchedNamesOf(it.responseSummary) }
+        val estimates = unmatchedNames.values.flatten().map(KoreanMenuNameNormalizer::matchKey).filter { it.isNotBlank() }.distinct()
+            .takeIf { it.isNotEmpty() }?.let { menuNameEstimates.findAllByNameKeyIn(it).associateBy { e -> e.nameKey } }.orEmpty()
+        return AdminScanResults(
+            records.map { record ->
+                record.copy(
+                    menuEstimates = unmatchedNames.getValue(record.id).mapNotNull { name ->
+                        estimates[KoreanMenuNameNormalizer.matchKey(name)]?.let {
+                            AdminMenuEstimate(name, it.kind, it.englishName, it.description, it.avoidanceCodes.orEmpty(), it.spiciness, it.confidence?.toDouble(), it.model, it.promptVersion)
+                        }
+                    }.distinctBy { it.name },
+                )
+            },
+        )
     }
+
+    private fun unmatchedNamesOf(summary: Map<String, Any?>?): List<String> =
+        listOf("items", "photoOnly").flatMap { key -> (summary?.get(key) as? List<*>).orEmpty() }
+            .mapNotNull { (it as? Map<*, *>)?.takeIf { item -> item["matched"] == false }?.get("name") as? String }
 
     private fun ScanPhotoFeedRow.toItem(names: Map<Long, String>): AdminScanPhotoFeedItem {
         val (kind, sourceId) = when {

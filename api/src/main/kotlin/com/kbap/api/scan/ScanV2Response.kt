@@ -24,6 +24,13 @@ data class ScanV2Response(
         nullable = true,
     )
     val currency: CurrencyResponse?,
+
+    @field:Schema(
+        description = "DB 에 없는 메뉴의 LLM 추정을 받을 스캔 식별자(S-959) — pendingId 가 붙은 항목이 하나라도 있을 때만. " +
+            "GET /api/scans/{scanId}/pending 을 1초 간격으로 최대 15초 폴링한다.",
+        nullable = true,
+    )
+    val scanId: String? = null,
 ) {
     @Schema(name = "ScanV2ItemRiskResponse", description = "개별 메뉴 항목의 판정 결과")
     data class ItemRiskResponse(
@@ -96,6 +103,11 @@ data class ScanV2Response(
             nullable = true,
         )
         val originalScannedName: String?,
+        @field:Schema(
+            description = "LLM 추정 대기 항목 식별자(S-959) — matched=false 이고 대체되지 않은 항목만. pending 응답의 pendingId 와 짝",
+            nullable = true,
+        )
+        val pendingId: String? = null,
     )
 
     @Schema(description = "기피성분 1건의 겹침 판정 — 표시명·경고 수준은 음식 상세의 성분 규칙과 동일")
@@ -138,6 +150,7 @@ data class ScanV2Response(
         ): ScanV2Response =
             ScanV2Response(
                 degraded = result.degraded,
+                scanId = result.scanId,
                 currency = krwPerUnit?.let { CurrencyResponse(code = currency.name, krwPerUnit = it) },
                 results = result.items.map {
                     ItemRiskResponse(
@@ -158,6 +171,7 @@ data class ScanV2Response(
                         },
                         substituted = it.substituted.takeIf { exposeSubstitution },
                         originalScannedName = it.originalScannedName.takeIf { exposeSubstitution },
+                        pendingId = it.pendingId,
                     )
                 },
             )
