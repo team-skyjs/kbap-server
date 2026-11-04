@@ -38,11 +38,14 @@ import java.util.concurrent.TimeUnit
 enum class EstimatedRisk { CAUTION, UNKNOWN }
 
 object EstimatedRiskJudge {
-    fun judge(estimatedCodes: Collection<String>, avoidance: Avoidance): EstimatedRisk {
-        val estimated = estimatedCodes.mapNotNull { name -> IngredientCode.entries.firstOrNull { it.name == name } }
-        val widened = (estimated + estimated.flatMap { it.impliedCodes }).map { it.name }
-        return if (widened.any { it in avoidance.codeNames }) EstimatedRisk.CAUTION else EstimatedRisk.UNKNOWN
-    }
+    fun judge(estimatedCodes: Collection<String>, avoidance: Avoidance): EstimatedRisk =
+        if (matchedCodes(estimatedCodes, avoidance).isEmpty()) EstimatedRisk.UNKNOWN else EstimatedRisk.CAUTION
+
+    fun matchedCodes(estimatedCodes: Collection<String>, avoidance: Avoidance): List<String> =
+        estimatedCodes.distinct().filter { name ->
+            val code = IngredientCode.entries.firstOrNull { it.name == name } ?: return@filter false
+            (code.impliedCodes + code).any { it.name in avoidance.codeNames }
+        }
 }
 
 @Service
@@ -196,8 +199,8 @@ class MenuNameEstimateService(
     }
 
     private fun estimatedItem(item: PendingItem, estimate: MenuNameEstimate, avoidance: Avoidance): ScanPendingItemResponse {
-        val codes = estimate.avoidanceCodes.orEmpty()
-        val risk = EstimatedRiskJudge.judge(codes, avoidance)
+        val codes = EstimatedRiskJudge.matchedCodes(estimate.avoidanceCodes.orEmpty(), avoidance)
+        val risk = if (codes.isEmpty()) EstimatedRisk.UNKNOWN else EstimatedRisk.CAUTION
         meters.counter("menu_estimate.risk", "risk", risk.name).increment()
         return ScanPendingItemResponse(
             pendingId = item.pendingId,
