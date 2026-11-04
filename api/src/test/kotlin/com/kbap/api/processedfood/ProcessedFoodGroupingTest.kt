@@ -41,7 +41,7 @@ class ProcessedFoodGroupingTest : BehaviorSpec({
     }
     given("브랜드 접두·업소용만 다른 가공식품 묶음(S-954, 운영 진라면 8건)") {
         val ottogi = "오뚜기라면"
-        `when`("이름 앞부분이 제조사 이름과 2자 이상 겹치면") {
+        `when`("이름 앞부분이 제조사 이름 또는 회사 접미(라면·식품·제과 등)를 뗀 제조사 이름과 같으면") {
             then("그 접두를 떼고 같은 맛끼리 묶는다 — 제조사 오뚜기라면의 '오뚜기진라면' = '진라면'") {
                 key("오뚜기 진라면 순한맛", ottogi) shouldBe key("진라면(순한맛)", ottogi)
                 key("오뚜기진라면매운맛", ottogi) shouldBe key("진라면(매운맛)", ottogi)
@@ -60,8 +60,9 @@ class ProcessedFoodGroupingTest : BehaviorSpec({
                 key("진라면(매운맛)", ottogi) shouldNotBe key("진라면(순한맛)", ottogi)
             }
         }
-        `when`("겹치는 앞부분이 1자뿐이거나 이름 전체면") {
-            then("떼지 않는다") {
+        `when`("앞부분이 제조사 이름과 우연히 일부만 겹치거나 이름 전체면") {
+            then("떼지 않는다 — 오리온의 '오리…', 오뚜기의 '오징어…'") {
+                key("오리훈제", "오리온") shouldNotBe key("훈제", "오리온")
                 key("오징어짬뽕", "오뚜기") shouldNotBe key("징어짬뽕", "오뚜기")
                 key("오뚜기", "오뚜기") shouldNotBe key("", "오뚜기")
             }
