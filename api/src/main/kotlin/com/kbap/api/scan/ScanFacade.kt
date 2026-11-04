@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class ScanFacade(
+    private val menuNameEstimates: MenuNameEstimateService,
     private val scanService: ScanService,
     private val memberService: MemberService,
     private val reservationStore: ScanReservationStore,
@@ -49,7 +50,7 @@ class ScanFacade(
             val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, substituteSimilar = true)
             scanService.recordChargedScan(memberId, result.items)
             releaseReservationQuietly(memberId, jti)
-            return result
+            return menuNameEstimates.start(member, result)
         } catch (e: Exception) {
             releaseReservationQuietly(memberId, jti)
             throw e

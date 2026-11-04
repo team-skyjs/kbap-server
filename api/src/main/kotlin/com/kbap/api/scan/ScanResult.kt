@@ -3,6 +3,7 @@ package com.kbap.api.scan
 data class ScanResult(
     val items: List<ItemRiskResult>,
     val degraded: Boolean,
+    val scanId: String? = null,
 ) {
     data class ItemRiskResult(
         val idx: Int?,
@@ -16,6 +17,8 @@ data class ScanResult(
         val avoidances: List<AvoidanceOverlap>? = emptyList(),
         val substituted: Boolean,
         val originalScannedName: String?,
+        val pendingNameKey: String? = null,
+        val pendingId: String? = null,
     )
 
     data class AvoidanceOverlap(

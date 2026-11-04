@@ -91,4 +91,24 @@ data class AdminScanResultRecord(
     val scannedAt: LocalDateTime,
     @field:Schema(description = "기록이 적재된 시각")
     val createdAt: LocalDateTime,
+    @field:Schema(description = "이 스캔의 미매칭 메뉴(matched=false) 중 LLM 추정이 캐시된 것(S-959) — kind=NOT_FOOD 면 그 이름의 음식 행은 검수 대상이 아니다")
+    val menuEstimates: List<AdminMenuEstimate> = emptyList(),
+)
+
+@Schema(description = "메뉴 이름 LLM 추정(menu_name_estimate 한 행)")
+data class AdminMenuEstimate(
+    @field:Schema(description = "메뉴판에서 읽은 이름(요약의 name)")
+    val name: String,
+    val kind: String,
+    @field:Schema(nullable = true)
+    val englishName: String?,
+    @field:Schema(nullable = true)
+    val description: String?,
+    val avoidanceCodes: List<String>,
+    val spiciness: Int,
+    @field:Schema(nullable = true)
+    val confidence: Double?,
+    val model: String,
+    @field:Schema(description = "추정에 쓴 프롬프트 판")
+    val promptVersion: String,
 )
