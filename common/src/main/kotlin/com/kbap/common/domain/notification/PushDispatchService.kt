@@ -25,6 +25,7 @@ class PushDispatchService(
             val notification = notificationRepository.save(
                 Notification.forDevice(device.memberId, device.installationId, request.type, content.title, content.body, null),
             )
+            notification.foodId = (request.data[Notification.DATA_FOOD_ID] as? Number)?.toLong()
             val data = request.data + mapOf(DATA_TYPE to request.type.name, DATA_NOTIFICATION_ID to notification.id)
             notification.data = data
             val dispatch = dispatchRepository.save(NotificationDispatch.pending(notification.id, device.id, device.expoToken, request.type))

@@ -12,6 +12,8 @@ interface BookmarkJpaRepository : JpaRepository<Bookmark, Long> {
 
     fun findByMemberIdAndFoodId(memberId: Long, foodId: Long): Bookmark?
 
+    fun findByMemberIdIn(memberIds: Collection<Long>): List<Bookmark>
+
     fun findByMemberIdAndFoodIdIn(memberId: Long, foodIds: Collection<Long>): List<Bookmark>
 
     @Query(
