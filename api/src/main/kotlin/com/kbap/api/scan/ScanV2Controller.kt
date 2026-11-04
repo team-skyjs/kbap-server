@@ -16,7 +16,10 @@ import com.kbap.common.port.exchange.ExchangeRateClient
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ModelAttribute
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import com.kbap.api.member.MemberService
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -29,7 +32,17 @@ class ScanV2Controller(
     private val scanFacade: ScanFacade,
     private val exchangeRateClient: ExchangeRateClient,
     private val scanResultRecorder: ScanResultRecorder,
+    private val menuNameEstimates: MenuNameEstimateService,
+    private val memberService: MemberService,
 ) : ScanV2Api {
+    @GetMapping("/{scanId}/pending")
+    override fun getPending(
+        @AuthMemberId memberId: Long,
+        @PathVariable scanId: String,
+    ): ResponseEntity<BaseResponse<ScanPendingResponse>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store")
+            .body(BaseResponse.ok(menuNameEstimates.getPendingItems(scanId, memberId, memberService.getAvoidance(memberId))))
+
     @PostMapping
     override fun scan(
         @AuthMemberId memberId: Long,

@@ -98,4 +98,19 @@ interface ScanV2Api {
         @SwaggerRequestBody(required = true, content = [Content(schema = Schema(implementation = ScanV2Request::class))])
         request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>>
+
+    @Operation(
+        summary = "DB 에 없는 메뉴의 LLM 추정 결과(S-959)",
+        description = """
+            스캔 v2 응답의 scanId 로, pendingId 가 붙은 항목(매칭·유사 대체가 안 된 메뉴)의 추정을 받는다.
+            추정이 끝난 항목만 스캔 결과 순서대로 준다. 1초 간격으로 폴링하고 done=true(전부 끝났거나 스캔 뒤 15초)면 멈춘다.
+            추정은 이름 단위로 영구 캐시되어 같은 이름은 다시 부르지 않는다. riskLevel 은 CAUTION·UNKNOWN 뿐(SAFE 없음).
+            kind=NOT_FOOD(가게 이름·구역 제목 등)는 앱이 숨긴다. 남의 scanId·만료(30분)·모르는 값은 404 SCAN-014.
+        """,
+    )
+    @ApiErrors(ErrorCode.SCAN_PENDING_NOT_FOUND)
+    fun getPending(
+        memberId: Long,
+        @Parameter(description = "스캔 v2 응답의 scanId") scanId: String,
+    ): ResponseEntity<BaseResponse<ScanPendingResponse>>
 }
