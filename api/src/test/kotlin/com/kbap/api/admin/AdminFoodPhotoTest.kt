@@ -139,6 +139,23 @@ class AdminFoodPhotoTest : BehaviorSpec() {
             }
         }
 
+        given("대표 사진이 이미 있는 음식에 setPrimary=true 로 저장하면 — Codex P2(#561)") {
+            `when`("응답 갤러리를 보면") {
+                then("대표는 정확히 하나(새 사진)이고 맨 앞이다") {
+                    val id = food()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("INSERT INTO food_image (food_id, image_key, is_primary, source, sort_order, status, created_at, updated_at) VALUES ($id, 'images/webp/food/old_0001.webp', 1, 'GENERATED', 0, 'ACTIVE', NOW(6), NOW(6))") } }
+                    val sha256 = sha256Of("청하 새 대표")
+                    val key = keyOf(id, sha256, "jpg")
+                    storage.stub(key, "image/jpeg", 300_000, sha256Hex = sha256)
+
+                    val items = confirm(id, key, setPrimary = true).path("payload").path("items")
+
+                    items.count { it.path("isPrimary").asBoolean() } shouldBe 1
+                    items.first().path("imageKey").asText() shouldBe key
+                }
+            }
+        }
+
         given("음식 시드 skipPipeline — KB-993") {
             `when`("skipPipeline=true 로 시드하면") {
                 then("음식 행만 만들고 콘텐츠 요청을 쌓지 않는다(기본값은 지금처럼 쌓는다)") {

@@ -100,9 +100,9 @@ class AdminFoodImageService(
                 )
             if (setPrimary && (!image.isPrimary || food.imageRef != key)) {
                 if (!image.isPrimary) {
-                    foodImageRepository.demotePrimaryByFoodId(foodId)
+                    foodImageRepository.findByFoodIdAndIsPrimaryTrue(foodId)?.isPrimary = false
+                    foodImageRepository.flush()
                     image.isPrimary = true
-                    foodImageRepository.save(image)
                 }
                 food.imageRef = key
                 vectorOutboxRepository.enqueue(foodId, FoodVectorOutboxOperation.UPSERT)
