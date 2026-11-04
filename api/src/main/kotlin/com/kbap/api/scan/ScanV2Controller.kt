@@ -5,6 +5,9 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.scanlog.ScanMode
+import com.kbap.api.scanlog.ScanResultRecorder
+import com.kbap.api.scanlog.ScanResultSummaries
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.CurrencyCode
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController
 class ScanV2Controller(
     private val scanFacade: ScanFacade,
     private val exchangeRateClient: ExchangeRateClient,
+    private val scanResultRecorder: ScanResultRecorder,
 ) : ScanV2Api {
     @PostMapping
     override fun scan(
@@ -36,12 +40,14 @@ class ScanV2Controller(
         @Valid @RequestBody request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>> {
         val requestedCurrency = requestedCurrency(currency)
-        val result = scanFacade.scanMenuBoardImageV2(
-            memberId,
-            request.imagePath!!,
-            LanguageCode.from(langRequest.lang),
-            scanTicket,
-        )
+        val result = scanResultRecorder.record(memberId, ScanMode.MENU_V2, request.imagePath, ScanResultSummaries::menu) {
+            scanFacade.scanMenuBoardImageV2(
+                memberId,
+                request.imagePath!!,
+                LanguageCode.from(langRequest.lang),
+                scanTicket,
+            )
+        }
         val krwPerUnit = exchangeRateClient.getKrwPerUnitOrNull(requestedCurrency)
         val exposeSubstitution = ApiVersions.isAtLeast(apiVersion, ApiVersions.SCAN_SUBSTITUTION)
         return ResponseEntity.ok(
