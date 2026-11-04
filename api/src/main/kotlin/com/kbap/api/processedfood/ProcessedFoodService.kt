@@ -8,6 +8,7 @@ import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.processedfood.ProcessedFoodImageJpaRepository
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
+import com.kbap.common.domain.processedfood.model.ProcessedFoodImage
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.processedfood.model.ProcessedFoodSnapshot
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
@@ -378,7 +379,8 @@ class ProcessedFoodService(
             memberId?.let { memberService.getAvoidance(it) },
             reviews.aggregateAxesByProcessedFoodIds(members),
             siblings,
-            images.findAllByProcessedFoodIdOrderBySortOrderAscIdAsc(product.id),
+            images.findAllByProcessedFoodIdIn((group.map { it.id } + product.id).distinct())
+                .sortedWith(compareBy<ProcessedFoodImage>({ it.processedFoodId != product.id }, { it.processedFoodId }, { it.sortOrder }, { it.id })),
             imageOwnerOf(product, group),
             (group.ifEmpty { listOf(product) }).map { it.capacity to it.kcalTotal }.distinct().singleOrNull()?.second,
         )

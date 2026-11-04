@@ -299,5 +299,45 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("묶음 상세 사진 — 형제 행의 추가 사진도 합친다(S-954 후속)") {
+            fun photo(productId: Long, url: String, sort: Int, kind: String = "FRONT") =
+                execute("INSERT INTO processed_food_image (processed_food_id, image_url, kind, sort_order, status, created_at, updated_at) VALUES ($productId, '$url', '$kind', $sort, 'ACTIVE', NOW(6), NOW(6))")
+            `when`("형제 행에만 추가 사진이 있으면") {
+                then("대표 사진 → 대표 행 추가 사진 → 형제 행 추가 사진(행 id·sort_order 순)으로, 같은 URL 은 한 장이다") {
+                    val bag = seed("GI-1", "합집합라면", "농심")
+                    val cup = seed("GI-2", "합집합라면컵", "농심")
+                    execute("UPDATE processed_food_product SET image_url = 'https://img.test/bag.jpg' WHERE id = $bag")
+                    photo(bag, "https://cdn.test/bag-label.jpg", 0, "LABEL")
+                    photo(cup, "https://cdn.test/cup-top.jpg", 1, "TOP")
+                    photo(cup, "https://cdn.test/cup-front.jpg", 0)
+                    photo(cup, "https://cdn.test/bag-label.jpg", 2, "LABEL")
+
+                    val urls = get("/api/processed-foods/$bag").path("images").map { it.path("url").asText() }
+
+                    urls shouldBe listOf("https://img.test/bag.jpg", "https://cdn.test/bag-label.jpg", "https://cdn.test/cup-front.jpg", "https://cdn.test/cup-top.jpg")
+                }
+            }
+            `when`("사진 있는 형제가 단종이면") {
+                then("그 형제의 추가 사진은 합치지 않는다") {
+                    execute("DELETE FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID = 995402")
+                    execute("DELETE FROM BATCH_JOB_INSTANCE WHERE JOB_INSTANCE_ID = 995402")
+                    execute("INSERT INTO BATCH_JOB_INSTANCE (JOB_INSTANCE_ID, VERSION, JOB_NAME, JOB_KEY) VALUES (995402, 0, 'processedFoodMirrorJob', 's954b-995402')")
+                    execute("INSERT INTO BATCH_JOB_EXECUTION (JOB_EXECUTION_ID, VERSION, JOB_INSTANCE_ID, CREATE_TIME, START_TIME, END_TIME, STATUS, EXIT_CODE, LAST_UPDATED) VALUES (995402, 0, 995402, NOW(6), NOW(6), NOW(6), 'COMPLETED', 'COMPLETED', NOW(6))")
+                    try {
+                        val bag = seed("GI-1", "단종합집합라면", "농심")
+                        val cup = seed("GI-2", "단종합집합라면컵", "농심")
+                        execute("UPDATE processed_food_product SET image_url = 'https://img.test/bag.jpg' WHERE id = $bag")
+                        execute("UPDATE processed_food_product SET last_seen_at = NOW(6) - INTERVAL 10 DAY WHERE id = $cup")
+                        photo(cup, "https://cdn.test/old-cup.jpg", 0)
+
+                        get("/api/processed-foods/$bag").path("images").map { it.path("url").asText() } shouldBe listOf("https://img.test/bag.jpg")
+                    } finally {
+                        execute("DELETE FROM BATCH_JOB_EXECUTION WHERE JOB_EXECUTION_ID = 995402")
+                        execute("DELETE FROM BATCH_JOB_INSTANCE WHERE JOB_INSTANCE_ID = 995402")
+                    }
+                }
+            }
+        }
     }
 }
