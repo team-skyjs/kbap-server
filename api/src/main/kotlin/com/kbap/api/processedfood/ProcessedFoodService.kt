@@ -5,6 +5,7 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.ingredient.model.Avoidance
+import com.kbap.common.domain.processedfood.ProcessedFoodImageJpaRepository
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
@@ -23,6 +24,7 @@ import kotlin.random.Random
 @Service
 class ProcessedFoodService(
     private val products: ProcessedFoodProductJpaRepository,
+    private val images: ProcessedFoodImageJpaRepository,
     private val memberService: MemberService,
     private val reviews: ReviewJpaRepository,
     private val candidateIndex: ProcessedFoodCandidateIndex,
@@ -357,7 +359,7 @@ class ProcessedFoodService(
         val lastMirror = products.findLastCompletedMirrorStartedAt()
         val siblings = products.findAllById(members).filterNot { it.isDiscontinued(lastMirror) }.sortedBy { it.id }
             .map { ProcessedFoodSameNameResponse(it.id, it.capacity) }
-        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodIds(members), siblings)
+        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodIds(members), siblings, images.findAllByProcessedFoodIdOrderBySortOrderAscIdAsc(product.id))
     }
 
     private fun seenSinceOf(lastMirror: LocalDateTime?): LocalDateTime = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE
