@@ -14,7 +14,7 @@ locals {
     CDN_BASE_URL           = var.cdn_base_url
     IMAGE_PUBLIC_BASE_URL  = var.image_public_base_url
     JAVA_TOOL_OPTIONS      = "-Xmx1100m -XX:MaxDirectMemorySize=64m -XX:ReservedCodeCacheSize=96m" # 태스크 단위 memory만 있어 MaxRAMPercentage는 호스트 기준으로 계산됨 → 힙 고정(11/4 OOM 2회, td :34)
-    MALLOC_ARENA_MAX       = "2" # glibc 아레나 수 제한 — 네이티브 메모리 팽창 억제. prod·dev 실행 리비전에 이미 있던 값(2026-11-04 대조)
+    MALLOC_ARENA_MAX       = "2"                                                                   # glibc 아레나 수 제한 — 네이티브 메모리 팽창 억제. prod·dev 실행 리비전에 이미 있던 값(2026-11-04 대조)
     SENTRY_RELEASE         = element(split(":", var.api_image), 1)
     OTLP_METRICS_ENABLED   = "true" # 앱이 /api/v1/otlp/v1/metrics 로 15초마다 직접 푸시(Alloy 대체, 2026-11-03). URL·Access 토큰은 secrets
   }, local.vector_env, var.api_extra_env)
