@@ -189,7 +189,7 @@ data class ProcessedFoodDetailResponse(
     val foodTypeLocalized: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "같은 묶음(정규화 이름 + 제조사) 상품 — 용량만 다른 별도 등록 등. 자기 자신 포함, id 순. 목록·검색은 이 중 대표 1개만 보인다(KB-950)")
     val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
-    @field:Schema(description = "상세 사진(KB-965) — 맨 앞은 image.url 과 같은 대표 사진(검수 승인된 누끼면 CUTOUT, 아니면 HACCP 원본 FRONT), 그 뒤는 관리자가 올린 추가 사진을 정한 순서대로. 추가 사진이 없으면 image.url 한 장, 사진이 전혀 없으면 빈 배열. 2장 이상이면 캐러셀")
+    @field:Schema(description = "상세 사진(KB-965) — 맨 앞은 image.url 과 같은 대표 사진(검수 승인된 누끼면 CUTOUT, 아니면 HACCP 원본 FRONT), 그 뒤는 관리자가 올린 추가 사진을 이 상품 것 먼저, 그다음 같은 묶음(단종 제외) 형제 상품 것을 상품 id·정한 순서대로. 같은 URL 은 한 장. 추가 사진이 없으면 image.url 한 장, 사진이 전혀 없으면 빈 배열. 2장 이상이면 캐러셀")
     val images: List<ProcessedFoodGalleryImageResponse> = emptyList(),
     @field:Schema(description = "포장 전체 칼로리(kcal, S-957) — 사람이 넣은 값만. 없거나, 같은 묶음 안 상품의 (용량, kcal) 이 둘 이상으로 갈리면 null", example = "520", nullable = true)
     val kcal: Int? = null,
