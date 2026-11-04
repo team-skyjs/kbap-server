@@ -218,5 +218,48 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("묶음 대표 상품에 사진이 없을 때 — S-954 ①") {
+            `when`("같은 묶음 형제에 원본 사진만 있으면") {
+                then("목록·검색 카드와 대표 상세가 형제 사진을 쓴다(DB 는 그대로)") {
+                    seed("IMG-1", "폴백라면", "농심")
+                    seed("IMG-2", "폴백라면컵", "농심")
+                    val item = get("/api/processed-foods?query=폴백라면").path("items").single()
+                    val representative = item.path("id").asLong()
+                    val sibling = listOf("IMG-1", "IMG-2").first { it != item.path("reportNo").asText() }
+                    execute("UPDATE processed_food_product SET image_url = 'http://www.haccp.or.kr/fresh/prdimg/sibling.jpg' WHERE report_no = '$sibling'")
+
+                    get("/api/processed-foods?query=폴백라면").path("items").single().path("imageUrl").asText() shouldBe "https://www.haccp.or.kr/fresh/prdimg/sibling.jpg"
+                    get("/api/processed-foods/$representative").let { detail ->
+                        detail.path("image").path("url").asText() shouldBe "https://www.haccp.or.kr/fresh/prdimg/sibling.jpg"
+                        detail.path("images").map { it.path("url").asText() } shouldBe listOf("https://www.haccp.or.kr/fresh/prdimg/sibling.jpg")
+                    }
+                    dataSource.connection.use { c -> c.createStatement().use { s -> s.executeQuery("SELECT image_url FROM processed_food_product WHERE id = $representative").use { r -> r.next(); r.getString(1) } } } shouldBe null
+                }
+            }
+            `when`("형제 중 하나는 원본, 하나는 승인된 누끼면") {
+                then("승인된 누끼를 먼저 쓰고, 검수 대기 누끼는 쓰지 않는다") {
+                    val plain = seed("IMG-1", "폴백과자", "오리온")
+                    seed("IMG-2", "폴백과자 120g", "오리온")
+                    seed("IMG-3", "폴백과자 멀티팩", "오리온")
+                    val others = listOf("IMG-2", "IMG-3")
+                    execute("UPDATE processed_food_product SET image_url = 'https://img.test/original.jpg' WHERE report_no = '${others[0]}'")
+                    execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.test/pending.png', cutout_review_status = 'PENDING' WHERE report_no = '${others[0]}'")
+                    execute("UPDATE processed_food_product SET image_url = 'https://img.test/other.jpg', cutout_image_url = 'https://cdn.test/approved.png', cutout_review_status = 'APPROVED' WHERE report_no = '${others[1]}'")
+
+                    get("/api/processed-foods/$plain").path("image").path("url").asText() shouldBe "https://cdn.test/approved.png"
+                }
+            }
+            `when`("대표 상품 자기 사진이 있으면") {
+                then("형제 사진으로 바꾸지 않는다") {
+                    val own = seed("IMG-1", "자기사진라면", "농심")
+                    seed("IMG-2", "자기사진라면컵", "농심")
+                    execute("UPDATE processed_food_product SET image_url = 'https://img.test/own.jpg' WHERE id = $own")
+                    execute("UPDATE processed_food_product SET cutout_image_url = 'https://cdn.test/sibling.png', cutout_review_status = 'APPROVED' WHERE report_no = 'IMG-2'")
+
+                    get("/api/processed-foods/$own").path("image").path("url").asText() shouldBe "https://img.test/own.jpg"
+                }
+            }
+        }
     }
 }
