@@ -30,6 +30,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import javax.sql.DataSource
 
@@ -42,6 +44,7 @@ class ScanResultLogTest : BehaviorSpec() {
     @Autowired private lateinit var tokenIssuer: TokenIssuer
     @Autowired private lateinit var menuVision: FakeMenuBoardVisionExtractor
     @Autowired private lateinit var photoReader: FakeProcessedFoodPhotoReader
+    @Autowired private lateinit var writer: ScanResultLogWriter
 
     @Autowired
     @Qualifier("applicationTaskExecutor")
@@ -289,6 +292,29 @@ class ScanResultLogTest : BehaviorSpec() {
             }
         }
 
+        given("같은 사진의 기록이 스캔 순서와 다르게 적재되는 상황") {
+            `when`("나중에 스캔한 결과가 먼저 INSERT 되고 앞선 스캔 결과가 늦게 INSERT 되면") {
+                then("피드와 상세는 id 가 아니라 스캔 완료 시각으로 최신을 고른다") {
+                    val memberId = 98341L
+                    token(memberId)
+                    val (imageId, path) = upload(memberId, "packaged-scans")
+                    val scannedLater = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
+                    writer.write(ScanResultLogRow(memberId, ScanMode.MENU_V2, path, null, "2.0", ScanResultLogEntry(ScanOutcome.SUCCESS, ScanUiKind.MENU_LIST), scannedLater))
+                    BackgroundTasks.drain(taskExecutor)
+                    writer.write(ScanResultLogRow(memberId, ScanMode.PFOOD_VISION, path, null, "3.2", ScanResultLogEntry(ScanOutcome.RETAKE, ScanUiKind.RETAKE), scannedLater.minusSeconds(3)))
+                    BackgroundTasks.drain(taskExecutor)
+                    logsOf(memberId).map { it["scan_mode"] } shouldBe listOf("MENU_V2", "PFOOD_VISION")
+
+                    val item = admin("/api/admin/scan-photos?memberId=$memberId").path("payload").path("items").single { it.path("uploadedImageId").asLong() == imageId }
+                    item.path("scanOutcome").asText() shouldBe "SUCCESS"
+                    item.path("uiKind").asText() shouldBe "MENU_LIST"
+                    val records = admin("/api/admin/scan-photos/$imageId/scan-results").path("payload").path("records")
+                    records.map { it.path("scanMode").asText() } shouldBe listOf("MENU_V2", "PFOOD_VISION")
+                    records.first().path("scannedAt").isMissingNode shouldBe false
+                }
+            }
+        }
+
         given("기록이 실패하는 상황") {
             val failingWriter = object : ScanResultLogWriter(JdbcTemplate()) {
                 override fun write(row: ScanResultLogRow) {
@@ -325,6 +351,16 @@ class ScanResultLogTest : BehaviorSpec() {
                 then("직렬화 결과가 상한을 넘지 않는다") {
                     val huge = (1..2000).map { mapOf("name" to "가".repeat(500), "foodId" to it, "riskLevel" to "SAFE") }
                     ScanResultSummaries.toJson(mapOf("photoOnly" to huge, "photoOnlyCount" to huge.size)).length shouldBeLessThanOrEqual ScanResultSummaries.MAX_SUMMARY_CHARS
+                }
+            }
+            `when`("상한을 조금 넘는 메뉴판 요약이면") {
+                then("목록을 통째로 버리지 않고 앞쪽 항목을 줄여서 남긴다") {
+                    val items = (1..100).map { mapOf("name" to "가".repeat(100), "matched" to true, "foodId" to it, "riskLevel" to "SAFE", "substituted" to false) }
+                    val json = mapper.readTree(ScanResultSummaries.toJson(mapOf("items" to items, "itemCount" to 100, "photoOnly" to items, "photoOnlyCount" to 100, "degraded" to false)))
+                    json.path("truncated").asBoolean() shouldBe true
+                    (json.path("items").size() > 0) shouldBe true
+                    (json.path("photoOnly").size() > 0) shouldBe true
+                    json.path("itemCount").asInt() shouldBe 100
                 }
             }
         }

@@ -24,7 +24,7 @@ class ScanResultLogWriter(private val jdbc: JdbcTemplate) {
             }
             jdbc.update(
                 "INSERT INTO scan_result_log (member_id, uploaded_image_id, image_path, scan_mode, outcome, error_code, ui_kind, vision_kind, " +
-                    "app_version, api_version, response_summary, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(6), NOW(6))",
+                    "app_version, api_version, response_summary, scanned_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(6), NOW(6))",
                 row.memberId,
                 uploadedImageId,
                 row.imagePath,
@@ -36,6 +36,7 @@ class ScanResultLogWriter(private val jdbc: JdbcTemplate) {
                 row.appVersion,
                 row.apiVersion,
                 row.entry.summary?.let(ScanResultSummaries::toJson),
+                row.scannedAt,
             )
         } catch (e: Exception) {
             log.warn("스캔 결과 기록 적재 실패 memberId={}, mode={}", row.memberId, row.mode, e)

@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.context.request.RequestContextHolder
 import org.springframework.web.context.request.ServletRequestAttributes
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 @Component
 class ScanResultRecorder(private val writer: ScanResultLogWriter) {
@@ -24,7 +26,8 @@ class ScanResultRecorder(private val writer: ScanResultLogWriter) {
 
     private fun submit(memberId: Long, mode: ScanMode, imagePath: String?, versions: Pair<String?, String?>, entry: () -> ScanResultLogEntry) {
         try {
-            writer.write(ScanResultLogRow(memberId, mode, imagePath?.trim()?.trimStart('/')?.take(MAX_PATH_CHARS), versions.first, versions.second, entry()))
+            val scannedAt = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
+            writer.write(ScanResultLogRow(memberId, mode, imagePath?.trim()?.trimStart('/')?.take(MAX_PATH_CHARS), versions.first, versions.second, entry(), scannedAt))
         } catch (e: Exception) {
             log.warn("스캔 결과 기록 실패 — 응답은 그대로 둔다 memberId={}, mode={}", memberId, mode, e)
         }

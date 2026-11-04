@@ -51,8 +51,8 @@ class AdminScanPhotoFeedService(
     @Transactional(readOnly = true)
     fun getScanResultsOrNull(uploadedImageId: Long): AdminScanResults? {
         val records = jdbc.query(
-            "SELECT id, member_id, scan_mode, outcome, error_code, ui_kind, vision_kind, app_version, api_version, response_summary, created_at " +
-                "FROM scan_result_log WHERE uploaded_image_id = ? AND status = 'ACTIVE' ORDER BY id DESC LIMIT ?",
+            "SELECT id, member_id, scan_mode, outcome, error_code, ui_kind, vision_kind, app_version, api_version, response_summary, scanned_at, created_at " +
+                "FROM scan_result_log WHERE uploaded_image_id = ? AND status = 'ACTIVE' ORDER BY scanned_at DESC, id DESC LIMIT ?",
             { rs, _ ->
                 AdminScanResultRecord(
                     id = rs.getLong("id"),
@@ -65,6 +65,7 @@ class AdminScanPhotoFeedService(
                     appVersion = rs.getString("app_version"),
                     apiVersion = rs.getString("api_version"),
                     responseSummary = ScanResultSummaries.fromJson(rs.getString("response_summary")),
+                    scannedAt = rs.getTimestamp("scanned_at").toLocalDateTime(),
                     createdAt = rs.getTimestamp("created_at").toLocalDateTime(),
                 )
             },

@@ -15,6 +15,7 @@ object ScanResultSummaries {
     const val MAX_SUMMARY_CHARS = 16_000
     private const val MAX_NAME_CHARS = 100
     private const val MAX_LIST_SIZE = 100
+    private val TRUNCATED_LIST_SIZES = listOf(30, 10, 3)
     private const val MAX_ERROR_CODE_CHARS = 32
     private val RETAKE_CODES = setOf(ErrorCode.MENU_BOARD_NOT_DETECTED, ErrorCode.PROCESSED_FOOD_LABEL_NOT_READ)
     private val mapper = jacksonObjectMapper()
@@ -75,7 +76,12 @@ object ScanResultSummaries {
     fun toJson(summary: Map<String, Any?>): String {
         val json = mapper.writeValueAsString(summary)
         if (json.length <= MAX_SUMMARY_CHARS) return json
-        return mapper.writeValueAsString(summary.filterValues { it !is Collection<*> } + mapOf("truncated" to true, "originalChars" to json.length))
+        val marker = mapOf("truncated" to true, "originalChars" to json.length)
+        TRUNCATED_LIST_SIZES.forEach { size ->
+            val shortened = mapper.writeValueAsString(summary.mapValues { (_, value) -> if (value is List<*>) value.take(size) else value } + marker)
+            if (shortened.length <= MAX_SUMMARY_CHARS) return shortened
+        }
+        return mapper.writeValueAsString(summary.filterValues { it !is Collection<*> } + marker)
     }
 
     fun fromJson(json: String?): Map<String, Any?>? = json?.let { mapper.readValue(it, Map::class.java) }?.mapKeys { it.key.toString() }

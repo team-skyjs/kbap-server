@@ -93,8 +93,8 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
                   AND JSON_UNQUOTE(JSON_EXTRACT(v.request_document, '$.imagePath')) = u.object_path
                   AND JSON_EXTRACT(v.request_document, '$.visionKind') IS NOT NULL
                 ORDER BY v.id DESC LIMIT 1) AS visionKind,
-            (SELECT l.outcome FROM scan_result_log l WHERE l.uploaded_image_id = u.id AND l.status = 'ACTIVE' ORDER BY l.id DESC LIMIT 1) AS scanOutcome,
-            (SELECT l.ui_kind FROM scan_result_log l WHERE l.uploaded_image_id = u.id AND l.status = 'ACTIVE' ORDER BY l.id DESC LIMIT 1) AS uiKind
+            (SELECT l.outcome FROM scan_result_log l WHERE l.uploaded_image_id = u.id AND l.status = 'ACTIVE' ORDER BY l.scanned_at DESC, l.id DESC LIMIT 1) AS scanOutcome,
+            (SELECT l.ui_kind FROM scan_result_log l WHERE l.uploaded_image_id = u.id AND l.status = 'ACTIVE' ORDER BY l.scanned_at DESC, l.id DESC LIMIT 1) AS uiKind
         FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id
         WHERE u.status = 'ACTIVE' AND u.id < :beforeId
           AND ((:includeMenu AND locate(:menuSegment, u.object_path) > 0)

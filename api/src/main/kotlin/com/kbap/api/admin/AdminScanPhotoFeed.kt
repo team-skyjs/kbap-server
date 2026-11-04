@@ -59,7 +59,7 @@ enum class ScanPhotoTypeFilter(val includeMenu: Boolean, val includePackaged: Bo
     PACKAGED(false, true),
 }
 
-@Schema(description = "사진 한 장의 스캔 결과 기록 전체 — 최신순(최대 50건)")
+@Schema(description = "사진 한 장의 스캔 결과 기록 전체 — 스캔 완료 시각 최신순(최대 50건)")
 data class AdminScanResults(
     val records: List<AdminScanResultRecord>,
 )
@@ -83,9 +83,12 @@ data class AdminScanResultRecord(
     @field:Schema(
         description = "응답 요약. 메뉴판: degraded·items/photoOnly(name·matched·foodId·riskLevel·substituted — matched=false·foodId null = DB 에 준비된 음식이 없는 메뉴)·itemCount/photoOnlyCount. " +
             "이름 스캔: state·candidates(id·reportNo·productName). 성분표: state·labelSource·verdict·detections·unmapped. 사진 스캔: kind·confidence·reason·state·front·label. " +
-            "16,000자를 넘으면 목록을 빼고 truncated=true 를 단다. 실패 기록은 null",
+            "16,000자를 넘으면 목록을 30·10·3건으로 차례로 줄이고(그래도 넘으면 목록을 뺀다) truncated=true 를 단다. 개수 필드는 원래 값이다. 실패 기록은 null",
         nullable = true,
     )
     val responseSummary: Map<String, Any?>?,
+    @field:Schema(description = "요청 스레드에서 스캔이 끝난 시각 — 최신 판정·정렬 기준(적재는 비동기라 id·createdAt 순서와 다를 수 있다)")
+    val scannedAt: LocalDateTime,
+    @field:Schema(description = "기록이 적재된 시각")
     val createdAt: LocalDateTime,
 )
