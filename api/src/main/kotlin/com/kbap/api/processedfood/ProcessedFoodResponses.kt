@@ -199,6 +199,7 @@ data class ProcessedFoodDetailResponse(
             axes: ProcessedFoodReviewAxes,
             sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
             gallery: List<ProcessedFoodImage> = emptyList(),
+            imageOwner: ProcessedFoodProduct = product,
         ): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
@@ -216,8 +217,8 @@ data class ProcessedFoodDetailResponse(
                 unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
-                image = product.displayImageUrl()?.let {
-                    ProcessedFoodImageResponse(it, product.source, if (product.source == ProcessedFoodProduct.SOURCE_MANUAL) "processedFood.image.manual" else "processedFood.image.haccp")
+                image = imageOwner.displayImageUrl()?.let {
+                    ProcessedFoodImageResponse(it, imageOwner.source, if (imageOwner.source == ProcessedFoodProduct.SOURCE_MANUAL) "processedFood.image.manual" else "processedFood.image.haccp")
                 },
                 reviewSummary = ProcessedFoodReviewSummaryResponse.of(axes),
                 verdict = judgement.verdict,
@@ -231,7 +232,7 @@ data class ProcessedFoodDetailResponse(
                 allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 sameNameProducts = sameNameProducts,
                 foodTypeLocalized = product.foodType?.let { ProcessedFoodLocalizedText(it, it) },
-                images = imagesOf(product, gallery),
+                images = imagesOf(imageOwner, gallery),
             )
         }
 

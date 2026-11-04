@@ -130,20 +130,9 @@ class ProcessedFoodCandidateIndex(
         return Snapshot(entries, membersById, entries.associate { it.id to it.groupKey }, translatedById, fingerprint, System.nanoTime())
     }
 
-    private fun foldUnknownMakers(entries: List<Entry>): List<Entry> {
-        val knownByName = entries.filter { ProcessedFoodGrouping.makerKeyOf(it.displayMaker).isNotEmpty() }
-            .flatMap { entry ->
-                val maker = ProcessedFoodGrouping.makerKeyOf(entry.displayMaker)
-                val namePart = entry.groupKey.substringBeforeLast('|')
-                listOf(namePart to entry.groupKey, maker + namePart to entry.groupKey)
-            }
-            .groupBy({ it.first }, { it.second })
-            .mapValues { (_, keys) -> keys.toSet() }
-        return entries.map { entry ->
-            if (ProcessedFoodGrouping.makerKeyOf(entry.displayMaker).isNotEmpty()) return@map entry
-            knownByName[entry.groupKey.substringBeforeLast('|')]?.singleOrNull()?.let { entry.copy(groupKey = it) } ?: entry
-        }
-    }
+    private fun foldUnknownMakers(entries: List<Entry>): List<Entry> =
+        entries.zip(ProcessedFoodGrouping.foldUnknownMakers(entries.map { ProcessedFoodGrouping.GroupRow(it.normalizedName, it.displayMaker, it.groupKey) }))
+            .map { (entry, key) -> if (key == entry.groupKey) entry else entry.copy(groupKey = key) }
 
     private fun translatedNamesOf(row: ProcessedFoodCandidateRow, displayMaker: String?, rows: List<ProcessedFoodNameTranslationRow>): List<TranslatedName> {
         if (rows.isEmpty()) return emptyList()
