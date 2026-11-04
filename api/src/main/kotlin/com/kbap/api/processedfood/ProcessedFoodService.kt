@@ -5,6 +5,7 @@ import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.ingredient.model.Avoidance
+import com.kbap.common.domain.processedfood.ProcessedFoodImageJpaRepository
 import com.kbap.common.domain.processedfood.ProcessedFoodProductJpaRepository
 import com.kbap.common.domain.processedfood.model.CutoutReviewStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
@@ -23,6 +24,7 @@ import kotlin.random.Random
 @Service
 class ProcessedFoodService(
     private val products: ProcessedFoodProductJpaRepository,
+    private val images: ProcessedFoodImageJpaRepository,
     private val memberService: MemberService,
     private val reviews: ReviewJpaRepository,
     private val candidateIndex: ProcessedFoodCandidateIndex,
@@ -154,8 +156,22 @@ class ProcessedFoodService(
         val members = candidateIndex.groupMemberIds(products.map { it.id })
         val ratings = reviews.aggregateRatingsByProcessedFoodIds(members.values.flatten().distinct()).associateBy { it.processedFoodId }
         val avoidance = memberId?.let { memberService.getAvoidance(it) }
-        return products.map { ProcessedFoodSummaryResponse.withReviews(it, GroupRating.of(it.id, members.getValue(it.id).mapNotNull(ratings::get)), avoidance) }
+        val imageless = products.filter { it.displayImageUrl() == null }
+        val siblings = if (imageless.isEmpty()) emptyMap() else {
+            val lastMirror = this.products.findLastCompletedMirrorStartedAt()
+            this.products.findAllById(imageless.flatMap { members.getValue(it.id) }.distinct()).filterNot { it.isDiscontinued(lastMirror) }.associateBy { it.id }
+        }
+        return products.map { product ->
+            val summary = ProcessedFoodSummaryResponse.withReviews(product, GroupRating.of(product.id, members.getValue(product.id).mapNotNull(ratings::get)), avoidance)
+            if (summary.imageUrl != null) summary
+            else summary.copy(imageUrl = imageOwnerOf(product, members.getValue(product.id).mapNotNull(siblings::get)).displayImageUrl())
+        }
     }
+
+    private fun imageOwnerOf(product: ProcessedFoodProduct, group: List<ProcessedFoodProduct>): ProcessedFoodProduct =
+        if (product.displayImageUrl() != null) product
+        else group.filter { it.id != product.id && it.displayImageUrl() != null }
+            .minWithOrNull(compareBy<ProcessedFoodProduct>({ !it.hasApprovedCutout() }, { it.id })) ?: product
 
     private fun pageOf(
         groups: List<List<Long>>,
@@ -355,9 +371,17 @@ class ProcessedFoodService(
     private fun detailOf(product: ProcessedFoodProduct, memberId: Long?): ProcessedFoodDetailResponse {
         val members = candidateIndex.groupMemberIds(product.id)
         val lastMirror = products.findLastCompletedMirrorStartedAt()
-        val siblings = products.findAllById(members).filterNot { it.isDiscontinued(lastMirror) }.sortedBy { it.id }
-            .map { ProcessedFoodSameNameResponse(it.id, it.capacity) }
-        return ProcessedFoodDetailResponse.of(product, memberId?.let { memberService.getAvoidance(it) }, reviews.aggregateAxesByProcessedFoodIds(members), siblings)
+        val group = products.findAllById(members).filterNot { it.isDiscontinued(lastMirror) }.sortedBy { it.id }
+        val siblings = group.map { ProcessedFoodSameNameResponse(it.id, it.capacity) }
+        return ProcessedFoodDetailResponse.of(
+            product,
+            memberId?.let { memberService.getAvoidance(it) },
+            reviews.aggregateAxesByProcessedFoodIds(members),
+            siblings,
+            images.findAllByProcessedFoodIdOrderBySortOrderAscIdAsc(product.id),
+            imageOwnerOf(product, group),
+            (group.ifEmpty { listOf(product) }).map { it.capacity to it.kcalTotal }.distinct().singleOrNull()?.second,
+        )
     }
 
     private fun seenSinceOf(lastMirror: LocalDateTime?): LocalDateTime = lastMirror?.minus(ProcessedFoodProduct.DISCONTINUED_AFTER) ?: NO_BASELINE

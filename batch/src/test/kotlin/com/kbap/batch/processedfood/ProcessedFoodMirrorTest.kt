@@ -384,5 +384,21 @@ class ProcessedFoodMirrorTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("어드민이 숨긴(DELETED) 상품 — S-958") {
+            `when`("다음 미러링에 같은 품목보고번호가 다시 오면") {
+                then("되살리거나 새로 넣지 않고 건너뛰며, 같은 페이지의 다른 상품은 정상 적재된다") {
+                    mirror(FakeSource(mapOf("유탕면" to ramen)), FakeLookup(emptyMap()), listOf("유탕면")).mirror()
+                    dataSource.connection.use { c -> c.createStatement().use { it.execute("UPDATE processed_food_product SET status = 'DELETED', product_name = '숨긴 이름' WHERE report_no = '2001054954178'") } }
+                    val renamed = ramen.map { if (it.reportNo == "2012051205516") it.copy(productName = "팔도틈새라면 빨계떡 리뉴얼") else it }
+
+                    mirror(FakeSource(mapOf("유탕면" to renamed)), FakeLookup(emptyMap()), listOf("유탕면")).mirror()
+
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE report_no = '2001054954178'") shouldBe 1
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE report_no = '2001054954178' AND status = 'DELETED' AND product_name = '숨긴 이름'") shouldBe 1
+                    count("SELECT COUNT(*) FROM processed_food_product WHERE report_no = '2012051205516' AND product_name = '팔도틈새라면 빨계떡 리뉴얼'") shouldBe 1
+                }
+            }
+        }
     }
 }

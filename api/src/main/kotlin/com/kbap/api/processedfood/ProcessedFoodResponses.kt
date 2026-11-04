@@ -7,6 +7,8 @@ import com.kbap.common.domain.ingredient.label.IngredientLabelReading
 import com.kbap.common.domain.ingredient.label.IngredientLabelSource
 import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
+import com.kbap.common.domain.processedfood.model.ProcessedFoodImage
+import com.kbap.common.domain.processedfood.model.ProcessedFoodImageKind
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
 import com.kbap.common.domain.review.ProcessedFoodRatingAggregate
 import com.kbap.common.domain.review.ProcessedFoodReviewAxes
@@ -187,9 +189,21 @@ data class ProcessedFoodDetailResponse(
     val foodTypeLocalized: ProcessedFoodLocalizedText? = null,
     @field:Schema(description = "같은 묶음(정규화 이름 + 제조사) 상품 — 용량만 다른 별도 등록 등. 자기 자신 포함, id 순. 목록·검색은 이 중 대표 1개만 보인다(KB-950)")
     val sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
+    @field:Schema(description = "상세 사진(KB-965) — 맨 앞은 image.url 과 같은 대표 사진(검수 승인된 누끼면 CUTOUT, 아니면 HACCP 원본 FRONT), 그 뒤는 관리자가 올린 추가 사진을 정한 순서대로. 추가 사진이 없으면 image.url 한 장, 사진이 전혀 없으면 빈 배열. 2장 이상이면 캐러셀")
+    val images: List<ProcessedFoodGalleryImageResponse> = emptyList(),
+    @field:Schema(description = "포장 전체 칼로리(kcal, S-957) — 사람이 넣은 값만. 없거나, 같은 묶음 안 상품의 (용량, kcal) 이 둘 이상으로 갈리면 null", example = "520", nullable = true)
+    val kcal: Int? = null,
 ) {
     companion object {
-        fun of(product: ProcessedFoodProduct, avoidance: Avoidance?, axes: ProcessedFoodReviewAxes, sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList()): ProcessedFoodDetailResponse {
+        fun of(
+            product: ProcessedFoodProduct,
+            avoidance: Avoidance?,
+            axes: ProcessedFoodReviewAxes,
+            sameNameProducts: List<ProcessedFoodSameNameResponse> = emptyList(),
+            gallery: List<ProcessedFoodImage> = emptyList(),
+            imageOwner: ProcessedFoodProduct = product,
+            kcal: Int? = product.kcalTotal,
+        ): ProcessedFoodDetailResponse {
             val judgement = ProcessedFoodJudge.judge(product.allergens, product.rawMaterials, avoidance)
             val reading = judgement.reading
             return ProcessedFoodDetailResponse(
@@ -206,8 +220,8 @@ data class ProcessedFoodDetailResponse(
                 unmapped = emptyList(),
                 avoidance = avoidance?.let { avoidanceOf(it, reading) },
                 source = ProcessedFoodSourceResponse(product.source, "processedFood.source.${product.source.lowercase()}", product.collectedAt),
-                image = product.displayImageUrl()?.let {
-                    ProcessedFoodImageResponse(it, product.source, if (product.source == ProcessedFoodProduct.SOURCE_MANUAL) "processedFood.image.manual" else "processedFood.image.haccp")
+                image = imageOwner.displayImageUrl()?.let {
+                    ProcessedFoodImageResponse(it, imageOwner.source, if (imageOwner.source == ProcessedFoodProduct.SOURCE_MANUAL) "processedFood.image.manual" else "processedFood.image.haccp")
                 },
                 reviewSummary = ProcessedFoodReviewSummaryResponse.of(axes),
                 verdict = judgement.verdict,
@@ -221,7 +235,17 @@ data class ProcessedFoodDetailResponse(
                 allergenStatement = product.allergens?.takeUnless(IngredientLabelReader::isNotProvided)?.let { ProcessedFoodLocalizedText(it, it) },
                 sameNameProducts = sameNameProducts,
                 foodTypeLocalized = product.foodType?.let { ProcessedFoodLocalizedText(it, it) },
+                images = imagesOf(imageOwner, gallery),
+                kcal = kcal,
             )
+        }
+
+        fun imagesOf(product: ProcessedFoodProduct, gallery: List<ProcessedFoodImage>): List<ProcessedFoodGalleryImageResponse> {
+            val lead = product.displayImageUrl()?.let {
+                ProcessedFoodGalleryImageResponse(it, if (product.hasApprovedCutout()) ProcessedFoodImageKind.CUTOUT else ProcessedFoodImageKind.FRONT)
+            }
+            val rest = gallery.filter { it.kind != ProcessedFoodImageKind.CUTOUT }.map { ProcessedFoodGalleryImageResponse(it.imageUrl, it.kind) }
+            return (listOfNotNull(lead) + rest).distinctBy { it.url }
         }
 
         fun avoidanceOf(avoidance: Avoidance, reading: IngredientLabelReading): List<ProcessedFoodAvoidanceResponse> =
@@ -262,6 +286,13 @@ data class ProcessedFoodSourceResponse(
     val attributionKey: String,
     @field:Schema(description = "이 제품을 처음 수집한 시각. 원본 내용 변경 시각은 아직 기록하지 않아 내려가지 않는다(미러 확인 시각을 갱신일로 보이지 않기 위해)")
     val collectedAt: LocalDateTime,
+)
+
+@Schema(description = "가공식품 상세 사진 한 장")
+data class ProcessedFoodGalleryImageResponse(
+    val url: String,
+    @field:Schema(description = "사진 종류 — CUTOUT(누끼)·FRONT(앞면, HACCP 원본 포함)·TOP(윗면)·LABEL(성분표)·OTHER", example = "CUTOUT")
+    val kind: ProcessedFoodImageKind,
 )
 
 data class ProcessedFoodImageResponse(

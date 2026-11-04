@@ -93,6 +93,7 @@ class AdminProcessedFoodManualTest : BehaviorSpec() {
             }
             `when`("수동 등록·정정하면 — KB-960") {
                 then("이름 번역을 뒤에서 9개 언어로 바로 만든다(후보·상세에서 한국어만 보이지 않게)") {
+                    translations.awaitIdle()
                     translator.reset()
                     val id = create(wasabi).path("payload").path("id").asLong()
                     translations.awaitIdle()
