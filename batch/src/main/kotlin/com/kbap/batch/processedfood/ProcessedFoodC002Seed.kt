@@ -32,7 +32,9 @@ class ProcessedFoodC002Seed(
             val existing = repository.findAllByReportNoIn(rows.map { it.reportNo }).associateBy { it.reportNo }
             val conflicts = rows.mapNotNull { row -> existing[row.reportNo]?.takeIf { it.source != ProcessedFoodProduct.SOURCE_C002 }?.reportNo }
             conflicts.forEach { log.info("가공식품 C002 적재 — 같은 품목보고번호의 HACCP 행(승격된 행 포함)이 있어 건너뜁니다 reportNo={}", it) }
-            val fresh = rows.filter { it.reportNo !in existing }
+            val hidden = repository.findDeletedReportNos(rows.map { it.reportNo }).toSet()
+            hidden.forEach { log.info("가공식품 C002 적재 — 어드민이 숨긴(DELETED) 상품이라 건너뜁니다 reportNo={}", it) }
+            val fresh = rows.filter { it.reportNo !in existing && it.reportNo !in hidden }
             fresh.forEach { repository.save(ProcessedFoodProduct.collect(it.toSnapshot(), now, ProcessedFoodProduct.SOURCE_C002)) }
             repository.flush()
             ProcessedFoodC002SeedSummary(inserted = fresh.size, alreadyLoaded = rows.size - fresh.size - conflicts.size, haccpConflicts = conflicts)

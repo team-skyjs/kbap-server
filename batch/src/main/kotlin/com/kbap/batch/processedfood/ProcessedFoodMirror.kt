@@ -110,6 +110,8 @@ class ProcessedFoodMirror(
         oversized.forEach { log.warn("가공식품 미러링 — 품목보고번호가 {}자를 넘어 건너뜁니다 length={} name={}", ProcessedFoodProduct.REPORT_NO_LENGTH, it.reportNo.length, it.productName.take(30)) }
         if (storable.isEmpty()) return UpsertOutcome(0, 0, 0, oversized.size, 0, 0)
         val existing = repository.findAllByReportNoIn(storable.map { it.reportNo }).associateBy { it.reportNo }
+        val hidden = repository.findDeletedReportNos(storable.map { it.reportNo }).toSet()
+        hidden.forEach { log.info("가공식품 미러링 — 어드민이 숨긴(DELETED) 상품이라 건너뜁니다 reportNo={}", it) }
         var inserted = 0
         var changed = 0
         var unchanged = 0
@@ -119,6 +121,7 @@ class ProcessedFoodMirror(
             val snapshot = product.toSnapshot()
             val row = existing[product.reportNo]
             when {
+                product.reportNo in hidden -> unchanged++
                 row == null -> { repository.save(ProcessedFoodProduct.collect(snapshot, now)); inserted++ }
                 row.source == ProcessedFoodProduct.SOURCE_C002 -> {
                     row.promoteToHaccp(snapshot, now)
