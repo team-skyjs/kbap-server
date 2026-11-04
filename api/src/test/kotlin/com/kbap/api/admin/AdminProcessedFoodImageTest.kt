@@ -274,6 +274,30 @@ class AdminProcessedFoodImageTest : BehaviorSpec() {
                     remove(other, list(id).single().path("id").asLong(), 404).path("code").asText() shouldBe "PFOOD-016"
                 }
             }
+
+            `when`("순서 변경이 상품 잠금을 쥐고 있는 동안 지우면 — Codex P2 #556") {
+                then("삭제는 상품 잠금을 기다렸다가 진행하고, 끝난 뒤 지운 사진은 다시 살아나지 않는다") {
+                    val id = seedProduct()
+                    upload(id, "front", "FRONT")
+                    upload(id, "label", "LABEL")
+                    val labelId = list(id)[1].path("id").asLong()
+
+                    dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        holder.createStatement().use { it.executeQuery("SELECT id FROM processed_food_product WHERE id = $id FOR UPDATE").close() }
+                        val deleting = java.util.concurrent.CompletableFuture.supplyAsync { remove(id, labelId) }
+                        Thread.sleep(700)
+                        deleting.isDone shouldBe false
+                        holder.createStatement().use { it.executeUpdate("UPDATE processed_food_image SET sort_order = sort_order + 10 WHERE processed_food_id = $id") }
+                        holder.commit()
+                        deleting.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                    }
+
+                    longOf("SELECT COUNT(*) FROM processed_food_image WHERE id = $labelId AND status = 'DELETED'") shouldBe 1
+                    longOf("SELECT sort_order FROM processed_food_image WHERE id = $labelId") shouldBe 11
+                    list(id).size() shouldBe 1
+                }
+            }
         }
     }
 }

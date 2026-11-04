@@ -73,6 +73,7 @@ class AdminProcessedFoodImageService(
 
     fun deleteImage(productId: Long, imageId: Long): AdminProcessedFoodImagesResponse =
         writeTransaction.execute {
+            products.findForUpdateById(productId) ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_IMAGE_NOT_FOUND)
             val image = images.findById(imageId).orElse(null)?.takeIf { it.processedFoodId == productId }
                 ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_IMAGE_NOT_FOUND)
             image.delete()

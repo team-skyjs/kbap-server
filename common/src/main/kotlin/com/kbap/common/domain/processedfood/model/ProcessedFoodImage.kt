@@ -7,8 +7,10 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.Table
+import org.hibernate.annotations.DynamicUpdate
 
 @Entity
+@DynamicUpdate
 @Table(
     name = "processed_food_image",
     indexes = [Index(name = "idx_processed_food_image_product", columnList = "processed_food_id, status, sort_order")],
