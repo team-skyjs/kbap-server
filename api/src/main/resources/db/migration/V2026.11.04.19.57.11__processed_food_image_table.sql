@@ -5,6 +5,10 @@
 -- FK 는 food_image 선례처럼 둔다 — 원장(log)이 아니라 상품에 딸린 데이터이고, 상품은 소프트 삭제만 한다.
 -- 인덱스 (processed_food_id, status, sort_order): 상세 조회가 상품별 ACTIVE 사진을 순서대로 읽는다.
 -- 가산만: 새 테이블. 기존 테이블·값은 건드리지 않는다.
+-- lock_wait_timeout 10초: FK 가 있는 CREATE 는 부모 processed_food_product 의 메타데이터 잠금을 잡는다. 부모를 읽는 긴 트랜잭션이 있으면 CREATE 가 기다리는 사이 뒤의 읽기·쓰기까지 줄 선다 — 10초 안에 못 잡으면 실패시키고 재시도한다.
+
+SET SESSION lock_wait_timeout = 10;
+
 CREATE TABLE processed_food_image
 (
     id                BIGINT                    NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -18,3 +22,5 @@ CREATE TABLE processed_food_image
     INDEX idx_processed_food_image_product (processed_food_id, status, sort_order),
     CONSTRAINT fk_processed_food_image_product FOREIGN KEY (processed_food_id) REFERENCES processed_food_product (id)
 );
+
+SET SESSION lock_wait_timeout = DEFAULT;
