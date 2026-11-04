@@ -331,7 +331,7 @@ class AdminFoodService(
     }
 
     @Transactional
-    fun seedIncomplete(koreanNames: Set<String>): SeedIncompleteResult {
+    fun seedIncomplete(koreanNames: Set<String>, skipPipeline: Boolean = false): SeedIncompleteResult {
         val displayNamesByMatchKey = koreanNames
             .map { KoreanMenuNameNormalizer.matchKey(it) to it }
             .filter { (matchKey, _) -> matchKey.isNotEmpty() }
@@ -342,7 +342,7 @@ class AdminFoodService(
         val requested = displayNamesByMatchKey.size
         val existing = foodRepository.findByKoreanNameIn(displayNamesByMatchKey.keys).map { it.koreanName }.toSet()
         val newNames = displayNamesByMatchKey - existing
-        val created = if (newNames.isEmpty()) 0 else foodService.createIncomplete(newNames).size
+        val created = if (newNames.isEmpty()) 0 else foodService.createIncomplete(newNames, requestContent = !skipPipeline).size
         return SeedIncompleteResult(
             requested = requested,
             created = created,
