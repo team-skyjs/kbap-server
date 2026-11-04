@@ -82,9 +82,11 @@ data class RecipeMethodRequest(
         power = power.orEmpty().map { RecipePower(it.watt!!, it.seconds!!) },
         waitSeconds = waitSeconds,
         drainKeepMl = drainKeepMl,
-        steps = steps.orEmpty().map { RecipeStep(it.ko!!.trim()) },
-        cautions = cautions.orEmpty().map { it.trim() },
+        steps = steps.orEmpty().map { RecipeStep(oneLine(it.ko!!)) },
+        cautions = cautions.orEmpty().map(::oneLine),
     )
+
+    private fun oneLine(text: String): String = text.replace(LINE_BREAKS, " ").trim()
 
     companion object {
         const val MAX_POWERS = 4
@@ -93,6 +95,7 @@ data class RecipeMethodRequest(
         const val MAX_SECONDS = 3600L
         const val MAX_ML = 2000L
         const val MAX_TEXT = 300
+        private val LINE_BREAKS = Regex("[\\r\\n]+")
     }
 }
 

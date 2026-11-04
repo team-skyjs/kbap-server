@@ -145,6 +145,19 @@ class AdminProcessedFoodRecipeTest : BehaviorSpec() {
                 }
             }
 
+            `when`("단계·주의 문구에 줄바꿈이 들어 있으면 — Codex P2(#570)") {
+                then("저장 전에 공백 한 칸으로 바꿔 한 줄로 둔다(줄 단위 묶음 번역 경계가 깨지지 않게)") {
+                    val id = seed("RC-1", "로제불닭볶음면 큰컵")
+
+                    putRecipe(id, withMethod { it["steps"] = listOf(mapOf("ko" to "뚜껑을 뜯고\r\n물을 붓는다")); it["cautions"] = listOf("뜨거우니\n조심") })
+
+                    detail(id).path("recipe").path("methods")[0].let {
+                        it.path("steps").map { s -> s.asText() } shouldBe listOf("뚜껑을 뜯고 물을 붓는다")
+                        it.path("cautions").map { c -> c.asText() } shouldBe listOf("뜨거우니 조심")
+                    }
+                }
+            }
+
             `when`("묶음의 다른 상품에만 조리법이 있으면") {
                 then("대표 상품(이름이 가장 짧은 것)의 조리법을 쓴다") {
                     val bag = seed("RC-1", "까르보불닭볶음면")
