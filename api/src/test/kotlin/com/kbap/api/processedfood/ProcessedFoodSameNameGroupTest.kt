@@ -261,5 +261,24 @@ class ProcessedFoodSameNameGroupTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("제조사 모름 행과 브랜드 접두 — Codex P2(#557)") {
+            `when`("같은 이름의 한 행은 제조사(해태가루비)가 있고 한 행은 제조사 모름이면") {
+                then("검색에서 한 묶음이다(브랜드 접두를 뗀 뒤에도 수정 전처럼 접힌다)") {
+                    seed("FOLD-1", "해태 허니버터칩", "해태가루비")
+                    seed("FOLD-2", "해태허니버터칩 60g", "알수없음")
+
+                    reportNos(get("/api/processed-foods?query=허니버터칩")).count { it in setOf("FOLD-1", "FOLD-2") } shouldBe 1
+                }
+            }
+            `when`("제조사 모름 행 이름에만 관측 브랜드(오뚜기)가 붙어 있으면") {
+                then("브랜드를 뗀 이름으로 제조사 있는 행에 접힌다") {
+                    seed("FOLD-3", "진라면 순한맛", "오뚜기라면주식회사")
+                    seed("FOLD-4", "오뚜기 진라면 순한맛 120g", "알수없음")
+
+                    reportNos(get("/api/processed-foods?query=진라면")).count { it in setOf("FOLD-3", "FOLD-4") } shouldBe 1
+                }
+            }
+        }
     }
 }

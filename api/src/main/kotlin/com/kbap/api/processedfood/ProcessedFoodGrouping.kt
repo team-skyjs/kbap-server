@@ -26,6 +26,28 @@ object ProcessedFoodGrouping {
             .filter { it.codePointCount(0, it.length) >= MIN_NAME_LENGTH }
             .sortedByDescending { it.length }
 
+    fun foldUnknownMakers(rows: List<GroupRow>): List<String> {
+        val knownByName = rows.filter { makerKeyOf(it.displayMaker).isNotEmpty() }
+            .flatMap { row ->
+                val maker = makerKeyOf(row.displayMaker)
+                val namePart = row.groupKey.substringBeforeLast('|')
+                listOf(namePart, maker + namePart, withoutSize(row.normalizedName)).map { it to row.groupKey }
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, keys) -> keys.toSet() }
+        return rows.map { row ->
+            if (makerKeyOf(row.displayMaker).isNotEmpty()) return@map row.groupKey
+            val name = row.groupKey.substringBeforeLast('|')
+            listOf(name, withoutSize(withoutKnownBrand(row.normalizedName)))
+                .firstNotNullOfOrNull { knownByName[it]?.singleOrNull() } ?: row.groupKey
+        }
+    }
+
+    private fun withoutKnownBrand(name: String): String =
+        BRAND_PREFIXES.sortedByDescending { it.length }.firstOrNull { name.startsWith(it) && name.length > it.length }?.let { name.substring(it.length) } ?: name
+
+    data class GroupRow(val normalizedName: String, val displayMaker: String?, val groupKey: String)
+
     fun makerKeyOf(displayMaker: String?): String = displayMaker?.let(ProcessedFoodSnapshot::normalizeName).orEmpty()
 
     fun withoutSize(name: String): String {
