@@ -276,8 +276,8 @@ class MenuNameEstimateTest : BehaviorSpec() {
                 }
             }
 
-            `when`("마감 뒤 확정한 다음에 추정이 늦게 캐시되면 — Codex P2(#565)") {
-                then("이미 확정한 응답(UNKNOWN)은 바뀌지 않는다 — 늦은 추정은 캐시에만 남는다") {
+            `when`("마감 뒤 확정한 다음에 추정이 늦게 캐시되면 — S-975(#565 Codex P2 의 '확정 응답 불변'을 의도적으로 바꿈)") {
+                then("done 은 그대로 true 이고, 마감 때 채운 UNKNOWN 항목만 늦게 도착한 추정으로 바뀐다(상태 TTL 안)") {
                     seedMember(95917)
                     vision.program("scans/mne-17.jpg", listOf(ExtractedMenu("Late2", "추정늦은찜", null, null)))
                     estimator.answer = { emptyList() }
@@ -291,8 +291,47 @@ class MenuNameEstimateTest : BehaviorSpec() {
                     execute("INSERT INTO menu_name_estimate (name_key, kind, english_name, description, avoidance_codes, spiciness, confidence, model, prompt_version, status, created_at, updated_at) VALUES ('추정늦은찜', 'DRINK', 'Late', 'late', '[\"BEEF\"]', 2, 0.9, 'gpt-5-nano', 'v1', 'ACTIVE', NOW(6), NOW(6))")
                     val again = pending(95917, scanId).path("payload")
 
-                    again shouldBe first
-                    again.path("items").single().path("kind").asText() shouldBe "DISH"
+                    first.path("items").single().path("filled").asBoolean() shouldBe true
+                    again.path("done").asBoolean() shouldBe true
+                    again.path("items").single().let {
+                        it.path("filled").asBoolean() shouldBe false
+                        it.path("kind").asText() shouldBe "DRINK"
+                        it.path("name").asText() shouldBe "Late"
+                        it.path("pendingId").asText() shouldBe first.path("items").single().path("pendingId").asText()
+                    }
+                }
+            }
+
+            `when`("한 스캔의 미등록 이름이 여러 개면 — S-975") {
+                then("호출당 4개씩 쪼개 동시에 부른다(한 호출에 몰아 타임아웃 나지 않게)") {
+                    seedMember(95931)
+                    val names = listOf("가", "나", "다", "라", "마", "바", "사", "아").map { "추정쪼개기$it" }
+                    vision.program("scans/mne-31.jpg", names.map { ExtractedMenu("Dish", it, null, null) })
+                    val gate = java.util.concurrent.CountDownLatch(1)
+                    estimator.answer = { requested -> gate.await(10, java.util.concurrent.TimeUnit.SECONDS); requested.map { estimation(it, MenuNameKind.DISH) } }
+
+                    val scanId = scan(95931, "scans/mne-31.jpg").path("scanId").asText()
+                    repeat(100) { if (estimator.calls.size < 2) Thread.sleep(50) }
+
+                    estimator.calls.size shouldBe 2
+                    estimator.calls.map { it.size } shouldBe listOf(4, 4)
+                    gate.countDown()
+                    pollUntilDone(95931, scanId).path("items").map { it.path("filled").asBoolean() } shouldBe names.map { false }
+                }
+            }
+
+            `when`("추정 호출이 타임아웃·연결 오류로 실패하면 — S-975") {
+                then("하루가 아니라 10분만 다시 시도하지 않는다(실패 횟수도 세지 않는다)") {
+                    seedMember(95932)
+                    vision.program("scans/mne-32.jpg", listOf(ExtractedMenu("Down", "추정장애국", null, null)))
+                    estimator.answer = { throw IllegalStateException("Request failed") }
+
+                    scan(95932, "scans/mne-32.jpg")
+                    repeat(40) { if (redis.hasKey("menu-estimate:fail:추정장애국") != true) Thread.sleep(50) }
+
+                    val ttl = redis.getExpire("menu-estimate:fail:추정장애국")
+                    (ttl in 1..600) shouldBe true
+                    redis.hasKey("menu-estimate:fail-count:추정장애국") shouldBe false
                 }
             }
 
