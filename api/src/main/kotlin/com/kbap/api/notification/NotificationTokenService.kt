@@ -18,7 +18,8 @@ class NotificationTokenService(
     private val memberService: MemberService,
 ) {
     @Transactional
-    fun registerToken(installationId: String, memberId: Long, token: String, platform: DevicePlatform, lang: String) {
+    fun registerToken(installationId: String, memberId: Long?, token: String, platform: DevicePlatform, lang: String) {
+        if (memberId == null) return registerGuestToken(installationId, token, platform, lang)
         memberService.getMember(memberId)
         val device = deviceRepository.findByInstallationId(installationId)
         if (device == null) {
@@ -27,6 +28,16 @@ class NotificationTokenService(
         }
         device.renew(token, platform, lang)
         device.linkMember(memberId)
+    }
+
+    private fun registerGuestToken(installationId: String, token: String, platform: DevicePlatform, lang: String) {
+        val device = deviceRepository.findByInstallationId(installationId)
+        if (device == null) {
+            deviceRepository.save(NotificationDevice.register(installationId, token, platform, lang))
+            return
+        }
+        if (device.memberId != null) return
+        device.renew(token, platform, lang)
     }
 
     @Transactional

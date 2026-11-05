@@ -121,12 +121,42 @@ class NotificationTokenControllerTest : BehaviorSpec() {
         }
 
         given("기기 토큰 등록") {
-            `when`("로그인하지 않은 앱이 토큰·플랫폼·언어를 보내면") {
-                then("401 로 거절되고 기기·동의 기록이 생기지 않는다") {
-                    register("dev-1", accessToken = null).status shouldBe 401
+            `when`("로그인하지 않은 앱(게스트)이 처음 보는 기기로 토큰·플랫폼·언어를 보내면 — S-973") {
+                then("회원 없는 기기 기록이 생기고(운영진 채팅 답장 푸시 대상) 동의 기록은 생기지 않는다") {
+                    register("dev-1", accessToken = null).status shouldBe 200
 
-                    countDevices() shouldBe 0
+                    device("dev-1") shouldBe Device(null, "ExponentPushToken[abc]", "IOS", "en", null)
                     countConsents() shouldBe 0
+                }
+            }
+
+            `when`("게스트가 회원에 연결된 기기 기록의 토큰을 보내면 — S-973 보안") {
+                then("200 이지만 그 기록은 그대로다(기기 id 는 소유 증명이 아니라 남의 회원 기기 토큰을 덮어쓰지 못한다)") {
+                    val (memberId, accessToken) = login("member-guest-guard")
+                    register("dev-guard", accessToken = accessToken, body = body(token = "ExponentPushToken[member]")).status shouldBe 200
+
+                    register("dev-guard", accessToken = null, body = body(token = "ExponentPushToken[attacker]", lang = "ko")).status shouldBe 200
+
+                    device("dev-guard") shouldBe Device(memberId, "ExponentPushToken[member]", "IOS", "en", null)
+                }
+            }
+
+            `when`("로그아웃해 회원 연결이 풀린 기기에서 게스트가 토큰을 다시 보내면 — S-973") {
+                then("게스트 기록으로 갱신된다") {
+                    val (_, accessToken) = login("member-logout-guest")
+                    register("dev-logout", accessToken = accessToken).status shouldBe 200
+                    mockMvc.post("/api/auth/logout") {
+                        header("X-API-Version", "1.1")
+                        header("X-Installation-Id", "dev-logout")
+                        header("Authorization", "Bearer $accessToken")
+                        contentType = MediaType.APPLICATION_JSON
+                        content = "{}"
+                    }.andExpect { status { isOk() } }
+                    device("dev-logout")!!.memberId shouldBe null
+
+                    register("dev-logout", accessToken = null, body = body(token = "ExponentPushToken[guest-again]")).status shouldBe 200
+
+                    device("dev-logout") shouldBe Device(null, "ExponentPushToken[guest-again]", "IOS", "en", null)
                 }
             }
 
