@@ -44,6 +44,7 @@ class MenuEstimateImageTest : BehaviorSpec() {
     @Autowired private lateinit var storage: FakeStorageObjectStore
     @Autowired private lateinit var foodRepository: FoodJpaRepository
     @Autowired private lateinit var redis: StringRedisTemplate
+    @Autowired private lateinit var imageService: MenuEstimateImageService
 
     private val mapper = jacksonObjectMapper()
 
@@ -184,6 +185,21 @@ class MenuEstimateImageTest : BehaviorSpec() {
                     body.path("imagesDone").asBoolean() shouldBe true
                     body.path("items").single().path("imageStatus").asText() shouldBe "NONE"
                     generator.prompts.size shouldBe 0
+                }
+            }
+
+            `when`("요청이 큐에서 기다리는 동안 다른 쪽이 같은 이름의 사진을 이미 채웠으면 — Codex P2(#581)") {
+                then("작업을 시작할 때 잠금을 잡고 캐시를 다시 확인해 만들지 않는다") {
+                    execute(
+                        "INSERT INTO menu_name_estimate (name_key, kind, english_name, description, avoidance_codes, spiciness, confidence, model, prompt_version, image_ref, image_generated_at, status, created_at, updated_at) " +
+                            "VALUES ('추정이미있는빵', 'DISH', 'Eng', 'desc', '[]', 1, 0.9, 'gpt-5-nano', 'v1', 'images/webp/menu-estimate/done.webp', NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+                    )
+
+                    imageService.request(listOf("추정이미있는빵"))
+                    Thread.sleep(500)
+
+                    generator.prompts.size shouldBe 0
+                    redis.hasKey("menu-estimate:image-inflight:추정이미있는빵") shouldBe false
                 }
             }
 

@@ -26,6 +26,7 @@ import java.time.format.DateTimeFormatter
 import java.util.HexFormat
 import java.util.UUID
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -46,20 +47,42 @@ class MenuEstimateImageService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val writeTransaction = TransactionTemplate(transactionManager)
+    private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
+    private val queued: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val executor = ThreadPoolExecutor(CONCURRENT_CALLS, CONCURRENT_CALLS, 0, TimeUnit.SECONDS, ArrayBlockingQueue(QUEUE_SIZE), { Thread(it, "menu-estimate-image").apply { isDaemon = true } })
     private val latency: Timer = Timer.builder("menu_estimate.image.latency").publishPercentiles(0.5, 0.95).register(meters)
 
     fun request(nameKeys: Collection<String>) {
         if (!enabled) return
-        nameKeys.distinct().filter { !isUnavailable(it) && acquire(it) }.forEach { nameKey ->
+        nameKeys.distinct().filter { !isUnavailable(it) && queued.add(it) }.forEach { nameKey ->
             try {
-                executor.execute { generate(nameKey) }
+                executor.execute { runQueued(nameKey) }
             } catch (e: RejectedExecutionException) {
                 meters.counter("menu_estimate.image.skipped", "reason", "queue_full").increment()
-                release(nameKey)
+                queued.remove(nameKey)
             }
         }
     }
+
+    private fun runQueued(nameKey: String) {
+        try {
+            if (!acquire(nameKey)) return
+            try {
+                if (hasImage(nameKey)) {
+                    meters.counter("menu_estimate.image.skipped", "reason", "already_cached").increment()
+                } else {
+                    generate(nameKey)
+                }
+            } finally {
+                release(nameKey)
+            }
+        } finally {
+            queued.remove(nameKey)
+        }
+    }
+
+    private fun hasImage(nameKey: String): Boolean =
+        readTransaction.execute { estimates.findAllByNameKeyIn(listOf(nameKey)).any { it.imageRef != null } }!!
 
     fun isGenerating(nameKey: String): Boolean = runCatching { redis.hasKey(INFLIGHT_PREFIX + nameKey) }.getOrDefault(false)
 
@@ -87,8 +110,6 @@ class MenuEstimateImageService(
             meters.counter("menu_estimate.image.failures", "reason", e.javaClass.simpleName).increment()
             log.warn("메뉴 추정 이미지 생성 실패 — 한동안 다시 시도하지 않는다 nameKey={}", nameKey, e)
             markUnavailable(nameKey, FAIL_TTL)
-        } finally {
-            release(nameKey)
         }
     }
 
