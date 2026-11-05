@@ -154,6 +154,24 @@ class MenuEstimateImageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("한 스캔에 AI 추정 메뉴가 여러 개면 — S-974") {
+                then("사진을 순서대로 하나씩이 아니라 전부 동시에 만들기 시작한다(가장 느린 한 장 시간 안에 끝나게)") {
+                    seedMember(96910)
+                    val names = listOf("가", "나", "다", "라", "마", "바", "사", "아").map { "추정동시사진$it" }
+                    vision.program("scans/mei-10.jpg", names.map { ExtractedMenu("Dish", it, null, null) })
+                    estimator.answer = { requested -> requested.map { estimation(it) } }
+                    val gate = CountDownLatch(1)
+                    generator.gate = gate
+
+                    val scanId = scan(96910, "scans/mei-10.jpg").path("scanId").asText()
+                    repeat(100) { if (generator.prompts.size < names.size) Thread.sleep(50) }
+
+                    generator.prompts.size shouldBe names.size
+                    gate.countDown()
+                    pollUntil(96910, scanId, ::allDone).path("items").map { it.path("imageStatus").asText() } shouldBe names.map { "READY" }
+                }
+            }
+
             `when`("같은 이름을 두 회원이 거의 동시에 스캔하면") {
                 then("사진은 한 번만 만든다(같은 이름 키 생성 중 잠금 + 캐시 재사용)") {
                     seedMember(96903)
