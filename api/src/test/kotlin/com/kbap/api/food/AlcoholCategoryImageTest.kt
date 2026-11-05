@@ -62,6 +62,14 @@ class AlcoholCategoryImageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("술이 확실히 들어간 요리면(맥주수육) — Codex P2(#586)") {
+                then("술 음료가 아니므로 원래 이미지 그대로다") {
+                    val dish = readyFood("공용술맥주수육", listOf(FoodIngredient("ALCOHOL", 95), FoodIngredient("PORK", 100)))
+
+                    detail(dish.id).path("imageRef").asText() shouldEndWith "images/webp/food/공용술맥주수육.webp"
+                }
+            }
+
             `when`("술이 아닌 음식이면") {
                 then("원래 이미지 그대로다") {
                     val stew = readyFood("공용술아님찌개", listOf(FoodIngredient("ALCOHOL", 20), FoodIngredient("PORK", 60)))
