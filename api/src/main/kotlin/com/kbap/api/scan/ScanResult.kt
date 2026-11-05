@@ -22,6 +22,7 @@ data class ScanResult(
         val substitutedFromFoodId: Long? = null,
         val spiciness: Int? = null,
         val priceOptions: List<PriceOption>? = null,
+        val notMenu: Boolean = false,
     )
 
     data class PriceOption(
