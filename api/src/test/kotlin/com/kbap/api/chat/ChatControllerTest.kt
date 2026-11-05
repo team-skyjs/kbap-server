@@ -189,6 +189,20 @@ class ChatControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("게스트 방에 운영진 답장이 있는 기기에서 로그인한 회원이 안읽음을 보면 — Codex P2(#584)") {
+                then("회원 방만 보고(방 없으면 0·null) 게스트 방 안읽음을 가리키지 않는다") {
+                    seedMember(97215)
+                    send(null, "inst-g8", "게스트 질문").first shouldBe 201
+                    reply(messages(null, "inst-g8").path("conversationId").asLong(), "게스트에게 답변").first shouldBe 200
+                    unread(null, "inst-g8").path("unreadCount").asLong() shouldBe 1
+
+                    unread(97215, "inst-g8").let {
+                        it.path("unreadCount").asLong() shouldBe 0
+                        it.path("lastOperatorMessage").isNull shouldBe true
+                    }
+                }
+            }
+
             `when`("다른 사람의 게스트 기기 id 를 헤더에 넣고 로그인·기기 연결까지 한 회원이 조회해도 — Codex P1(#584)") {
                 then("그 게스트 방을 넘겨받지 못하고 게스트는 계속 자기 대화를 본다") {
                     seedMember(97214)

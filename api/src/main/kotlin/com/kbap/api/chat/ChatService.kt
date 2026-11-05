@@ -85,9 +85,7 @@ class ChatService(
     fun getUnread(memberId: Long?, installationId: String?): ChatUnread {
         val installation = requireInstallationId(installationId)
         return readTransaction.execute {
-            val conversation = (if (memberId != null) conversations.findByMemberId(memberId) else null)
-                ?: conversations.findByGuestInstallationIdAndMemberIdIsNull(installation)
-                ?: return@execute ChatUnread(0, null)
+            val conversation = ownedReadOnly(memberId, installation) ?: return@execute ChatUnread(0, null)
             val unread = messages.countByConversationIdAndAuthorRoleAndIdGreaterThan(conversation.id, ChatAuthorRole.OPERATOR, conversation.userLastReadMessageId ?: 0)
             val last = messages.findFirstByConversationIdAndAuthorRoleOrderByIdDesc(conversation.id, ChatAuthorRole.OPERATOR)
             ChatUnread(unread, last?.let { ChatUnread.Preview(it.content.take(PREVIEW_LENGTH), it.createdAt) })
@@ -109,6 +107,9 @@ class ChatService(
             conversations.findGuestId(installationId)?.let { conversations.findByIdForUpdate(it) }
         }
 
+    private fun ownedReadOnly(memberId: Long?, installationId: String): ChatConversation? =
+        if (memberId != null) conversations.findByMemberId(memberId) else conversations.findByGuestInstallationIdAndMemberIdIsNull(installationId)
+
     fun ensureConversation(memberId: Long?, installationId: String) {
         separateTransaction.executeWithoutResult {
             if (memberId != null) {
@@ -122,9 +123,7 @@ class ChatService(
     private fun recordedAtMillis(memberId: Long?, installationId: String): List<Long> {
         val since = LocalDateTime.now().minus(QUOTA_WINDOW)
         val recorded = readTransaction.execute {
-            val conversation = (if (memberId != null) conversations.findByMemberId(memberId) else null)
-                ?: conversations.findByGuestInstallationIdAndMemberIdIsNull(installationId)
-            conversation?.let { messages.findUserMessageTimesSince(it.id, since) }.orEmpty()
+            ownedReadOnly(memberId, installationId)?.let { messages.findUserMessageTimesSince(it.id, since) }.orEmpty()
         }!!
         if (recorded.size >= dailyLimit) throw BusinessException(ErrorCode.CHAT_RATE_LIMITED)
         return recorded.map { it.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
