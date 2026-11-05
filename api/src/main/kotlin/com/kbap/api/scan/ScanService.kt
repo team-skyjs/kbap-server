@@ -104,6 +104,7 @@ class ScanService(
                 avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
                 substituted = similar != null,
                 originalScannedName = menu.koreanName.takeIf { similar != null },
+                substitutedFromFoodId = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]?.id?.takeIf { similar != null && it != food?.id },
                 pendingNameKey = KoreanMenuNameNormalizer.matchKey(menu.koreanName).takeIf { !matched && similar == null && it.isNotBlank() },
                 spiciness = food?.spiciness?.takeIf { matched },
                 priceOptions = priceOptions,

@@ -20,6 +20,7 @@ object TestTables {
         "member_ranking_event",
         "food_review",
         "bookmark",
+        "scan_result_food",
         "scan_history",
         "image_batch_item",
         "image_batch",
