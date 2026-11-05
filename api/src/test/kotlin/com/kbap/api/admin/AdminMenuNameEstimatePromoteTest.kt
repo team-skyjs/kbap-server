@@ -276,6 +276,43 @@ class AdminMenuNameEstimatePromoteTest : BehaviorSpec() {
                 }
             }
 
+            `when`("승격이 음식 잠금을 기다리는 사이 다른 트랜잭션이 그 음식의 콘텐츠 요청을 커밋하면 — Codex P2 2라운드(#578)") {
+                then("잠금 뒤 읽기가 그 요청을 보고 ALREADY_PENDING 이다(이름 조회가 먼저 잡은 스냅숏으로 중복 요청하지 않는다)") {
+                    val id = seedEstimate("추정스냅숏국")
+                    val food = foodRepository.save(Food.failed("추정스냅숏국"))
+                    val pool = Executors.newSingleThreadExecutor()
+                    val result = dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        try {
+                            holder.createStatement().use { it.executeQuery("SELECT id FROM food WHERE id = ${food.id} FOR UPDATE").close() }
+                            val promoting = pool.submit<Pair<Int, JsonNode>> { promote(id) }
+                            var waiting = false
+                            repeat(100) {
+                                if (!waiting) {
+                                    waiting = longOf("SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID <> CONNECTION_ID() AND LOWER(INFO) LIKE 'select%from food%for update%'") > 0
+                                    if (!waiting) Thread.sleep(50)
+                                }
+                            }
+                            waiting shouldBe true
+                            holder.createStatement().use {
+                                it.executeUpdate("INSERT INTO food_content_outbox (food_id, display_name, outbox_status, attempts, status, created_at, updated_at) VALUES (${food.id}, '추정스냅숏국', 'PENDING', 0, 'ACTIVE', NOW(6), NOW(6))")
+                            }
+                            holder.commit()
+                            promoting
+                        } finally {
+                            holder.rollback()
+                        }
+                    }
+
+                    val (status, body) = result.get(30, TimeUnit.SECONDS)
+                    pool.shutdown()
+
+                    status shouldBe 200
+                    body.path("payload").path("outcome").asText() shouldBe "ALREADY_PENDING"
+                    pendingOutboxes(food.id) shouldBe 1
+                }
+            }
+
             `when`("같은 추정을 두 어드민이 동시에 승격하면") {
                 then("하나만 200 이고 다른 하나는 409 SCAN-016 — 음식·콘텐츠 요청은 한 건씩이다") {
                     val id = seedEstimate("추정동시국")
