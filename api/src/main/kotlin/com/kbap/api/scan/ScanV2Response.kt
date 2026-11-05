@@ -118,6 +118,8 @@ data class ScanV2Response(
             nullable = true,
         )
         val priceOptions: List<PriceOptionResponse>? = null,
+        @field:Schema(description = "메뉴가 아닌 주문 옵션·단일 재료어(추가·사리·소스·공기밥 등)면 true — 판정·추정·상세 없음, 앱은 원문만 보여 준다")
+        val notMenu: Boolean = false,
     )
 
     @Schema(description = "가격 옵션 한 개")
@@ -192,6 +194,7 @@ data class ScanV2Response(
                         pendingId = it.pendingId,
                         spiciness = it.spiciness,
                         priceOptions = it.priceOptions?.map { option -> PriceOptionResponse(option.label, option.priceKrw) },
+                        notMenu = it.notMenu,
                     )
                 },
             )

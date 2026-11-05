@@ -56,7 +56,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.99)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService)
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService, vectorSubstitutionEnabled = true)
 
                     val result = service.scan(member, "scans/x.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 
@@ -85,7 +85,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.9)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService)
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService, vectorSubstitutionEnabled = true)
 
                     val result = service.scan(member, "scans/y.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 
