@@ -105,6 +105,8 @@ class MenuBoardResultParser {
         val koreanName: String? = null,
         val price: Int? = null,
         val matchedIdx: Int? = null,
+        val optionLabel: String? = null,
+        val option: String? = null,
     ) {
         fun toExtractedMenuOrNull(): ExtractedMenu? {
             val trimmedName = name?.trim().orEmpty()
@@ -115,11 +117,13 @@ class MenuBoardResultParser {
                 koreanName = trimmedKorean,
                 priceKrw = price?.takeIf { it > 0 },
                 matchedIdx = matchedIdx,
+                optionLabel = (optionLabel ?: option)?.trim()?.ifBlank { null }?.take(MAX_OPTION_LABEL_LENGTH),
             )
         }
     }
 
     companion object {
+        const val MAX_OPTION_LABEL_LENGTH = 30
         private val REPORT_NO_LENGTHS = 10..16
         private const val MAX_WARNINGS = 5
     }

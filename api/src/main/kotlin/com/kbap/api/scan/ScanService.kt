@@ -87,7 +87,7 @@ class ScanService(
         val validIdxes = ocrItems.map { it.idx }.toSet()
         val usedIdxes = mutableSetOf<Int>()
 
-        val items = extracted.map { menu ->
+        val items = mergeOptions(extracted).map { (menu, priceOptions) ->
             val similar = similarByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val food = similar ?: foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
             val matched = food?.isReady() == true
@@ -106,6 +106,7 @@ class ScanService(
                 originalScannedName = menu.koreanName.takeIf { similar != null },
                 pendingNameKey = KoreanMenuNameNormalizer.matchKey(menu.koreanName).takeIf { !matched && similar == null && it.isNotBlank() },
                 spiciness = food?.spiciness?.takeIf { matched },
+                priceOptions = priceOptions,
             )
         }
 
@@ -135,6 +136,21 @@ class ScanService(
                 overlapped = overlapped.isNotEmpty(),
                 riskLevel = overlapped.takeIf { it.isNotEmpty() }?.let { RiskLevel.aggregate(it.map { i -> i.riskLevel() }) }?.name,
             )
+        }
+    }
+
+    private fun mergeOptions(extracted: List<ExtractedMenu>): List<Pair<ExtractedMenu, List<ScanResult.PriceOption>?>> {
+        val groups = extracted.groupBy { KoreanMenuNameNormalizer.matchKey(it.koreanName).ifBlank { it.koreanName } }
+        val merged = groups.mapValues { (_, group) ->
+            group.takeIf { members -> members.all { it.optionLabel != null } }
+                ?.map { ScanResult.PriceOption(it.optionLabel, it.priceKrw) }?.distinct()?.takeIf { it.size > 1 }
+        }
+        val emitted = mutableSetOf<String>()
+        return extracted.mapNotNull { menu ->
+            val key = KoreanMenuNameNormalizer.matchKey(menu.koreanName).ifBlank { menu.koreanName }
+            val options = merged.getValue(key) ?: return@mapNotNull menu to null
+            if (!emitted.add(key)) return@mapNotNull null
+            menu.copy(matchedIdx = groups.getValue(key).firstNotNullOfOrNull { it.matchedIdx }) to options
         }
     }
 
