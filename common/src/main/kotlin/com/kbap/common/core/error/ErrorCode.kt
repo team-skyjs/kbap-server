@@ -67,6 +67,11 @@ enum class ErrorCode(
     FEEDBACK_RATE_LIMITED("FEEDBACK-003", 429, "하루에 보낼 수 있는 문의 수를 넘었습니다. 내일 다시 시도해 주세요"),
     FEEDBACK_NOT_FOUND("FEEDBACK-004", 404, "해당 문의를 찾을 수 없습니다"),
     FEEDBACK_CLOSED("FEEDBACK-005", 409, "종료된 문의에는 답변할 수 없습니다"),
+    CHAT_RATE_LIMITED("CHAT-001", 429, "메시지를 너무 많이 보냈어요. 잠시 후 다시 보내 주세요"),
+    CHAT_CONVERSATION_NOT_FOUND("CHAT-002", 404, "대화방을 찾을 수 없습니다"),
+    CHAT_ENVIRONMENT_MISMATCH("CHAT-003", 409, "요청 환경이 서버 환경과 다릅니다"),
+    CHAT_MEMBER_NOT_FOUND("CHAT-004", 404, "대화를 열 회원을 찾을 수 없습니다"),
+    CHAT_TARGET_INVALID("CHAT-005", 400, "회원 id 또는 게스트 기기 id 중 하나만 넣어 주세요"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),

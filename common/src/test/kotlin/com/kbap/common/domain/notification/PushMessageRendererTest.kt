@@ -23,7 +23,7 @@ import java.util.Locale
 class PushMessageRendererTest : BehaviorSpec({
     val messageSource = PushMessageSourceConfig().messageSource()
     val first = PushMessageRenderer(messageSource) { 0 }
-    val args = mapOf("food" to "김치찌개", "title" to "t", "body" to "b")
+    val args = mapOf("food" to "김치찌개", "title" to "t", "body" to "b", "message" to "안녕하세요, K-Bap 팀이에요")
     val optOutKo = "수신거부: 프로필 > 알림 설정"
     val optOutEn = "Turn off: Profile > Notification settings"
 

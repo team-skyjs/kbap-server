@@ -12,6 +12,7 @@ data class PushRequest(
     val data: Map<String, Any> = emptyMap(),
     val ttlSeconds: Int? = null,
     val mealSlot: MealSlot? = null,
+    val guestInstallationIds: Collection<String> = emptyList(),
 )
 
 data class PushContent(

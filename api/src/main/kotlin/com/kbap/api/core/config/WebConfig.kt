@@ -127,6 +127,16 @@ class WebConfig(
                     ),
                     JwtAuthenticationFilter.GuestExemption(
                         "GET",
+                        Regex("^${ApiPaths.API}/chat/(messages|unread)$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "POST",
+                        Regex("^${ApiPaths.API}/chat/(messages|read)$"),
+                        parseTokenIfPresent = true,
+                    ),
+                    JwtAuthenticationFilter.GuestExemption(
+                        "GET",
                         Regex("^${ApiPaths.API}/feedbacks/\\d+$"),
                         parseTokenIfPresent = true,
                     ),
