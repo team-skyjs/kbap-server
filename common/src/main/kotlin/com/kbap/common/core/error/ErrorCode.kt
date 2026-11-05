@@ -60,6 +60,7 @@ enum class ErrorCode(
     FOOD_INGREDIENT_RETRO_JOB_NOT_FOUND("FOOD-024", 404, "소급 판정 작업을 찾을 수 없거나 기록이 만료되었습니다"),
     FOOD_PHOTO_NOT_UPLOADED("FOOD-025", 400, "음식 사진 업로드를 확인하지 못했습니다"),
     FOOD_ENVIRONMENT_MISMATCH("FOOD-026", 409, "요청 환경이 서버 환경과 다릅니다"),
+    FOOD_ALREADY_READY("FOOD-027", 409, "이미 조회 가능한(READY) 음식입니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
@@ -96,6 +97,8 @@ enum class ErrorCode(
     SCAN_BATCH_ATTEMPT_LIMIT("SCAN-012", 429, "오늘은 스캔 시도가 너무 많아요. 잠시 후 다시 시도해 주세요"),
     SCAN_BATCH_RESULT_EXPIRED("SCAN-013", 410, "보관 기간이 지난 스캔 묶음이에요. 새로 스캔해 주세요"),
     SCAN_PENDING_NOT_FOUND("SCAN-014", 404, "추정 대기 중인 스캔을 찾을 수 없거나 만료되었습니다"),
+    MENU_NAME_ESTIMATE_NOT_FOUND("SCAN-015", 404, "메뉴 이름 추정을 찾을 수 없습니다"),
+    MENU_NAME_ESTIMATE_ALREADY_PROMOTED("SCAN-016", 409, "이미 음식으로 등록한 추정입니다"),
 
     MARKETING_CONSENT_REQUIRED("NOTIFICATION-001", 400, "K-Bap 소식 수신 동의 후 설정할 수 있습니다"),
     NOTIFICATION_NOT_FOUND("NOTIFICATION-002", 404, "해당 알림을 찾을 수 없습니다"),
