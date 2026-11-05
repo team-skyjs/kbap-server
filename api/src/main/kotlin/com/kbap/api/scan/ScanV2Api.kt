@@ -104,8 +104,10 @@ interface ScanV2Api {
         description = """
             스캔 v2 응답의 scanId 로, pendingId 가 붙은 항목(매칭·유사 대체가 안 된 메뉴)의 추정을 받는다.
             추정이 끝난 항목만 스캔 결과 순서대로 준다. 1초 간격으로 폴링하고 done=true(전부 끝났거나 스캔 뒤 15초)면 멈춘다.
+            15초는 서버가 스캔 응답을 만들 때(scanId 발급 시각)부터 잰다. 마감까지 추정이 없는 항목은 filled=true·UNKNOWN 으로 채운다.
             추정은 이름 단위로 영구 캐시되어 같은 이름은 다시 부르지 않는다. riskLevel 은 CAUTION·UNKNOWN 뿐(SAFE 없음).
-            kind=NOT_FOOD(가게 이름·구역 제목 등)는 앱이 숨긴다. 남의 scanId·만료(30분)·모르는 값은 404 SCAN-014.
+            새로 추정하는 이름은 하루(한국 시각) 전체 3,000개·회원당 100개까지다. 상한을 넘는 묶음의 이름은 추정하지 않고(캐시된 이름은 그대로 나온다) 마감 뒤 filled=true 로 채운다.
+            kind=NOT_FOOD(가게 이름·구역 제목 등)는 앱이 숨긴다. 남의 scanId·만료(10분)·모르는 값은 404 SCAN-014.
         """,
     )
     @ApiErrors(ErrorCode.SCAN_PENDING_NOT_FOUND)

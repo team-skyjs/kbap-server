@@ -39,6 +39,7 @@ bastion_key_name = "kbap-prod"
 blocked_path_patterns = ["*actuator*", "*swagger*", "*api-docs*"]
 
 # Langfuse(관리자 페이지 LLM 지표 프록시용). 키는 SSM /kbap/<env>/LANGFUSE_PUBLIC_KEY · LANGFUSE_SECRET_KEY (SecureString), host 만 평문.
+# 운영진 채팅(KB-1007): 사용자 메시지 텔레그램 알림. 봇 토큰은 SSM /kbap/prod/CHAT_TELEGRAM_BOT_TOKEN(SecureString, 모듈 기본 시크릿 목록), 채팅 id·어드민 주소만 평문.
 # 앱 토글은 전부 여기 — 리비전에 손으로 넣으면 Terraform 이 태스크 정의를 다시 만들 때 사라진다.
 # ADS_REWARD_UNIT_IDS(KB-740): 보상형 광고 적립 API 가 받는 AdMob 보상형 단위 허용 목록(쉼표 구분, 비밀 아님 — 앱 바이너리에 들어가는 값).
 #   prod 실단위 scan_unlock_rewarded Android·iOS(spec admob-ids-2026-10-12.md). dev 는 넣지 않는다(yml 기본 = Google 데모 단위).
@@ -49,6 +50,8 @@ api_extra_env = {
   REVIEW_BOT_ENABLED                  = "true"
   REVIEW_BOT_PHOTO_SYNC_ENABLED       = "true"
   PROCESSED_FOOD_REVIEW_WRITE_ENABLED = "true"
+  CHAT_TELEGRAM_CHAT_ID               = "<예진 텔레그램 채팅 id>"
+  CHAT_ADMIN_BASE_URL                 = "<어드민 주소 — 알림 링크용>"
 }
 
 # 실행 중 batch 리비전에만 있던 값(2026-11-03) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다
