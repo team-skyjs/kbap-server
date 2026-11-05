@@ -144,9 +144,10 @@ jobs:
         env:
           DEPLOYMENT_ID: ${{ steps.canary.outputs.id }}
         run: |
-          # 폴링 예산 30분: 카나리 15분 + 기동·헬스체크 + 여유. Succeeded 는 트래픽 100% 전환 시점에 찍히고 구버전 종료 대기(15분)는 그 뒤라 포함되지 않는다.
+          # 폴링 예산 약 40분(240회×10초): 설치 약 3분 + 카나리 트래픽 전환 15분 + 구버전 종료 대기 15분(terminationWaitTimeInMinutes) ≈ 33분 + 여유.
+          # Succeeded(completeTime)는 구버전 종료 대기가 끝난 뒤에 찍힌다 — 트래픽 100% 시점이 아니다(11/5 run 42000408814 가 32분 48초에 상한에 걸려 롤백).
           STATUS=InProgress
-          for i in $(seq 1 180); do
+          for i in $(seq 1 240); do
             STATUS=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" \
               --query deploymentInfo.status --output text)
             case "$STATUS" in Succeeded|Failed|Stopped) break ;; esac
