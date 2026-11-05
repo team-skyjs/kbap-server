@@ -8,7 +8,8 @@ import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.ZoneId
 
 @Component
 class ChatMessageViews(
@@ -32,7 +33,7 @@ class ChatMessageViews(
         authorRole = message.authorRole,
         content = message.content,
         imageUrls = message.imageRefs.orEmpty().mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it) },
-        createdAt = message.createdAt,
+        createdAt = message.createdAt.atZone(ZoneId.systemDefault()).toInstant(),
         legacyFeedbackId = message.legacyFeedbackId,
     )
 }
@@ -57,7 +58,8 @@ data class ChatMessageView(
     val content: String,
     @field:Schema(description = "사용자 첨부 사진 URL — 운영진 메시지는 빈 배열")
     val imageUrls: List<String>,
-    val createdAt: LocalDateTime,
+    @field:Schema(description = "작성 시각(UTC, ISO-8601 Z 접미 — 예: 2026-11-05T09:15:59.154Z)")
+    val createdAt: Instant,
     @field:Schema(description = "지난 문의에서 옮겨 온 메시지면 그 문의 id, 채팅에서 보낸 메시지면 null", nullable = true)
     val legacyFeedbackId: Long?,
 )
@@ -69,5 +71,5 @@ data class ChatUnread(
     @field:Schema(description = "마지막 운영진 메시지(앞 80자) — 없으면 null", nullable = true)
     val lastOperatorMessage: Preview?,
 ) {
-    data class Preview(val content: String, val createdAt: LocalDateTime)
+    data class Preview(val content: String, val createdAt: Instant)
 }

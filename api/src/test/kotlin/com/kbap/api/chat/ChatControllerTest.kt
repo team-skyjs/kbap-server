@@ -117,6 +117,26 @@ class ChatControllerTest : BehaviorSpec() {
                 }
             }
 
+            `when`("메시지·미리보기·어드민 목록의 시각을 받으면 — S-971 시간 버그") {
+                then("오프셋 없는 로컬 시각이 아니라 UTC(Z 접미) 시각이고, 실제 현재 시각과 맞는다") {
+                    seedMember(97231)
+                    seedDevice("inst-t1", 97231)
+                    send(97231, "inst-t1", "시각 확인").first shouldBe 201
+                    val conversationId = messages(97231, "inst-t1").path("conversationId").asLong()
+                    reply(conversationId, "답변 시각").first shouldBe 200
+
+                    val messageTimes = listOf(
+                        messages(97231, "inst-t1").path("items")[0].path("createdAt").asText(),
+                        unread(97231, "inst-t1").path("lastOperatorMessage").path("createdAt").asText(),
+                    ) + adminGet("/api/admin/chats?size=50").path("items").filter { it.path("conversationId").asLong() == conversationId }.map { it.path("lastMessage").path("createdAt").asText() }
+                    val memberCreatedAt = adminGet("/api/admin/chats/$conversationId/messages").path("user").path("memberCreatedAt").asText()
+
+                    messageTimes.size shouldBe 3
+                    (messageTimes + memberCreatedAt).forEach { it.endsWith("Z") shouldBe true }
+                    messageTimes.forEach { (kotlin.math.abs(java.time.Duration.between(java.time.Instant.parse(it), java.time.Instant.now()).toMinutes()) <= 1) shouldBe true }
+                }
+            }
+
             `when`("방이 없는 사용자가 조회하면") {
                 then("conversationId=null·빈 목록, 안읽음 0") {
                     messages(null, "inst-none").let {

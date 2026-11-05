@@ -18,7 +18,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.LocalDateTime
+import java.time.Instant
+import java.time.ZoneId
 
 @Service
 class AdminChatService(
@@ -51,7 +52,7 @@ class AdminChatService(
                     country = countryOf(member, conversation.lastDeviceInfo),
                     language = languageOf(conversation.lastDeviceInfo),
                     unreadCount = row.unreadCount,
-                    lastMessage = latest[conversation.id]?.let { AdminChatLastMessage(it.authorRole, it.content.take(PREVIEW_LENGTH), it.createdAt) },
+                    lastMessage = latest[conversation.id]?.let { AdminChatLastMessage(it.authorRole, it.content.take(PREVIEW_LENGTH), it.createdAt.atZone(ZoneId.systemDefault()).toInstant()) },
                 )
             },
             nextCursor = (offset + size).toString().takeIf { rows.size > size },
@@ -72,7 +73,7 @@ class AdminChatService(
                 country = countryOf(member, conversation.lastDeviceInfo),
                 language = languageOf(conversation.lastDeviceInfo),
                 deviceInfo = conversation.lastDeviceInfo.orEmpty(),
-                memberCreatedAt = member?.createdAt,
+                memberCreatedAt = member?.createdAt?.atZone(ZoneId.systemDefault())?.toInstant(),
             ),
         )
     }
@@ -151,7 +152,7 @@ data class AdminChatConversationItem(
     val lastMessage: AdminChatLastMessage?,
 )
 
-data class AdminChatLastMessage(val authorRole: ChatAuthorRole, val content: String, val createdAt: LocalDateTime)
+data class AdminChatLastMessage(val authorRole: ChatAuthorRole, val content: String, val createdAt: Instant)
 
 data class AdminChatConversationDetail(val messages: ChatMessagePage, val user: AdminChatUser)
 
@@ -162,7 +163,7 @@ data class AdminChatUser(
     val country: String?,
     val language: String?,
     val deviceInfo: Map<String, String>,
-    val memberCreatedAt: LocalDateTime?,
+    val memberCreatedAt: Instant?,
 )
 
 data class AdminChatOpenResult(val conversationId: Long, val created: Boolean)
