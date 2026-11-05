@@ -112,6 +112,14 @@ spring:
         speech: none
 
 kbap:
+  # 운영진 1:1 채팅(KB-1007). 사용자 메시지마다 텔레그램 봇으로 예진에게 알린다(방당 1분에 한 번으로 묶음).
+  # 토큰은 시크릿(SSM SecureString → 태스크 secrets), 채팅 id 는 설정. 둘 중 하나라도 비면 알림 없이 동작한다.
+  chat:
+    daily-limit: ${CHAT_DAILY_LIMIT:100}
+    admin-base-url: ${CHAT_ADMIN_BASE_URL:}
+    telegram:
+      bot-token: ${CHAT_TELEGRAM_BOT_TOKEN:}
+      chat-id: ${CHAT_TELEGRAM_CHAT_ID:}
   food:
     # 새 재료 소급 판정(KB-896) 반영 기준 — round(p×100) 이 이 값 이상이면 붙이고, rejudge 에서 미만이면 뺀다(1~100, 예진 10/30 결정 30).
     ingredient-retro:

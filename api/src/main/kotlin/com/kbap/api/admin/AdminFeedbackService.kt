@@ -3,6 +3,7 @@ package com.kbap.api.admin
 import com.kbap.api.member.MemberService
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
+import com.kbap.common.domain.chat.ChatMessageJpaRepository
 import com.kbap.common.domain.feedback.FeedbackJpaRepository
 import com.kbap.common.domain.feedback.FeedbackReplyJpaRepository
 import com.kbap.common.domain.feedback.model.Feedback
@@ -20,6 +21,8 @@ class AdminFeedbackService(
     private val feedbackRepository: FeedbackJpaRepository,
     private val replyRepository: FeedbackReplyJpaRepository,
     private val memberService: MemberService,
+    private val adminChatService: AdminChatService,
+    private val chatMessages: ChatMessageJpaRepository,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     @Transactional(readOnly = true)
@@ -78,6 +81,7 @@ class AdminFeedbackService(
                     createdAt = it.createdAt,
                 )
             },
+            conversationId = chatMessages.findFirstByLegacyFeedbackIdOrderByIdAsc(id)?.conversationId,
         )
     }
 
@@ -89,10 +93,11 @@ class AdminFeedbackService(
         if (body.isEmpty() || body.length > Feedback.MAX_CONTENT_LENGTH) {
             throw BusinessException(ErrorCode.FEEDBACK_CONTENT_INVALID)
         }
-        val saved = replyRepository.save(
+        val saved = replyRepository.saveAndFlush(
             FeedbackReply(feedbackId = id, adminAccountId = adminAccountId, content = body),
         )
         feedback.answered()
+        adminChatService.appendLegacyReply(id, saved.id, adminAccountId, body)
         return AdminFeedbackReplyResult(
             id = saved.id,
             adminAccountId = saved.adminAccountId,
@@ -171,6 +176,7 @@ data class AdminFeedbackDetailResult(
     val userAgent: String?,
     val receivedAt: LocalDateTime,
     val replies: List<Reply>,
+    val conversationId: Long? = null,
 ) {
     data class Reply(
         val id: Long,

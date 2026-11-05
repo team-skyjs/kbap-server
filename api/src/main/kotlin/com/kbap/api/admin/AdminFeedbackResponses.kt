@@ -77,6 +77,8 @@ data class AdminFeedbackDetailResponse(
     val deviceInfo: Map<String, String>,
     val serverMeta: ServerMeta,
     val replies: List<Reply>,
+    @field:Schema(description = "이 문의가 옮겨진 채팅 대화방 id(S-971) — 대화방 화면으로 넘길 때 쓴다. 아직 없으면 null", nullable = true)
+    val conversationId: Long? = null,
 ) {
     @Schema(description = "서버가 채운 메타")
     data class ServerMeta(
@@ -108,6 +110,7 @@ data class AdminFeedbackDetailResponse(
             replies = result.replies.map {
                 Reply(id = it.id, adminAccountId = it.adminAccountId, content = it.content, createdAt = it.createdAt)
             },
+            conversationId = result.conversationId,
         )
     }
 }
