@@ -215,6 +215,12 @@ class Food(
         refinedDisplayName?.trim()?.takeIf { it.isNotEmpty() && it.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH }?.let { displayName = it }
     }
 
+    fun isAlcoholicDrink(): Boolean {
+        val name = koreanName.replace(" ", "")
+        return (ALCOHOLIC_DRINK_NAME_ENDINGS + ALCOHOL_BRAND_NAMES).any { name.endsWith(it) } &&
+            ingredients.orEmpty().any { it.code == ALCOHOL_CODE && it.inclusionPercent >= ALCOHOLIC_DRINK_MIN_PERCENT }
+    }
+
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady() || ingredients == null) return RiskLevel.UNKNOWN
         return RiskLevel.aggregate(overlappedIngredients(avoidedCodes).map { it.riskLevel() })
@@ -232,6 +238,21 @@ class Food(
         private val log = LoggerFactory.getLogger(Food::class.java)
 
         const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
+
+        const val ALCOHOL_CODE = "ALCOHOL"
+
+        const val ALCOHOLIC_DRINK_MIN_PERCENT = 60
+
+        val ALCOHOLIC_DRINK_NAME_ENDINGS = listOf(
+            "소주", "맥주", "와인", "막걸리", "동동주", "사케", "고량주", "청주", "약주", "탁주",
+            "하이볼", "칵테일", "위스키", "보드카", "데킬라", "샴페인", "백세주", "복분자주", "매실주", "과실주", "인삼주", "막사",
+        )
+
+        val ALCOHOL_BRAND_NAMES = listOf(
+            "참이슬", "처음처럼", "진로", "진로이즈백", "새로", "좋은데이", "대선", "한라산", "잎새주", "화요", "일품진로", "청하", "매화수",
+            "산사춘", "카스", "테라", "켈리", "하이트", "클라우드", "오비라거", "필굿", "칭따오", "아사히", "기린", "삿포로", "하이네켄",
+            "버드와이저", "호가든", "코로나", "스텔라", "연태", "연태고량주", "이과두주", "느린마을", "장수막걸리", "지평", "국순당", "서울의밤", "복순도가",
+        )
 
         const val MAX_LONG_DESCRIPTION_LENGTH = 1000
 

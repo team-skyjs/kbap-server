@@ -2,6 +2,7 @@ package com.kbap.api.scan
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.kbap.api.food.AlcoholImage
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
@@ -55,6 +56,7 @@ class MenuNameEstimateService(
     private val estimates: MenuNameEstimateJpaRepository,
     private val foods: FoodJpaRepository,
     private val images: MenuEstimateImageService,
+    private val alcoholImage: AlcoholImage,
     private val redis: StringRedisTemplate,
     private val meters: MeterRegistry,
     estimatorProvider: ObjectProvider<MenuNameEstimator>,
@@ -119,15 +121,17 @@ class MenuNameEstimateService(
         val byPendingId = state.items.associateBy { it.pendingId }
         val foodIds = state.items.mapNotNull { it.foodId }.distinct()
         val readyFoods = foodIds.takeIf { it.isNotEmpty() }
-            ?.let { ids -> readTransaction.execute { foods.findAllById(ids).filter { it.isReady() && !it.imageRef.isNullOrBlank() } }!!.associateBy { it.id } }.orEmpty()
+            ?.let { ids -> readTransaction.execute { foods.findAllById(ids).filter { it.isReady() && (!it.imageRef.isNullOrBlank() || alcoholImage.urlFor(it) != null) } }!!.associateBy { it.id } }.orEmpty()
         val imageDeadlinePassed = System.currentTimeMillis() >= state.deadlineMillis + IMAGE_EXTRA_WAIT.toMillis()
         val items = response.items.map { item ->
             val pending = byPendingId[item.pendingId]
             val readyFood = item.foodId?.let { readyFoods[it] }
             val estimate = pending?.let { cached[it.nameKey] }
             val withPrice = item.copy(priceKrw = pending?.priceKrw, priceOptions = pending?.priceOptions?.map { ScanV2Response.PriceOptionResponse(it.label, it.priceKrw) })
+            val alcoholUrl = estimate?.let { alcoholImage.urlForEstimate(it.kind, it.avoidanceCodes) }
             when {
-                readyFood != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = imageUrlOf(readyFood.imageRef), aiGeneratedImage = false)
+                readyFood != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholImage.urlFor(readyFood) ?: imageUrlOf(readyFood.imageRef), aiGeneratedImage = false)
+                alcoholUrl != null && item.kind != MenuNameKind.NOT_FOOD -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholUrl, aiGeneratedImage = false)
                 item.kind == MenuNameKind.NOT_FOOD || item.filled || estimate == null || (estimate.imageRef == null && !isConfidentEnoughForImage(estimate.confidence)) -> withPrice.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
                 estimate.imageRef != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = imageUrlOf(estimate.imageRef), aiGeneratedImage = true)
                 imageDeadlinePassed || (!images.isGenerating(estimate.nameKey) && images.isUnavailable(estimate.nameKey)) ->
@@ -159,7 +163,7 @@ class MenuNameEstimateService(
     private fun schedule(memberId: Long, items: List<PendingItem>) {
         val knownRows = readTransaction.execute { estimates.findAllByNameKeyIn(items.map { it.nameKey }) }!!
         val known = knownRows.map { it.nameKey }.toSet()
-        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null && isConfidentEnoughForImage(it.confidence) }.map { it.nameKey })
+        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null && isConfidentEnoughForImage(it.confidence) && alcoholImage.urlForEstimate(it.kind, it.avoidanceCodes) == null }.map { it.nameKey })
         meters.counter("menu_estimate.cache", "result", "hit").increment(items.count { it.nameKey in known }.toDouble())
         val missing = items.filter { it.nameKey !in known && it.nameKey.length <= MAX_NAME_KEY_LENGTH && !failedRecently(it.nameKey) }
         meters.counter("menu_estimate.cache", "result", "miss").increment(missing.size.toDouble())
@@ -211,7 +215,7 @@ class MenuNameEstimateService(
                 estimates.insertIgnore(row.nameKey, row.kind, row.englishName, row.description, mapper.writeValueAsString(row.avoidanceCodes), row.spiciness, row.confidence, row.model, row.promptVersion)
             }
             saved += nameKey
-            if (row.kind != MenuNameKind.NOT_FOOD.name && isConfidentEnoughForImage(row.confidence)) imageTargets += nameKey
+            if (row.kind != MenuNameKind.NOT_FOOD.name && isConfidentEnoughForImage(row.confidence) && alcoholImage.urlForEstimate(row.kind, row.avoidanceCodes) == null) imageTargets += nameKey
             meters.counter("menu_estimate.kind", "kind", row.kind).increment()
             row.confidence?.let { meters.summary("menu_estimate.confidence").record(it.toDouble()) }
         }

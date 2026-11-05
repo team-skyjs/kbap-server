@@ -121,6 +121,9 @@ kbap:
       bot-token: ${CHAT_TELEGRAM_BOT_TOKEN:}
       chat-id: ${CHAT_TELEGRAM_CHAT_ID:}
   food:
+    # 술(ALCOHOL 재료 60% 이상 음료·AI 추정 DRINK+ALCOHOL) 공용 이미지(S-972, 예진 11/5). 스토리지 키 그대로(환경 공용, 무접두).
+    # 배포 전에 이 키로 객체가 올라가 있어야 한다. 비우면 기능을 끈다(각 음식 이미지·즉석 생성 그대로).
+    alcohol-image-ref: ${FOOD_ALCOHOL_IMAGE_REF:images/webp/static/alcohol-category.webp}
     # 새 재료 소급 판정(KB-896) 반영 기준 — round(p×100) 이 이 값 이상이면 붙이고, rejudge 에서 미만이면 뺀다(1~100, 예진 10/30 결정 30).
     ingredient-retro:
       min-percent: ${INGREDIENT_RETRO_MIN_PERCENT:30}
