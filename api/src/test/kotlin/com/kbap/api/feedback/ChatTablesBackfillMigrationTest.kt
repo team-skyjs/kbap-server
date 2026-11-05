@@ -69,8 +69,8 @@ class ChatTablesBackfillMigrationTest : BehaviorSpec() {
                         "SELECT c.user_last_read_message_id = MAX(m.id), c.operator_last_read_message_id = MAX(m.id), c.last_message_at, c.last_user_message_at " +
                             "FROM chat_conversation c JOIN chat_message m ON m.conversation_id = c.id GROUP BY c.id ORDER BY c.id",
                     ) shouldBe listOf(
-                        listOf("1", "1", "2026-10-01 11:00:00.000000", "2026-10-01 10:00:00.000000"),
-                        listOf("1", "1", "2026-10-03 10:00:00.000000", "2026-10-03 10:00:00.000000"),
+                        listOf("1", "1", "2026-10-01 11:00:00", "2026-10-01 10:00:00"),
+                        listOf("1", "1", "2026-10-03 10:00:00", "2026-10-03 10:00:00"),
                     )
                     rows("SELECT JSON_UNQUOTE(JSON_EXTRACT(last_device_info, '$.locale')) FROM chat_conversation ORDER BY id") shouldBe listOf(listOf(null), listOf("ja-JP"))
                 }
