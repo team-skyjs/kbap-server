@@ -112,6 +112,14 @@ spring:
         speech: none
 
 kbap:
+  # 운영진 1:1 채팅(KB-1007). 사용자 메시지마다 텔레그램 봇으로 예진에게 알린다(방당 1분에 한 번으로 묶음).
+  # 토큰은 시크릿(SSM SecureString → 태스크 secrets), 채팅 id 는 설정. 둘 중 하나라도 비면 알림 없이 동작한다.
+  chat:
+    daily-limit: ${CHAT_DAILY_LIMIT:100}
+    admin-base-url: ${CHAT_ADMIN_BASE_URL:}
+    telegram:
+      bot-token: ${CHAT_TELEGRAM_BOT_TOKEN:}
+      chat-id: ${CHAT_TELEGRAM_CHAT_ID:}
   food:
     # 술(ALCOHOL 재료 60% 이상 음료·AI 추정 DRINK+ALCOHOL) 공용 이미지(S-972, 예진 11/5). 스토리지 키 그대로(환경 공용, 무접두).
     # 배포 전에 이 키로 객체가 올라가 있어야 한다. 비우면 기능을 끈다(각 음식 이미지·즉석 생성 그대로).

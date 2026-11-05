@@ -29,6 +29,7 @@ class PushTargetResolver(
             NotificationType.HELPFUL, NotificationType.REVIEW_REMINDER -> setting?.activity == true
             NotificationType.MEAL_TIME -> setting?.mealTime == true
             NotificationType.SCAN_SUGGESTION, NotificationType.NEWS -> setting?.news == true
+            NotificationType.OPERATOR_CHAT -> true
         }
 
         fun allowed(device: NotificationDevice): Boolean {
@@ -37,6 +38,13 @@ class PushTargetResolver(
         }
 
         return devices.filter(::allowed)
+    }
+
+    @Transactional(readOnly = true)
+    fun resolveGuests(installationIds: Collection<String>, type: NotificationType): List<NotificationDevice> {
+        if (installationIds.isEmpty() || type != NotificationType.OPERATOR_CHAT) return emptyList()
+        return installationIds.distinct().mapNotNull { deviceRepository.findByInstallationId(it) }
+            .filter { it.memberId == null && it.tokenInvalidAt == null }
     }
 
     companion object {

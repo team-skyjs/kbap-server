@@ -1,5 +1,6 @@
 package com.kbap.api.feedback
 
+import com.kbap.api.chat.ChatService
 import com.kbap.api.core.ApiHeaders
 import com.kbap.api.food.FoodService
 import com.kbap.api.image.UploadedImageService
@@ -30,6 +31,7 @@ class FeedbackService(
     private val replyRepository: FeedbackReplyJpaRepository,
     private val uploadedImageService: UploadedImageService,
     private val quotaStore: InstallationQuotaStore,
+    private val chatService: ChatService,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -52,11 +54,14 @@ class FeedbackService(
         val requestId = UUID.randomUUID().toString()
         val holdsQuota = acquireQuota(installation, requestId, recordedAtMillis(installation))
         return try {
+            chatService.ensureConversation(memberId, installation)
             transaction.execute {
                 verifyImages(memberId, installation, imagePaths)
-                val saved = feedbackRepository.save(
-                    Feedback.of(memberId, installation, body, imagePaths, sanitizeDeviceInfo(deviceInfo), userAgent),
+                val sanitized = sanitizeDeviceInfo(deviceInfo)
+                val saved = feedbackRepository.saveAndFlush(
+                    Feedback.of(memberId, installation, body, imagePaths, sanitized, userAgent),
                 )
+                chatService.appendLegacyFeedback(memberId, installation, saved.id, body, imagePaths, sanitized)
                 CreateFeedbackResult(saved.id, saved.feedbackStatus.name, saved.createdAt)
             }!!
         } catch (e: Throwable) {

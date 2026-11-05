@@ -81,7 +81,7 @@ class MenuNameEstimateService(
         val state = PendingScan(
             memberId = member.id,
             deadlineMillis = System.currentTimeMillis() + wait.toMillis(),
-            items = pending.map { (index, item) -> PendingItem("p$index", item.pendingNameKey!!, item.koreanName.orEmpty(), item.foodId, item.price) },
+            items = pending.map { (index, item) -> PendingItem("p$index", item.pendingNameKey!!, item.koreanName.orEmpty(), item.foodId, item.price, item.priceOptions) },
         )
         try {
             redis.opsForValue().set(STATE_PREFIX + scanId, mapper.writeValueAsString(state), STATE_TTL)
@@ -127,7 +127,7 @@ class MenuNameEstimateService(
             val pending = byPendingId[item.pendingId]
             val readyFood = item.foodId?.let { readyFoods[it] }
             val estimate = pending?.let { cached[it.nameKey] }
-            val withPrice = item.copy(priceKrw = pending?.priceKrw)
+            val withPrice = item.copy(priceKrw = pending?.priceKrw, priceOptions = pending?.priceOptions?.map { ScanV2Response.PriceOptionResponse(it.label, it.priceKrw) })
             val alcoholUrl = estimate?.let { alcoholImage.urlForEstimate(it.kind, it.avoidanceCodes) }
             when {
                 readyFood != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholImage.urlFor(readyFood) ?: imageUrlOf(readyFood.imageRef), aiGeneratedImage = false)
@@ -323,7 +323,14 @@ class MenuNameEstimateService(
 
     data class PendingScan(val memberId: Long = 0, val deadlineMillis: Long = 0, val items: List<PendingItem> = emptyList())
 
-    data class PendingItem(val pendingId: String = "", val nameKey: String = "", val koreanName: String = "", val foodId: Long? = null, val priceKrw: Int? = null)
+    data class PendingItem(
+        val pendingId: String = "",
+        val nameKey: String = "",
+        val koreanName: String = "",
+        val foodId: Long? = null,
+        val priceKrw: Int? = null,
+        val priceOptions: List<ScanResult.PriceOption>? = null,
+    )
 
     companion object {
         const val PROMPT_VERSION = "v1"

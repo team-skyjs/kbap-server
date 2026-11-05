@@ -19,7 +19,14 @@ data class ScanResult(
         val originalScannedName: String?,
         val pendingNameKey: String? = null,
         val pendingId: String? = null,
+        val substitutedFromFoodId: Long? = null,
         val spiciness: Int? = null,
+        val priceOptions: List<PriceOption>? = null,
+    )
+
+    data class PriceOption(
+        val label: String?,
+        val priceKrw: Int?,
     )
 
     data class AvoidanceOverlap(

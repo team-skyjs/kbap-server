@@ -173,9 +173,9 @@ variable "food_content_queue_name" {
 }
 
 variable "api_secret_names" {
-  description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록"
+  description = "api 태스크에 SSM SecureString 으로 주입할 환경변수 이름 목록. 이름마다 /kbap/<env>/<NAME> 파라미터가 먼저 있어야 태스크가 뜬다(CHAT_TELEGRAM_BOT_TOKEN — 운영진 채팅 텔레그램 알림, KB-1007)"
   type        = list(string)
-  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+  default     = ["DB_PASSWORD", "JWT_SECRET", "OPENAI_API_KEY", "GOOGLE_PLACES_API_KEY", "FIREBASE_CREDENTIALS_JSON", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "API_SENTRY_DSN", "ANTHROPIC_API_KEY", "OTLP_METRICS_URL", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET", "CHAT_TELEGRAM_BOT_TOKEN"]
   nullable    = false
 }
 

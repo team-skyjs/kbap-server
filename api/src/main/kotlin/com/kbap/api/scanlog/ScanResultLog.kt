@@ -14,6 +14,15 @@ data class ScanResultLogEntry(
     val errorCode: String? = null,
     val visionKind: String? = null,
     val summary: Map<String, Any?>? = null,
+    val foodLinks: List<ScanResultFoodLink> = emptyList(),
+)
+
+enum class ScanResultFoodLinkSource { RECORDED, NAME_BACKFILL }
+
+data class ScanResultFoodLink(
+    val foodId: Long,
+    val matched: Boolean,
+    val scannedName: String?,
 )
 
 data class ScanResultLogRow(

@@ -22,6 +22,9 @@ class FeedbackControllerTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired
+    private lateinit var chatService: com.kbap.api.chat.ChatService
+
+    @Autowired
     private lateinit var mockMvc: MockMvc
 
     @Autowired
@@ -321,7 +324,7 @@ class FeedbackControllerTest : BehaviorSpec() {
                         override fun release(scope: String, installationId: String, requestId: String) =
                             throw org.springframework.data.redis.RedisConnectionFailureException("테스트 — Redis 불가")
                     }
-                    val service = FeedbackService(feedbackRepository, replyRepository, uploadedImageService, unavailable, transactionManager, "")
+                    val service = FeedbackService(feedbackRepository, replyRepository, uploadedImageService, unavailable, chatService, transactionManager, "")
                     fun create() = service.createFeedback(null, installation, "폴백 문의", null, null, null)
 
                     repeat(FeedbackService.DAILY_LIMIT) { create() }
