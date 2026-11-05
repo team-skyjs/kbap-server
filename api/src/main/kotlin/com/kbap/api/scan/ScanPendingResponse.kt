@@ -9,7 +9,11 @@ data class ScanPendingResponse(
     val items: List<ScanPendingItemResponse>,
     @field:Schema(description = "전부 끝났거나 스캔 뒤 15초가 지나면 true — 그 뒤 도착한 추정은 캐시에만 남는다")
     val done: Boolean,
+    @field:Schema(description = "모든 항목의 imageStatus 가 GENERATING 이 아니거나 스캔 뒤 60초가 지나면 true. 앱은 done && imagesDone 이면 폴링을 멈춘다(상태는 10분 보관)")
+    val imagesDone: Boolean = true,
 )
+
+enum class EstimatedImageStatus { GENERATING, READY, NONE }
 
 @Schema(description = "LLM 이 추정한 메뉴 한 항목 — riskLevel 은 CAUTION 또는 UNKNOWN 뿐(SAFE 없음)")
 data class ScanPendingItemResponse(
@@ -39,4 +43,14 @@ data class ScanPendingItemResponse(
     val foodId: Long?,
     @field:Schema(description = "15초 마감까지 추정이 없어 서버가 kind=DISH·UNKNOWN 으로 채운 항목이면 true, LLM 추정 결과면 false")
     val filled: Boolean = false,
+    @field:Schema(description = "메뉴판에서 읽은 가격(원) — LLM 이 만들지 않는다. 없으면 null", nullable = true, example = "11000")
+    val priceKrw: Int? = null,
+    @field:Schema(description = "추정 주재료 코드(IngredientCode) 전체 — 회원 회피와 겹치는 것은 avoidances 에도 있다", example = "[\"BEEF\",\"WHEAT\"]")
+    val estimatedCodes: List<String> = emptyList(),
+    @field:Schema(description = "사진 상태 — GENERATING(만드는 중, 같은 항목이 폴링 중 READY/NONE 으로 바뀐다)·READY·NONE(없음·일 상한·실패·NOT_FOOD)")
+    val imageStatus: EstimatedImageStatus = EstimatedImageStatus.NONE,
+    @field:Schema(description = "READY 일 때 사진 URL", nullable = true)
+    val imageUrl: String? = null,
+    @field:Schema(description = "즉석 생성한 AI 사진이면 true — 검수된 정식 음식 사진이면 false")
+    val aiGeneratedImage: Boolean = false,
 )

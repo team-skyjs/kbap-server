@@ -19,6 +19,7 @@ data class ScanResult(
         val originalScannedName: String?,
         val pendingNameKey: String? = null,
         val pendingId: String? = null,
+        val spiciness: Int? = null,
     )
 
     data class AvoidanceOverlap(

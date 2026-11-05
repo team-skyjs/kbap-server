@@ -105,6 +105,7 @@ class ScanService(
                 substituted = similar != null,
                 originalScannedName = menu.koreanName.takeIf { similar != null },
                 pendingNameKey = KoreanMenuNameNormalizer.matchKey(menu.koreanName).takeIf { !matched && similar == null && it.isNotBlank() },
+                spiciness = food?.spiciness?.takeIf { matched },
             )
         }
 
