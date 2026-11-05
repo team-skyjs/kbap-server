@@ -10,7 +10,6 @@ import com.kbap.common.domain.chat.model.ChatAuthorRole
 import com.kbap.common.domain.chat.model.ChatConversation
 import com.kbap.common.domain.chat.model.ChatMessage
 import com.kbap.common.domain.image.model.UploadPurpose
-import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.port.quota.InstallationQuotaStore
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -33,7 +32,6 @@ class ChatService(
     private val quotaStore: InstallationQuotaStore,
     private val eventPublisher: ApplicationEventPublisher,
     private val views: ChatMessageViews,
-    private val devices: NotificationDeviceJpaRepository,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.chat.daily-limit:100}") private val dailyLimit: Int,
 ) {
@@ -104,36 +102,22 @@ class ChatService(
             message to conversation
         }!!
 
-    private fun ownConversation(memberId: Long?, installationId: String): ChatConversation? {
+    private fun ownConversation(memberId: Long?, installationId: String): ChatConversation? =
         if (memberId != null) {
-            conversations.findIdByMemberId(memberId)?.let { return conversations.findByIdForUpdate(it) }
-            if (isDeviceOf(memberId, installationId)) {
-                conversations.findGuestId(installationId)?.let { conversations.findByIdForUpdate(it) }
-                    ?.takeIf { it.memberId == null && it.guestInstallationId == installationId }
-                    ?.let { guest ->
-                        guest.claimBy(memberId)
-                        return conversations.saveAndFlush(guest)
-                    }
-            }
-            return conversations.findByMemberIdForUpdate(memberId)
+            conversations.findIdByMemberId(memberId)?.let { conversations.findByIdForUpdate(it) }
+        } else {
+            conversations.findGuestId(installationId)?.let { conversations.findByIdForUpdate(it) }
         }
-        return conversations.findGuestId(installationId)?.let { conversations.findByIdForUpdate(it) }
-    }
 
     fun ensureConversation(memberId: Long?, installationId: String) {
         separateTransaction.executeWithoutResult {
             if (memberId != null) {
-                if (conversations.findIdByMemberId(memberId) != null) return@executeWithoutResult
-                if (isDeviceOf(memberId, installationId) && conversations.findGuestId(installationId) != null) return@executeWithoutResult
-                conversations.insertIgnoreForMember(memberId)
+                if (conversations.findIdByMemberId(memberId) == null) conversations.insertIgnoreForMember(memberId)
             } else if (conversations.findGuestId(installationId) == null) {
                 conversations.insertIgnoreForGuest(installationId)
             }
         }
     }
-
-    private fun isDeviceOf(memberId: Long, installationId: String): Boolean =
-        devices.findByInstallationId(installationId)?.memberId == memberId
 
     private fun recordedAtMillis(memberId: Long?, installationId: String): List<Long> {
         val since = LocalDateTime.now().minus(QUOTA_WINDOW)

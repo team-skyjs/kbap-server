@@ -36,11 +36,6 @@ class ChatConversation(
     fun isOwnedBy(memberId: Long?, installationId: String): Boolean =
         if (memberId != null) this.memberId == memberId else this.memberId == null && guestInstallationId == installationId
 
-    fun claimBy(memberId: Long) {
-        this.memberId = memberId
-        guestInstallationId = null
-    }
-
     fun recordUserMessage(message: ChatMessage, deviceInfo: Map<String, String>?) {
         lastMessageAt = message.createdAt
         lastUserMessageAt = message.createdAt
