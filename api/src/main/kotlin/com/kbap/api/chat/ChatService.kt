@@ -10,14 +10,15 @@ import com.kbap.common.domain.chat.model.ChatAuthorRole
 import com.kbap.common.domain.chat.model.ChatConversation
 import com.kbap.common.domain.chat.model.ChatMessage
 import com.kbap.common.domain.image.model.UploadPurpose
+import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.port.quota.InstallationQuotaStore
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.time.LocalDateTime
@@ -32,17 +33,19 @@ class ChatService(
     private val quotaStore: InstallationQuotaStore,
     private val eventPublisher: ApplicationEventPublisher,
     private val views: ChatMessageViews,
+    private val devices: NotificationDeviceJpaRepository,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.chat.daily-limit:100}") private val dailyLimit: Int,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
+    private val separateTransaction = TransactionTemplate(transactionManager).apply { propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW }
 
     fun getMessagePage(memberId: Long?, installationId: String?, before: Long?, limit: Int): ChatMessagePage {
         val installation = requireInstallationId(installationId)
         return transaction.execute {
-            val conversation = ownConversation(memberId, installation, create = false)
+            val conversation = ownConversation(memberId, installation)
                 ?: return@execute ChatMessagePage(conversationId = null, items = emptyList(), nextCursor = null, hasMore = false)
             views.page(conversation.id, before, limit)
         }!!
@@ -56,7 +59,8 @@ class ChatService(
         val requestId = UUID.randomUUID().toString()
         val holdsQuota = acquireQuota(installation, requestId, recordedAtMillis(memberId, installation))
         return try {
-            val (message, conversation) = withCreateRetry { saveUserMessage(memberId, installation, body, imagePaths, sanitize(deviceInfo)) }
+            ensureConversation(memberId, installation)
+            val (message, conversation) = saveUserMessage(memberId, installation, body, imagePaths, sanitize(deviceInfo))
             eventPublisher.publishEvent(ChatUserMessageSent(conversation.id, message.id, conversation.memberId, message.content, message.imageRefs.orEmpty().size))
             views.of(message)
         } catch (e: Throwable) {
@@ -66,7 +70,7 @@ class ChatService(
     }
 
     fun appendLegacyFeedback(memberId: Long?, installationId: String, feedbackId: Long, content: String, imageRefs: List<String>?, deviceInfo: Map<String, String>?) {
-        val conversation = ownConversation(memberId, installationId, create = true)!!
+        val conversation = ownConversation(memberId, installationId)!!
         val message = messages.saveAndFlush(ChatMessage.fromUser(conversation.id, content, imageRefs, legacyFeedbackId = feedbackId))
         conversation.recordUserMessage(message, deviceInfo)
     }
@@ -74,7 +78,7 @@ class ChatService(
     fun markRead(memberId: Long?, installationId: String?, lastMessageId: Long) {
         val installation = requireInstallationId(installationId)
         transaction.executeWithoutResult {
-            val conversation = ownConversation(memberId, installation, create = false) ?: return@executeWithoutResult
+            val conversation = ownConversation(memberId, installation) ?: return@executeWithoutResult
             val latest = messages.findFirstByConversationIdOrderByIdDesc(conversation.id)?.id ?: return@executeWithoutResult
             conversation.markUserRead(minOf(lastMessageId, latest))
         }
@@ -94,31 +98,42 @@ class ChatService(
 
     private fun saveUserMessage(memberId: Long?, installation: String, body: String, imagePaths: List<String>?, deviceInfo: Map<String, String>?): Pair<ChatMessage, ChatConversation> =
         transaction.execute {
-            val conversation = ownConversation(memberId, installation, create = true)!!
+            val conversation = ownConversation(memberId, installation)!!
             val message = messages.saveAndFlush(ChatMessage.fromUser(conversation.id, body, imagePaths))
             conversation.recordUserMessage(message, deviceInfo)
             message to conversation
         }!!
 
-    private fun ownConversation(memberId: Long?, installationId: String, create: Boolean): ChatConversation? {
+    private fun ownConversation(memberId: Long?, installationId: String): ChatConversation? {
         if (memberId != null) {
-            conversations.findByMemberIdForUpdate(memberId)?.let { return it }
-            conversations.findGuestForUpdate(installationId)?.let { guest ->
-                guest.claimBy(memberId)
-                return conversations.saveAndFlush(guest)
+            conversations.findIdByMemberId(memberId)?.let { return conversations.findByIdForUpdate(it) }
+            if (isDeviceOf(memberId, installationId)) {
+                conversations.findGuestId(installationId)?.let { conversations.findByIdForUpdate(it) }
+                    ?.takeIf { it.memberId == null && it.guestInstallationId == installationId }
+                    ?.let { guest ->
+                        guest.claimBy(memberId)
+                        return conversations.saveAndFlush(guest)
+                    }
             }
-            return if (create) conversations.saveAndFlush(ChatConversation.forMember(memberId)) else null
+            return conversations.findByMemberIdForUpdate(memberId)
         }
-        conversations.findGuestForUpdate(installationId)?.let { return it }
-        return if (create) conversations.saveAndFlush(ChatConversation.forGuest(installationId)) else null
+        return conversations.findGuestId(installationId)?.let { conversations.findByIdForUpdate(it) }
     }
 
-    private fun <T> withCreateRetry(block: () -> T): T = try {
-        block()
-    } catch (e: DataIntegrityViolationException) {
-        log.info("대화방 동시 생성 충돌 — 한 번 다시 시도한다", e)
-        block()
+    fun ensureConversation(memberId: Long?, installationId: String) {
+        separateTransaction.executeWithoutResult {
+            if (memberId != null) {
+                if (conversations.findIdByMemberId(memberId) != null) return@executeWithoutResult
+                if (isDeviceOf(memberId, installationId) && conversations.findGuestId(installationId) != null) return@executeWithoutResult
+                conversations.insertIgnoreForMember(memberId)
+            } else if (conversations.findGuestId(installationId) == null) {
+                conversations.insertIgnoreForGuest(installationId)
+            }
+        }
     }
+
+    private fun isDeviceOf(memberId: Long, installationId: String): Boolean =
+        devices.findByInstallationId(installationId)?.memberId == memberId
 
     private fun recordedAtMillis(memberId: Long?, installationId: String): List<Long> {
         val since = LocalDateTime.now().minus(QUOTA_WINDOW)

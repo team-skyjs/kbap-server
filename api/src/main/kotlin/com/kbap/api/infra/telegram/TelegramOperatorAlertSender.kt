@@ -3,6 +3,7 @@ package com.kbap.api.infra.telegram
 import com.kbap.common.port.alert.OperatorAlertSender
 import org.springframework.http.MediaType
 import org.springframework.http.client.JdkClientHttpRequestFactory
+import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestClient
 import java.net.http.HttpClient
 import java.time.Duration
@@ -21,12 +22,18 @@ class TelegramOperatorAlertSender(
         .build()
 
     override fun send(text: String) {
-        restClient.post()
-            .uri("/bot{token}/sendMessage", botToken)
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("chat_id" to chatId, "text" to text.take(MAX_TEXT_LENGTH), "disable_web_page_preview" to true))
-            .retrieve()
-            .toBodilessEntity()
+        try {
+            restClient.post()
+                .uri("/bot{token}/sendMessage", botToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("chat_id" to chatId, "text" to text.take(MAX_TEXT_LENGTH), "disable_web_page_preview" to true))
+                .retrieve()
+                .toBodilessEntity()
+        } catch (e: HttpStatusCodeException) {
+            throw IllegalStateException("텔레그램 알림 실패 status=${e.statusCode.value()}")
+        } catch (e: RuntimeException) {
+            throw IllegalStateException("텔레그램 알림 실패 ${e.javaClass.simpleName}")
+        }
     }
 
     private companion object {

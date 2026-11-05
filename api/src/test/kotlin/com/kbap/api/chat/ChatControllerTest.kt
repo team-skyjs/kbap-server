@@ -170,9 +170,10 @@ class ChatControllerTest : BehaviorSpec() {
                 }
             }
 
-            `when`("게스트로 대화하던 기기에서 로그인하면") {
+            `when`("게스트로 대화하던 기기에서 로그인하면(그 기기가 이 회원에 연결됨)") {
                 then("그 게스트 방이 계정 방으로 이어지고(member_id 채움·기기 id 비움), 이미 계정 방이 있으면 합치지 않는다") {
                     seedMember(97212)
+                    seedDevice("inst-g3", 97212)
                     send(null, "inst-g3", "로그인 전").first shouldBe 201
                     val guestConversation = messages(null, "inst-g3").path("conversationId").asLong()
 
@@ -185,9 +186,24 @@ class ChatControllerTest : BehaviorSpec() {
 
                     seedMember(97213)
                     send(97213, "inst-m3", "계정 방").first shouldBe 201
+                    seedDevice("inst-g4", 97213)
                     send(null, "inst-g4", "다른 기기 게스트").first shouldBe 201
                     messages(97213, "inst-g4").path("items").map { it.path("content").asText() } shouldBe listOf("계정 방")
                     longOf("SELECT COUNT(*) FROM chat_conversation WHERE guest_installation_id = 'inst-g4' AND member_id IS NULL") shouldBe 1
+                }
+            }
+
+            `when`("다른 사람의 게스트 기기 id 를 헤더에 넣어 로그인 회원이 조회하면 — 보안 검토") {
+                then("그 기기가 이 회원에 연결돼 있지 않으면 게스트 방을 넘겨받지 않는다") {
+                    seedMember(97214)
+                    send(null, "inst-victim", "남의 대화").first shouldBe 201
+                    val victimConversation = messages(null, "inst-victim").path("conversationId").asLong()
+
+                    messages(97214, "inst-victim").path("conversationId").isNull shouldBe true
+                    send(97214, "inst-victim", "내 대화").first shouldBe 201
+
+                    longOf("SELECT COUNT(*) FROM chat_conversation WHERE id = $victimConversation AND member_id IS NULL AND guest_installation_id = 'inst-victim'") shouldBe 1
+                    messages(null, "inst-victim").path("items").map { it.path("content").asText() } shouldBe listOf("남의 대화")
                 }
             }
 

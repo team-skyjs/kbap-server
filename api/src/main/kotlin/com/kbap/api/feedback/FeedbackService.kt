@@ -54,6 +54,7 @@ class FeedbackService(
         val requestId = UUID.randomUUID().toString()
         val holdsQuota = acquireQuota(installation, requestId, recordedAtMillis(installation))
         return try {
+            chatService.ensureConversation(memberId, installation)
             transaction.execute {
                 verifyImages(memberId, installation, imagePaths)
                 val sanitized = sanitizeDeviceInfo(deviceInfo)

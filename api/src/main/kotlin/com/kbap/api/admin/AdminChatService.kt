@@ -9,13 +9,11 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.chat.ChatConversationJpaRepository
 import com.kbap.common.domain.chat.ChatMessageJpaRepository
 import com.kbap.common.domain.chat.model.ChatAuthorRole
-import com.kbap.common.domain.chat.model.ChatConversation
 import com.kbap.common.domain.chat.model.ChatMessage
 import com.kbap.common.domain.member.MemberJpaRepository
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberStatus
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
@@ -111,19 +109,15 @@ class AdminChatService(
         if ((memberId == null) == (guest == null)) throw BusinessException(ErrorCode.CHAT_TARGET_INVALID)
         if (guest != null && guest.length > MAX_INSTALLATION_ID_LENGTH) throw BusinessException(ErrorCode.CHAT_TARGET_INVALID)
         if (memberId != null && !members.existsByIdAndMemberStatus(memberId, MemberStatus.ACTIVE)) throw BusinessException(ErrorCode.CHAT_MEMBER_NOT_FOUND)
-        return try {
-            openOnce(memberId, guest)
-        } catch (e: DataIntegrityViolationException) {
-            openOnce(memberId, guest)
-        }
+        return transaction.execute {
+            val existingId = if (memberId != null) conversations.findIdByMemberId(memberId) else conversations.findGuestId(guest!!)
+            if (existingId != null) return@execute AdminChatOpenResult(existingId, created = false)
+            val inserted = if (memberId != null) conversations.insertIgnoreForMember(memberId) else conversations.insertIgnoreForGuest(guest!!)
+            val id = (if (memberId != null) conversations.findIdByMemberId(memberId) else conversations.findGuestId(guest!!))
+                ?: throw BusinessException(ErrorCode.CHAT_MEMBER_NOT_FOUND)
+            AdminChatOpenResult(id, created = inserted > 0)
+        }!!
     }
-
-    private fun openOnce(memberId: Long?, guest: String?): AdminChatOpenResult = transaction.execute {
-        val existing = if (memberId != null) conversations.findByMemberIdForUpdate(memberId) else conversations.findGuestForUpdate(guest!!)
-        if (existing != null) return@execute AdminChatOpenResult(existing.id, created = false)
-        val created = conversations.saveAndFlush(if (memberId != null) ChatConversation.forMember(memberId) else ChatConversation.forGuest(guest!!))
-        AdminChatOpenResult(created.id, created = true)
-    }!!
 
     @Transactional(readOnly = true)
     fun getConversationIdByFeedback(feedbackId: Long): Long =

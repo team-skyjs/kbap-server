@@ -2,6 +2,7 @@ package com.kbap.common.domain.chat
 
 import com.kbap.common.domain.chat.model.ChatConversation
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
@@ -14,6 +15,20 @@ interface ChatConversationJpaRepository : JpaRepository<ChatConversation, Long> 
 
     @Query(value = "SELECT * FROM chat_conversation WHERE id = :id AND status = 'ACTIVE' FOR UPDATE", nativeQuery = true)
     fun findByIdForUpdate(@Param("id") id: Long): ChatConversation?
+
+    @Query(value = "SELECT id FROM chat_conversation WHERE member_id = :memberId AND status = 'ACTIVE'", nativeQuery = true)
+    fun findIdByMemberId(@Param("memberId") memberId: Long): Long?
+
+    @Query(value = "SELECT id FROM chat_conversation WHERE guest_installation_id = :installationId AND member_id IS NULL AND status = 'ACTIVE'", nativeQuery = true)
+    fun findGuestId(@Param("installationId") installationId: String): Long?
+
+    @Modifying
+    @Query(value = "INSERT IGNORE INTO chat_conversation (member_id, status, created_at, updated_at) VALUES (:memberId, 'ACTIVE', NOW(6), NOW(6))", nativeQuery = true)
+    fun insertIgnoreForMember(@Param("memberId") memberId: Long): Int
+
+    @Modifying
+    @Query(value = "INSERT IGNORE INTO chat_conversation (guest_installation_id, status, created_at, updated_at) VALUES (:installationId, 'ACTIVE', NOW(6), NOW(6))", nativeQuery = true)
+    fun insertIgnoreForGuest(@Param("installationId") installationId: String): Int
 
     fun findByMemberId(memberId: Long): ChatConversation?
 
