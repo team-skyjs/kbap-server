@@ -45,6 +45,8 @@ data class ScanPendingItemResponse(
     val filled: Boolean = false,
     @field:Schema(description = "메뉴판에서 읽은 가격(원) — LLM 이 만들지 않는다. 없으면 null", nullable = true, example = "11000")
     val priceKrw: Int? = null,
+    @field:Schema(description = "같은 메뉴의 크기·수량별 가격(결과 줄 priceOptions 와 같음) — 2개 이상일 때만", nullable = true)
+    val priceOptions: List<ScanV2Response.PriceOptionResponse>? = null,
     @field:Schema(description = "추정 주재료 코드(IngredientCode) 전체 — 회원 회피와 겹치는 것은 avoidances 에도 있다", example = "[\"BEEF\",\"WHEAT\"]")
     val estimatedCodes: List<String> = emptyList(),
     @field:Schema(description = "사진 상태 — GENERATING(만드는 중, 같은 항목이 폴링 중 READY/NONE 으로 바뀐다)·READY·NONE(없음·일 상한·실패·NOT_FOOD)")

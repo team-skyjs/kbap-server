@@ -28,6 +28,7 @@ data class ExtractedMenu(
     val priceKrw: Int?,
     // 이 추출 메뉴가 대응하는 클라이언트 OCR 항목의 idx. 대응 OCR 이 없으면 null(박스 없음).
     val matchedIdx: Int?,
+    val optionLabel: String? = null,
 ) {
     init {
         require(name.isNotBlank()) { "name 은 blank 일 수 없습니다" }
