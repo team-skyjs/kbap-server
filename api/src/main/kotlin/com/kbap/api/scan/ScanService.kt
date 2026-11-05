@@ -22,6 +22,7 @@ import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,6 +34,7 @@ class ScanService(
     private val ingredientRepository: IngredientJpaRepository,
     private val similarFoodService: SimilarFoodService,
     private val memberService: MemberService,
+    @Value("\${kbap.scan.vector-substitution.enabled:false}") private val vectorSubstitutionEnabled: Boolean = false,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,7 +77,7 @@ class ScanService(
 
         val resolved = resolveFoods(extracted)
         val foodsByMatchKey = resolved.foods
-        val similarByMatchKey = if (substituteSimilar) {
+        val similarByMatchKey = if (substituteSimilar && vectorSubstitutionEnabled) {
             similarFoodService.resolveSimilarFoods(resolved.registeredNames).mapKeys { (name, _) -> KoreanMenuNameNormalizer.matchKey(name) }
         } else {
             emptyMap()
@@ -87,9 +89,11 @@ class ScanService(
         val validIdxes = ocrItems.map { it.idx }.toSet()
         val usedIdxes = mutableSetOf<Int>()
 
-        val items = extracted.map { menu ->
-            val similar = similarByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
-            val food = similar ?: foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]
+        val items = mergeOptions(extracted).map { (menu, priceOptions) ->
+            val key = KoreanMenuNameNormalizer.matchKey(menu.koreanName)
+            val notMenu = key in resolved.notMenuKeys
+            val similar = resolved.baseSubstitutes[key] ?: similarByMatchKey[key]
+            val food = if (notMenu) null else similar ?: foodsByMatchKey[key]
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
             ScanResult.ItemRiskResult(
@@ -104,7 +108,11 @@ class ScanService(
                 avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
                 substituted = similar != null,
                 originalScannedName = menu.koreanName.takeIf { similar != null },
-                pendingNameKey = KoreanMenuNameNormalizer.matchKey(menu.koreanName).takeIf { !matched && similar == null && it.isNotBlank() },
+                substitutedFromFoodId = foodsByMatchKey[KoreanMenuNameNormalizer.matchKey(menu.koreanName)]?.id?.takeIf { similar != null && it != food?.id },
+                pendingNameKey = key.takeIf { !matched && similar == null && !notMenu && it.isNotBlank() },
+                notMenu = notMenu,
+                spiciness = food?.spiciness?.takeIf { matched },
+                priceOptions = priceOptions,
             )
         }
 
@@ -137,20 +145,55 @@ class ScanService(
         }
     }
 
-    private data class ResolvedFoods(val foods: Map<String, Food>, val registeredNames: List<String>)
+    private fun mergeOptions(extracted: List<ExtractedMenu>): List<Pair<ExtractedMenu, List<ScanResult.PriceOption>?>> {
+        val groups = extracted.groupBy { KoreanMenuNameNormalizer.matchKey(it.koreanName).ifBlank { it.koreanName } }
+        val merged = groups.mapValues { (_, group) ->
+            group.takeIf { members -> members.all { it.optionLabel != null } }
+                ?.map { ScanResult.PriceOption(it.optionLabel, it.priceKrw) }?.distinct()?.takeIf { it.size > 1 }
+        }
+        val emitted = mutableSetOf<String>()
+        return extracted.mapNotNull { menu ->
+            val key = KoreanMenuNameNormalizer.matchKey(menu.koreanName).ifBlank { menu.koreanName }
+            val options = merged.getValue(key) ?: return@mapNotNull menu to null
+            if (!emitted.add(key)) return@mapNotNull null
+            menu.copy(matchedIdx = groups.getValue(key).firstNotNullOfOrNull { it.matchedIdx }) to options
+        }
+    }
+
+    private data class ResolvedFoods(
+        val foods: Map<String, Food>,
+        val registeredNames: List<String>,
+        val baseSubstitutes: Map<String, Food> = emptyMap(),
+        val notMenuKeys: Set<String> = emptySet(),
+    )
 
     private fun resolveFoods(extracted: List<ExtractedMenu>): ResolvedFoods {
-        val displayNamesByMatchKey = extracted
-            .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) to it.koreanName }
+        val menusByMatchKey = extracted
+            .map { KoreanMenuNameNormalizer.matchKey(it.koreanName) to it }
             .filter { (matchKey, _) -> matchKey.isNotBlank() }
-            .distinctBy { (matchKey, _) -> matchKey }
-            .toMap()
-        val known = foodService.getFoodsByKoreanNames(displayNamesByMatchKey.keys)
-        val newlyRegistered = displayNamesByMatchKey - known.keys
-        val knownNotReady = displayNamesByMatchKey.filterKeys { known[it]?.isReady() == false }
+            .groupBy({ it.first }, { it.second })
+        val baseKeyByMatchKey = menusByMatchKey.mapValues { (matchKey, menus) ->
+            menus.firstNotNullOfOrNull { it.baseName }?.let(KoreanMenuNameNormalizer::matchKey)?.takeIf { it.isNotBlank() && it != matchKey }
+        }
+        val known = foodService.getFoodsByKoreanNames(menusByMatchKey.keys + baseKeyByMatchKey.values.filterNotNull())
+        val baseSubstitutes = mutableMapOf<String, Food>()
+        val notMenuKeys = mutableSetOf<String>()
+        val toRegister = mutableMapOf<String, String>()
+        menusByMatchKey.forEach { (matchKey, menus) ->
+            if (known[matchKey]?.isReady() == true) return@forEach
+            val baseFood = baseKeyByMatchKey[matchKey]?.let { known[it] }?.takeIf { it.isReady() }
+            when {
+                baseFood != null -> baseSubstitutes[matchKey] = baseFood
+                NotMenuFilter.isNotMenu(menus.first().koreanName) -> notMenuKeys += matchKey
+                else -> toRegister[matchKey] = menus.first().koreanName
+            }
+        }
+        val newlyRegistered = toRegister - known.keys
         return ResolvedFoods(
             foods = known + foodService.createIncomplete(newlyRegistered),
-            registeredNames = (newlyRegistered + knownNotReady).values.toList(),
+            registeredNames = toRegister.values.toList(),
+            baseSubstitutes = baseSubstitutes,
+            notMenuKeys = notMenuKeys,
         )
     }
 

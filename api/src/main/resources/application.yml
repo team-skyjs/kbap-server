@@ -112,7 +112,18 @@ spring:
         speech: none
 
 kbap:
+  # 운영진 1:1 채팅(KB-1007). 사용자 메시지마다 텔레그램 봇으로 예진에게 알린다(방당 1분에 한 번으로 묶음).
+  # 토큰은 시크릿(SSM SecureString → 태스크 secrets), 채팅 id 는 설정. 둘 중 하나라도 비면 알림 없이 동작한다.
+  chat:
+    daily-limit: ${CHAT_DAILY_LIMIT:100}
+    admin-base-url: ${CHAT_ADMIN_BASE_URL:}
+    telegram:
+      bot-token: ${CHAT_TELEGRAM_BOT_TOKEN:}
+      chat-id: ${CHAT_TELEGRAM_CHAT_ID:}
   food:
+    # 술(ALCOHOL 재료 60% 이상 음료·AI 추정 DRINK+ALCOHOL) 공용 이미지(S-972, 예진 11/5). 스토리지 키 그대로(환경 공용, 무접두).
+    # 배포 전에 이 키로 객체가 올라가 있어야 한다. 비우면 기능을 끈다(각 음식 이미지·즉석 생성 그대로).
+    alcohol-image-ref: ${FOOD_ALCOHOL_IMAGE_REF:images/webp/static/alcohol-category.webp}
     # 새 재료 소급 판정(KB-896) 반영 기준 — round(p×100) 이 이 값 이상이면 붙이고, rejudge 에서 미만이면 뺀다(1~100, 예진 10/30 결정 30).
     ingredient-retro:
       min-percent: ${INGREDIENT_RETRO_MIN_PERCENT:30}
@@ -123,6 +134,10 @@ kbap:
   food-content-outbox:
     stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
   scan:
+    # 벡터 유사 대체(KB-319) 스위치 — 예진 11/5(S-970): 운영 미매칭 501개 판정에서 맞음 31·틀림 318 이라 끈다(dev 도 false).
+    # 경로는 남겨 두고 켜면 다시 쓴다. 벡터 적재(batch)는 이 값과 무관하게 돈다.
+    vector-substitution:
+      enabled: ${SCAN_VECTOR_SUBSTITUTION_ENABLED:false}
     # 스캔 예약(무료 슬롯 선점)의 TTL — LLM 최대 타임아웃보다 충분히 길게. 프로세스가 죽어 해제를 못 해도 만료로 슬롯이 복구된다.
     reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}
     # 스캔 티켓(발급형 자격 증명)의 유효 시간 — 발급~스캔 호출 사이(사진 촬영·업로드)를 감당할 만큼.
@@ -235,7 +250,9 @@ kbap:
       model: ${MENU_ESTIMATE_MODEL:gpt-5-nano}
       reasoning-effort: ${MENU_ESTIMATE_REASONING_EFFORT:low}
       max-retries: 0
-      timeout: 12s
+      # S-975: 낯선 이름 8개를 한 호출로 묶으면 12초를 넘겨 전부 실패했다(dev 11/5). 호출당 4개로 쪼개 병렬로 돌리고
+      # (kbap.scan.menu-estimate.names-per-call·concurrency), 15초 마감 뒤 도착한 추정은 다음 폴링에 채운다.
+      timeout: 25s
       pricing:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.4

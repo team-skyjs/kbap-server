@@ -60,12 +60,18 @@ enum class ErrorCode(
     FOOD_INGREDIENT_RETRO_JOB_NOT_FOUND("FOOD-024", 404, "소급 판정 작업을 찾을 수 없거나 기록이 만료되었습니다"),
     FOOD_PHOTO_NOT_UPLOADED("FOOD-025", 400, "음식 사진 업로드를 확인하지 못했습니다"),
     FOOD_ENVIRONMENT_MISMATCH("FOOD-026", 409, "요청 환경이 서버 환경과 다릅니다"),
+    FOOD_ALREADY_READY("FOOD-027", 409, "이미 조회 가능한(READY) 음식입니다"),
 
     FEEDBACK_CONTENT_INVALID("FEEDBACK-001", 400, "문의 내용을 1자 이상 2000자 이하로 입력해 주세요"),
     FEEDBACK_IMAGE_NOT_VERIFIED("FEEDBACK-002", 400, "사진은 최대 3장까지, 본인이 올린 사진만 첨부할 수 있습니다"),
     FEEDBACK_RATE_LIMITED("FEEDBACK-003", 429, "하루에 보낼 수 있는 문의 수를 넘었습니다. 내일 다시 시도해 주세요"),
     FEEDBACK_NOT_FOUND("FEEDBACK-004", 404, "해당 문의를 찾을 수 없습니다"),
     FEEDBACK_CLOSED("FEEDBACK-005", 409, "종료된 문의에는 답변할 수 없습니다"),
+    CHAT_RATE_LIMITED("CHAT-001", 429, "메시지를 너무 많이 보냈어요. 잠시 후 다시 보내 주세요"),
+    CHAT_CONVERSATION_NOT_FOUND("CHAT-002", 404, "대화방을 찾을 수 없습니다"),
+    CHAT_ENVIRONMENT_MISMATCH("CHAT-003", 409, "요청 환경이 서버 환경과 다릅니다"),
+    CHAT_MEMBER_NOT_FOUND("CHAT-004", 404, "대화를 열 회원을 찾을 수 없습니다"),
+    CHAT_TARGET_INVALID("CHAT-005", 400, "회원 id 또는 게스트 기기 id 중 하나만 넣어 주세요"),
 
     NOT_IMAGE_FILE("IMAGE-001", 400, "이미지 파일만 업로드할 수 있습니다"),
     UPLOAD_MISMATCH("IMAGE-002", 400, "업로드한 파일이 신고한 형식·크기와 일치하지 않습니다"),
@@ -96,6 +102,8 @@ enum class ErrorCode(
     SCAN_BATCH_ATTEMPT_LIMIT("SCAN-012", 429, "오늘은 스캔 시도가 너무 많아요. 잠시 후 다시 시도해 주세요"),
     SCAN_BATCH_RESULT_EXPIRED("SCAN-013", 410, "보관 기간이 지난 스캔 묶음이에요. 새로 스캔해 주세요"),
     SCAN_PENDING_NOT_FOUND("SCAN-014", 404, "추정 대기 중인 스캔을 찾을 수 없거나 만료되었습니다"),
+    MENU_NAME_ESTIMATE_NOT_FOUND("SCAN-015", 404, "메뉴 이름 추정을 찾을 수 없습니다"),
+    MENU_NAME_ESTIMATE_ALREADY_PROMOTED("SCAN-016", 409, "이미 음식으로 등록한 추정입니다"),
 
     MARKETING_CONSENT_REQUIRED("NOTIFICATION-001", 400, "K-Bap 소식 수신 동의 후 설정할 수 있습니다"),
     NOTIFICATION_NOT_FOUND("NOTIFICATION-002", 404, "해당 알림을 찾을 수 없습니다"),

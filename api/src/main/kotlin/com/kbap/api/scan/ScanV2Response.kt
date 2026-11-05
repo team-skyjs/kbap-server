@@ -108,6 +108,26 @@ data class ScanV2Response(
             nullable = true,
         )
         val pendingId: String? = null,
+        @field:Schema(
+            description = "매운 정도 0~10, 미평가 -1 — 매칭된 음식 값. 매칭 안 된 항목은 null(AI 추정 항목은 pending 응답의 spiciness)",
+            nullable = true,
+        )
+        val spiciness: Int? = null,
+        @field:Schema(
+            description = "같은 메뉴의 크기·수량별 가격(메뉴판에서 읽은 값) — 2개 이상일 때만, 아니면 null. price 는 첫 옵션 값(구 앱 호환)",
+            nullable = true,
+        )
+        val priceOptions: List<PriceOptionResponse>? = null,
+        @field:Schema(description = "메뉴가 아닌 주문 옵션·단일 재료어(추가·사리·소스·공기밥 등)면 true — 판정·추정·상세 없음, 앱은 원문만 보여 준다")
+        val notMenu: Boolean = false,
+    )
+
+    @Schema(description = "가격 옵션 한 개")
+    data class PriceOptionResponse(
+        @field:Schema(description = "메뉴판의 옵션 표기 그대로(예: 20개·대) — 표기가 없으면 null", nullable = true, example = "20개")
+        val label: String?,
+        @field:Schema(description = "원(KRW) — 읽지 못하면 null", nullable = true, example = "22000")
+        val priceKrw: Int?,
     )
 
     @Schema(description = "기피성분 1건의 겹침 판정 — 표시명·경고 수준은 음식 상세의 성분 규칙과 동일")
@@ -172,6 +192,9 @@ data class ScanV2Response(
                         substituted = it.substituted.takeIf { exposeSubstitution },
                         originalScannedName = it.originalScannedName.takeIf { exposeSubstitution },
                         pendingId = it.pendingId,
+                        spiciness = it.spiciness,
+                        priceOptions = it.priceOptions?.map { option -> PriceOptionResponse(option.label, option.priceKrw) },
+                        notMenu = it.notMenu,
                     )
                 },
             )

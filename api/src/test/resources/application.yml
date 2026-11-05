@@ -22,6 +22,8 @@ spring:
         speech: none
 
 kbap:
+  food:
+    alcohol-image-ref: images/webp/static/alcohol-category.webp
   curation:
     environment: dev
   # 통합 테스트는 가공식품 행을 넣자마자 이름 스캔·검색을 부른다 — 후보 색인 갱신 확인을 매 호출마다.

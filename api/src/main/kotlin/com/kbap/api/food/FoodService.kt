@@ -36,6 +36,7 @@ class FoodService(
     private val memberService: MemberService,
     private val eventPublisher: ApplicationEventPublisher,
     private val popularFoodIdCache: PopularFoodIdCache,
+    private val alcoholImage: AlcoholImage,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -169,7 +170,7 @@ class FoodService(
             spiciness = food.spiciness,
             overallRiskStatus = if (input.memberId == null) null else food.overallRisk(userAvoidedCodes),
             reviewEligible = true,
-            images = galleryImages(food.id),
+            images = galleryImages(food),
             publishedAt = food.effectivePublishedAt()?.atZone(ZoneId.systemDefault())?.toInstant(),
             ingredients = allIngredients.map { ingredient ->
                 GetFoodDetailResult.IngredientView(
@@ -299,12 +300,12 @@ class FoodService(
         return rows.map { FoodSummaryView.from(it, lang, userAvoidedCodes, resolveImageUrl(it)) }
     }
 
-    private fun galleryImages(foodId: Long): List<String> =
-        foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(foodId)
+    private fun galleryImages(food: Food): List<String> =
+        alcoholImage.urlFor(food)?.let { listOf(it) } ?: foodImageRepository.findByFoodIdOrderBySortOrderAscIdAsc(food.id)
             .sortedWith(compareByDescending<FoodImage> { it.isPrimary }.thenBy { it.sortOrder }.thenBy { it.id })
             .mapNotNull { ImageUrls.resolve(imagePublicBaseUrl, it.imageKey) }
 
-    fun resolveImageUrl(food: Food): String? = ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
+    fun resolveImageUrl(food: Food): String? = alcoholImage.urlFor(food) ?: ImageUrls.resolve(imagePublicBaseUrl, food.imageRef)
 
     fun resolveImageKeyUrl(imageKey: String): String? = ImageUrls.resolve(imagePublicBaseUrl, imageKey)
 

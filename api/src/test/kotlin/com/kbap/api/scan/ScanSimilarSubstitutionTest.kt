@@ -44,7 +44,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
 
         given("유사 음식 대체 — 정규화 키가 같은 두 표기 (#419 Codex 지적)") {
             `when`("한 스캔에 '유사테스트 찌개'·'유사테스트찌개' 처럼 같은 키의 신규 라벨이 둘 오면") {
-                then("대표 하나만이 아니라 두 항목 모두 같은 공개 음식으로 대체된다") {
+                then("대표 하나만이 아니라 두 항목 모두 같은 공개 음식으로 대체되고, 출처 연결은 대체 음식과 원래(미완성) 음식 둘 다 남는다 — Codex P2(#588)") {
                     val target = foodRepository.save(Food(koreanName = "공개대체찌개", description = "설명", contentStatus = FoodContentStatus.READY))
                     val member = memberRepository.save(Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "similar-${System.nanoTime()}", null)))
                     val vision = object : MenuBoardVisionExtractor {
@@ -56,7 +56,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.99)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService)
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService, vectorSubstitutionEnabled = true)
 
                     val result = service.scan(member, "scans/x.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 
@@ -64,6 +64,11 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     result.items.map { it.substituted } shouldBe listOf(true, true)
                     result.items.map { it.foodId } shouldBe listOf(target.id, target.id)
                     result.items.map { it.originalScannedName } shouldBe listOf("유사테스트 찌개", "유사테스트찌개")
+
+                    val original = foodRepository.findByKoreanNameIn(setOf("유사테스트찌개")).single()
+                    result.items.map { it.substitutedFromFoodId } shouldBe listOf(original.id, original.id)
+                    com.kbap.api.scanlog.ScanResultSummaries.menu(result).foodLinks.map { it.foodId to it.matched } shouldBe
+                        listOf(target.id to true, original.id to false)
                 }
             }
         }
@@ -80,7 +85,7 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.9)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService)
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService, vectorSubstitutionEnabled = true)
 
                     val result = service.scan(member, "scans/y.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 

@@ -112,3 +112,54 @@ run "api_task_role_can_reach_only_its_own_curation_prefix" {
     error_message = "the API task must not delete curation objects until a reference-safe cleanup flow exists"
   }
 }
+
+run "dev_spot_api_pool_uses_mixed_instances_across_arm64_types" {
+  command = plan
+
+  module {
+    source = "./modules/ecs-environment"
+  }
+
+  variables {
+    env            = "dev"
+    spot_instances = true
+  }
+
+  assert {
+    condition     = length(aws_autoscaling_group.pool["api"].mixed_instances_policy) == 1 && length(aws_autoscaling_group.pool["api"].launch_template) == 0
+    error_message = "dev spot api pool must launch through a mixed instances policy, not a single launch template"
+  }
+
+  assert {
+    condition     = one(one(aws_autoscaling_group.pool["api"].mixed_instances_policy).instances_distribution).spot_allocation_strategy == "price-capacity-optimized" && one(one(aws_autoscaling_group.pool["api"].mixed_instances_policy).instances_distribution).on_demand_percentage_above_base_capacity == 0
+    error_message = "dev spot api pool must be 100% spot with price-capacity-optimized allocation"
+  }
+
+  assert {
+    condition     = length(one(one(aws_autoscaling_group.pool["api"].mixed_instances_policy).launch_template).override) == 6 && aws_autoscaling_group.pool["api"].capacity_rebalance
+    error_message = "dev spot api pool must offer six arm64 instance types and rebalance capacity"
+  }
+
+  assert {
+    condition     = length(aws_launch_template.pool["api"].instance_market_options) == 0 && length(aws_launch_template.pool["batch"].instance_market_options) == 1
+    error_message = "api template must leave the market to the mixed policy while batch keeps its spot market option"
+  }
+}
+
+run "prod_on_demand_api_pool_keeps_single_launch_template" {
+  command = plan
+
+  module {
+    source = "./modules/ecs-environment"
+  }
+
+  variables {
+    env            = "prod"
+    spot_instances = false
+  }
+
+  assert {
+    condition     = length(aws_autoscaling_group.pool["api"].mixed_instances_policy) == 0 && length(aws_autoscaling_group.pool["api"].launch_template) == 1 && !aws_autoscaling_group.pool["api"].capacity_rebalance
+    error_message = "on-demand api pool must keep the single launch template unchanged"
+  }
+}

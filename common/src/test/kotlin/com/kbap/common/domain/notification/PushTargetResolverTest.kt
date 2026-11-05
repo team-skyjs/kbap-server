@@ -148,10 +148,11 @@ class PushTargetResolverTest : BehaviorSpec() {
                 device(30L)
                 bothConsents(30L, 2)
 
-                then("어떤 유형도 대상이 아니다") {
-                    NotificationType.entries.forEach { type ->
+                then("토글이 있는 유형은 대상이 아니고, 토글이 없는 운영진 채팅(OPERATOR_CHAT)만 대상이다") {
+                    NotificationType.entries.filter { it != NotificationType.OPERATOR_CHAT }.forEach { type ->
                         tokensOf(listOf(30L), type).shouldBeEmpty()
                     }
+                    tokensOf(listOf(30L), NotificationType.OPERATOR_CHAT).size shouldBe 1
                 }
             }
         }

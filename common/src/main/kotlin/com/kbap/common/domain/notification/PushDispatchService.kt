@@ -15,7 +15,7 @@ class PushDispatchService(
 ) {
     @Transactional
     fun prepare(request: PushRequest): PreparedPush {
-        val devices = targetResolver.resolve(request.memberIds, request.type)
+        val devices = targetResolver.resolve(request.memberIds, request.type) + targetResolver.resolveGuests(request.guestInstallationIds, request.type)
         val messages = mutableListOf<PushEnvelope>()
         val dispatchIds = mutableListOf<Long>()
 
@@ -23,7 +23,7 @@ class PushDispatchService(
             val lang = LanguageCode.from(device.lang)
             val content = renderer.render(request.type, lang, request.argsByLang[lang] ?: request.args, request.mealSlot)
             val notification = notificationRepository.save(
-                Notification.forMemberDevice(device.memberId!!, device.installationId, request.type, content.title, content.body, null),
+                Notification.forDevice(device.memberId, device.installationId, request.type, content.title, content.body, null),
             )
             val data = request.data + mapOf(DATA_TYPE to request.type.name, DATA_NOTIFICATION_ID to notification.id)
             notification.data = data

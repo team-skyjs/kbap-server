@@ -10,6 +10,15 @@ class MenuBoardResultParserTest : BehaviorSpec({
     val parser = MenuBoardResultParser()
 
     given("메뉴판 비전 응답 JSON 파싱") {
+        `when`("크기·수량 옵션 표기가 오면 — S-969a") {
+            then("optionLabel(앱 OCR 경로)·option(서버 OCR 경로) 둘 다 optionLabel 로 읽고, 빈 값은 null") {
+                val withOcr = parser.parse("""{"results":[{"name":"경주빵 20개","koreanName":"경주빵","price":22000,"matchedIdx":0,"optionLabel":" 20개 "},{"name":"경주빵","koreanName":"경주빵","price":11000,"matchedIdx":1,"optionLabel":""}]}""")
+                withOcr.map { it.optionLabel } shouldBe listOf("20개", null)
+
+                parser.parse("""[{"name":"경주빵","price":11000,"option":"10개"}]""").single().optionLabel shouldBe "10개"
+            }
+        }
+
         `when`("정상 형식의 results 를 받으면") {
             then("표기명·표준명·가격·매칭 idx 를 담은 목록으로 파싱한다") {
                 val raw = """
