@@ -88,7 +88,7 @@ class ChatService(
             val conversation = ownedReadOnly(memberId, installation) ?: return@execute ChatUnread(0, null)
             val unread = messages.countByConversationIdAndAuthorRoleAndIdGreaterThan(conversation.id, ChatAuthorRole.OPERATOR, conversation.userLastReadMessageId ?: 0)
             val last = messages.findFirstByConversationIdAndAuthorRoleOrderByIdDesc(conversation.id, ChatAuthorRole.OPERATOR)
-            ChatUnread(unread, last?.let { ChatUnread.Preview(it.content.take(PREVIEW_LENGTH), it.createdAt) })
+            ChatUnread(unread, last?.let { ChatUnread.Preview(it.content.take(PREVIEW_LENGTH), it.createdAt.atZone(ZoneId.systemDefault()).toInstant()) })
         }!!
     }
 
