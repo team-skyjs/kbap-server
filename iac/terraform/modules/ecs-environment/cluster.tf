@@ -23,6 +23,10 @@ locals {
   }
 }
 
+locals {
+  api_spot_mixed = var.spot_instances && length(var.api_spot_instance_types) > 0
+}
+
 resource "aws_launch_template" "pool" {
   for_each = local.instance_pools
 
@@ -30,8 +34,9 @@ resource "aws_launch_template" "pool" {
   image_id      = data.aws_ssm_parameter.ecs_ami.value
   instance_type = each.key == "batch" ? coalesce(var.batch_instance_type, var.instance_type) : var.instance_type
 
+  # api 풀 Spot 은 ASG 의 mixed_instances_policy 가 시장을 정한다(템플릿에 시장 옵션이 있으면 혼합 정책을 못 쓴다)
   dynamic "instance_market_options" {
-    for_each = var.spot_instances ? [1] : []
+    for_each = var.spot_instances && !(local.api_spot_mixed && each.key == "api") ? [1] : []
     content {
       market_type = "spot"
     }
@@ -93,10 +98,42 @@ resource "aws_autoscaling_group" "pool" {
   protect_from_scale_in = each.key == "api"
 
   # 버전을 숫자로 참조해야 템플릿 변경이 ASG 변경으로 잡혀 instance refresh 가 걸린다 — "$Latest" 는 provider 가 변경을 못 본다
-  launch_template {
-    id      = aws_launch_template.pool[each.key].id
-    version = aws_launch_template.pool[each.key].latest_version
+  dynamic "launch_template" {
+    for_each = local.api_spot_mixed && each.key == "api" ? [] : [1]
+    content {
+      id      = aws_launch_template.pool[each.key].id
+      version = aws_launch_template.pool[each.key].latest_version
+    }
   }
+
+  # dev api 풀 Spot — 한 타입·한 AZ 용량 부족으로 재기동이 막히지 않게 여러 arm64 타입에서 고른다(2026-11-05 dev 503).
+  # 온디맨드 0, price-capacity-optimized, 회수 예고 전에 대체 인스턴스를 먼저 띄운다(capacity_rebalance).
+  dynamic "mixed_instances_policy" {
+    for_each = local.api_spot_mixed && each.key == "api" ? [1] : []
+    content {
+      launch_template {
+        launch_template_specification {
+          launch_template_id = aws_launch_template.pool[each.key].id
+          version            = aws_launch_template.pool[each.key].latest_version
+        }
+
+        dynamic "override" {
+          for_each = var.api_spot_instance_types
+          content {
+            instance_type = override.value
+          }
+        }
+      }
+
+      instances_distribution {
+        on_demand_base_capacity                  = 0
+        on_demand_percentage_above_base_capacity = 0
+        spot_allocation_strategy                 = "price-capacity-optimized"
+      }
+    }
+  }
+
+  capacity_rebalance = local.api_spot_mixed && each.key == "api"
 
   # 런치 템플릿(AMI·인스턴스 타입·Spot) 변경 시 인스턴스를 순차 교체. 추천 AMI 가 갱신된 뒤의 apply 도 롤링을 유발한다(plan 의 launch_template.version 변경)
   instance_refresh {
