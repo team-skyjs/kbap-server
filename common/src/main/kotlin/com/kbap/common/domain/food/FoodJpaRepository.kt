@@ -1,6 +1,7 @@
 package com.kbap.common.domain.food
 
 import com.kbap.common.domain.DailyCount
+import com.kbap.common.domain.food.dto.DeletedFoodName
 import com.kbap.common.domain.food.dto.FoodListingName
 import com.kbap.common.domain.food.dto.FoodSearchName
 import com.kbap.common.domain.food.dto.FoodStatusCount
@@ -163,6 +164,13 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
     fun countReadyWithoutVectorUpsertOutbox(): Long
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
+
+    @Query(
+        value = "SELECT deleted_original_korean_name AS originalKoreanName, MAX(id) AS foodId FROM food " +
+            "WHERE status = 'DELETED' AND deleted_original_korean_name IN (:koreanNames) GROUP BY deleted_original_korean_name",
+        nativeQuery = true,
+    )
+    fun findLatestDeletedIdsByOriginalKoreanNames(@Param("koreanNames") koreanNames: Collection<String>): List<DeletedFoodName>
 
     fun findByDisplayNameContaining(displayName: String, pageable: Pageable): Page<Food>
 
