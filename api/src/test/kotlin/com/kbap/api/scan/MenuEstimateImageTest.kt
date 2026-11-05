@@ -203,6 +203,23 @@ class MenuEstimateImageTest : BehaviorSpec() {
                 }
             }
 
+            `when`("AI 추정이 술(DRINK + ALCOHOL)이면 — S-972") {
+                then("즉석 생성하지 않고 공용 술 이미지를 READY 로 준다(aiGeneratedImage=false)") {
+                    seedMember(96909)
+                    vision.program("scans/mei-9.jpg", listOf(ExtractedMenu("Soju", "추정과일소주", null, null)))
+                    estimator.answer = { names -> names.map { MenuNameEstimation(it, MenuNameKind.DRINK, "Fruit soju", null, listOf(IngredientCode.ALCOHOL), 0, 0.9) } }
+
+                    val body = pollUntil(96909, scan(96909, "scans/mei-9.jpg").path("scanId").asText(), ::allDone)
+
+                    body.path("items").single().let {
+                        it.path("imageStatus").asText() shouldBe "READY"
+                        it.path("aiGeneratedImage").asBoolean() shouldBe false
+                        it.path("imageUrl").asText().endsWith("images/webp/static/alcohol-category.webp") shouldBe true
+                    }
+                    generator.prompts.size shouldBe 0
+                }
+            }
+
             `when`("오늘 사진 일 상한을 다 썼으면") {
                 then("만들지 않고 NONE 으로 정상 응답한다") {
                     seedMember(96905)

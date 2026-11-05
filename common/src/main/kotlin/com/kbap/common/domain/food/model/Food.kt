@@ -215,6 +215,9 @@ class Food(
         refinedDisplayName?.trim()?.takeIf { it.isNotEmpty() && it.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH }?.let { displayName = it }
     }
 
+    fun isAlcoholicDrink(): Boolean =
+        ingredients.orEmpty().any { it.code == ALCOHOL_CODE && it.inclusionPercent >= ALCOHOLIC_DRINK_MIN_PERCENT }
+
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady() || ingredients == null) return RiskLevel.UNKNOWN
         return RiskLevel.aggregate(overlappedIngredients(avoidedCodes).map { it.riskLevel() })
@@ -232,6 +235,10 @@ class Food(
         private val log = LoggerFactory.getLogger(Food::class.java)
 
         const val PLACEHOLDER_DESCRIPTION = "설명 준비 중"
+
+        const val ALCOHOL_CODE = "ALCOHOL"
+
+        const val ALCOHOLIC_DRINK_MIN_PERCENT = 60
 
         const val MAX_LONG_DESCRIPTION_LENGTH = 1000
 
