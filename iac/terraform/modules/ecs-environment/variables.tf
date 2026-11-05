@@ -53,6 +53,12 @@ variable "spot_instances" {
   default     = false
 }
 
+variable "api_spot_instance_types" {
+  description = "spot_instances 일 때 api 풀이 고를 arm64 타입 목록(mixed instances). 모두 메모리 4 GiB 이상 — api 태스크 2개(카나리)가 들어가야 한다. 비우면 instance_type 단일 Spot(옛 동작)"
+  type        = list(string)
+  default     = ["t4g.medium", "t4g.large", "m6g.medium", "m7g.medium", "c6g.large", "c7g.large"]
+}
+
 variable "api_instance_count" {
   description = "api 전용 컨테이너 인스턴스 수. 2026-11-03 부터 1대 — 카나리 중 구·신 태스크 2개가 한 인스턴스에 공존한다(api_task_memory × 2 ≤ 등록 메모리)"
   type        = number
