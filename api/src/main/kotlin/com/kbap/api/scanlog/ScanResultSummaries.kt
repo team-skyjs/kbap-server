@@ -45,6 +45,9 @@ object ScanResultSummaries {
                 "photoOnly" to photoOnly.take(MAX_LIST_SIZE).map(::menuItem),
                 "photoOnlyCount" to photoOnly.size,
             ),
+            foodLinks = result.items.mapNotNull { item ->
+                item.foodId?.let { ScanResultFoodLink(it, item.matched, clip(item.originalScannedName ?: item.koreanName ?: item.name)) }
+            }.distinctBy { it.foodId },
         )
     }
 
