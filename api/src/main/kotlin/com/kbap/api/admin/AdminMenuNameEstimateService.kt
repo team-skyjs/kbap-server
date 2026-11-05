@@ -50,7 +50,7 @@ class AdminMenuNameEstimateService(
     fun promote(id: Long, adminId: Long): AdminMenuNameEstimatePromoteResult {
         val estimate = estimates.findByIdForUpdate(id) ?: throw BusinessException(ErrorCode.MENU_NAME_ESTIMATE_NOT_FOUND)
         if (estimate.isPromoted()) throw BusinessException(ErrorCode.MENU_NAME_ESTIMATE_ALREADY_PROMOTED)
-        val existing = foodRepository.findByKoreanNameIn(setOf(estimate.nameKey)).firstOrNull()?.let { foodRepository.findByIdForUpdate(it.id) }
+        val existing = foodRepository.findIdByKoreanName(estimate.nameKey)?.let { foodRepository.findByIdForUpdate(it) }
         val (food, outcome) = if (existing == null) createFood(estimate.nameKey) to AdminMenuNameEstimatePromoteOutcome.CREATED_FOOD else existing to recollect(existing)
         estimate.promote(adminId)
         return AdminMenuNameEstimatePromoteResult(estimateId = estimate.id, foodId = food.id, outcome = outcome, promotedAt = estimate.promotedAt!!)

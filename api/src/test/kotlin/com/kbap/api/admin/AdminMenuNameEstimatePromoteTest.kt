@@ -241,6 +241,41 @@ class AdminMenuNameEstimatePromoteTest : BehaviorSpec() {
                 }
             }
 
+            `when`("승격이 음식 잠금을 기다리는 사이 다른 트랜잭션이 그 음식을 READY 로 승인하면 — Codex P2(#578)") {
+                then("잠근 뒤의 최신 상태를 보고 409 FOOD-027 이다(잠금 전 상태로 콘텐츠를 다시 요청하지 않는다)") {
+                    val id = seedEstimate("추정경합국")
+                    val food = foodRepository.save(Food.failed("추정경합국"))
+                    val pool = Executors.newSingleThreadExecutor()
+                    val result = dataSource.connection.use { holder ->
+                        holder.autoCommit = false
+                        try {
+                            holder.createStatement().use { it.executeQuery("SELECT id FROM food WHERE id = ${food.id} FOR UPDATE").close() }
+                            val promoting = pool.submit<Pair<Int, JsonNode>> { promote(id) }
+                            var waiting = false
+                            repeat(100) {
+                                if (!waiting) {
+                                    waiting = longOf("SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE ID <> CONNECTION_ID() AND LOWER(INFO) LIKE 'select%from food%for update%'") > 0
+                                    if (!waiting) Thread.sleep(50)
+                                }
+                            }
+                            waiting shouldBe true
+                            holder.createStatement().use { it.executeUpdate("UPDATE food SET content_status = 'READY' WHERE id = ${food.id}") }
+                            holder.commit()
+                            promoting
+                        } finally {
+                            holder.rollback()
+                        }
+                    }
+
+                    val (status, body) = result.get(30, TimeUnit.SECONDS)
+                    pool.shutdown()
+
+                    status shouldBe 409
+                    body.path("code").asText() shouldBe "FOOD-027"
+                    pendingOutboxes(food.id) shouldBe 0
+                }
+            }
+
             `when`("같은 추정을 두 어드민이 동시에 승격하면") {
                 then("하나만 200 이고 다른 하나는 409 SCAN-016 — 음식·콘텐츠 요청은 한 건씩이다") {
                     val id = seedEstimate("추정동시국")

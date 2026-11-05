@@ -165,6 +165,9 @@ interface FoodJpaRepository : JpaRepository<Food, Long>, FoodRepositoryCustom {
 
     fun findByKoreanNameIn(koreanNames: Set<String>): List<Food>
 
+    @Query("select f.id from Food f where f.koreanName = :koreanName")
+    fun findIdByKoreanName(@Param("koreanName") koreanName: String): Long?
+
     @Query(
         value = "SELECT deleted_original_korean_name AS originalKoreanName, MAX(id) AS foodId FROM food " +
             "WHERE status = 'DELETED' AND deleted_original_korean_name IN (:koreanNames) GROUP BY deleted_original_korean_name",
