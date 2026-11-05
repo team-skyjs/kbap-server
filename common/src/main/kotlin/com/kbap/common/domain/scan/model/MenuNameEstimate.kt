@@ -44,6 +44,12 @@ class MenuNameEstimate(
     @Column(name = "prompt_version", nullable = false, length = 32)
     val promptVersion: String = "",
 
+    @Column(name = "image_ref", length = 500)
+    val imageRef: String? = null,
+
+    @Column(name = "image_generated_at")
+    val imageGeneratedAt: LocalDateTime? = null,
+
     @Column(name = "promoted_at")
     var promotedAt: LocalDateTime? = null,
 

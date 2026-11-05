@@ -68,6 +68,13 @@ interface MenuNameEstimateJpaRepository : JpaRepository<MenuNameEstimate, Long> 
     ): Int
 
     @Modifying
+    @Query(
+        nativeQuery = true,
+        value = "UPDATE menu_name_estimate SET image_ref = :imageRef, image_generated_at = NOW(6) WHERE name_key = :nameKey AND image_ref IS NULL",
+    )
+    fun attachImage(@Param("nameKey") nameKey: String, @Param("imageRef") imageRef: String): Int
+
+    @Modifying
     @Query(nativeQuery = true, value = "DELETE FROM menu_name_estimate WHERE name_key = :nameKey")
     fun deleteByNameKey(@Param("nameKey") nameKey: String): Int
 
