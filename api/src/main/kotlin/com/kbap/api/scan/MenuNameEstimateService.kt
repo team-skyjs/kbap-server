@@ -128,7 +128,7 @@ class MenuNameEstimateService(
             val withPrice = item.copy(priceKrw = pending?.priceKrw)
             when {
                 readyFood != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = imageUrlOf(readyFood.imageRef), aiGeneratedImage = false)
-                item.kind == MenuNameKind.NOT_FOOD || item.filled || estimate == null -> withPrice.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
+                item.kind == MenuNameKind.NOT_FOOD || item.filled || estimate == null || (estimate.imageRef == null && !isConfidentEnoughForImage(estimate.confidence)) -> withPrice.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
                 estimate.imageRef != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = imageUrlOf(estimate.imageRef), aiGeneratedImage = true)
                 imageDeadlinePassed || (!images.isGenerating(estimate.nameKey) && images.isUnavailable(estimate.nameKey)) ->
                     withPrice.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
@@ -139,6 +139,9 @@ class MenuNameEstimateService(
     }
 
     private fun imageUrlOf(ref: String?): String? = ImageUrls.resolve(imagePublicBaseUrl, ref)
+
+    private fun isConfidentEnoughForImage(confidence: BigDecimal?): Boolean =
+        confidence != null && confidence.toDouble() >= MenuEstimateImageService.MIN_CONFIDENCE
 
     private fun finalOrNull(scanId: String): ScanPendingResponse? =
         runCatching { redis.opsForValue().get(FINAL_PREFIX + scanId) }.getOrNull()?.let { runCatching { mapper.readValue<ScanPendingResponse>(it) }.getOrNull() }
@@ -156,7 +159,7 @@ class MenuNameEstimateService(
     private fun schedule(memberId: Long, items: List<PendingItem>) {
         val knownRows = readTransaction.execute { estimates.findAllByNameKeyIn(items.map { it.nameKey }) }!!
         val known = knownRows.map { it.nameKey }.toSet()
-        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null }.map { it.nameKey })
+        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null && isConfidentEnoughForImage(it.confidence) }.map { it.nameKey })
         meters.counter("menu_estimate.cache", "result", "hit").increment(items.count { it.nameKey in known }.toDouble())
         val missing = items.filter { it.nameKey !in known && it.nameKey.length <= MAX_NAME_KEY_LENGTH && !failedRecently(it.nameKey) }
         meters.counter("menu_estimate.cache", "result", "miss").increment(missing.size.toDouble())
@@ -208,7 +211,7 @@ class MenuNameEstimateService(
                 estimates.insertIgnore(row.nameKey, row.kind, row.englishName, row.description, mapper.writeValueAsString(row.avoidanceCodes), row.spiciness, row.confidence, row.model, row.promptVersion)
             }
             saved += nameKey
-            if (row.kind != MenuNameKind.NOT_FOOD.name) imageTargets += nameKey
+            if (row.kind != MenuNameKind.NOT_FOOD.name && isConfidentEnoughForImage(row.confidence)) imageTargets += nameKey
             meters.counter("menu_estimate.kind", "kind", row.kind).increment()
             row.confidence?.let { meters.summary("menu_estimate.confidence").record(it.toDouble()) }
         }
