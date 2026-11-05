@@ -134,6 +134,10 @@ kbap:
   food-content-outbox:
     stale-after-hours: ${FOOD_CONTENT_OUTBOX_STALE_AFTER_HOURS:24}
   scan:
+    # 벡터 유사 대체(KB-319) 스위치 — 예진 11/5(S-970): 운영 미매칭 501개 판정에서 맞음 31·틀림 318 이라 끈다(dev 도 false).
+    # 경로는 남겨 두고 켜면 다시 쓴다. 벡터 적재(batch)는 이 값과 무관하게 돈다.
+    vector-substitution:
+      enabled: ${SCAN_VECTOR_SUBSTITUTION_ENABLED:false}
     # 스캔 예약(무료 슬롯 선점)의 TTL — LLM 최대 타임아웃보다 충분히 길게. 프로세스가 죽어 해제를 못 해도 만료로 슬롯이 복구된다.
     reservation-ttl-seconds: ${SCAN_RESERVATION_TTL_SECONDS:300}
     # 스캔 티켓(발급형 자격 증명)의 유효 시간 — 발급~스캔 호출 사이(사진 촬영·업로드)를 감당할 만큼.
