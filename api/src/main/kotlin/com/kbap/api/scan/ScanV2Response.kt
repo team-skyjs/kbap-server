@@ -108,6 +108,11 @@ data class ScanV2Response(
             nullable = true,
         )
         val pendingId: String? = null,
+        @field:Schema(
+            description = "매운 정도 0~10, 미평가 -1 — 매칭된 음식 값. 매칭 안 된 항목은 null(AI 추정 항목은 pending 응답의 spiciness)",
+            nullable = true,
+        )
+        val spiciness: Int? = null,
     )
 
     @Schema(description = "기피성분 1건의 겹침 판정 — 표시명·경고 수준은 음식 상세의 성분 규칙과 동일")
@@ -172,6 +177,7 @@ data class ScanV2Response(
                         substituted = it.substituted.takeIf { exposeSubstitution },
                         originalScannedName = it.originalScannedName.takeIf { exposeSubstitution },
                         pendingId = it.pendingId,
+                        spiciness = it.spiciness,
                     )
                 },
             )

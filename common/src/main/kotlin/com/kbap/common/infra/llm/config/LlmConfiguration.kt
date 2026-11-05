@@ -2,6 +2,7 @@ package com.kbap.common.infra.llm.config
 
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.port.llm.FoodImageBatchClient
+import com.kbap.common.port.llm.FoodImageGenerator
 import com.kbap.common.port.llm.IngredientDecider
 import com.kbap.common.port.llm.MenuNameEstimator
 import com.kbap.common.infra.llm.menu.OpenAiMenuNameEstimator
@@ -11,6 +12,7 @@ import com.kbap.common.port.llm.TextEmbeddingClient
 import com.kbap.common.port.llm.TextTranslator
 import com.kbap.common.infra.llm.embedding.OpenAiTextEmbeddingClient
 import com.kbap.common.infra.llm.food.OpenAiFoodImageBatchClient
+import com.kbap.common.infra.llm.food.OpenAiFoodImageGenerator
 import com.kbap.common.infra.llm.ingredient.OpenAiIngredientDecider
 import com.kbap.common.infra.llm.menu.MenuBoardResultParser
 import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
@@ -184,6 +186,10 @@ class LlmConfiguration {
     @Bean
     fun foodImageBatchClient(properties: LlmModelProperties): FoodImageBatchClient =
         OpenAiFoodImageBatchClient(properties.image)
+
+    @Bean
+    fun foodImageGenerator(properties: LlmModelProperties): FoodImageGenerator =
+        OpenAiFoodImageGenerator(properties.image)
 
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.embedding", name = ["enabled"], havingValue = "true")

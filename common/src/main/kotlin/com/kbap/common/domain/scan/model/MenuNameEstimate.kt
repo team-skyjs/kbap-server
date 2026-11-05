@@ -8,6 +8,7 @@ import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.math.BigDecimal
+import java.time.LocalDateTime
 
 @Entity
 @Table(
@@ -42,4 +43,23 @@ class MenuNameEstimate(
 
     @Column(name = "prompt_version", nullable = false, length = 32)
     val promptVersion: String = "",
-) : BaseEntity()
+
+    @Column(name = "image_ref", length = 500)
+    val imageRef: String? = null,
+
+    @Column(name = "image_generated_at")
+    val imageGeneratedAt: LocalDateTime? = null,
+
+    @Column(name = "promoted_at")
+    var promotedAt: LocalDateTime? = null,
+
+    @Column(name = "promoted_by")
+    var promotedBy: Long? = null,
+) : BaseEntity() {
+    fun isPromoted(): Boolean = promotedAt != null
+
+    fun promote(adminId: Long) {
+        promotedAt = LocalDateTime.now()
+        promotedBy = adminId
+    }
+}
