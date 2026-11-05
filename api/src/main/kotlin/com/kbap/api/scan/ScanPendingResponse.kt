@@ -49,7 +49,7 @@ data class ScanPendingItemResponse(
     val priceOptions: List<ScanV2Response.PriceOptionResponse>? = null,
     @field:Schema(description = "추정 주재료 코드(IngredientCode) 전체 — 회원 회피와 겹치는 것은 avoidances 에도 있다", example = "[\"BEEF\",\"WHEAT\"]")
     val estimatedCodes: List<String> = emptyList(),
-    @field:Schema(description = "사진 상태 — GENERATING(만드는 중, 같은 항목이 폴링 중 READY/NONE 으로 바뀐다)·READY·NONE(없음·일 상한·실패·NOT_FOOD)")
+    @field:Schema(description = "사진 상태 — GENERATING(만드는 중, 같은 항목이 폴링 중 READY/NONE 으로 바뀐다)·READY·NONE(없음·추정 확신도 0.5 미만(생성 안 함)·일 상한·실패·NOT_FOOD)")
     val imageStatus: EstimatedImageStatus = EstimatedImageStatus.NONE,
     @field:Schema(description = "READY 일 때 사진 URL", nullable = true)
     val imageUrl: String? = null,
