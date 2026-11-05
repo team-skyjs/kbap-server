@@ -64,6 +64,8 @@ class MenuNameEstimateService(
     @Value("\${kbap.scan.menu-estimate.daily-name-limit:3000}") private val dailyNameLimit: Long,
     @Value("\${kbap.scan.menu-estimate.member-daily-name-limit:100}") private val memberDailyNameLimit: Long,
     @Value("\${kbap.scan.menu-estimate.wait:15s}") private val wait: Duration,
+    @Value("\${kbap.scan.menu-estimate.names-per-call:4}") private val namesPerCall: Int,
+    @Value("\${kbap.scan.menu-estimate.concurrency:8}") concurrency: Int,
     @Value("\${kbap.llm.menu-estimate.model:}") private val modelName: String,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -71,7 +73,7 @@ class MenuNameEstimateService(
     private val estimator: MenuNameEstimator? = estimatorProvider.getIfAvailable()
     private val readTransaction = TransactionTemplate(transactionManager).apply { isReadOnly = true }
     private val writeTransaction = TransactionTemplate(transactionManager)
-    private val executor = ThreadPoolExecutor(CONCURRENT_CALLS, CONCURRENT_CALLS, 0, TimeUnit.SECONDS, ArrayBlockingQueue(QUEUE_SIZE), { Thread(it, "menu-estimate").apply { isDaemon = true } })
+    private val executor = ThreadPoolExecutor(concurrency, concurrency, 0, TimeUnit.SECONDS, ArrayBlockingQueue(QUEUE_SIZE), { Thread(it, "menu-estimate").apply { isDaemon = true } })
     private val latency: Timer = Timer.builder("menu_estimate.latency").publishPercentiles(0.5, 0.95).register(meters)
 
     fun start(member: Member, result: ScanResult): ScanResult {
@@ -114,7 +116,19 @@ class MenuNameEstimateService(
             val response = ScanPendingResponse(items, done = expired || items.size == state.items.size)
             if (response.done) finalize(scanId, response) else response
         }
-        return withImages(state, base, cached)
+        return withImages(state, fillLateEstimates(state, base, cached, avoidance), cached)
+    }
+
+    private fun fillLateEstimates(state: PendingScan, response: ScanPendingResponse, cached: Map<String, MenuNameEstimate>, avoidance: Avoidance): ScanPendingResponse {
+        if (response.items.none { it.filled }) return response
+        val byPendingId = state.items.associateBy { it.pendingId }
+        return response.copy(
+            items = response.items.map { item ->
+                val pending = byPendingId[item.pendingId]
+                val estimate = pending?.let { cached[it.nameKey] }
+                if (item.filled && pending != null && estimate != null) estimatedItem(pending, estimate, avoidance) else item
+            },
+        )
     }
 
     private fun withImages(state: PendingScan, response: ScanPendingResponse, cached: Map<String, MenuNameEstimate>): ScanPendingResponse {
@@ -167,7 +181,7 @@ class MenuNameEstimateService(
         meters.counter("menu_estimate.cache", "result", "hit").increment(items.count { it.nameKey in known }.toDouble())
         val missing = items.filter { it.nameKey !in known && it.nameKey.length <= MAX_NAME_KEY_LENGTH && !failedRecently(it.nameKey) }
         meters.counter("menu_estimate.cache", "result", "miss").increment(missing.size.toDouble())
-        missing.chunked(MAX_NAMES_PER_CALL).forEach { chunk ->
+        missing.chunked(namesPerCall.coerceIn(1, MAX_NAMES_PER_CALL)).forEach { chunk ->
             try {
                 executor.execute { runChunk(memberId, chunk) }
             } catch (e: RejectedExecutionException) {
@@ -198,8 +212,8 @@ class MenuNameEstimateService(
             estimator.estimate(names)
         } catch (e: RuntimeException) {
             meters.counter("menu_estimate.failures", "reason", e.javaClass.simpleName).increment()
-            log.warn("메뉴 이름 추정 실패 — 캐시하지 않고 실패 표시 names={}", names.size, e)
-            chunk.forEach { recordFailure(it.nameKey); releaseInflight(it.nameKey) }
+            log.warn("메뉴 이름 추정 호출 실패(일시 장애로 보고 잠시 뒤 다시 시도) names={}", names.size, e)
+            chunk.forEach { recordTransientFailure(it.nameKey); releaseInflight(it.nameKey) }
             return
         } finally {
             sample.stop(latency)
@@ -280,6 +294,11 @@ class MenuNameEstimateService(
     private fun failedRecently(nameKey: String): Boolean =
         runCatching { redis.hasKey(FAIL_PREFIX + nameKey) }.getOrDefault(false)
 
+    private fun recordTransientFailure(nameKey: String) {
+        runCatching { redis.opsForValue().set(FAIL_PREFIX + nameKey, "transient", TRANSIENT_FAIL_TTL) }
+            .onFailure { log.warn("메뉴 이름 추정 일시 실패 표시 저장 실패 nameKey={}", nameKey, it) }
+    }
+
     private fun recordFailure(nameKey: String) {
         runCatching {
             val count = redis.opsForValue().increment(FAIL_COUNT_PREFIX + nameKey) ?: 1
@@ -346,12 +365,12 @@ class MenuNameEstimateService(
         private val IMAGE_EXTRA_WAIT = Duration.ofSeconds(45)
         private val DAILY_TTL = Duration.ofDays(2)
         private val FAIL_TTL = Duration.ofDays(1)
+        private val TRANSIENT_FAIL_TTL = Duration.ofMinutes(10)
         private val LONG_FAIL_TTL = Duration.ofDays(7)
         private const val FAILS_FOR_LONG_BACKOFF = 3L
         private val INFLIGHT_TTL = Duration.ofSeconds(30)
         private const val MAX_NAMES_PER_CALL = 30
         private const val MAX_NAME_KEY_LENGTH = 40
-        private const val CONCURRENT_CALLS = 2
         private const val QUEUE_SIZE = 100
         private const val NOT_FOOD_MIN_CONFIDENCE = 0.8
         private const val MAX_SPICINESS = 10

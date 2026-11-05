@@ -246,7 +246,9 @@ kbap:
       model: ${MENU_ESTIMATE_MODEL:gpt-5-nano}
       reasoning-effort: ${MENU_ESTIMATE_REASONING_EFFORT:low}
       max-retries: 0
-      timeout: 12s
+      # S-975: 낯선 이름 8개를 한 호출로 묶으면 12초를 넘겨 전부 실패했다(dev 11/5). 호출당 4개로 쪼개 병렬로 돌리고
+      # (kbap.scan.menu-estimate.names-per-call·concurrency), 15초 마감 뒤 도착한 추정은 다음 폴링에 채운다.
+      timeout: 25s
       pricing:
         input-usd-per-million-tokens: 0.05
         output-usd-per-million-tokens: 0.4
