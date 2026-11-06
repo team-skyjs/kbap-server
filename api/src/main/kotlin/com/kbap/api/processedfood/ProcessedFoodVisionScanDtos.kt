@@ -19,6 +19,8 @@ data class ProcessedFoodVisionScanRequest(
     val clientRequestId: String? = null,
     @field:Schema(description = "앱 언어 코드(후보 이름·라벨 표시). 미지원·생략은 en", example = "ko")
     val lang: String? = null,
+    @field:Schema(description = "메뉴판 바로가기 실험 대상 신호(KB-1015, dev 실험) — 첫 촬영이고 메뉴 v2 를 쓸 수 있을 때만 true. 생략·false 는 기존 판독. 권한이 아니다: 서버 플래그·실험 대상 회원이 함께 맞아야 시도하고, 아니면 무시한다", example = "false", nullable = true)
+    val menuFastPathEligible: Boolean? = null,
 )
 
 @Schema(description = "가공식품 사진 스캔 결과")

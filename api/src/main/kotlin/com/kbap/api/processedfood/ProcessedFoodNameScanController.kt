@@ -40,6 +40,7 @@ class ProcessedFoodNameScanController(
                         request.imagePath!!.trim().trimStart('/'),
                         uuidOrInvalid(request.clientRequestId),
                         LanguageCode.from(request.lang ?: "en"),
+                        menuFastPathEligible = request.menuFastPathEligible == true,
                     )
                 },
             ),

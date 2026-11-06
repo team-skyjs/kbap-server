@@ -278,9 +278,9 @@ class ProcessedFoodTranslationService(
             }
             lastDone = row.id
             if (attempt?.rejected == true && name != null && translatorProvider.getIfAvailable()?.isAcceptableName(row.translatedText, name) == false) {
-                writeTransaction.executeWithoutResult { translations.upsert(TranslationTargetType.PF_NAME.name, row.targetId, row.language, hashOf(name), name, null, LocalDateTime.now()) }
+                writeTransaction.executeWithoutResult { translations.upsert(TranslationTargetType.PF_NAME.name, row.targetId, row.language, hashOf(name), "", null, LocalDateTime.now()) }
                 regenerated++
-                if (samples.size < SAMPLE_SIZE) samples += ProcessedFoodNameRegenerationSample(row.targetId, row.language, name, row.translatedText, name)
+                if (samples.size < SAMPLE_SIZE) samples += ProcessedFoodNameRegenerationSample(row.targetId, row.language, name, row.translatedText, "")
                 continue
             }
             val after = attempt?.text
@@ -387,22 +387,26 @@ class ProcessedFoodTranslationService(
         keepExistingOnReject: Boolean = false,
     ): Attempt {
         val translator = translatorProvider.getIfAvailable() ?: return Attempt(null, budgetExhausted = false)
-        if (!withinBudget()) {
-            log.warn("가공식품 번역 일일 상한(₩{})에 닿아 원문으로 둔다 — type={}, productId={}, language={}", dailyBudgetKrw, type, productId, language.code)
-            return Attempt(null, budgetExhausted = true)
+        var text: String? = null
+        for (attempt in 1..REJECTION_ATTEMPTS) {
+            if (!withinBudget()) {
+                log.warn("가공식품 번역 일일 상한(₩{})에 닿아 원문으로 둔다 — type={}, productId={}, language={}", dailyBudgetKrw, type, productId, language.code)
+                return Attempt(null, budgetExhausted = true)
+            }
+            engineCalls.incrementAndGet()
+            text = try {
+                (if (type == TranslationTargetType.PF_NAME) translator.translateName(source, language) else translator.translate(source, language)).text.trim()
+            } catch (e: TranslationRejectedException) {
+                log.warn("가공식품 번역이 가드에 거절됐다: type={}, productId={}, language={}, attempt={}, reason={}", type, productId, language.code, attempt, e.message)
+                null
+            } catch (e: RuntimeException) {
+                log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
+                ""
+            }
+            if (text != null) break
         }
-        engineCalls.incrementAndGet()
-        val text = try {
-            (if (type == TranslationTargetType.PF_NAME) translator.translateName(source, language) else translator.translate(source, language)).text.trim()
-        } catch (e: TranslationRejectedException) {
-            log.warn("가공식품 번역이 가드에 거절됐다 — 원문을 이 원문 해시의 번역으로 남겨 다시 부르지 않는다: type={}, productId={}, language={}, reason={}", type, productId, language.code, e.message)
-            if (keepExistingOnReject) return Attempt(null, budgetExhausted = false, rejected = true)
-            source
-        } catch (e: RuntimeException) {
-            log.warn("가공식품 번역 실패 — 원문으로 두고 오늘은 다시 부르지 않는다: type={}, productId={}, language={}", type, productId, language.code, e)
-            ""
-        }
-        val usable = text.takeIf { it.isNotEmpty() && it.length <= MAX_TRANSLATED_LENGTH }
+        if (text == null && keepExistingOnReject) return Attempt(null, budgetExhausted = false, rejected = true)
+        val usable = text?.takeIf { it.isNotEmpty() && it.length <= MAX_TRANSLATED_LENGTH }
         runCatching {
             writeTransaction.executeWithoutResult { translations.upsert(type.name, productId, language.code, hash, usable.orEmpty(), null, LocalDateTime.now()) }
         }.onFailure { log.warn("가공식품 번역 저장 실패 — 번역문은 돌려준다: type={}, productId={}, language={}", type, productId, language.code, it) }
@@ -424,6 +428,7 @@ class ProcessedFoodTranslationService(
 
         const val CACHE_VERSION = "pf1"
         private const val SAMPLE_SIZE = 10
+        private const val REJECTION_ATTEMPTS = 2
         private const val MAX_TRANSLATED_LENGTH = 10_000
         private const val BACKGROUND_THREADS = 2
         private const val BACKGROUND_QUEUE = 500

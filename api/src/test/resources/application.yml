@@ -30,6 +30,11 @@ kbap:
   processed-food:
     candidate-index:
       refresh-check: 0s
+    vision:
+      menu-fast-path:
+        enabled: true
+        member-ids: 96971,96972,96973,96974,96975,96976,96977,96978,96979
+        budget: 300ms
   review-bot:
     photo-sync-enabled: true
   # 기존 리뷰 언어 채우기는 통합 컨텍스트 기동 때 돌지 않게 끈다 — 채우기 테스트가 직접 만들어 돌린다.
