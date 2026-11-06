@@ -38,6 +38,7 @@ class ProcessedFoodVisionScanService(
     private val nameScanService: ProcessedFoodNameScanService,
     private val labelScanService: ProcessedFoodLabelScanService,
     private val translationService: ProcessedFoodTranslationService,
+    private val menuFastPath: MenuFastPath,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.processed-food.vision.daily-limit-per-member:30}") private val dailyLimit: Long,
     @Value("\${kbap.processed-food.vision.max-image-bytes:2097152}") private val maxImageBytes: Long,
@@ -45,9 +46,9 @@ class ProcessedFoodVisionScanService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val transaction = TransactionTemplate(transactionManager)
 
-    fun scanVision(memberId: Long, imagePath: String, key: UUID, language: LanguageCode): ProcessedFoodVisionScanResponse {
+    fun scanVision(memberId: Long, imagePath: String, key: UUID, language: LanguageCode, menuFastPathEligible: Boolean = false): ProcessedFoodVisionScanResponse {
         val stored = transaction.execute { reserve(memberId, imagePath, key, language) }
-        val reading = stored ?: readPhoto(memberId, key, imagePath)
+        val reading = stored ?: readPhoto(memberId, key, imagePath, menuFastPathEligible)
         return when (reading.kind) {
             ProcessedFoodPhotoKind.PACKAGE_FRONT -> {
                 val ocrText = listOfNotNull(reading.maker, reading.productName).joinToString("\n")
@@ -119,9 +120,10 @@ class ProcessedFoodVisionScanService(
         }
     }
 
-    private fun readPhoto(memberId: Long, key: UUID, imagePath: String): ProcessedFoodPhotoReading {
+    private fun readPhoto(memberId: Long, key: UUID, imagePath: String, menuFastPathEligible: Boolean): ProcessedFoodPhotoReading {
         val started = System.nanoTime()
-        val reading = try {
+        val fastMenu = menuFastPath.tryMenu(memberId, imagePath, menuFastPathEligible)
+        val reading = fastMenu ?: try {
             reader.read(imagePath)
         } catch (e: Exception) {
             markFailed(memberId, key)
@@ -132,14 +134,15 @@ class ProcessedFoodVisionScanService(
             }
         }
         log.info(
-            "가공식품 사진 비전 kind={} confidence={} reason={} reportNo={} latencyMs={}",
-            reading.kind, reading.confidence, reading.reason, reading.reportNo != null, elapsedMillis(started),
+            "가공식품 사진 비전 kind={} confidence={} reason={} reportNo={} source={} latencyMs={}",
+            reading.kind, reading.confidence, reading.reason, reading.reportNo != null, sourceOf(fastMenu), elapsedMillis(started),
         )
         transaction.executeWithoutResult {
             operations.findForUpdate(memberId, NAMESPACE, ProcessedFoodNameScanService.bytesOf(key))?.let {
                 it.lifecycle = READ
                 it.requestDocument = it.requestDocument + mapOf(
                     "visionKind" to reading.kind.name,
+                    "visionSource" to sourceOf(fastMenu),
                     "confidence" to reading.confidence,
                     "reading" to documentOf(reading),
                 )
@@ -147,6 +150,8 @@ class ProcessedFoodVisionScanService(
         }
         return reading
     }
+
+    private fun sourceOf(fastMenu: ProcessedFoodPhotoReading?): String = if (fastMenu != null) SOURCE_MENU_FAST_PATH else SOURCE_READER
 
     private fun markFailed(memberId: Long, key: UUID) {
         runCatching {
@@ -180,6 +185,8 @@ class ProcessedFoodVisionScanService(
         private const val READ = "READ"
         private const val FAILED = "FAILED"
         private const val FX_STATE = "NONE"
+        private const val SOURCE_MENU_FAST_PATH = "MENU_FAST_PATH"
+        private const val SOURCE_READER = "READER"
         private const val LIMITS_VERSION = "pfood-vision-1"
         private const val MAX_ATTEMPTS_PER_KEY = 3
         private val READING_STALE_AFTER: Duration = Duration.ofMinutes(2)
