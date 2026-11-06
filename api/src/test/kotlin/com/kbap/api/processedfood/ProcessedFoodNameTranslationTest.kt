@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentHashMap
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -36,6 +37,7 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
     @Autowired private lateinit var translations: ProcessedFoodTranslationService
     @Autowired private lateinit var rows: ContentTranslationJpaRepository
     @Autowired private lateinit var redis: StringRedisTemplate
+    @Autowired private lateinit var processedFoods: ProcessedFoodService
 
     private val mapper = jacksonObjectMapper()
 
@@ -101,9 +103,9 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
             }
         }
 
-        given("가공식품 이름 번역이 가드에 거절되면 — 공부 지적(#519)") {
-            `when`("상세를 영어로 두 번 보면") {
-                then("거절은 원문 해시 기준으로 원문을 저장해 같은 이름을 매일 다시 부르지 않는다") {
+        given("가공식품 이름 번역이 가드에 거절되면 — S-975") {
+            `when`("두 번 연속 거절된 상세를 같은 날 두 번 보면") {
+                then("한 번 다시 부르고, 원문 대신 빈 값을 저장해 표시는 한국어로 두며 같은 날은 더 부르지 않는다") {
                     val id = seed("NT-6", "예감")
                     translator.reply = { text, _ -> if (text == "예감") throw TranslationRejectedException("뜻 번역") else text }
 
@@ -112,12 +114,26 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
                         translations.awaitIdle()
                     }
 
-                    storedName(id, "en") shouldBe "예감"
-                    translator.nameCalls.size shouldBe 1
+                    storedName(id, "en") shouldBe ""
+                    translator.nameCalls.size shouldBe 2
+                    translations.localizedNamesOf(listOf(processedFoods.getAvailableProduct(id)), LanguageCode.EN)[id] shouldBe "예감"
+                }
+            }
+            `when`("처음만 거절되고 다시 부르면 통과하면") {
+                then("다시 부른 번역을 저장한다") {
+                    val id = seed("NT-9", "예감")
+                    val rejectedOnce = ConcurrentHashMap.newKeySet<LanguageCode>()
+                    translator.reply = { _, target -> if (rejectedOnce.add(target)) throw TranslationRejectedException("뜻 번역") else "Yegam" }
+
+                    translations.translateNameInBackground(id, "예감", null)
+                    translations.awaitIdle()
+
+                    storedName(id, "en") shouldBe "Yegam"
+                    storedName(id, "ja") shouldBe "Yegam"
                 }
             }
             `when`("재생성에서 거절되면") {
-                then("기존 번역이 가드를 통과하면 덮어쓰지 않고, 기존 번역도 오역(가드 거절)이면 원문으로 바꾼다 — KB-960") {
+                then("기존 번역이 가드를 통과하면 덮어쓰지 않고, 기존 번역도 오역(가드 거절)이면 빈 값으로 비워 다음 날 다시 번역되게 한다 — KB-960·S-975") {
                     val bad = seed("NT-7", "예감")
                     val good = seed("NT-8", "예감 오리지널")
                     staleName(bad)
@@ -131,7 +147,7 @@ class ProcessedFoodNameTranslationTest : BehaviorSpec() {
 
                     p.path("regenerated").asInt() shouldBe 1
                     p.path("failedProductIds").map { it.asLong() } shouldBe listOf(good)
-                    storedName(bad, "en") shouldBe "예감"
+                    storedName(bad, "en") shouldBe ""
                     storedName(good, "en") shouldBe "Yegam Original"
                 }
             }
