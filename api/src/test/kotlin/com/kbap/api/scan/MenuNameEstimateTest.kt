@@ -388,6 +388,36 @@ class MenuNameEstimateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("술 이름의 DRINK 추정이 ALCOHOL 코드 없이 캐시돼 있으면 — S-973(운영 소주·맥주)") {
+                then("읽을 때 ALCOHOL 을 더해 알코올 회피 회원에게 CAUTION 이고, 생성 사진 대신 공용 술 이미지를 주며, 저장 행은 그대로다") {
+                    seedMember(95919, avoid = listOf("ALCOHOL"))
+                    listOf("추정참이슬", "추정오미자에이드").forEach { name ->
+                        execute(
+                            "INSERT INTO menu_name_estimate (name_key, kind, english_name, description, avoidance_codes, spiciness, confidence, model, prompt_version, image_ref, image_generated_at, status, created_at, updated_at) " +
+                                "VALUES ('$name', 'DRINK', 'Eng', 'About', '[]', -1, 0.900, 'm', 'p', 'images/webp/menu-estimate/$name.webp', NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+                    vision.program("scans/mne-19.jpg", listOf(ExtractedMenu("Soju", "추정참이슬", null, null), ExtractedMenu("Ade", "추정오미자에이드", null, null)))
+
+                    val items = pollUntilDone(95919, scan(95919, "scans/mne-19.jpg").path("scanId").asText()).path("items")
+
+                    items[0].let {
+                        it.path("estimatedCodes").map { c -> c.asText() } shouldBe listOf("ALCOHOL")
+                        it.path("avoidances").map { c -> c.asText() } shouldBe listOf("ALCOHOL")
+                        it.path("riskLevel").asText() shouldBe "CAUTION"
+                        it.path("imageUrl").asText().endsWith("images/webp/static/alcohol-category.webp") shouldBe true
+                        it.path("aiGeneratedImage").asBoolean() shouldBe false
+                    }
+                    items[1].let {
+                        it.path("estimatedCodes").map { c -> c.asText() } shouldBe emptyList()
+                        it.path("riskLevel").asText() shouldBe "UNKNOWN"
+                        it.path("imageUrl").asText().endsWith("menu-estimate/추정오미자에이드.webp") shouldBe true
+                    }
+                    longOf("SELECT COUNT(*) FROM menu_name_estimate WHERE name_key = '추정참이슬' AND JSON_LENGTH(avoidance_codes) = 0") shouldBe 1
+                    estimator.calls.size shouldBe 0
+                }
+            }
+
             `when`("추정 재료가 회원 기피와 겹치면") {
                 then("겹치는 추정 코드만 avoidances 로 내리고 riskLevel CAUTION 이다") {
                     seedMember(95918, avoid = listOf("MOLLUSK"))
