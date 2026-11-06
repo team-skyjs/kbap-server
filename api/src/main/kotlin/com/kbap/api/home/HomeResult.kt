@@ -14,7 +14,10 @@ data class HomeResult(
     val bookmarkedFoodIds: Set<Long>,
     val ratings: Map<Long, FoodRating>,
     val topRatedFoods: List<TopRatedFoodView>? = null,
-)
+) {
+    fun foodIds(): List<Long> =
+        (popularFoods + mostReviewedFoods + recentScans.map { it.summary } + topRatedFoods.orEmpty().map { it.summary }).map { it.foodId }.distinct()
+}
 
 data class TopRatedFoodView(
     val summary: FoodSummaryView,

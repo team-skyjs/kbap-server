@@ -48,7 +48,7 @@ class FoodController(
             risks = RiskFilterParser.parse(request.risk),
             saved = false,
         )
-        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId, LanguageCode.from(request.lang))
         return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor)))
     }
 
@@ -65,7 +65,7 @@ class FoodController(
                 risks = RiskFilterParser.parse(request.risk),
             ),
         )
-        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId, LanguageCode.from(request.lang))))
     }
 
     @GetMapping("/selected")
@@ -104,7 +104,7 @@ class FoodController(
                 scope = scope,
             ),
         )
-        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId, LanguageCode.from(request.lang))
         return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor?.encode())))
     }
 
@@ -118,7 +118,7 @@ class FoodController(
             lang = LanguageCode.from(request.lang),
             cursor = CursorParser.parse(request.cursor),
         )
-        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId, LanguageCode.from(request.lang))))
     }
 
     @GetMapping("/{foodId}")
@@ -150,12 +150,14 @@ class FoodController(
         hasNext: Boolean,
         nextCursor: Long?,
         memberId: Long?,
+        lang: LanguageCode,
     ): Page<FoodSummaryResponse> {
         val foodIds = items.map { it.foodId }
         val bookmarkedIds = bookmarkService.getBookmarkedFoodIds(memberId, foodIds)
         val ratings = reviewService.getFoodRatings(foodIds)
+        val linked = processedLinks.getLinkedProcessedFoods(foodIds, lang)
         return Page(
-            items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds, ratings[it.foodId]) },
+            items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds, ratings[it.foodId], linked[it.foodId]) },
             hasNext = hasNext,
             nextCursor = nextCursor,
         )
