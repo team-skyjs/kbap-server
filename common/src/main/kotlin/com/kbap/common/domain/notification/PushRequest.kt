@@ -13,6 +13,8 @@ data class PushRequest(
     val ttlSeconds: Int? = null,
     val mealSlot: MealSlot? = null,
     val guestInstallationIds: Collection<String> = emptyList(),
+    /** 절대 URL 만. Expo richContent.image — Android 는 그대로, iOS 는 앱에 Notification Service Extension 이 있어야 보인다. */
+    val imageUrl: String? = null,
 )
 
 data class PushContent(
@@ -27,6 +29,7 @@ data class PushEnvelope(
     val data: Map<String, Any>,
     val channelId: String,
     val ttlSeconds: Int? = null,
+    val imageUrl: String? = null,
 )
 
 data class PreparedPush(

@@ -29,7 +29,7 @@ class PushDispatchService(
             val data = request.data + mapOf(DATA_TYPE to request.type.name, DATA_NOTIFICATION_ID to notification.id)
             notification.data = data
             val dispatch = dispatchRepository.save(NotificationDispatch.pending(notification.id, device.id, device.expoToken, request.type))
-            messages += PushEnvelope(device.expoToken, content.title, content.body, data, request.type.channelId, request.ttlSeconds)
+            messages += PushEnvelope(device.expoToken, content.title, content.body, data, request.type.channelId, request.ttlSeconds, request.imageUrl)
             dispatchIds += dispatch.id
         }
         return PreparedPush(messages, dispatchIds)

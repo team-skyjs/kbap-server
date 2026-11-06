@@ -28,6 +28,7 @@ import java.time.Duration
 class FoodDiscoveryPushBatchConfig(
     @Value("\${kbap.batch.food-discovery.chunk-size:100}") private val chunkSize: Int,
     @Value("\${kbap.batch.food-discovery.ttl:3h}") private val ttl: Duration,
+    @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
     private val jobRepository: JobRepository,
     private val transactionManager: PlatformTransactionManager,
     private val settingRepository: NotificationSettingJpaRepository,
@@ -53,6 +54,7 @@ class FoodDiscoveryPushBatchConfig(
             foodRepository,
             clock,
             ttl.seconds.toInt(),
+            imagePublicBaseUrl,
             meterRegistry,
         )
         val step = StepBuilder("foodDiscoverySendStep", jobRepository)

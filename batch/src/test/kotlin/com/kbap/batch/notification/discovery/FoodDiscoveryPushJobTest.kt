@@ -154,7 +154,7 @@ class FoodDiscoveryPushJobTest : BehaviorSpec() {
                 clear()
                 clock.setSeoul(2026, 11, 4, 9, 30)
                 food("돼지국밥", IngredientCode.PORK to 10, IngredientCode.WHEAT to 10)
-                val safe = food("삼계탕", IngredientCode.POULTRY to 80)
+                val safe = food("삼계탕", IngredientCode.POULTRY to 80).apply { imageRef = "https://cdn.test/samgyetang.jpg" }.let(foodRepository::save)
                 val memberId = member(IngredientCode.PORK)
                 val before = sentCounter()
 
@@ -166,6 +166,7 @@ class FoodDiscoveryPushJobTest : BehaviorSpec() {
                     sent.title shouldBe "(광고) 🌟 삼계탕 드셔보셨어요?"
                     sent.body shouldBe "삼계탕 설명\n수신거부: 프로필 > 알림 설정"
                     sent.channelId shouldBe "news"
+                    sent.imageUrl shouldBe "https://cdn.test/samgyetang.jpg"
                     (sent.data["foodId"] as Number).toLong() shouldBe safe.id
                     sent.data["type"] shouldBe "FOOD_DISCOVERY"
                     val notification = notificationRepository.findAll().single()

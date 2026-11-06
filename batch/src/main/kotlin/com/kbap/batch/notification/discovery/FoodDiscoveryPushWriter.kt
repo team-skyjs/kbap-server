@@ -13,6 +13,7 @@ import com.kbap.common.domain.notification.PushTargetResolver
 import com.kbap.common.domain.notification.model.Notification
 import com.kbap.common.domain.notification.model.NotificationType
 import com.kbap.common.port.push.PushHandler
+import com.kbap.common.util.ImageUrls
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.batch.infrastructure.item.Chunk
@@ -32,6 +33,7 @@ class FoodDiscoveryPushWriter(
     private val foodRepository: FoodJpaRepository,
     private val clock: Clock,
     private val ttlSeconds: Int,
+    private val imagePublicBaseUrl: String,
     private val meterRegistry: MeterRegistry,
     private val random: Random = Random.Default,
 ) : ItemStreamWriter<Long> {
@@ -80,6 +82,8 @@ class FoodDiscoveryPushWriter(
                     argsByLang = candidate.text.mapValues { (_, text) -> mapOf("food" to text.name, "description" to text.description) },
                     data = mapOf(Notification.DATA_FOOD_ID to candidate.id),
                     ttlSeconds = ttlSeconds,
+                    // 상대 키인데 CDN 베이스가 비어 있으면 Expo 에 잘못된 URL 을 보내지 않도록 썸네일을 뺀다.
+                    imageUrl = ImageUrls.resolve(imagePublicBaseUrl, candidate.food.imageRef)?.takeIf(ImageUrls::isAbsoluteUrl),
                 ),
             )
             sent += result.sent
