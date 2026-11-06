@@ -5,6 +5,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberId
+import com.kbap.api.food.FoodProcessedLinkService
 import com.kbap.api.scanlog.ScanMode
 import com.kbap.api.scanlog.ScanResultRecorder
 import com.kbap.api.scanlog.ScanResultSummaries
@@ -34,6 +35,7 @@ class ScanV2Controller(
     private val scanResultRecorder: ScanResultRecorder,
     private val menuNameEstimates: MenuNameEstimateService,
     private val memberService: MemberService,
+    private val processedLinks: FoodProcessedLinkService,
 ) : ScanV2Api {
     @GetMapping("/{scanId}/pending")
     override fun getPending(
@@ -53,18 +55,20 @@ class ScanV2Controller(
         @Valid @RequestBody request: ScanV2Request,
     ): ResponseEntity<BaseResponse<ScanV2Response>> {
         val requestedCurrency = requestedCurrency(currency)
+        val lang = LanguageCode.from(langRequest.lang)
         val result = scanResultRecorder.record(memberId, ScanMode.MENU_V2, request.imagePath, ScanResultSummaries::menu) {
             scanFacade.scanMenuBoardImageV2(
                 memberId,
                 request.imagePath!!,
-                LanguageCode.from(langRequest.lang),
+                lang,
                 scanTicket,
             )
         }
         val krwPerUnit = exchangeRateClient.getKrwPerUnitOrNull(requestedCurrency)
         val exposeSubstitution = ApiVersions.isAtLeast(apiVersion, ApiVersions.SCAN_SUBSTITUTION)
+        val linked = processedLinks.getLinkedProcessedFoods(result.items.filter { it.matched }.mapNotNull { it.foodId }, lang)
         return ResponseEntity.ok(
-            BaseResponse.ok(ScanV2Response.from(result, requestedCurrency, krwPerUnit, exposeSubstitution)),
+            BaseResponse.ok(ScanV2Response.from(result, requestedCurrency, krwPerUnit, exposeSubstitution, linked)),
         )
     }
 

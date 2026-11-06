@@ -33,6 +33,7 @@ class FoodController(
     private val memberService: MemberService,
     private val listingService: FoodListingService,
     private val foodIdolVideoService: FoodIdolVideoService,
+    private val processedLinks: FoodProcessedLinkService,
 ) : FoodApi {
     @GetMapping(version = "3.1+")
     override fun browseSorted(
@@ -126,13 +127,15 @@ class FoodController(
         @Valid @ModelAttribute request: FoodDetailRequest,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
+        val lang = LanguageCode.from(request.lang)
         val result = foodService.getDetail(
-            GetFoodDetailInput(foodId = foodId, lang = LanguageCode.from(request.lang), memberId = memberId),
+            GetFoodDetailInput(foodId = foodId, lang = lang, memberId = memberId),
         )
         val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
-        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, LanguageCode.from(request.lang))
+        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, lang)
+        val linked = processedLinks.getLinkedProcessedFoods(listOf(foodId), lang)[foodId]
         return ResponseEntity.ok(
-            BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId), recentReviews)),
+            BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId), recentReviews).copy(linkedProcessedFood = linked)),
         )
     }
 

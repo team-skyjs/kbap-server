@@ -31,6 +31,7 @@ object TestTables {
         "processed_food_image",
         "food_idol_video",
         "food_ingredient",
+        "food_processed_link",
         "food",
         "community_comment",
         "community_post",
