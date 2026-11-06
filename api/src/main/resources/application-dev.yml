@@ -47,14 +47,6 @@ kbap:
     # 여러 장 스캔(KB-744) QA 가 dev 에서 묶음을 돌릴 수 있게 dev 만 기본 ON. 운영·기본은 false 유지.
     batch-enabled: ${SCAN_BATCH_ENABLED:true}
   processed-food:
-    vision:
-      # 메뉴판 바로가기 실험(KB-1015) — dev 만. 플래그·실험 대상 회원·요청 신호(menuFastPathEligible)가 모두 맞을 때만
-      # Jev(TypeSafe 이미지 API)로 먼저 판별하고, MENU 확률 0.98 이상이면 기존 판독을 건너뛴다. 실패·1초 초과는 기존 판독 1회.
-      # 키는 SSM /kbap/dev/JEV_API_KEY → 태스크 secret JEV_API_KEY. 키가 비면 플래그가 켜져도 호출 0.
-      menu-fast-path:
-        enabled: ${PROCESSED_FOOD_MENU_FAST_PATH_ENABLED:false}
-        api-key: ${JEV_API_KEY:}
-        member-ids: ${PROCESSED_FOOD_MENU_FAST_PATH_MEMBER_IDS:}
     name-scan:
       # 이름 스캔 Haiku 그림자 판별(KB-893) — dev 만 ON. 키는 SDK 기본 환경변수 ANTHROPIC_API_KEY(없으면 호출 0).
       # 기본값: 모델 claude-haiku-5-5·타임아웃 3s·일일 상한 2,000원(1회 추정 0.8원)·단가 입력 $0.10/M·출력 $0.50/M.
