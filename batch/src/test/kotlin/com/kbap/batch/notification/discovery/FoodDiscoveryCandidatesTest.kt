@@ -52,7 +52,6 @@ class FoodDiscoveryCandidatesTest : BehaviorSpec({
                 porkTrace.overallRisk(pork) shouldBe RiskLevel.SAFE
                 porkCaution.overallRisk(pork) shouldBe RiskLevel.CAUTION
                 porkDanger.overallRisk(pork) shouldBe RiskLevel.DANGER
-                candidates.safeFor(pork).map { it.id } shouldBe listOf(1L, 4L)
                 val picks = (0 until 200).map { seed -> candidates.pick(pork, ko, emptySet(), Random(seed))?.id }
                 picks shouldNotContain 2L
                 picks shouldNotContain 3L
@@ -69,7 +68,7 @@ class FoodDiscoveryCandidatesTest : BehaviorSpec({
             then("묶음 확장(MEAT→PORK→LARD, MEAT→POULTRY→CHICKEN)으로 위험도가 매겨져 SAFE 인 음식만 남는다") {
                 val picks = (0 until 200).map { seed -> candidates.pick(codes(IngredientCode.MEAT), ko, emptySet(), Random(seed))?.id }.toSet()
                 picks shouldBe setOf(3L)
-                candidates.safeFor(emptySet()).map { it.id } shouldBe listOf(1L, 2L, 3L)
+                (0 until 200).map { seed -> candidates.pick(emptySet(), ko, emptySet(), Random(seed))?.id }.toSet() shouldBe setOf(1L, 2L, 3L)
             }
         }
     }
@@ -85,7 +84,7 @@ class FoodDiscoveryCandidatesTest : BehaviorSpec({
             )
 
             then("READY·평가 완료 음식만 남는다") {
-                candidates.ids shouldBe setOf(1L)
+                candidates.foods.map { it.id } shouldBe listOf(1L)
             }
         }
     }
@@ -106,7 +105,7 @@ class FoodDiscoveryCandidatesTest : BehaviorSpec({
             then("원문 설명이 비어 있지 않은 음식만 후보이고 문구는 원문 설명이다") {
                 val picks = (0 until 50).mapNotNull { candidates.pick(emptySet(), ko, emptySet(), Random(it)) }
                 picks.map { it.id }.toSet() shouldBe setOf(1L, 2L)
-                picks.first { it.id == 1L }.text.getValue(LanguageCode.KO).description shouldBe "설명-1"
+                FoodDiscoveryCandidates.description(picks.first { it.id == 1L }, LanguageCode.KO) shouldBe "설명-1"
             }
         }
 
@@ -129,20 +128,6 @@ class FoodDiscoveryCandidatesTest : BehaviorSpec({
         `when`("모든 음식이 제외되면") {
             then("null 이다") {
                 candidates.pick(emptySet(), ko, setOf(1L, 2L, 3L), Random(0)) shouldBe null
-            }
-        }
-    }
-
-    given("회피 집합별 메모") {
-        `when`("같은 회피 집합 회원 100명과 다른 집합 회원 1명, 무회피 회원 1명을 고르면") {
-            val candidates = FoodDiscoveryCandidates(listOf(food(1, IngredientCode.PORK to 50), food(2, IngredientCode.WHEAT to 90)))
-            repeat(100) { candidates.pick(codes(IngredientCode.PORK), ko, emptySet(), Random(it)) }
-            candidates.pick(codes(IngredientCode.EGG), ko, emptySet(), Random(0))
-            candidates.pick(emptySet(), ko, emptySet(), Random(0))
-
-            then("안전 후보 계산은 고유 집합 수만큼만 일어난다") {
-                candidates.memoSize shouldBe 3
-                candidates.safeFor(codes(IngredientCode.PORK)).map { it.id } shouldNotContain 1L
             }
         }
     }
