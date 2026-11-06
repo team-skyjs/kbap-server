@@ -28,7 +28,12 @@ class MenuFastPath(
     @Value("\${kbap.processed-food.vision.menu-fast-path.min-probability:0.98}") private val minProbability: Double,
     @Value("\${kbap.processed-food.vision.menu-fast-path.budget:1s}") private val budget: Duration,
     @Value("\${kbap.processed-food.vision.menu-fast-path.max-concurrent:4}") maxConcurrent: Int,
+    @Value("\${kbap.processed-food.vision.menu-fast-path.rollout-percent:0}") private val rolloutPercent: Int,
 ) {
+    init {
+        require(rolloutPercent in 0..100) { "menu-fast-path.rollout-percent 는 0~100 이어야 한다: $rolloutPercent" }
+    }
+
     private val log = LoggerFactory.getLogger(javaClass)
     private val classifier: MenuPhotoClassifier? = classifierProvider.getIfAvailable()
     private val allowedMembers: Set<Long> = memberIds.toSet()
@@ -37,7 +42,7 @@ class MenuFastPath(
 
     fun tryMenu(memberId: Long, imagePath: String, requested: Boolean): ProcessedFoodPhotoReading? {
         val classifier = classifier ?: return null
-        if (!enabled || !requested || memberId !in allowedMembers) return null
+        if (!enabled || !requested || !isTarget(memberId)) return null
         if (!slots.tryAcquire()) return fallback("busy", null)
         val sample = Timer.start(meters)
         val future = try {
@@ -78,8 +83,17 @@ class MenuFastPath(
         return null
     }
 
+    private fun isTarget(memberId: Long): Boolean = memberId in allowedMembers || bucketOf(memberId) < rolloutPercent
+
     @PreDestroy
     fun shutdown() {
         executor.shutdownNow()
+    }
+
+    companion object {
+        private const val BUCKETS = 100
+        private const val MIX = -7046029254386353131L
+
+        fun bucketOf(memberId: Long): Int = Math.floorMod((memberId * MIX).hashCode(), BUCKETS)
     }
 }
