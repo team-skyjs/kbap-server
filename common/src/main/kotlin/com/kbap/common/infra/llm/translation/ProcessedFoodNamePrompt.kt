@@ -36,7 +36,7 @@ object ProcessedFoodNamePrompt {
         val name = RAMYUN.replace(output.trim()) { if (it.value.first().isUpperCase()) "Ramyeon" else "ramyeon" }
         reject(RAMEN.containsMatchIn(name) && "라멘" !in source, "한국 라면을 Ramen 으로 옮겼다 — Ramyeon 이어야 한다")
         reject(UYU.containsMatchIn(name), "우유를 Uyu 로 로마자 표기했다 — Milk 로 옮겨야 한다")
-        reject(MILK.containsMatchIn(name) && MILK_SOURCE.none { it in source }, "원문에 우유가 없는데 Milk 를 붙였다")
+        reject(MILK.containsMatchIn(name) && !MILK.containsMatchIn(source) && MILK_SOURCE.none { it in source }, "원문에 우유류 낱말이 없는데 Milk 를 붙였다")
         reject(HANGUL_ANY.containsMatchIn(name), "가공식품 이름 번역에 한글이 남았다")
         reject(name.any { it in NOTE_MARKS && it !in source }, "가공식품 이름 번역에 원문에 없는 괄호·콜론 설명이 붙었다")
         reject(name.isEmpty(), "가공식품 이름 번역이 비어 있다")
@@ -69,7 +69,7 @@ object ProcessedFoodNamePrompt {
     private val RAMEN = latinWord("ramen")
     private val UYU = latinWord("uyu")
     private val MILK = latinWord("milk")
-    private val MILK_SOURCE = listOf("우유", "밀크")
+    private val MILK_SOURCE = listOf("우유", "밀크", "밀키", "두유", "연유", "분유", "산양유", "라떼", "크림", "요구르트", "요거트")
     private val HANGUL_ANY = Regex("[가-힣ㄱ-ㅎㅏ-ㅣ]")
     private const val NOTE_MARKS = "()[]{}:（）［］｛｝："
     private val INITIALS: List<String> = listOf(

@@ -126,6 +126,18 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                     "미린다 오렌지" to "Mirinda Jeruk",
                     "매일우유 (저지방)" to "Maeil Milk (Low Fat)",
                     "서울우유 커피밀크" to "Seoul Milk Coffee Milk",
+                    "매일두유" to "Maeil Soy Milk",
+                    "Soy Milk 오리지널" to "Soy Milk Original",
+                    "남양 연유" to "Namyang Condensed Milk",
+                    "매일 바이오 요거트" to "Maeil Bio Yogurt Milk",
+                    "롯데 밀키스" to "Lotte Milkis",
+                    "썬키스트 밀키자몽소다" to "Sunkist Milky Grapefruit Soda",
+                    "청밀원 산양유" to "Cheongmilwon Goat Milk",
+                    "삼립 연유크림빵" to "Samlip Condensed Milk Cream Bread",
+                    "신라명과 두유롤케익" to "Shilla Soy Milk Roll Cake",
+                    "서울 Milk cream 빵" to "Seoul Milk Cream Bread",
+                    "빙그레 분유맛 캔디" to "Binggrae Milk Powder Candy",
+                    "스타벅스 카페라떼" to "Starbucks Caffe Latte Milk",
                 ).forEach { (source, output) -> shouldNotThrowAny { ProcessedFoodNamePrompt.parse(output, source) } }
             }
         }
