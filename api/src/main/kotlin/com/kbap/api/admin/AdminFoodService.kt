@@ -11,6 +11,7 @@ import com.kbap.common.domain.food.FoodContentOutboxJpaRepository
 import com.kbap.common.domain.food.FoodIngredientJdbcRepository
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.ImageBatchItemJpaRepository
+import com.kbap.api.food.FoodProcessedLinkService
 import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.FoodVectorOutboxJpaRepository
 import com.kbap.common.domain.food.model.Food
@@ -48,6 +49,7 @@ class AdminFoodService(
     private val humanReviewService: AdminHumanReviewService,
     private val regenerationStateResolver: RegenerationStateResolver,
     private val draftRepository: FoodContentDraftJpaRepository,
+    private val processedLinks: FoodProcessedLinkService,
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.storage.public-base-url:}") private val imagePublicBaseUrl: String,
 ) {
@@ -165,7 +167,7 @@ class AdminFoodService(
             contentRequestSince = inFlight.maxOfOrNull { it.createdAt }?.atZone(ZoneId.systemDefault())?.toInstant(),
             now = Instant.now(),
             pendingContentDraftId = if (food.isDeleted()) null else draftRepository.findByFoodIdAndReviewStatus(food.id, FoodContentDraftStatus.PENDING)?.id,
-        )
+        ).copy(linkedProcessedFood = processedLinks.getKoreanLinkedProcessedFoods(listOf(food.id))[food.id])
     }
 
     @Transactional(readOnly = true)

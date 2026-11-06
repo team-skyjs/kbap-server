@@ -10,6 +10,7 @@ import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentStatus
 import com.kbap.common.domain.scan.MenuNameEstimateAdminRow
+import com.kbap.common.domain.scan.model.MenuNameEstimate
 import com.kbap.common.domain.scan.MenuNameEstimateJpaRepository
 import com.kbap.common.port.llm.MenuNameKind
 import org.springframework.stereotype.Service
@@ -77,7 +78,7 @@ class AdminMenuNameEstimateService(
             kind = kind,
             englishName = englishName,
             description = description,
-            avoidanceCodes = avoidanceCodes?.let { mapper.readValue<List<String>>(it) }.orEmpty(),
+            avoidanceCodes = MenuNameEstimate.effectiveAvoidanceCodes(kind, nameKey, avoidanceCodes?.let { mapper.readValue<List<String>>(it) }),
             spiciness = spiciness,
             confidence = confidence?.toDouble(),
             model = model,

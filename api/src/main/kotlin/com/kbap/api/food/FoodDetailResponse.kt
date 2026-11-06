@@ -2,6 +2,7 @@ package com.kbap.api.food
 
 import com.kbap.api.review.RatingSummary
 import com.kbap.api.review.ReviewResponse
+import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "음식 상세 — 음식 정보·조회자 맥락(위험도·회피 교집합·북마크)·리뷰(요약·최근 목록)")
@@ -70,6 +71,10 @@ data class FoodDetailResponse(
 
     @field:Schema(description = "최신순 최근 리뷰(최대 5개) — 리뷰 목록 API 와 동일한 항목 형태(food 는 항상 null). 비회원 조회의 likedByMe 는 항상 false.")
     val recentReviews: List<ReviewResponse>,
+
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "연결된 가공식품 대표 상품(S-968, 콜라·사이다 같은 음료) — 연결이 없으면 필드가 빠진다. 앱은 imageUrl 을 음식 사진보다 먼저 보여 준다. 위험도·재료는 위 음식 값 그대로다", nullable = true)
+    val linkedProcessedFood: LinkedProcessedFoodResponse? = null,
 ) {
     @Schema(description = "음식 상세의 리뷰 요약 묶음 — 전체(overall)·같은 국적(sameCountry) 평점을 같은 형태로 제공")
     data class ReviewSummaryResponse(

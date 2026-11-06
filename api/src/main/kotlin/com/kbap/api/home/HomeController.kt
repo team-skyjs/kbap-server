@@ -5,6 +5,7 @@ import com.kbap.api.core.ApiPaths
 import com.kbap.api.core.ApiVersions
 import com.kbap.api.core.BaseResponse
 import com.kbap.api.core.auth.AuthMemberIdOrNull
+import com.kbap.api.food.FoodProcessedLinkService
 import com.kbap.common.domain.LanguageCode
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.API + "/home")
 class HomeController(
     private val homeService: HomeService,
+    private val processedLinks: FoodProcessedLinkService,
 ) : HomeApi {
     @GetMapping
     override fun home(
@@ -27,7 +29,9 @@ class HomeController(
     ): ResponseEntity<BaseResponse<HomeResponse>> {
         val marketingPopular = ApiVersions.isAtLeast(apiVersion, ApiVersions.HOME_MARKETING_POPULAR)
         val topRated = ApiVersions.isAtLeast(apiVersion, ApiVersions.HOME_TOP_RATED)
-        val result = homeService.getHome(memberId, LanguageCode.from(request.lang), marketingPopular, topRated)
-        return ResponseEntity.ok(BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null)))
+        val lang = LanguageCode.from(request.lang)
+        val result = homeService.getHome(memberId, lang, marketingPopular, topRated)
+        val linked = processedLinks.getLinkedProcessedFoods(result.foodIds(), lang)
+        return ResponseEntity.ok(BaseResponse.ok(HomeResponse.from(result, authenticated = memberId != null, linked)))
     }
 }

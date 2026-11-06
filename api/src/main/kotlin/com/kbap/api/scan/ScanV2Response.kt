@@ -1,5 +1,7 @@
 package com.kbap.api.scan
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.kbap.api.food.LinkedProcessedFoodResponse
 import com.kbap.common.domain.CurrencyCode
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
@@ -120,6 +122,9 @@ data class ScanV2Response(
         val priceOptions: List<PriceOptionResponse>? = null,
         @field:Schema(description = "메뉴가 아닌 주문 옵션·단일 재료어(추가·사리·소스·공기밥 등)면 true — 판정·추정·상세 없음, 앱은 원문만 보여 준다")
         val notMenu: Boolean = false,
+        @field:JsonInclude(JsonInclude.Include.NON_NULL)
+        @field:Schema(description = "matched 음식에 연결된 가공식품 대표 상품(S-968, 콜라·사이다 같은 음료) — 연결이 없으면 필드가 빠진다. 앱은 imageUrl 을 imageRef 보다 먼저 보여 준다. riskLevel·avoidances 는 음식 값 그대로다", nullable = true)
+        val linkedProcessedFood: LinkedProcessedFoodResponse? = null,
     )
 
     @Schema(description = "가격 옵션 한 개")
@@ -167,6 +172,7 @@ data class ScanV2Response(
             currency: CurrencyCode,
             krwPerUnit: BigDecimal?,
             exposeSubstitution: Boolean,
+            linkedProcessedFoods: Map<Long, LinkedProcessedFoodResponse> = emptyMap(),
         ): ScanV2Response =
             ScanV2Response(
                 degraded = result.degraded,
@@ -195,6 +201,7 @@ data class ScanV2Response(
                         spiciness = it.spiciness,
                         priceOptions = it.priceOptions?.map { option -> PriceOptionResponse(option.label, option.priceKrw) },
                         notMenu = it.notMenu,
+                        linkedProcessedFood = if (it.matched) it.foodId?.let(linkedProcessedFoods::get) else null,
                     )
                 },
             )

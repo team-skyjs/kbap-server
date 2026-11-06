@@ -162,4 +162,5 @@ enum class ErrorCode(
     PROCESSED_FOOD_PHOTO_TOO_LARGE("PFOOD-014", 400, "사진이 너무 커요. 2MB 이하로 올려 주세요"),
     PROCESSED_FOOD_IMAGE_NOT_UPLOADED("PFOOD-015", 400, "가공식품 사진 업로드를 확인하지 못했습니다"),
     PROCESSED_FOOD_IMAGE_NOT_FOUND("PFOOD-016", 404, "가공식품 사진을 찾을 수 없습니다"),
+    PROCESSED_FOOD_CUTOUT_NOT_APPROVED("PFOOD-017", 409, "누끼 이미지가 승인된 가공식품만 연결할 수 있습니다"),
 }

@@ -33,6 +33,7 @@ class FoodController(
     private val memberService: MemberService,
     private val listingService: FoodListingService,
     private val foodIdolVideoService: FoodIdolVideoService,
+    private val processedLinks: FoodProcessedLinkService,
 ) : FoodApi {
     @GetMapping(version = "3.1+")
     override fun browseSorted(
@@ -47,7 +48,7 @@ class FoodController(
             risks = RiskFilterParser.parse(request.risk),
             saved = false,
         )
-        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId, LanguageCode.from(request.lang))
         return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor)))
     }
 
@@ -64,7 +65,7 @@ class FoodController(
                 risks = RiskFilterParser.parse(request.risk),
             ),
         )
-        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId, LanguageCode.from(request.lang))))
     }
 
     @GetMapping("/selected")
@@ -103,7 +104,7 @@ class FoodController(
                 scope = scope,
             ),
         )
-        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId)
+        val page = toPage(result.items, result.hasNext, nextCursor = null, memberId, LanguageCode.from(request.lang))
         return ResponseEntity.ok(BaseResponse.ok(SearchPage(page.items, page.hasNext, result.nextCursor?.encode())))
     }
 
@@ -117,7 +118,7 @@ class FoodController(
             lang = LanguageCode.from(request.lang),
             cursor = CursorParser.parse(request.cursor),
         )
-        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId)))
+        return ResponseEntity.ok(BaseResponse.ok(toPage(result.items, result.hasNext, result.nextCursor, memberId, LanguageCode.from(request.lang))))
     }
 
     @GetMapping("/{foodId}")
@@ -126,13 +127,15 @@ class FoodController(
         @Valid @ModelAttribute request: FoodDetailRequest,
         @AuthMemberIdOrNull memberId: Long?,
     ): ResponseEntity<BaseResponse<FoodDetailResponse>> {
+        val lang = LanguageCode.from(request.lang)
         val result = foodService.getDetail(
-            GetFoodDetailInput(foodId = foodId, lang = LanguageCode.from(request.lang), memberId = memberId),
+            GetFoodDetailInput(foodId = foodId, lang = lang, memberId = memberId),
         )
         val bookmarked = foodId in bookmarkService.getBookmarkedFoodIds(memberId, listOf(foodId))
-        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, LanguageCode.from(request.lang))
+        val recentReviews = reviewService.getRecentFoodReviews(foodId, memberId, lang)
+        val linked = processedLinks.getLinkedProcessedFoods(listOf(foodId), lang)[foodId]
         return ResponseEntity.ok(
-            BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId), recentReviews)),
+            BaseResponse.ok(FoodDetailResponse.from(result, bookmarked, reviewSummaryOf(foodId, memberId), recentReviews).copy(linkedProcessedFood = linked)),
         )
     }
 
@@ -147,12 +150,14 @@ class FoodController(
         hasNext: Boolean,
         nextCursor: Long?,
         memberId: Long?,
+        lang: LanguageCode,
     ): Page<FoodSummaryResponse> {
         val foodIds = items.map { it.foodId }
         val bookmarkedIds = bookmarkService.getBookmarkedFoodIds(memberId, foodIds)
         val ratings = reviewService.getFoodRatings(foodIds)
+        val linked = processedLinks.getLinkedProcessedFoods(foodIds, lang)
         return Page(
-            items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds, ratings[it.foodId]) },
+            items = items.map { FoodSummaryResponse.from(it, it.foodId in bookmarkedIds, ratings[it.foodId], linked[it.foodId]) },
             hasNext = hasNext,
             nextCursor = nextCursor,
         )

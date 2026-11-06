@@ -215,11 +215,9 @@ class Food(
         refinedDisplayName?.trim()?.takeIf { it.isNotEmpty() && it.length <= KoreanMenuNameNormalizer.MAX_MENU_NAME_LENGTH }?.let { displayName = it }
     }
 
-    fun isAlcoholicDrink(): Boolean {
-        val name = koreanName.replace(" ", "")
-        return (ALCOHOLIC_DRINK_NAME_ENDINGS + ALCOHOL_BRAND_NAMES).any { name.endsWith(it) } &&
+    fun isAlcoholicDrink(): Boolean =
+        isAlcoholicDrinkName(koreanName) &&
             ingredients.orEmpty().any { it.code == ALCOHOL_CODE && it.inclusionPercent >= ALCOHOLIC_DRINK_MIN_PERCENT }
-    }
 
     fun overallRisk(avoidedCodes: Set<String>): RiskLevel {
         if (!isReady() || ingredients == null) return RiskLevel.UNKNOWN
@@ -253,6 +251,17 @@ class Food(
             "산사춘", "카스", "테라", "켈리", "하이트", "클라우드", "오비라거", "필굿", "칭따오", "아사히", "기린", "삿포로", "하이네켄",
             "버드와이저", "호가든", "코로나", "스텔라", "연태", "연태고량주", "이과두주", "느린마을", "장수막걸리", "지평", "국순당", "서울의밤", "복순도가",
         )
+
+        private val SUGAR_FREE_ZERO = Regex("제로(슈거|슈가|칼로리|당)")
+
+        val NON_ALCOHOLIC_NAME_WORDS = listOf("무알콜", "무알코올", "논알콜", "논알코올", "비알콜", "비알코올", "제로")
+
+        fun isAlcoholicDrinkName(name: String): Boolean {
+            val compact = name.replace(" ", "")
+            val withoutSugarFree = compact.replace(SUGAR_FREE_ZERO, "")
+            if (NON_ALCOHOLIC_NAME_WORDS.any { withoutSugarFree.contains(it) }) return false
+            return (ALCOHOLIC_DRINK_NAME_ENDINGS + ALCOHOL_BRAND_NAMES).any { compact.endsWith(it) }
+        }
 
         const val MAX_LONG_DESCRIPTION_LENGTH = 1000
 

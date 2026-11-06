@@ -84,7 +84,7 @@ class AdminScanPhotoFeedService(
                 record.copy(
                     menuEstimates = unmatchedNames.getValue(record.id).mapNotNull { name ->
                         estimates[KoreanMenuNameNormalizer.matchKey(name)]?.let {
-                            AdminMenuEstimate(name, it.kind, it.englishName, it.description, it.avoidanceCodes.orEmpty(), it.spiciness, it.confidence?.toDouble(), it.model, it.promptVersion)
+                            AdminMenuEstimate(name, it.kind, it.englishName, it.description, it.effectiveAvoidanceCodes(), it.spiciness, it.confidence?.toDouble(), it.model, it.promptVersion)
                         }
                     }.distinctBy { it.name },
                 )
