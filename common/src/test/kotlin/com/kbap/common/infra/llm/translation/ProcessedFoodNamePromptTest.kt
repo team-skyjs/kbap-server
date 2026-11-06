@@ -106,6 +106,29 @@ class ProcessedFoodNamePromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse("Binggrae Banana Uyu", "빙그레 바나나맛 우유") }
             }
         }
+        `when`("운영 직접 등록 오역(S-975 — 11/6 실측)을 검사하면") {
+            then("우유 규칙은 원문에 우유가 있을 때만 프롬프트에 넣고, 원문에 없는 Milk·한글 잔존·괄호 설명은 거절한다") {
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "웰치 그레이프맛").contains("Milk") shouldBe false
+                ProcessedFoodNamePrompt.system(LanguageCode.EN, "바나나맛 우유").contains("Milk") shouldBe true
+                listOf(
+                    "웰치 그레이프맛" to "Welch's Grape Milk",
+                    "웰치 제로 그레이프맛" to "Welch's Zero Grape Milk",
+                    "미린다 포도" to "Mirinda 포도 Milk",
+                    "웰치 제로 그레이프맛" to "Welch's Zero Grape맛",
+                    "미린다 포도" to "Mirinda 포도",
+                    "미린다 오렌지" to "Mirinda Orange (Indonesian: Mirinda Jeruk)",
+                    "미린다 오렌지" to "Mirinda Orange: Jeruk",
+                    "미린다 오렌지" to "Mirinda Orange [Jeruk]",
+                ).forEach { (source, output) -> shouldThrow<TranslationRejectedException> { ProcessedFoodNamePrompt.parse(output, source) } }
+                listOf(
+                    "웰치 그레이프맛" to "Welch's Grape",
+                    "미린다 포도" to "Mirinda Nho",
+                    "미린다 오렌지" to "Mirinda Jeruk",
+                    "매일우유 (저지방)" to "Maeil Milk (Low Fat)",
+                    "서울우유 커피밀크" to "Seoul Milk Coffee Milk",
+                ).forEach { (source, output) -> shouldNotThrowAny { ProcessedFoodNamePrompt.parse(output, source) } }
+            }
+        }
         `when`("뜻으로 옮긴 번역(dev 실측)을 검사하면") {
             then("거절한다 — 원문 첫 소리와 안 맞음·공식 표기 누락·라틴 브랜드 없음·물음표·여러 줄") {
                 listOf(

@@ -27,7 +27,7 @@ object ProcessedFoodNamePrompt {
                 "(for example 자가비 짭짤한 맛 → Jagabee Salty in English, Jagabee しお味 in Japanese, Jagabee 咸味 in Simplified Chinese).",
             "Keep the brand part in Latin letters for every target language.",
             "Write Korean ramyeon (라면) as \"Ramyeon\", never \"Ramen\" or \"Ramyun\"; keep \"-myeon\" for 볶음면 and other 면 names. Use \"Ramen\" only when the Korean name says 라멘.",
-            "Translate 우유 as \"Milk\" (it is a descriptive word), never romanize it as \"Uyu\".",
+            "Translate 우유 as \"Milk\" (it is a descriptive word), never romanize it as \"Uyu\".".takeIf { "우유" in source },
             officialLatinOf(source)?.let { "The official Latin name of this product's brand or product name is $it — use it exactly and translate only the remaining descriptive words." },
             "Return only the name on one line, with no quotes, notes or question marks.",
         ).joinToString(" ")
@@ -36,6 +36,9 @@ object ProcessedFoodNamePrompt {
         val name = RAMYUN.replace(output.trim()) { if (it.value.first().isUpperCase()) "Ramyeon" else "ramyeon" }
         reject(RAMEN.containsMatchIn(name) && "라멘" !in source, "한국 라면을 Ramen 으로 옮겼다 — Ramyeon 이어야 한다")
         reject(UYU.containsMatchIn(name), "우유를 Uyu 로 로마자 표기했다 — Milk 로 옮겨야 한다")
+        reject(MILK.containsMatchIn(name) && MILK_SOURCE.none { it in source }, "원문에 우유가 없는데 Milk 를 붙였다")
+        reject(HANGUL_ANY.containsMatchIn(name), "가공식품 이름 번역에 한글이 남았다")
+        reject(name.any { it in NOTE_MARKS && it !in source }, "가공식품 이름 번역에 원문에 없는 괄호·콜론 설명이 붙었다")
         reject(name.isEmpty(), "가공식품 이름 번역이 비어 있다")
         reject('\n' in name, "가공식품 이름 번역이 한 줄이 아니다")
         reject('?' in name || '"' in name, "가공식품 이름 번역에 물음표·따옴표가 섞였다")
@@ -65,6 +68,10 @@ object ProcessedFoodNamePrompt {
     private val RAMYUN = latinWord("ramyun")
     private val RAMEN = latinWord("ramen")
     private val UYU = latinWord("uyu")
+    private val MILK = latinWord("milk")
+    private val MILK_SOURCE = listOf("우유", "밀크")
+    private val HANGUL_ANY = Regex("[가-힣ㄱ-ㅎㅏ-ㅣ]")
+    private const val NOTE_MARKS = "()[]{}:（）［］｛｝："
     private val INITIALS: List<String> = listOf(
         "gk", "kg", "n", "dt", "td", "rl", "m", "bp", "pb", "s", "s", "aeiouyw", "jcz", "jcz", "cj", "kc", "t", "pf", "h",
     )
