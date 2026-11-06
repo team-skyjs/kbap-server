@@ -1,5 +1,6 @@
 package com.kbap.api.admin
 
+import com.kbap.api.food.LinkedProcessedFoodResponse
 import com.kbap.common.domain.LanguageCode
 import com.kbap.common.domain.food.model.Food
 import com.kbap.common.domain.food.model.FoodContentFailureKind
@@ -77,6 +78,8 @@ data class AdminFoodDetailResponse(
         example = "42",
     )
     val pendingContentDraftId: Long?,
+    @field:Schema(description = "연결된 가공식품 대표 상품(S-968) — 없으면 null. 지정·해제는 PUT·DELETE /api/admin/foods/{id}/processed-link", nullable = true)
+    val linkedProcessedFood: LinkedProcessedFoodResponse? = null,
 ) {
     companion object {
         fun from(
