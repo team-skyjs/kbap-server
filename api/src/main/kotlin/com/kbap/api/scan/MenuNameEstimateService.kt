@@ -142,7 +142,7 @@ class MenuNameEstimateService(
             val readyFood = item.foodId?.let { readyFoods[it] }
             val estimate = pending?.let { cached[it.nameKey] }
             val withPrice = item.copy(priceKrw = pending?.priceKrw, priceOptions = pending?.priceOptions?.map { ScanV2Response.PriceOptionResponse(it.label, it.priceKrw) })
-            val alcoholUrl = estimate?.let { alcoholImage.urlForEstimate(it.kind, it.avoidanceCodes) }
+            val alcoholUrl = estimate?.let { alcoholImage.urlForEstimate(it.kind, it.effectiveAvoidanceCodes()) }
             when {
                 readyFood != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholImage.urlFor(readyFood) ?: imageUrlOf(readyFood.imageRef), aiGeneratedImage = false)
                 alcoholUrl != null && item.kind != MenuNameKind.NOT_FOOD -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholUrl, aiGeneratedImage = false)
@@ -177,7 +177,7 @@ class MenuNameEstimateService(
     private fun schedule(memberId: Long, items: List<PendingItem>) {
         val knownRows = readTransaction.execute { estimates.findAllByNameKeyIn(items.map { it.nameKey }) }!!
         val known = knownRows.map { it.nameKey }.toSet()
-        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null && isConfidentEnoughForImage(it.confidence) && alcoholImage.urlForEstimate(it.kind, it.avoidanceCodes) == null }.map { it.nameKey })
+        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null && isConfidentEnoughForImage(it.confidence) && alcoholImage.urlForEstimate(it.kind, it.effectiveAvoidanceCodes()) == null }.map { it.nameKey })
         meters.counter("menu_estimate.cache", "result", "hit").increment(items.count { it.nameKey in known }.toDouble())
         val missing = items.filter { it.nameKey !in known && it.nameKey.length <= MAX_NAME_KEY_LENGTH && !failedRecently(it.nameKey) }
         meters.counter("menu_estimate.cache", "result", "miss").increment(missing.size.toDouble())
@@ -229,7 +229,7 @@ class MenuNameEstimateService(
                 estimates.insertIgnore(row.nameKey, row.kind, row.englishName, row.description, mapper.writeValueAsString(row.avoidanceCodes), row.spiciness, row.confidence, row.model, row.promptVersion)
             }
             saved += nameKey
-            if (row.kind != MenuNameKind.NOT_FOOD.name && isConfidentEnoughForImage(row.confidence) && alcoholImage.urlForEstimate(row.kind, row.avoidanceCodes) == null) imageTargets += nameKey
+            if (row.kind != MenuNameKind.NOT_FOOD.name && isConfidentEnoughForImage(row.confidence) && alcoholImage.urlForEstimate(row.kind, row.effectiveAvoidanceCodes()) == null) imageTargets += nameKey
             meters.counter("menu_estimate.kind", "kind", row.kind).increment()
             row.confidence?.let { meters.summary("menu_estimate.confidence").record(it.toDouble()) }
         }
@@ -257,7 +257,7 @@ class MenuNameEstimateService(
     }
 
     private fun estimatedItem(item: PendingItem, estimate: MenuNameEstimate, avoidance: Avoidance): ScanPendingItemResponse {
-        val codes = EstimatedRiskJudge.matchedCodes(estimate.avoidanceCodes.orEmpty(), avoidance)
+        val codes = EstimatedRiskJudge.matchedCodes(estimate.effectiveAvoidanceCodes(), avoidance)
         val risk = if (codes.isEmpty()) EstimatedRisk.UNKNOWN else EstimatedRisk.CAUTION
         meters.counter("menu_estimate.risk", "risk", risk.name).increment()
         return ScanPendingItemResponse(
@@ -268,7 +268,7 @@ class MenuNameEstimateService(
             description = estimate.description,
             riskLevel = risk,
             avoidances = codes,
-            estimatedCodes = estimate.avoidanceCodes.orEmpty(),
+            estimatedCodes = estimate.effectiveAvoidanceCodes(),
             spiciness = estimate.spiciness,
             confidence = estimate.confidence?.toDouble(),
             existsNotReady = item.foodId != null,

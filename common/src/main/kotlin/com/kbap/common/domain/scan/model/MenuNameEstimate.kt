@@ -1,6 +1,7 @@
 package com.kbap.common.domain.scan.model
 
 import com.kbap.common.domain.BaseEntity
+import com.kbap.common.domain.food.model.Food
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -58,8 +59,20 @@ class MenuNameEstimate(
 ) : BaseEntity() {
     fun isPromoted(): Boolean = promotedAt != null
 
+    fun effectiveAvoidanceCodes(): List<String> = effectiveAvoidanceCodes(kind, nameKey, avoidanceCodes)
+
     fun promote(adminId: Long) {
         promotedAt = LocalDateTime.now()
         promotedBy = adminId
+    }
+
+    companion object {
+        private const val DRINK_KIND = "DRINK"
+
+        fun effectiveAvoidanceCodes(kind: String, nameKey: String, avoidanceCodes: List<String>?): List<String> {
+            val codes = avoidanceCodes.orEmpty()
+            val missingAlcohol = kind == DRINK_KIND && Food.ALCOHOL_CODE !in codes && Food.isAlcoholicDrinkName(nameKey)
+            return if (missingAlcohol) codes + Food.ALCOHOL_CODE else codes
+        }
     }
 }
