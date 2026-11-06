@@ -252,8 +252,11 @@ class Food(
             "버드와이저", "호가든", "코로나", "스텔라", "연태", "연태고량주", "이과두주", "느린마을", "장수막걸리", "지평", "국순당", "서울의밤", "복순도가",
         )
 
+        val NON_ALCOHOLIC_NAME_WORDS = listOf("무알콜", "무알코올", "논알콜", "논알코올", "비알콜", "비알코올", "제로")
+
         fun isAlcoholicDrinkName(name: String): Boolean {
             val compact = name.replace(" ", "")
+            if (NON_ALCOHOLIC_NAME_WORDS.any { compact.contains(it) }) return false
             return (ALCOHOLIC_DRINK_NAME_ENDINGS + ALCOHOL_BRAND_NAMES).any { compact.endsWith(it) }
         }
 

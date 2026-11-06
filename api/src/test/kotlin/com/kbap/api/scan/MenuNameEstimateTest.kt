@@ -418,6 +418,26 @@ class MenuNameEstimateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이름에 무알코올·논알콜·비알콜·제로가 있는 술 이름 DRINK 추정이면 — S-973 Codex P2") {
+                then("ALCOHOL 을 더하지 않고 생성 사진 규칙 그대로다") {
+                    seedMember(95920, avoid = listOf("ALCOHOL"))
+                    val names = listOf("추정무알코올맥주", "추정논알콜맥주", "추정비알콜와인", "추정카스제로")
+                    names.forEach { name ->
+                        execute(
+                            "INSERT INTO menu_name_estimate (name_key, kind, english_name, description, avoidance_codes, spiciness, confidence, model, prompt_version, image_ref, image_generated_at, status, created_at, updated_at) " +
+                                "VALUES ('$name', 'DRINK', 'Eng', 'About', '[]', -1, 0.900, 'm', 'p', 'images/webp/menu-estimate/$name.webp', NOW(6), 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+                    vision.program("scans/mne-20.jpg", names.map { ExtractedMenu("NA", it, null, null) })
+
+                    pollUntilDone(95920, scan(95920, "scans/mne-20.jpg").path("scanId").asText()).path("items").forEachIndexed { i, it ->
+                        it.path("estimatedCodes").map { c -> c.asText() } shouldBe emptyList()
+                        it.path("riskLevel").asText() shouldBe "UNKNOWN"
+                        it.path("imageUrl").asText().endsWith("menu-estimate/${names[i]}.webp") shouldBe true
+                    }
+                }
+            }
+
             `when`("추정 재료가 회원 기피와 겹치면") {
                 then("겹치는 추정 코드만 avoidances 로 내리고 riskLevel CAUTION 이다") {
                     seedMember(95918, avoid = listOf("MOLLUSK"))
