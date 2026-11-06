@@ -28,6 +28,7 @@ class FoodProcessedLinkTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
+    @Autowired private lateinit var popularFoodIdCache: PopularFoodIdCache
 
     private val mapper = jacksonObjectMapper()
 
@@ -154,6 +155,34 @@ class FoodProcessedLinkTest : BehaviorSpec() {
                     link(cola, coke).status shouldBe 200
                     foodDetail(cola).path("linkedProcessedFood").path("id").asLong() shouldBe coke
                     longOf("SELECT COUNT(*) FROM food_processed_link WHERE food_id = $cola") shouldBe 1
+                }
+            }
+        }
+
+        given("음식 카드(검색·홈)의 연결 상품 — S-973") {
+            `when`("연결된 음식과 연결 없는 음식이 검색·홈 카드에 나오면") {
+                then("연결된 카드에만 linkedProcessedFood 가 실리고 연결 없는 카드에는 필드가 없다") {
+                    val cola = seedFood("카드연결콜라")
+                    val soup = seedFood("카드연결국")
+                    val coke = seedProduct("LINK-7", "코카-콜라", "APPROVED")
+                    link(cola, coke).status shouldBe 200
+
+                    val search = body(
+                        mockMvc.get("/api/foods/search?lang=ko") { header("X-API-Version", "1.0"); param("keyword", "카드연결") }
+                            .andExpect { status { isOk() } }.andReturn().response,
+                    ).path("payload").path("items")
+                    listOf(cola, soup).forEach { execute("INSERT INTO food_view_log (food_id, member_id, status, created_at, updated_at) VALUES ($it, NULL, 'ACTIVE', NOW(6), NOW(6))") }
+                    popularFoodIdCache.invalidateAll()
+                    val home = body(
+                        mockMvc.get("/api/home?lang=ko") { header("X-API-Version", "1.0") }.andExpect { status { isOk() } }.andReturn().response,
+                    ).path("payload").path("popularFoods")
+
+                    listOf(search, home).forEach { cards ->
+                        val byId = cards.associateBy { it.path("foodId").asLong() }
+                        byId.getValue(cola).path("linkedProcessedFood").path("id").asLong() shouldBe coke
+                        byId.getValue(cola).path("linkedProcessedFood").path("imageUrl").asText() shouldBe "https://cdn.example.com/cutout/LINK-7.webp"
+                        byId.getValue(soup).has("linkedProcessedFood") shouldBe false
+                    }
                 }
             }
         }

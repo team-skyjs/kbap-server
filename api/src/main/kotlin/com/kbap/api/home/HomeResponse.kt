@@ -1,6 +1,7 @@
 package com.kbap.api.home
 
 import com.kbap.api.food.FoodSummaryResponse
+import com.kbap.api.food.LinkedProcessedFoodResponse
 import com.kbap.api.ingredient.AvoidedIngredientView
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonUnwrapped
@@ -38,24 +39,24 @@ data class HomeResponse(
     val topRatedFoods: List<TopRatedFoodResponse>? = null,
 ) {
     companion object {
-        fun from(result: HomeResult, authenticated: Boolean) = HomeResponse(
+        fun from(result: HomeResult, authenticated: Boolean, linked: Map<Long, LinkedProcessedFoodResponse> = emptyMap()) = HomeResponse(
             authenticated = authenticated,
             avoidedSubstances = result.avoidedSubstances.map(AvoidedSubstanceResponse::from),
             popularFoods = result.popularFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId], linked[it.foodId])
             },
             mostReviewedFoods = result.mostReviewedFoods.map {
-                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId])
+                FoodSummaryResponse.from(it, it.foodId in result.bookmarkedFoodIds, result.ratings[it.foodId], linked[it.foodId])
             },
             recentScans = result.recentScans.map {
                 RecentScanResponse(
-                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId]),
+                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId], linked[it.summary.foodId]),
                     scannedAt = it.scannedAt,
                 )
             },
             topRatedFoods = result.topRatedFoods?.map {
                 TopRatedFoodResponse(
-                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId]),
+                    food = FoodSummaryResponse.from(it.summary, it.summary.foodId in result.bookmarkedFoodIds, result.ratings[it.summary.foodId], linked[it.summary.foodId]),
                     taste = it.rating.taste,
                     servingSpeed = it.rating.servingSpeed,
                     staffKindness = it.rating.staffKindness,
