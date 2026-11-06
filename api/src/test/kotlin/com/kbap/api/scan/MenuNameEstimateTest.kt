@@ -438,6 +438,25 @@ class MenuNameEstimateTest : BehaviorSpec() {
                 }
             }
 
+            `when`("이름의 제로가 제로슈거·제로칼로리 뜻이면 — 보안 검토(무알코올 제외어 과대 적용)") {
+                then("술로 보고 ALCOHOL 을 더한다(제로슈거 소주는 술이다)") {
+                    seedMember(95921, avoid = listOf("ALCOHOL"))
+                    val names = listOf("추정제로슈거소주", "추정제로칼로리하이볼")
+                    names.forEach { name ->
+                        execute(
+                            "INSERT INTO menu_name_estimate (name_key, kind, english_name, description, avoidance_codes, spiciness, confidence, model, prompt_version, status, created_at, updated_at) " +
+                                "VALUES ('$name', 'DRINK', 'Eng', 'About', '[]', -1, 0.900, 'm', 'p', 'ACTIVE', NOW(6), NOW(6))",
+                        )
+                    }
+                    vision.program("scans/mne-21.jpg", names.map { ExtractedMenu("Zero", it, null, null) })
+
+                    pollUntilDone(95921, scan(95921, "scans/mne-21.jpg").path("scanId").asText()).path("items").forEach {
+                        it.path("estimatedCodes").map { c -> c.asText() } shouldBe listOf("ALCOHOL")
+                        it.path("riskLevel").asText() shouldBe "CAUTION"
+                    }
+                }
+            }
+
             `when`("추정 재료가 회원 기피와 겹치면") {
                 then("겹치는 추정 코드만 avoidances 로 내리고 riskLevel CAUTION 이다") {
                     seedMember(95918, avoid = listOf("MOLLUSK"))
