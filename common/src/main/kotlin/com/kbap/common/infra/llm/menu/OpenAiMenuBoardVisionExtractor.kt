@@ -16,9 +16,11 @@ import com.openai.core.http.Headers
 import com.openai.errors.InternalServerException
 import com.openai.errors.OpenAIIoException
 import com.openai.errors.RateLimitException
+import com.openai.models.completions.CompletionUsage
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
+import org.springframework.ai.chat.metadata.Usage
 import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.chat.prompt.Prompt
@@ -62,7 +64,7 @@ class OpenAiMenuBoardVisionExtractor(
         val response = callWithRetryBudget(Prompt(listOf(SystemMessage(systemPrompt), userMessage)))
         val cost = costIncurredFrom(response)
         publishCost(cost)
-        logTokenUsage(cost, response.metadata.usage.totalTokens)
+        logTokenUsage(cost, response.metadata.usage)
         return response.results.firstOrNull()?.output?.text.orEmpty()
     }
 
@@ -138,14 +140,15 @@ class OpenAiMenuBoardVisionExtractor(
         }
     }
 
-    private fun logTokenUsage(cost: LlmCallCostIncurred, totalTokens: Int?) {
+    private fun logTokenUsage(cost: LlmCallCostIncurred, usage: Usage) {
         log.info(
-            "vision 토큰 사용량 promptTokens={} completionTokens={} totalTokens={} costUsd={} costKrw={}",
+            "vision 토큰 사용량 promptTokens={} completionTokens={} totalTokens={} costUsd={} costKrw={} reasoningTokens={}",
             cost.inputTokens,
             cost.outputTokens,
-            totalTokens,
+            usage.totalTokens,
             cost.costUsd.toPlainString(),
             cost.costKrw.toPlainString(),
+            (usage.nativeUsage as? CompletionUsage)?.completionTokensDetails()?.flatMap { it.reasoningTokens() }?.orElse(null),
         )
     }
 
