@@ -199,6 +199,7 @@ api·batch 가 Micrometer OTLP 레지스트리로 15초마다 홈서버 Promethe
 - **NAT 게이트웨이가 없다** — 인스턴스는 퍼블릭 서브넷 + 퍼블릭 IP 로 ECR·SSM 에 나간다. 인바운드는 ALB 보안그룹에서만 열려 있다.
 - 인스턴스 사이징: **api 인스턴스 1대에 태스크 2개까지**(카나리 중 구·신 공존). 태스크 상한 = ECS 등록 메모리(이미 `ECS_RESERVED_MEMORY=256` 을 뺀 값 — t4g.medium ≈3,579, t4g.small 1,590) ÷ 2 → 1,750. api 는 기동만으로 1.2 GiB 를 넘고 prod 실사용 최대가 1.5 GiB 라 t4g.small 에 못 들어간다(2026-11-03 실측). **상한을 넘기면 그린 태스크가 PROVISIONING 에 걸려 배포가 멈춘다**(`aws ecs stop-task` 로 치운다).
 - **tfvars 가 태스크 정의 env 의 단일 출처다.** 리비전에 콘솔로 env 를 넣어 두면 Terraform 이 태스크 정의를 다시 만들 때(`-replace`, `runtime_platform`·메모리 변경) 사라진다 — 토글은 `api_extra_env`·`batch_extra_env`, 시크릿은 `api_secret_names`·`batch_secret_names` 로 넣는다(2026-11-01 REVIEW_BOT_*·ADS_REWARD_UNIT_IDS 가 그렇게 들어가 있던 것을 tfvars 로 옮김).
+  - 메뉴판 패스트패스(Jev, KB-1017): `api_extra_env` 의 `PROCESSED_FOOD_MENU_FAST_PATH_ENABLED`·`_MEMBER_IDS`·`_ROLLOUT_PERCENT`(확대는 MEMBER_IDS → ROLLOUT_PERCENT), 키 `JEV_API_KEY` 는 모듈 기본 `api_secret_names` — `/kbap/<env>/JEV_API_KEY` SSM 이 먼저 있어야 태스크가 뜬다.
 - **런치 템플릿이 바뀌는 apply 는 EC2 를 롤링한다.** ASG 가 템플릿 버전을 숫자로 참조해 instance refresh 가 자동으로 걸린다(api min healthy 50%, batch 는 1대라 몇 분 다운). 추천 AMI(SSM 파라미터)가 갱신된 뒤에는 무관한 apply 에서도 걸린다 — plan 에 `launch_template.version` 변경이 보이면 그 뜻이고, 지금 롤링하면 안 되면 그 apply 를 미룬다.
 - dev 인스턴스는 Spot — 회수되면 `ECS_ENABLE_SPOT_INSTANCE_DRAINING` 으로 2분 전 드레인되고 ASG 가 새로 띄운다(몇 분 1대). 부하 테스트 중 수치가 튀면 ASG 활동 이력에서 회수 시각을 먼저 확인한다.
 - 시크릿 4 KB 초과(Firebase JSON 이 큰 경우)는 SSM Advanced tier 로 파라미터를 바꾼다.

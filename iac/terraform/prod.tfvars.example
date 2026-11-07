@@ -44,14 +44,19 @@ blocked_path_patterns = ["*actuator*", "*swagger*", "*api-docs*"]
 # ADS_REWARD_UNIT_IDS(KB-740): 보상형 광고 적립 API 가 받는 AdMob 보상형 단위 허용 목록(쉼표 구분, 비밀 아님 — 앱 바이너리에 들어가는 값).
 #   prod 실단위 scan_unlock_rewarded Android·iOS(spec admob-ids-2026-10-12.md). dev 는 넣지 않는다(yml 기본 = Google 데모 단위).
 # PROCESSED_FOOD_REVIEW_WRITE_ENABLED: 실행 중 api 리비전(:34)에만 있던 값(2026-11-04 대조) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다.
+# 가공식품 메뉴 패스트패스(Jev): 키는 SSM /kbap/prod/JEV_API_KEY(SecureString, 모듈 기본 시크릿 목록). 토글 3종은 여기 — 기본 꺼짐·0%·대상 없음.
+#   순차 확대는 MEMBER_IDS(쉼표 구분 회원 id) → ROLLOUT_PERCENT 순. 값만 바꿔도 api 태스크 정의 -replace + 재배포가 필요하다.
 api_extra_env = {
-  LANGFUSE_HOST                       = "https://cloud.langfuse.com"
-  ADS_REWARD_UNIT_IDS                 = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
-  REVIEW_BOT_ENABLED                  = "true"
-  REVIEW_BOT_PHOTO_SYNC_ENABLED       = "true"
-  PROCESSED_FOOD_REVIEW_WRITE_ENABLED = "true"
-  CHAT_TELEGRAM_CHAT_ID               = "<예진 텔레그램 채팅 id>"
-  CHAT_ADMIN_BASE_URL                 = "<어드민 주소 — 알림 링크용>"
+  LANGFUSE_HOST                                 = "https://cloud.langfuse.com"
+  ADS_REWARD_UNIT_IDS                           = "ca-app-pub-7408893286425419/4681648821,ca-app-pub-7408893286425419/9167688747"
+  REVIEW_BOT_ENABLED                            = "true"
+  REVIEW_BOT_PHOTO_SYNC_ENABLED                 = "true"
+  PROCESSED_FOOD_REVIEW_WRITE_ENABLED           = "true"
+  CHAT_TELEGRAM_CHAT_ID                         = "<예진 텔레그램 채팅 id>"
+  CHAT_ADMIN_BASE_URL                           = "<어드민 주소 — 알림 링크용>"
+  PROCESSED_FOOD_MENU_FAST_PATH_ENABLED         = "false"
+  PROCESSED_FOOD_MENU_FAST_PATH_MEMBER_IDS      = ""
+  PROCESSED_FOOD_MENU_FAST_PATH_ROLLOUT_PERCENT = "0"
 }
 
 # 실행 중 batch 리비전에만 있던 값(2026-11-03) — 태스크 정의 재생성 때 빠지지 않게 여기 둔다
