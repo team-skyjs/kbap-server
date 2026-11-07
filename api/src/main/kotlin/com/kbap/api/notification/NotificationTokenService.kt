@@ -5,7 +5,6 @@ import com.kbap.common.domain.notification.NotificationConsentJpaRepository
 import com.kbap.common.domain.notification.NotificationDeviceJpaRepository
 import com.kbap.common.domain.notification.NotificationSettingJpaRepository
 import com.kbap.common.domain.notification.model.DevicePlatform
-import com.kbap.common.domain.notification.model.NotificationDevice
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -19,25 +18,15 @@ class NotificationTokenService(
 ) {
     @Transactional
     fun registerToken(installationId: String, memberId: Long?, token: String, platform: DevicePlatform, lang: String) {
-        if (memberId == null) return registerGuestToken(installationId, token, platform, lang)
-        memberService.getMember(memberId)
-        val device = deviceRepository.findByInstallationId(installationId)
-        if (device == null) {
-            deviceRepository.save(NotificationDevice.register(installationId, token, platform, lang, memberId))
+        memberId?.let { memberService.getMember(it) }
+        deviceRepository.insertIfAbsent(installationId, memberId, token, platform.name, lang)
+        val device = checkNotNull(deviceRepository.findLockedByInstallationId(installationId))
+        if (memberId == null) {
+            if (device.memberId == null) device.renew(token, platform, lang)
             return
         }
         device.renew(token, platform, lang)
         device.linkMember(memberId)
-    }
-
-    private fun registerGuestToken(installationId: String, token: String, platform: DevicePlatform, lang: String) {
-        val device = deviceRepository.findByInstallationId(installationId)
-        if (device == null) {
-            deviceRepository.save(NotificationDevice.register(installationId, token, platform, lang))
-            return
-        }
-        if (device.memberId != null) return
-        device.renew(token, platform, lang)
     }
 
     @Transactional

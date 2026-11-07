@@ -18,6 +18,8 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -260,6 +262,45 @@ class NotificationTokenControllerTest : BehaviorSpec() {
                     news.path("enabled").asBoolean() shouldBe false
                     news.path("mealTime").asBoolean() shouldBe false
                     count("notification_setting") shouldBe 0
+                }
+            }
+        }
+
+        given("같은 기기의 등록이 동시에 들어올 때 — S-977") {
+            fun registerWhileAnotherInsertIsOpen(installationId: String, accessToken: String?, body: Map<String, Any?>): Int =
+                dataSource.connection.use { first ->
+                    first.autoCommit = false
+                    first.prepareStatement(
+                        "INSERT INTO notification_device (installation_id, expo_token, platform, lang, created_at, updated_at) VALUES (?, 'ExponentPushToken[first]', 'ANDROID', 'en', NOW(6), NOW(6))",
+                    ).use { it.setString(1, installationId); it.executeUpdate() }
+                    val second = Executors.newSingleThreadExecutor()
+                    try {
+                        val response = second.submit<Int> { register(installationId, accessToken, body).status }
+                        runCatching { response.get(1, TimeUnit.SECONDS) }
+                        first.commit()
+                        response.get(10, TimeUnit.SECONDS)
+                    } finally {
+                        second.shutdownNow()
+                    }
+                }
+
+            `when`("게스트 요청이 먼저 온 같은 기기의 저장이 끝나기 전에 도착하면") {
+                then("500 이 아니라 200 이고, 기록은 하나이며 회원 없는 기록이라 새 값으로 갱신된다") {
+                    registerWhileAnotherInsertIsOpen("dev-race", null, body(token = "ExponentPushToken[second]", platform = "android")) shouldBe 200
+
+                    countDevices() shouldBe 1
+                    device("dev-race") shouldBe Device(null, "ExponentPushToken[second]", "ANDROID", "en", null)
+                }
+            }
+
+            `when`("회원 요청이 먼저 온 같은 기기의 저장이 끝나기 전에 도착하면") {
+                then("200 이고, 기록은 하나이며 그 기록이 회원에 연결된다") {
+                    val (memberId, accessToken) = login("member-race")
+
+                    registerWhileAnotherInsertIsOpen("dev-race-member", accessToken, body(token = "ExponentPushToken[member]")) shouldBe 200
+
+                    countDevices() shouldBe 1
+                    device("dev-race-member") shouldBe Device(memberId, "ExponentPushToken[member]", "IOS", "en", null)
                 }
             }
         }
