@@ -50,6 +50,8 @@ api_extra_env = {
   PROCESSED_FOOD_MENU_FAST_PATH_ENABLED         = "true"
   PROCESSED_FOOD_MENU_FAST_PATH_MEMBER_IDS      = "41,19,25"
   PROCESSED_FOOD_MENU_FAST_PATH_ROLLOUT_PERCENT = "0"
+  # 메뉴판 비전 추출 reasoning-effort(KB-1018 후속, 11/7 실험 §7: 품질 동일·p50 −25%). Spring 환경변수형 = kbap.llm.vision.reasoning-effort. dev 리비전에 2026-11-08 손으로 먼저 넣음
+  KBAP_LLM_VISION_REASONINGEFFORT               = "low"
 }
 batch_extra_env = {
   PROCESSED_FOOD_MIRROR_ENABLED = "true"
