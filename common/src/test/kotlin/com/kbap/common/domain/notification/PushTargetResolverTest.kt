@@ -138,6 +138,7 @@ class PushTargetResolverTest : BehaviorSpec() {
                 then("기기 news on + 회원 두 동의 v2 이상인 기기만 포함한다") {
                     tokensOf(listOf(20L, 21L, 22L, 23L), NotificationType.SCAN_SUGGESTION) shouldBe listOf(ok.expoToken)
                     tokensOf(listOf(20L, 21L, 22L, 23L), NotificationType.NEWS) shouldBe listOf(ok.expoToken)
+                    tokensOf(listOf(20L, 21L, 22L, 23L), NotificationType.FOOD_DISCOVERY) shouldBe listOf(ok.expoToken)
                 }
             }
         }

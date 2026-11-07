@@ -1,5 +1,7 @@
 package com.kbap.batch.trigger.scheduler
 
+import com.kbap.batch.notification.discovery.FoodDiscoveryPushBatchConfig
+import com.kbap.batch.notification.discovery.FoodDiscoverySendWindow
 import com.kbap.batch.notification.receipt.PushReceiptSyncBatchConfig
 import com.kbap.batch.notification.reminder.ReviewReminderPushBatchConfig
 import com.kbap.batch.notification.suggestion.ScanSuggestionPushBatchConfig
@@ -33,11 +35,13 @@ class BatchJobScheduler(
     @Scheduled(cron = ScanSuggestionSendWindow.DAILY_AT_17_00, zone = TIME_ZONE)
     fun pushDinnerScanSuggestions() = launch(ScanSuggestionPushBatchConfig.jobNameOf(MealSlot.DINNER))
 
+    @Scheduled(cron = FoodDiscoverySendWindow.AT_09_12_15_18, zone = TIME_ZONE)
+    fun pushFoodDiscovery() = launch(FoodDiscoveryPushBatchConfig.JOB_NAME)
+
     @Scheduled(cron = ReviewReminderPushBatchConfig.EVERY_5_MINUTES, zone = TIME_ZONE)
     fun pushReviewReminders() = launch(ReviewReminderPushBatchConfig.JOB_NAME)
 
-    @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_10_MINUTES_FROM_11_TO_13_AND_17_TO_19, zone = TIME_ZONE)
-    @Scheduled(cron = PushReceiptSyncBatchConfig.AT_13_00_AND_19_00, zone = TIME_ZONE)
+    @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_10_MINUTES_FROM_09_TO_21, zone = TIME_ZONE)
     fun syncMarketingPushReceipts() = launch(PushReceiptSyncBatchConfig.MARKETING_JOB)
 
     @Scheduled(cron = PushReceiptSyncBatchConfig.EVERY_15_MINUTES, zone = TIME_ZONE)
