@@ -89,21 +89,33 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
         }
     }
     given("한 줄 원문 번역 — 한 항목 JSON 배열로 주고받는다(KB-1023 후속)") {
-        `when`("원재료·알레르기·식품 유형 한 줄의 번역 항목 안에 모델이 줄바꿈을 넣으면") {
-            then("줄바꿈을 공백으로 합쳐 한 줄로 받는다") {
-                ProcessedFoodTranslationPrompt.parse(one("Noodles: wheat flour (USA, Australia),\npalm oil (Malaysia), vitamin B2"), "면:소맥분(미국산,호주산),팜유(말레이시아산),비타민B2", LanguageCode.EN).text shouldBe
+        `when`("원재료·알레르기·식품 유형 한 줄을 한 항목 배열로 돌려주면") {
+            then("그 항목을 번역문으로 받는다") {
+                ProcessedFoodTranslationPrompt.parse(one("Noodles: wheat flour (USA, Australia), palm oil (Malaysia), vitamin B2"), "면:소맥분(미국산,호주산),팜유(말레이시아산),비타민B2", LanguageCode.EN).text shouldBe
                     "Noodles: wheat flour (USA, Australia), palm oil (Malaysia), vitamin B2"
-                ProcessedFoodTranslationPrompt.parse(one("Allergens:\r\nwheat, soybeans, milk\n"), "알레르기 유발물질: 밀, 대두, 우유 함유", LanguageCode.EN).text shouldBe "Allergens: wheat, soybeans, milk"
-                ProcessedFoodTranslationPrompt.parse(one("揚げ\n麺"), "유탕면", LanguageCode.JA).text shouldBe "揚げ 麺"
+                ProcessedFoodTranslationPrompt.parse("```json\n[\"Allergens: wheat, soybeans, milk\"]\n```", "알레르기 유발물질: 밀, 대두, 우유 함유", LanguageCode.EN).text shouldBe "Allergens: wheat, soybeans, milk"
+                ProcessedFoodTranslationPrompt.parse(one("揚げ麺"), "유탕면", LanguageCode.JA).text shouldBe "揚げ麺"
             }
         }
-        `when`("배열 밖에 설명을 붙이거나, 합친 뒤 숫자·단위가 다르거나, 항목 첫 줄이 언어 헤더면") {
-            then("재시도 대상으로 거절한다") {
-                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("Here is the translation:\n[\"Contains wheat\"]", "밀 함유", LanguageCode.EN) }
-                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("Contains wheat\nNote: may contain traces", "밀 함유", LanguageCode.EN) }
-                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium\n500 mg"), "나트륨 600 mg", LanguageCode.EN) }
-                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium\n600 g"), "나트륨 600 mg", LanguageCode.EN) }
-                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("en\nContains wheat"), "밀 함유", LanguageCode.EN) }
+        `when`("배열 밖·뒤에 텍스트가 있거나, 항목 안에 줄바꿈(덧붙인 Note 등)이 있으면 — Codex P2(#615)") {
+            then("합치지 않고 재시도 대상으로 거절한다") {
+                listOf(
+                    "Here is the translation:\n[\"Contains wheat\"]",
+                    "[\"Contains wheat\"]\nNote: also contains milk",
+                    "[\"Contains wheat\"] [\"milk\"]",
+                    "Contains wheat\nNote: may contain traces",
+                    one("Contains wheat\nNote: may contain milk"),
+                    one("Contains\r\nwheat"),
+                ).forEach { output ->
+                    shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(output, "밀 함유", LanguageCode.EN) }
+                }
+            }
+        }
+        `when`("숫자·단위가 다르거나 항목이 언어 헤더로 시작하면") {
+            then("거절한다") {
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium 500 mg"), "나트륨 600 mg", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium 600 g"), "나트륨 600 mg", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("en"), "밀 함유", LanguageCode.EN) }
             }
         }
     }

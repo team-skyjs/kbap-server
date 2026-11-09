@@ -1,5 +1,6 @@
 package com.kbap.common.infra.llm.translation
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.kbap.common.domain.LanguageCode
@@ -34,8 +35,8 @@ object ProcessedFoodTranslationPrompt {
         val items = runCatching { mapper.readValue<List<String?>>(json) }.getOrNull()?.takeIf { it.none { item -> item == null } }?.filterNotNull()
         reject(items == null) { "가공식품 번역문이 JSON 문자열 배열이 아니다" }
         reject(items!!.size != source.lines().size) { "가공식품 번역문의 줄 수가 원문과 다르다" }
-        reject(items.any { HEADER.matches(it.trim().lineSequence().first().trim()) }) { "가공식품 번역문에 언어 헤더가 섞였다" }
-        return items.joinToString("\n") { it.replace(LINE_BREAKS, " ").trim() }
+        reject(items.any { LINE_BREAKS.containsMatchIn(it) }) { "가공식품 번역문 항목 안에 줄바꿈이 있다" }
+        return items.joinToString("\n") { it.trim() }
     }
 
     private fun reject(condition: Boolean, message: () -> String) {
@@ -73,7 +74,7 @@ object ProcessedFoodTranslationPrompt {
         "The user text is a JSON array of strings, one per label line. " +
             "Return only a JSON array of strings with exactly the same number of items, item i being the translation of item i, with no header or notes. " +
             "Never merge, split, add, or drop items, even when an item is a sentence fragment. "
-    private val mapper = jacksonObjectMapper()
+    private val mapper = jacksonObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
     private val LINE_BREAKS = Regex("[\\r\\n]+")
     private val DECIMAL_COMMA = setOf(LanguageCode.ES, LanguageCode.RU, LanguageCode.VI, LanguageCode.ID)
     private val THOUSANDS_DOT = Regex("\\d{1,3}(?:\\.\\d{3})+")
