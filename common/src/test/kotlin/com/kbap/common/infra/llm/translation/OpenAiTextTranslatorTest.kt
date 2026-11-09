@@ -90,21 +90,38 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
         )
 
         `when`("엔진이 식품 문구만 번역하고 숫자·단위·줄 수를 보존하면") {
-            then("머리줄 없이 번역문을 반환한다") {
-                translatorOf("Contains milk and soy\nNet weight 50 g")
-                    .translate("우유, 대두 함유\n내용량 50 g", LanguageCode.EN) shouldBe
-                    TranslatedText("Contains milk and soy\nNet weight 50 g", null)
+            then("머리줄 없이 번역문을 반환한다 — 여러 줄은 JSON 배열로 주고받아 줄로 되돌린다(KB-1023)") {
+                listOf("[\"Contains milk and soy\",\"Net weight 50 g\"]", "```json\n[\"Contains milk and soy\", \"Net weight 50 g\"]\n```").forEach { output ->
+                    translatorOf(output).translate("우유, 대두 함유\n내용량 50 g", LanguageCode.EN) shouldBe
+                        TranslatedText("Contains milk and soy\nNet weight 50 g", null)
+                }
+            }
+        }
+
+        `when`("여러 줄 원문이 모델에 실리면 — KB-1023") {
+            then("줄마다 한 항목인 JSON 배열로 보내고 같은 개수의 배열을 요구한다") {
+                val chatModel = RecordingChatModel(responseOf("[\"Remove the lid\",\"Pour water\"]"))
+                OpenAiTextTranslator(chatModel, pricing, "gpt-test", ApplicationEventPublisher { },
+                    format = OpenAiTextTranslator.Format.PROCESSED_FOOD,
+                ).translate("뚜껑을 떼어낸 후\n물을 붓는다", LanguageCode.EN).text shouldBe "Remove the lid\nPour water"
+
+                val messages = chatModel.prompts.single().instructions
+                messages[1].text shouldBe "[\"뚜껑을 떼어낸 후\",\"물을 붓는다\"]"
+                messages[0].text shouldContain "exactly the same number of items"
+                messages[0].text shouldContain "Never merge, split"
             }
         }
 
         `when`("엔진이 줄·숫자·단위 중 하나를 바꾸거나 헤더를 붙이면") {
             then("불완전한 식품 문구가 저장되지 않도록 실패한다") {
                 listOf(
-                    "Contains milk and soy",
-                    "Contains milk and soy\nNet weight 51 g",
-                    "Contains milk and soy\nNet weight 50 kg",
-                    "en\nContains milk and soy",
-                    "ja-KB872SMOKE ja\nNet weight 50 g",
+                    "Contains milk and soy\nNet weight 50 g",
+                    "[\"Contains milk and soy\"]",
+                    "[\"Contains milk and soy Net weight 50 g\"]",
+                    "[\"Contains milk and soy\",\"Net weight 51 g\"]",
+                    "[\"Contains milk and soy\",\"Net weight 50 kg\"]",
+                    "[\"en\",\"Contains milk and soy\"]",
+                    "[\"ja-KB872SMOKE ja\",\"Net weight 50 g\"]",
                 ).forEach { output ->
                     shouldThrow<IllegalStateException> {
                         translatorOf(output).translate("우유, 대두 함유\n내용량 50 g", LanguageCode.EN)
