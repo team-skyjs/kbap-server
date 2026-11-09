@@ -81,6 +81,7 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("[\"Cook 3 minutes 4\",\"Wait\"]", "3분 조리\n4분 기다린다", LanguageCode.EN) }.message shouldBe "가공식품 번역문의 숫자가 원문과 다르다"
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("Cook 2 minutes", "3분 조리", LanguageCode.EN) }.message shouldBe "가공식품 번역문의 숫자가 원문과 다르다"
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("[\"first and second\"]", "첫 줄\n둘째 줄", LanguageCode.EN) }.message shouldBe "가공식품 번역문의 줄 수가 원문과 다르다"
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("[\"Remove the lid\", null]", "첫 줄\n둘째 줄", LanguageCode.EN) }
             }
         }
     }

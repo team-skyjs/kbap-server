@@ -33,7 +33,7 @@ object ProcessedFoodTranslationPrompt {
 
     private fun linesOf(raw: String, source: String): String {
         val json = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-        val items = runCatching { mapper.readValue<List<String>>(json) }.getOrNull()
+        val items = runCatching { mapper.readValue<List<String?>>(json) }.getOrNull()?.takeIf { it.none { item -> item == null } }?.filterNotNull()
         reject(items == null) { "가공식품 번역문이 JSON 문자열 배열이 아니다" }
         reject(items!!.size != source.lines().size) { "가공식품 번역문의 줄 수가 원문과 다르다" }
         return items.joinToString("\n") { it.replace(LINE_BREAKS, " ").trim() }
