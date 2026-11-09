@@ -61,13 +61,19 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
         }
     }
     given("조리법 단계 번역 — 어순이 바뀐 숫자·단위(KB-1023)") {
-        `when`("같은 줄 안에서 숫자·단위 순서만 바뀌면") {
-            then("정상 번역으로 통과한다") {
+        `when`("같은 줄 안에서 숫자 순서만 바뀌면") {
+            then("단위 없는 숫자(분·초·와트)의 순서가 바뀐 번역은 통과한다") {
                 val source = "전자레인지에 넣고 조리해주세요.(1000W 기준 3분 30초, 700W 기준 4분)\n끓는물(460ml)을 붓고 4분 후 물을 버린다"
                 val output = "[\"Microwave for 3 minutes 30 seconds at 1000W (4 minutes at 700W).\",\"After 4 minutes, drain the boiling water (460ml)\"]"
                 ProcessedFoodTranslationPrompt.parse(output, source, LanguageCode.EN).text shouldBe
                     "Microwave for 3 minutes 30 seconds at 1000W (4 minutes at 700W).\nAfter 4 minutes, drain the boiling water (460ml)"
-                ProcessedFoodTranslationPrompt.parse("5g sugar, 180ml water", "물 180ml, 설탕 5g", LanguageCode.EN).text shouldBe "5g sugar, 180ml water"
+            }
+        }
+        `when`("단위가 붙은 값끼리 자리를 바꾸면(영양·함량 값 뒤바뀜)") {
+            then("단위가 다른 값의 교환도, 같은 단위 값의 교환도 거절한다") {
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("sugar 5 g, sodium 100 mg", "당류 100 g, 나트륨 5 mg", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("flour 5 g, sugar 50 g", "소맥분 50 g, 설탕 5 g", LanguageCode.EN) }
+                ProcessedFoodTranslationPrompt.parse("flour 50 g, sugar 5 g", "소맥분 50 g, 설탕 5 g", LanguageCode.EN).text shouldBe "flour 50 g, sugar 5 g"
             }
         }
         `when`("숫자가 다른 줄로 옮겨 가거나 바뀌면") {
