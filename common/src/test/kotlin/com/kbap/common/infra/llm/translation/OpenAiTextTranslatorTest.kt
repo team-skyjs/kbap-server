@@ -109,6 +109,7 @@ class OpenAiTextTranslatorTest : BehaviorSpec({
                 messages[1].text shouldBe "[\"뚜껑을 떼어낸 후\",\"물을 붓는다\"]"
                 messages[0].text shouldContain "exactly the same number of items"
                 messages[0].text shouldContain "Never merge, split"
+                messages[0].text shouldContain "Never put a line break inside an item"
             }
         }
 

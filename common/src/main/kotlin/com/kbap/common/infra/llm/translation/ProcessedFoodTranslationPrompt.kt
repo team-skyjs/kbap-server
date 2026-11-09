@@ -73,7 +73,8 @@ object ProcessedFoodTranslationPrompt {
     private const val LINES_FORMAT =
         "The user text is a JSON array of strings, one per label line. " +
             "Return only a JSON array of strings with exactly the same number of items, item i being the translation of item i, with no header or notes. " +
-            "Never merge, split, add, or drop items, even when an item is a sentence fragment. "
+            "Never merge, split, add, or drop items, even when an item is a sentence fragment. " +
+            "Never put a line break inside an item. "
     private val mapper = jacksonObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
     private val LINE_BREAKS = Regex("[\\r\\n]+")
     private val DECIMAL_COMMA = setOf(LanguageCode.ES, LanguageCode.RU, LanguageCode.VI, LanguageCode.ID)
