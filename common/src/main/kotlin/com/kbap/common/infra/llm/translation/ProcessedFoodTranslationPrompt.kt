@@ -18,7 +18,7 @@ object ProcessedFoodTranslationPrompt {
     fun userText(source: String): String = if (isMultiLine(source)) mapper.writeValueAsString(source.lines()) else source
 
     fun parse(raw: String, source: String, target: LanguageCode): TranslatedText {
-        val output = if (isMultiLine(source)) linesOf(raw, source) else raw
+        val output = if (isMultiLine(source)) linesOf(raw, source) else oneLineOf(raw)
         reject(output.isBlank()) { "가공식품 번역문이 비어 있다" }
         reject(output.lines().size != source.lines().size) { "가공식품 번역문의 줄 수가 원문과 다르다" }
         output.lines().zip(source.lines()).forEach { (out, src) ->
@@ -37,6 +37,12 @@ object ProcessedFoodTranslationPrompt {
         reject(items == null) { "가공식품 번역문이 JSON 문자열 배열이 아니다" }
         reject(items!!.size != source.lines().size) { "가공식품 번역문의 줄 수가 원문과 다르다" }
         return items.joinToString("\n") { it.replace(LINE_BREAKS, " ").trim() }
+    }
+
+    private fun oneLineOf(raw: String): String {
+        val trimmed = raw.trim()
+        reject(HEADER.matches(trimmed.lineSequence().first().trim())) { "가공식품 번역문에 언어 헤더가 섞였다" }
+        return trimmed.replace(LINE_BREAKS, " ")
     }
 
     private fun reject(condition: Boolean, message: () -> String) {

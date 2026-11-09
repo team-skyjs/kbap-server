@@ -85,4 +85,21 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
             }
         }
     }
+    given("한 줄 원문 번역 — 모델이 줄을 쪼갠 경우(KB-1023 후속)") {
+        `when`("원재료·알레르기·식품 유형 한 줄을 모델이 여러 줄로 나눠 돌려주면") {
+            then("줄바꿈을 공백으로 합쳐 한 줄로 받는다") {
+                ProcessedFoodTranslationPrompt.parse("Noodles: wheat flour (USA, Australia),\npalm oil (Malaysia), vitamin B2", "면:소맥분(미국산,호주산),팜유(말레이시아산),비타민B2", LanguageCode.EN).text shouldBe
+                    "Noodles: wheat flour (USA, Australia), palm oil (Malaysia), vitamin B2"
+                ProcessedFoodTranslationPrompt.parse("Allergens:\r\nwheat, soybeans, milk\n", "알레르기 유발물질: 밀, 대두, 우유 함유", LanguageCode.EN).text shouldBe "Allergens: wheat, soybeans, milk"
+                ProcessedFoodTranslationPrompt.parse("揚げ\n麺", "유탕면", LanguageCode.JA).text shouldBe "揚げ 麺"
+            }
+        }
+        `when`("합친 뒤에도 숫자·단위가 다르거나 첫 줄이 언어 헤더면") {
+            then("지금처럼 거절한다") {
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("Sodium\n500 mg", "나트륨 600 mg", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("Sodium\n600 g", "나트륨 600 mg", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("en\nContains wheat", "밀 함유", LanguageCode.EN) }
+            }
+        }
+    }
 })
