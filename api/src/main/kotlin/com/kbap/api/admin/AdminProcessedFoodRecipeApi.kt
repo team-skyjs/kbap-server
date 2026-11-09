@@ -9,9 +9,25 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 
-@Tag(name = "관리자 가공식품 조리법", description = "관리자 전용 — 라면 조리법 입력(S-961, KB-994, D-34)")
+@Tag(name = "관리자 가공식품 조리법", description = "관리자 전용 — 라면 조리법 입력·조회(S-961, KB-994, D-34 · KB-1022)")
 @SecurityRequirement(name = "bearerAuth")
 interface AdminProcessedFoodRecipeApi {
+    @Operation(
+        summary = "가공식품 조리법 조회",
+        description = """
+            저장된 조리법을 PUT 요청의 `recipe` 와 같은 모양으로 준다 — 단계는 `steps[{ko}]`, 주의는 한국어 원문. 통째 교체 전에 현재 값을 읽는 용도다.
+            조리법이 없으면 `recipe: null`. 숨긴(DELETED) 상품·단종 상품도 조회된다.
+            - **ADMIN 역할 JWT 전용**.
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회(없으면 recipe null)"),
+            ApiResponse(responseCode = "404", description = "가공식품 없음(PFOOD-001)"),
+        ],
+    )
+    fun getRecipe(@Parameter(description = "가공식품 id") id: Long): ResponseEntity<BaseResponse<AdminProcessedFoodRecipeResponse>>
+
     @Operation(
         summary = "가공식품 조리법 전체 교체",
         description = """
