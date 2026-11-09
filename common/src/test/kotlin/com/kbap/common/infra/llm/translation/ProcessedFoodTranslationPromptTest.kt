@@ -116,6 +116,7 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium 500 mg"), "나트륨 600 mg", LanguageCode.EN) }
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium 600 g"), "나트륨 600 mg", LanguageCode.EN) }
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("en"), "밀 함유", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("[\"Contains wheat\",\"en\"]", "밀 함유\n대두 함유", LanguageCode.EN) }.message shouldBe "가공식품 번역문에 언어 헤더가 섞였다"
             }
         }
     }

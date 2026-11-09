@@ -25,8 +25,8 @@ object ProcessedFoodTranslationPrompt {
         output.lines().zip(source.lines()).forEach { (out, src) ->
             reject(!sameNumbers(out, src, target)) { "가공식품 번역문의 숫자가 원문과 다르다" }
             reject(unitsOf(out) != unitsOf(src)) { "가공식품 번역문의 단위가 원문과 다르다" }
+            reject(HEADER.matches(out.trim())) { "가공식품 번역문에 언어 헤더가 섞였다" }
         }
-        reject(HEADER.matches(output.lineSequence().first().trim())) { "가공식품 번역문에 언어 헤더가 섞였다" }
         return TranslatedText(output, null)
     }
 
