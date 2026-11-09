@@ -4,6 +4,7 @@ import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.EntityStatus
 import com.kbap.common.domain.processedfood.model.ProcessedFoodProduct
+import com.kbap.common.domain.processedfood.model.ProcessedFoodRecipe
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -33,6 +34,14 @@ class AdminProcessedFoodDetailService(
                     cutoutReviewStatus = reviewStatus,
                 )
             },
+            id,
+        ).firstOrNull() ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
+
+    @Transactional(readOnly = true)
+    fun getRecipe(id: Long): AdminProcessedFoodRecipeResponse =
+        jdbc.query(
+            "SELECT id, recipe FROM processed_food_product WHERE id = ?",
+            { rs, _ -> AdminProcessedFoodRecipeResponse(rs.getLong("id"), ProcessedFoodRecipe.fromJsonOrNull(rs.getString("recipe"))) },
             id,
         ).firstOrNull() ?: throw BusinessException(ErrorCode.PROCESSED_FOOD_NOT_FOUND)
 }
