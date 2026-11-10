@@ -19,7 +19,8 @@ object ProcessedFoodGlossary {
 
     private fun markerCount(folded: String, markers: List<String>): Int {
         val (excluded, counted) = markers.partition { it.startsWith("!") }
-        return counted.sumOf { countOf(folded, fold(it)) } - excluded.sumOf { countOf(folded, fold(it.removePrefix("!"))) }
+        val masked = excluded.map { fold(it.removePrefix("!")) }.sortedByDescending { it.length }.fold(folded) { text, word -> text.replace(word, "\u0000") }
+        return counted.sumOf { countOf(masked, fold(it)) }
     }
 
     private fun countOf(text: String, marker: String): Int = Regex.escape(marker).toRegex().findAll(text).count()
