@@ -13,6 +13,7 @@ locals {
     JAVA_TOOL_OPTIONS      = "-Xmx700m" # api 와 같은 이유 — 태스크 단위 memory만 있어 MaxRAMPercentage는 호스트 기준으로 계산됨(prod 힙 상한 1,294 MB > 태스크 1,200) → 힙 고정(24h 힙 최대 462 MB, 2026-11-04)
     SENTRY_RELEASE         = element(split(":", var.batch_image), 1)
     OTLP_METRICS_ENABLED   = "true"
+    IMAGE_PUBLIC_BASE_URL  = var.image_public_base_url
   }, local.vector_env, var.batch_extra_env)
 }
 

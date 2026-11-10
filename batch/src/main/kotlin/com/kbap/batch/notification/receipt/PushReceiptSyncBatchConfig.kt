@@ -83,8 +83,7 @@ class PushReceiptSyncBatchConfig(
         const val MARKETING_JOB = "marketingPushReceiptSyncJob"
         const val ACTIVITY_JOB = "activityPushReceiptSyncJob"
         const val UNCONFIRMED_CLOSE_JOB = "unconfirmedPushDispatchCloseJob"
-        const val EVERY_10_MINUTES_FROM_11_TO_13_AND_17_TO_19 = "0 0/10 11-12,17-18 * * *"
-        const val AT_13_00_AND_19_00 = "0 0 13,19 * * *"
+        const val EVERY_10_MINUTES_FROM_09_TO_21 = "0 0/10 9-20 * * *"
         const val EVERY_15_MINUTES = "0 0/15 * * * *"
         const val DAILY_AT_00_00 = "0 0 0 * * *"
 

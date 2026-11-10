@@ -29,6 +29,9 @@ class Notification(
     @Column(name = "body", nullable = false, length = 1000)
     var body: String = "",
 
+    @Column(name = "food_id")
+    var foodId: Long? = null,
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "data")
     var data: Map<String, Any>? = null,
@@ -42,13 +45,11 @@ class Notification(
 
     fun isRead(): Boolean = readAt != null
 
-    fun foodIdOrNull(): Long? = reminderLongOrNull(DATA_FOOD_ID)
+    fun foodIdOrNull(): Long? = foodId
 
-    fun orderIdOrNull(): Long? = reminderLongOrNull(DATA_ORDER_ID)
-
-    private fun reminderLongOrNull(key: String): Long? {
+    fun orderIdOrNull(): Long? {
         if (type != NotificationType.REVIEW_REMINDER) return null
-        return when (val value = data?.get(key)) {
+        return when (val value = data?.get(DATA_ORDER_ID)) {
             is Int -> value.toLong()
             is Long -> value
             is String -> value.toLongOrNull()

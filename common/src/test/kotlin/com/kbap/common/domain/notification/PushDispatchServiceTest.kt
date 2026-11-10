@@ -194,6 +194,26 @@ class PushDispatchServiceTest : BehaviorSpec() {
             }
         }
 
+        given("음식 id 저장") {
+            `when`("data.foodId 가 숫자인 요청과 없는 요청을 준비하면") {
+                clear()
+                device(11L, "ko", newer)
+                newsConsent(11L)
+                newsOn(11L)
+
+                val withFood = service.prepare(PushRequest(NotificationType.FOOD_DISCOVERY, listOf(11L), args = mapOf("food" to "삼계탕", "description" to "d"), data = mapOf("foodId" to 6L)))
+                val withoutFood = service.prepare(PushRequest(NotificationType.NEWS, listOf(11L), args = mapOf("title" to "t", "body" to "b")))
+
+                then("있으면 알림함 행 food_id 와 봉투 data.foodId 가 같은 값이고, 없으면 food_id 는 null 이다") {
+                    val byType = notificationRepository.findAll().associateBy { it.type }
+                    byType.getValue(NotificationType.FOOD_DISCOVERY).foodId shouldBe 6L
+                    withFood.messages.single().data["foodId"] shouldBe 6L
+                    byType.getValue(NotificationType.NEWS).foodId shouldBe null
+                    withoutFood.messages.single().data.containsKey("foodId") shouldBe false
+                }
+            }
+        }
+
         given("유형별 채널") {
             `when`("광고성 유형과 비광고성 유형을 준비하면") {
                 clear()
@@ -204,7 +224,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
                 )
 
                 val channels = listOf(
-                    NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.MEAL_TIME,
+                    NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.MEAL_TIME, NotificationType.FOOD_DISCOVERY,
                     NotificationType.HELPFUL, NotificationType.REVIEW_REMINDER,
                 ).associateWith { type ->
                     service.prepare(PushRequest(type, listOf(9L), args = newsArgsFor(type))).messages.single().channelId
@@ -214,6 +234,7 @@ class PushDispatchServiceTest : BehaviorSpec() {
                     channels.getValue(NotificationType.SCAN_SUGGESTION) shouldBe "news"
                     channels.getValue(NotificationType.NEWS) shouldBe "news"
                     channels.getValue(NotificationType.MEAL_TIME) shouldBe "news"
+                    channels.getValue(NotificationType.FOOD_DISCOVERY) shouldBe "news"
                     channels.getValue(NotificationType.HELPFUL) shouldBe "activity"
                     channels.getValue(NotificationType.REVIEW_REMINDER) shouldBe "activity"
                 }

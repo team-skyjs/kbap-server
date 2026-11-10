@@ -171,6 +171,9 @@ kbap:
     bucket: ${VECTOR_BUCKET:}
     index: ${VECTOR_INDEX:foods}
     region: ${AWS_REGION:ap-northeast-2}
+  # 음식 썸네일 푸시(KB-985)용 이미지 공개 CDN 베이스. api 와 같은 IMAGE_PUBLIC_BASE_URL — 비어 있으면 썸네일 없이 보낸다.
+  storage:
+    public-base-url: ${IMAGE_PUBLIC_BASE_URL:}
   # Expo push 발송(KB-468). access-token 은 Enhanced push security 를 켤 때만 필요 — 비어 있으면 Authorization 헤더를 생략한다.
   push:
     expo:
