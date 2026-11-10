@@ -14,7 +14,13 @@ object ProcessedFoodTranslationPrompt {
             LINES_FORMAT +
             "Preserve every ingredient, allergen, number, unit, and product or brand name. " +
             "Do not invent, remove, or change allergen or health facts. Do not convert units. " +
-            "Keep ASCII unit symbols exactly: 50 g must remain 50 g, never 50 г or 50 กรัม."
+            "Keep ASCII unit symbols exactly: 50 g must remain 50 g, never 50 г or 50 กรัม." +
+            glossaryInstruction(source, target)
+
+    private fun glossaryInstruction(source: String, target: LanguageCode): String =
+        source.lines().flatMap { ProcessedFoodGlossary.termsIn(it, target) }.distinct().takeIf { it.isNotEmpty() }
+            ?.joinToString("; ", prefix = " Use these fixed translations for these label terms, keeping the food name they contain: ") { (term, fixed) -> "\"$term\" → \"$fixed\"" }
+            .orEmpty()
 
     fun userText(source: String): String = mapper.writeValueAsString(source.lines())
 
@@ -26,6 +32,9 @@ object ProcessedFoodTranslationPrompt {
             reject(!sameNumbers(out, src, target)) { "가공식품 번역문의 숫자가 원문과 다르다" }
             reject(unitsOf(out) != unitsOf(src)) { "가공식품 번역문의 단위가 원문과 다르다" }
             reject(HEADER.matches(out.trim())) { "가공식품 번역문에 언어 헤더가 섞였다" }
+            reject(ProcessedFoodGlossary.termsIn(src, target).any { (_, fixed) -> !ProcessedFoodGlossary.contains(out, fixed) }) {
+                "가공식품 번역문에 고정 용어 번역이 빠졌다"
+            }
         }
         return TranslatedText(output, null)
     }

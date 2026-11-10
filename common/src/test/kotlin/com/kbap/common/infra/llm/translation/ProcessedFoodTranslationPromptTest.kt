@@ -6,6 +6,8 @@ import com.kbap.common.port.llm.TranslationRejectedException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 
 class ProcessedFoodTranslationPromptTest : BehaviorSpec({
     fun one(item: String): String = jacksonObjectMapper().writeValueAsString(listOf(item))
@@ -117,6 +119,49 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("Sodium 600 g"), "나트륨 600 mg", LanguageCode.EN) }
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("en"), "밀 함유", LanguageCode.EN) }
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse("[\"Contains wheat\",\"en\"]", "밀 함유\n대두 함유", LanguageCode.EN) }.message shouldBe "가공식품 번역문에 언어 헤더가 섞였다"
+            }
+        }
+    }
+    given("알레르기 유래 성분명·원재료 머리말 고정 번역 — KB-1024") {
+        val source = "*면:소맥분,난각분말,유청,카제인,글루텐"
+        val translations = mapOf(
+            LanguageCode.JA to "*麺：小麦粉、卵殻粉、乳清、カゼイン（乳由来）、グルテン",
+            LanguageCode.EN to "*Noodles: wheat flour, eggshell powder, whey (milk), casein (milk), gluten",
+            LanguageCode.ZH_HANS to "*面饼：小麦粉，蛋壳粉，乳清，酪蛋白（乳），麸质",
+        )
+        `when`("원문에 고정 용어가 있으면") {
+            then("system 에 그 용어의 고정 번역을 싣는다") {
+                ProcessedFoodTranslationPrompt.system(LanguageCode.JA, source).let {
+                    it shouldContain "\"난각분말\" → \"卵殻粉\""
+                    it shouldContain "\"카제인\" → \"カゼイン（乳由来）\""
+                    it shouldContain "\"*면:\" → \"麺\""
+                }
+                ProcessedFoodTranslationPrompt.system(LanguageCode.EN, "소맥분") shouldNotContain "Use these fixed translations"
+            }
+            then("ja·en·zh-Hans 번역이 식품명을 담은 고정 번역을 쓰면 통과한다(괄호 전각·반각, 대소문자 무관)") {
+                translations.forEach { (language, output) ->
+                    ProcessedFoodTranslationPrompt.parse(one(output), source, language).text shouldBe output
+                }
+                ProcessedFoodTranslationPrompt.parse(one("*NOODLES: wheat flour, Eggshell Powder, whey(milk), casein(milk), Gluten"), source, LanguageCode.EN)
+            }
+        }
+        `when`("고정 번역이 빠지면(2292 ja 사례: 난각분말 → 殻粉, *면: → 小麦粉)") {
+            then("재시도 대상으로 거절한다") {
+                listOf(
+                    "*小麦粉：小麦粉、殻粉、乳清、カゼイン（乳由来）、グルテン",
+                    "*麺：小麦粉、殻粉、乳清、カゼイン（乳由来）、グルテン",
+                    "*麺：小麦粉、卵殻粉、乳清、カゼイン、グルテン",
+                ).forEach { output ->
+                    shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one(output), source, LanguageCode.JA) }.message shouldBe
+                        "가공식품 번역문에 고정 용어 번역이 빠졌다"
+                }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("*Noodles: wheat flour, shell powder, whey (milk), casein (milk), gluten"), source, LanguageCode.EN) }
+            }
+        }
+        `when`("긴 표기 안에 짧은 표기가 들어 있으면(유청분말·밀글루텐)") {
+            then("긴 표기의 고정 번역만 요구한다") {
+                ProcessedFoodTranslationPrompt.parse(one("乳清粉末、小麦グルテン"), "유청분말,밀글루텐", LanguageCode.JA).text shouldBe "乳清粉末、小麦グルテン"
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("乳清、グルテン"), "유청분말,밀글루텐", LanguageCode.JA) }
             }
         }
     }

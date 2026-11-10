@@ -1,0 +1,17 @@
+# 가공식품 번역 고정 용어(KB-1024). 원문에 이 표기가 있으면 번역문 같은 줄에 고정 번역이 그대로 들어가야 한다(없으면 거절·재시도 → 한국어 원문).
+# 목적: 알레르기 유발 식품이 드러나는 성분명(난각=달걀, 유청·카제인=우유, 밀글루텐=밀)과 원재료 묶음 머리말의 의미 오류를 막는다. 문체 다듬기용이 아니다.
+# 긴 표기가 먼저 잡히고, 잡힌 부분은 짧은 표기(유청분말 안의 유청)로 다시 세지 않는다. 비교는 NFKC·대소문자·공백 무시.
+# 글루텐은 원료 곡물을 단정하지 않는다(terms.tsv 가 밀로 매핑하지 않는 것과 같은 이유) — 단어 자체를 보존한다.
+# ko	en	ja	zh-Hans	zh-Hant	vi	id	th	ru	es
+난각분말	eggshell powder	卵殻粉	蛋壳粉	蛋殼粉	bột vỏ trứng	bubuk cangkang telur	ผงเปลือกไข่	порошок яичной скорлупы	polvo de cáscara de huevo
+난각칼슘	eggshell calcium	卵殻カルシウム	蛋壳钙	蛋殼鈣	canxi vỏ trứng	kalsium cangkang telur	แคลเซียมเปลือกไข่	кальций яичной скорлупы	calcio de cáscara de huevo
+유청분말	whey powder (milk)	乳清粉末	乳清粉	乳清粉	bột whey (sữa)	bubuk whey (susu)	เวย์ผง (นม)	сухая молочная сыворотка	suero de leche en polvo
+유청단백	whey protein (milk)	乳清たんぱく	乳清蛋白	乳清蛋白	đạm whey (sữa)	protein whey (susu)	เวย์โปรตีน (นม)	молочный сывороточный белок	proteína de suero de leche
+유청	whey (milk)	乳清	乳清	乳清	whey (sữa)	whey (susu)	เวย์ (นม)	молочная сыворотка	suero de leche
+카제인나트륨	sodium caseinate (milk)	カゼインナトリウム（乳由来）	酪蛋白酸钠（乳）	酪蛋白酸鈉（乳）	natri caseinat (sữa)	natrium kaseinat (susu)	โซเดียมเคซีเนต (นม)	казеинат натрия (молоко)	caseinato de sodio (leche)
+카제인	casein (milk)	カゼイン（乳由来）	酪蛋白（乳）	酪蛋白（乳）	casein (sữa)	kasein (susu)	เคซีน (นม)	казеин (молоко)	caseína (leche)
+밀글루텐	wheat gluten	小麦グルテン	小麦面筋	小麥麵筋	gluten lúa mì	gluten gandum	กลูเตนข้าวสาลี	пшеничный глютен	gluten de trigo
+글루텐	gluten	グルテン	麸质	麩質	gluten	gluten	กลูเตน	глютен	gluten
+*면:	Noodles	麺	面饼	麵餅	Mì	Mi	เส้นบะหมี่	Лапша	Fideos
+*스프류:	Soup	スープ	汤料	湯料	Súp	Sup	ซุป	Суп	Sopa
+*스프:	Soup	スープ	汤料	湯料	Súp	Sup	ซุป	Суп	Sopa
