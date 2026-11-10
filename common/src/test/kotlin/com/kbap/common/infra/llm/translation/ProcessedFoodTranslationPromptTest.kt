@@ -172,6 +172,9 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("soy milk, casein"), "두유,카제인", LanguageCode.EN) }
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("buckwheat, gluten"), "메밀,밀글루텐", LanguageCode.EN) }
                 ProcessedFoodTranslationPrompt.parse(one("乳化剤、カゼイン（乳由来）"), "유화제,카제인", LanguageCode.JA)
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("乳酸、乳酸菌、カゼイン"), "젖산,유산균,카제인", LanguageCode.JA) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("乳酸，酪蛋白"), "젖산,카제인", LanguageCode.ZH_HANS) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("молочная кислота, казеин"), "젖산,카제인", LanguageCode.RU) }
             }
         }
         `when`("긴 표기 안에 짧은 표기가 들어 있으면(유청분말·밀글루텐)") {
