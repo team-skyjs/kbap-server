@@ -13,7 +13,7 @@ object ProcessedFoodGlossary {
     fun isKeptIn(terms: List<Term>, output: String): Boolean {
         val folded = fold(output)
         val (foodTerms, fixedTerms) = terms.partition { it.food != null }
-        return fixedTerms.all { fold(it.fixed) in folded } &&
+        return fixedTerms.groupBy { fold(it.fixed) }.all { (fixed, group) -> countOf(folded, fixed) >= group.size } &&
             foodTerms.groupBy { it.food }.values.all { group -> markerCount(folded, group.first().required) >= group.size }
     }
 
@@ -36,11 +36,12 @@ object ProcessedFoodGlossary {
 
     fun termsIn(line: String, target: LanguageCode): List<Term> {
         var rest = line
-        return entries.mapNotNull { entry ->
-            if (entry.term !in rest) return@mapNotNull null
+        return entries.flatMap { entry ->
+            val occurrences = countOf(rest, entry.term)
+            if (occurrences == 0) return@flatMap emptyList()
             rest = rest.replace(entry.term, "\u0000")
-            val fixed = entry.translations[target.code] ?: return@mapNotNull null
-            Term(entry.term, fixed, entry.food, entry.food?.let { foodMarkers.getValue(it).getValue(target.code) } ?: listOf(fixed))
+            val fixed = entry.translations[target.code] ?: return@flatMap emptyList()
+            List(occurrences) { Term(entry.term, fixed, entry.food, entry.food?.let { foodMarkers.getValue(it).getValue(target.code) } ?: listOf(fixed)) }
         }
     }
 
