@@ -18,7 +18,7 @@ object ProcessedFoodTranslationPrompt {
             glossaryInstruction(source, target)
 
     private fun glossaryInstruction(source: String, target: LanguageCode): String =
-        source.lines().flatMap { ProcessedFoodGlossary.termsIn(it, target) }.distinct().takeIf { it.isNotEmpty() }
+        source.lines().flatMap { ProcessedFoodGlossary.termsIn(it, target) }.map { it.term to it.fixed }.distinct().takeIf { it.isNotEmpty() }
             ?.joinToString("; ", prefix = " Use these fixed translations for these label terms, keeping the food name they contain: ") { (term, fixed) -> "\"$term\" → \"$fixed\"" }
             .orEmpty()
 
@@ -32,8 +32,8 @@ object ProcessedFoodTranslationPrompt {
             reject(!sameNumbers(out, src, target)) { "가공식품 번역문의 숫자가 원문과 다르다" }
             reject(unitsOf(out) != unitsOf(src)) { "가공식품 번역문의 단위가 원문과 다르다" }
             reject(HEADER.matches(out.trim())) { "가공식품 번역문에 언어 헤더가 섞였다" }
-            reject(ProcessedFoodGlossary.termsIn(src, target).any { (_, fixed) -> !ProcessedFoodGlossary.contains(out, fixed) }) {
-                "가공식품 번역문에 고정 용어 번역이 빠졌다"
+            reject(!ProcessedFoodGlossary.isKeptIn(ProcessedFoodGlossary.termsIn(src, target), out)) {
+                "가공식품 번역문에 알레르기 식품명·고정 용어가 빠졌다"
             }
         }
         return TranslatedText(output, null)

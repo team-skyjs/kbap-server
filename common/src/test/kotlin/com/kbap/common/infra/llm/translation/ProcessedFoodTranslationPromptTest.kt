@@ -153,9 +153,25 @@ class ProcessedFoodTranslationPromptTest : BehaviorSpec({
                     "*麺：小麦粉、卵殻粉、乳清、カゼイン、グルテン",
                 ).forEach { output ->
                     shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one(output), source, LanguageCode.JA) }.message shouldBe
-                        "가공식품 번역문에 고정 용어 번역이 빠졌다"
+                        "가공식품 번역문에 알레르기 식품명·고정 용어가 빠졌다"
                 }
                 shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("*Noodles: wheat flour, shell powder, whey (milk), casein (milk), gluten"), source, LanguageCode.EN) }
+            }
+        }
+        `when`("고정 용어가 더 긴 복합 성분명 안에 있으면(유청칼슘·농축유청단백분말) — Codex P2(#617)") {
+            then("고정 문구를 그대로 쓰지 않아도 식품명이 남아 있으면 통과하고, 식품명이 빠지면 거절한다") {
+                ProcessedFoodTranslationPrompt.parse(one("whey calcium (milk), whey protein concentrate powder (milk)"), "유청칼슘,농축유청단백분말", LanguageCode.EN).text shouldBe
+                    "whey calcium (milk), whey protein concentrate powder (milk)"
+                ProcessedFoodTranslationPrompt.parse(one("乳清カルシウム、濃縮乳清たんぱく粉末"), "유청칼슘,농축유청단백분말", LanguageCode.JA)
+                ProcessedFoodTranslationPrompt.parse(one("сухой концентрат молочного сывороточного белка"), "농축유청단백분말", LanguageCode.RU)
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("whey calcium, whey protein concentrate powder"), "유청칼슘,농축유청단백분말", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("*Noodles: whey (milk), casein"), "*면:유청,카제인", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("壳粉，酪蛋白（乳）"), "난각분말,카제인", LanguageCode.ZH_HANS) }
+                ProcessedFoodTranslationPrompt.parse(one("蛋壳粉，酪蛋白（乳）"), "난각분말,카제인", LanguageCode.ZH_HANS)
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("乳化剤、カゼイン"), "유화제,카제인", LanguageCode.JA) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("soy milk, casein"), "두유,카제인", LanguageCode.EN) }
+                shouldThrow<TranslationRejectedException> { ProcessedFoodTranslationPrompt.parse(one("buckwheat, gluten"), "메밀,밀글루텐", LanguageCode.EN) }
+                ProcessedFoodTranslationPrompt.parse(one("乳化剤、カゼイン（乳由来）"), "유화제,카제인", LanguageCode.JA)
             }
         }
         `when`("긴 표기 안에 짧은 표기가 들어 있으면(유청분말·밀글루텐)") {

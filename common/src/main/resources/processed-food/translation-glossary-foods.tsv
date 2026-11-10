@@ -1,0 +1,6 @@
+# 알레르기 식품명 표지(KB-1024). food<TAB>언어별 표지(| 로 여럿, ! 로 시작하면 제외어). 번역문 줄의 표지 출현 수 − 제외어 출현 수가 그 식품의 고정 용어 수 이상이어야 한다. 비교는 NFKC·대소문자·공백 무시.
+# 제외어: 식품이 아닌데 표지를 품은 말(乳化剤·豆乳·coconut milk·buckwheat 등)이 빠진 식품명을 가리지 않게 한다. zh 의 달걀은 蛋 한 글자로 두지 않는다 — 酪蛋白·蛋白质 의 蛋 이 세어진다. ru 제외어는 어간(кокосов·соев)이라 그 말 하나를 뺀다.
+# food	en	ja	zh-Hans	zh-Hant	vi	id	th	ru	es
+EGG	egg|!eggplant	卵|たまご|玉子	蛋壳|鸡蛋|蛋黄|蛋清|全蛋|蛋粉	蛋殼|雞蛋|蛋黃|蛋清|全蛋|蛋粉	trứng	telur	ไข่	яйц|яич	huevo
+MILK	milk|dairy|!coconut milk|!soy milk|!soymilk|!oat milk|!almond milk	乳|ミルク|!乳化|!豆乳|!ココナッツミルク	乳|奶|!乳化|!豆乳|!豆奶|!椰奶|!椰乳	乳|奶|!乳化|!豆乳|!豆奶|!椰奶|!椰乳	sữa|!sữa đậu nành|!sữa dừa	susu|!susu kedelai|!susu kelapa	นม|!นมถั่วเหลือง|!นมมะพร้าว	молок|молоч|!кокосов|!соев	leche|lácte|!leche de coco|!leche de soja
+WHEAT	wheat|!buckwheat	小麦	小麦	小麥	lúa mì	gandum	ข้าวสาลี	пшени	trigo|!trigo sarraceno
