@@ -12,6 +12,10 @@ import com.openai.errors.InternalServerException
 import com.openai.errors.OpenAIIoException
 import com.openai.errors.RateLimitException
 import com.openai.models.ErrorObject
+import com.openai.models.completions.CompletionUsage
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
 import java.util.Optional
@@ -90,6 +94,40 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
     }
 
     val ocrItems = listOf(OcrItem(idx = 0, rawMenuName = "김치찌개"))
+
+    given("vision 토큰 사용량 로그의 추론 토큰 수(KB-1018)") {
+        fun usageLogOf(usage: Usage): String {
+            val logger = LoggerFactory.getLogger(OpenAiMenuBoardVisionExtractor::class.java) as ch.qos.logback.classic.Logger
+            val appender = ListAppender<ILoggingEvent>().apply { start() }
+            logger.addAppender(appender)
+            try {
+                extractorRecording(chatModelReturning(responseOf("""{"results":[]}""", "gpt-5.6-luna", usage))).first.extract("scan/1/menu.jpg", ocrItems)
+            } finally {
+                logger.detachAppender(appender)
+            }
+            return appender.list.single { it.formattedMessage.startsWith("vision 토큰 사용량") }.formattedMessage
+        }
+
+        `when`("OpenAI usage 에 completion_tokens_details.reasoning_tokens 가 있으면") {
+            then("그 값을 reasoningTokens 로 남기고 기존 필드·비용은 그대로다") {
+                val native = CompletionUsage.builder().promptTokens(1237).completionTokens(567).totalTokens(1804)
+                    .completionTokensDetails(CompletionUsage.CompletionTokensDetails.builder().reasoningTokens(448).build())
+                    .build()
+
+                usageLogOf(DefaultUsage(1237, 567, 1804, native)) shouldBe
+                    "vision 토큰 사용량 promptTokens=1237 completionTokens=567 totalTokens=1804 costUsd=0.000526 costKrw=0.79 reasoningTokens=448"
+            }
+        }
+
+        `when`("details 가 없거나 OpenAI usage 가 아니면") {
+            then("reasoningTokens=null 로 남긴다") {
+                val native = CompletionUsage.builder().promptTokens(100).completionTokens(50).totalTokens(150).build()
+
+                usageLogOf(DefaultUsage(100, 50, 150, native)) shouldContain "reasoningTokens=null"
+                usageLogOf(DefaultUsage(100, 50, 150)) shouldContain "reasoningTokens=null"
+            }
+        }
+    }
 
     given("vision 응답 수신 시 비용 이벤트 발행") {
         `when`("usage 를 포함한 성공 응답을 받으면") {

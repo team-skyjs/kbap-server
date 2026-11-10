@@ -17,6 +17,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -27,7 +28,12 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(ApiPaths.ADMIN + "/processed-foods/{id}/recipe", version = "1.0+")
 class AdminProcessedFoodRecipeController(
     private val manualService: AdminProcessedFoodManualService,
+    private val detailService: AdminProcessedFoodDetailService,
 ) : AdminProcessedFoodRecipeApi {
+    @GetMapping
+    override fun getRecipe(@PathVariable id: Long): ResponseEntity<BaseResponse<AdminProcessedFoodRecipeResponse>> =
+        ResponseEntity.ok().header("Cache-Control", "no-store").body(BaseResponse.ok(detailService.getRecipe(id)))
+
     @PutMapping
     override fun putRecipe(
         @PathVariable id: Long,
@@ -123,4 +129,11 @@ data class AdminProcessedFoodRecipePutResponse(
     val processedFoodId: Long,
     @field:Schema(description = "저장된 조리법이 있으면 true, 지웠으면 false")
     val hasRecipe: Boolean,
+)
+
+@Schema(description = "저장된 조리법 — PUT 요청의 recipe 와 같은 모양")
+data class AdminProcessedFoodRecipeResponse(
+    val processedFoodId: Long,
+    @field:Schema(description = "조리법(단계·주의는 한국어 원문) — 없으면 null", nullable = true)
+    val recipe: ProcessedFoodRecipe?,
 )

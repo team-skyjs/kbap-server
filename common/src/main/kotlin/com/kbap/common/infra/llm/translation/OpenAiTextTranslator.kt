@@ -32,10 +32,10 @@ class OpenAiTextTranslator(
         val marker = newMarker()
         val systemPrompt = when (format) {
             Format.SOURCE_LANGUAGE_HEADER -> TranslationPrompt.system(target, marker)
-            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.system(target)
+            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.system(target, text)
             Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.system(target, text)
         }
-        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), UserMessage(text)), options.build()))
+        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), UserMessage(if (format == Format.PROCESSED_FOOD) ProcessedFoodTranslationPrompt.userText(text) else text)), options.build()))
         val usage = response.metadata.usage
         val input = (usage.promptTokens ?: 0).toLong()
         val output = (usage.completionTokens ?: 0).toLong()

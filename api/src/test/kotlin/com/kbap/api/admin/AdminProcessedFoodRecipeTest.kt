@@ -52,6 +52,13 @@ class AdminProcessedFoodRecipeTest : BehaviorSpec() {
             },
             expected,
         )
+        fun getRecipe(id: Long, expected: Int = 200) = read(
+            mockMvc.get("/api/admin/processed-foods/$id/recipe") {
+                header("Authorization", "Bearer ${tokenIssuer.issueAccessToken(0, MemberRole.ADMIN)}")
+                header("X-API-Version", "1.0")
+            },
+            expected,
+        )
         fun detail(id: Long, lang: String? = null): JsonNode = read(
             mockMvc.get("/api/processed-foods/$id") { header("X-API-Version", "3.2"); lang?.let { param("lang", it) } },
             200,
@@ -155,6 +162,63 @@ class AdminProcessedFoodRecipeTest : BehaviorSpec() {
                         it.path("steps").map { s -> s.asText() } shouldBe listOf("뚜껑을 뜯고 물을 붓는다")
                         it.path("cautions").map { c -> c.asText() } shouldBe listOf("뜨거우니 조심")
                     }
+                }
+            }
+
+            `when`("어드민이 저장된 조리법을 조회하면 — KB-1022") {
+                then("PUT 과 같은 모양(단계는 한국어 원문 ko)으로 돌려주고, 그대로 다시 PUT 해도 값이 같다") {
+                    val id = seed("RC-1", "로제불닭볶음면 큰컵")
+                    putRecipe(id, buldak)
+
+                    val payload = getRecipe(id).path("payload")
+
+                    payload.path("processedFoodId").asLong() shouldBe id
+                    val recipe = payload.path("recipe")
+                    recipe.path("source").asText() shouldBe "LABEL"
+                    recipe.path("methods")[0].let {
+                        it.path("type").asText() shouldBe "MICROWAVE"
+                        it.path("water").path("line").asText() shouldBe "INNER"
+                        it.path("power").map { p -> p.path("watt").asInt() to p.path("seconds").asInt() } shouldBe listOf(1000 to 150, 700 to 180)
+                        it.path("steps").map { s -> s.path("ko").asText() } shouldBe listOf("뚜껑을 절취선까지 뜯는다", "안쪽 선까지 물을 붓는다")
+                        it.path("cautions").map { c -> c.asText() } shouldBe listOf("물을 버리지 마세요")
+                    }
+                    recipe.path("methods")[1].let {
+                        it.path("type").asText() shouldBe "BOILING_WATER"
+                        it.path("waitSeconds").asInt() shouldBe 240
+                        it.path("drainKeepMl").asInt() shouldBe 15
+                        it.path("steps").map { s -> s.path("ko").asText() } shouldBe listOf("끓는 물을 바깥 선까지 붓는다")
+                    }
+
+                    putRecipe(id, recipe)
+                    getRecipe(id).path("payload").path("recipe") shouldBe recipe
+                }
+            }
+
+            `when`("조리법이 없는 상품을 조회하면") {
+                then("recipe 가 null 로 온다") {
+                    val id = seed("RC-9", "조리법없는과자")
+
+                    val payload = getRecipe(id).path("payload")
+
+                    payload.path("processedFoodId").asLong() shouldBe id
+                    payload.has("recipe") shouldBe true
+                    payload.path("recipe").isNull shouldBe true
+                }
+            }
+
+            `when`("없는 id 를 조회하면") {
+                then("404 PFOOD-001") {
+                    getRecipe(Long.MAX_VALUE, 404).path("code").asText() shouldBe "PFOOD-001"
+                }
+            }
+
+            `when`("숨긴 상품을 조회하면") {
+                then("조리법을 그대로 돌려준다") {
+                    val id = seed("RC-1", "로제불닭볶음면 큰컵")
+                    putRecipe(id, buldak)
+                    execute("UPDATE processed_food_product SET status = 'DELETED' WHERE id = $id")
+
+                    getRecipe(id).path("payload").path("recipe").path("methods").size() shouldBe 2
                 }
             }
 
