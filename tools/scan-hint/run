@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+dir=$(cd "$(dirname "$0")" && pwd)
+if [[ ${2:-} == --live && $# -eq 2 ]]; then
+  [[ -n ${OPENAI_API_KEY:-} ]] || { echo 'OPENAI_API_KEY를 먼저 설정하세요.' >&2; exit 2; }
+  if [[ -z ${JAVA_HOME:-} && $(uname) == Darwin ]]; then
+    export JAVA_HOME
+    JAVA_HOME=$(/usr/libexec/java_home -v 21)
+  fi
+  (cd "$dir/../.." && env -u OPENAI_API_KEY ./gradlew -q -I tools/scan-hint/classpath.init.gradle :common:baselineClasspath)
+elif [[ $# -ne 1 ]]; then
+  echo '사용법: run paths.csv [--live]' >&2; exit 2
+fi
+exec python3 "$dir/baseline.py" "$@"
