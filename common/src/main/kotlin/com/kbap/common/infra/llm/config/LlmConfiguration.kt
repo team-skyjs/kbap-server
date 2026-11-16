@@ -20,6 +20,14 @@ import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
 import com.kbap.common.infra.llm.translation.OpenAiTextTranslator
 import com.kbap.common.infra.llm.translation.ProcessedFoodNamePrompt
 import com.kbap.common.infra.llm.model.LlmPricing
+import com.kbap.common.infra.llm.claude.ClaudeChat
+import com.kbap.common.infra.llm.ingredient.ClaudeIngredientDecider
+import com.kbap.common.infra.llm.menu.ClaudeMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.menu.ClaudeMenuNameEstimator
+import com.kbap.common.infra.llm.menu.MenuBoardVisionClient
+import com.kbap.common.infra.llm.review.ClaudeReviewTextGenerator
+import com.kbap.common.infra.llm.translation.ClaudeTextTranslator
+import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import org.springframework.ai.openai.OpenAiChatModel
 import org.springframework.ai.openai.OpenAiChatOptions
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -38,25 +46,25 @@ class LlmConfiguration {
     fun menuBoardVisionExtractor(
         properties: LlmModelProperties,
         eventPublisher: ApplicationEventPublisher,
-    ): OpenAiMenuBoardVisionExtractor {
+    ): MenuBoardVisionClient {
         val props = properties.vision
-        val chatModel = OpenAiChatModel.builder()
-            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
-            .build()
-        val pricing = LlmPricing(
-            inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-            outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-            usdToKrw = properties.usdToKrw,
-        )
+        if (!props.usesOpenAi()) {
+            return ClaudeMenuBoardVisionExtractor(
+                chat = claudeChat(props, properties.usdToKrw, eventPublisher),
+                parser = MenuBoardResultParser(),
+                imageBaseUrl = props.imageBaseUrl,
+                retryBudget = props.retryBudget,
+            )
+        }
+        val openAi = props.forOpenAi()
         return OpenAiMenuBoardVisionExtractor(
-            chatModel = chatModel,
+            chatModel = openAiChatModel(openAi),
             parser = MenuBoardResultParser(),
-            imageBaseUrl = props.imageBaseUrl,
-            pricing = pricing,
-            configuredModelName = props.model.orEmpty(),
+            imageBaseUrl = openAi.imageBaseUrl,
+            pricing = pricingOf(openAi, properties.usdToKrw),
+            configuredModelName = openAi.model.orEmpty(),
             eventPublisher = eventPublisher,
-            retryBudget = props.retryBudget,
+            retryBudget = openAi.retryBudget,
         )
     }
 
@@ -67,18 +75,12 @@ class LlmConfiguration {
         eventPublisher: ApplicationEventPublisher,
     ): ReviewTextGenerator {
         val props = properties.review
-        val chatModel = OpenAiChatModel.builder()
-            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
-            .build()
+        if (!props.usesOpenAi()) return ClaudeReviewTextGenerator(claudeChat(props, properties.usdToKrw, eventPublisher))
+        val openAi = props.forOpenAi()
         return OpenAiReviewTextGenerator(
-            chatModel = chatModel,
-            pricing = LlmPricing(
-                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-                usdToKrw = properties.usdToKrw,
-            ),
-            configuredModelName = props.model.orEmpty(),
+            chatModel = openAiChatModel(openAi),
+            pricing = pricingOf(openAi, properties.usdToKrw),
+            configuredModelName = openAi.model.orEmpty(),
             eventPublisher = eventPublisher,
         )
     }
@@ -90,18 +92,12 @@ class LlmConfiguration {
         eventPublisher: ApplicationEventPublisher,
     ): TextTranslator {
         val props = properties.translation
-        val chatModel = OpenAiChatModel.builder()
-            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
-            .build()
+        if (!props.usesOpenAi()) return ClaudeTextTranslator(claudeChat(props, properties.usdToKrw, eventPublisher))
+        val openAi = props.forOpenAi()
         return OpenAiTextTranslator(
-            chatModel = chatModel,
-            pricing = LlmPricing(
-                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-                usdToKrw = properties.usdToKrw,
-            ),
-            configuredModelName = props.model.orEmpty(),
+            chatModel = openAiChatModel(openAi),
+            pricing = pricingOf(openAi, properties.usdToKrw),
+            configuredModelName = openAi.model.orEmpty(),
             eventPublisher = eventPublisher,
         )
     }
@@ -113,17 +109,12 @@ class LlmConfiguration {
         eventPublisher: ApplicationEventPublisher,
     ): ProcessedFoodTextTranslator {
         val props = properties.processedFoodTranslation
-        val chatModel = OpenAiChatModel.builder()
-            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
-            .build()
-        val pricing = LlmPricing(
-            inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-            outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-            usdToKrw = properties.usdToKrw,
-        )
-        fun translator(format: OpenAiTextTranslator.Format) =
-            OpenAiTextTranslator(chatModel = chatModel, pricing = pricing, configuredModelName = props.model.orEmpty(), eventPublisher = eventPublisher, format = format)
+        val chat = if (props.usesOpenAi()) null else claudeChat(props, properties.usdToKrw, eventPublisher)
+        val openAi = props.forOpenAi()
+        val chatModel = if (chat == null) openAiChatModel(openAi) else null
+        fun translator(format: OpenAiTextTranslator.Format): TextTranslator =
+            chat?.let { ClaudeTextTranslator(it, format) }
+                ?: OpenAiTextTranslator(chatModel = chatModel!!, pricing = pricingOf(openAi, properties.usdToKrw), configuredModelName = openAi.model.orEmpty(), eventPublisher = eventPublisher, format = format)
         val labelTranslator = translator(OpenAiTextTranslator.Format.PROCESSED_FOOD)
         val nameTranslator = translator(OpenAiTextTranslator.Format.PROCESSED_FOOD_NAME)
         return object : ProcessedFoodTextTranslator {
@@ -144,18 +135,12 @@ class LlmConfiguration {
         eventPublisher: ApplicationEventPublisher,
     ): IngredientDecider {
         val props = properties.ingredientDecision
-        val chatModel = OpenAiChatModel.builder()
-            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
-            .build()
+        if (!props.usesOpenAi()) return ClaudeIngredientDecider(claudeChat(props, properties.usdToKrw, eventPublisher))
+        val openAi = props.forOpenAi()
         return OpenAiIngredientDecider(
-            chatModel = chatModel,
-            pricing = LlmPricing(
-                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-                usdToKrw = properties.usdToKrw,
-            ),
-            configuredModelName = props.model.orEmpty(),
+            chatModel = openAiChatModel(openAi),
+            pricing = pricingOf(openAi, properties.usdToKrw),
+            configuredModelName = openAi.model.orEmpty(),
             eventPublisher = eventPublisher,
         )
     }
@@ -167,18 +152,12 @@ class LlmConfiguration {
         eventPublisher: ApplicationEventPublisher,
     ): MenuNameEstimator {
         val props = properties.menuEstimate
-        val chatModel = OpenAiChatModel.builder()
-            .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
-            .httpClientBuilderCustomizer { it.timeout(props.timeout) }
-            .build()
+        if (!props.usesOpenAi()) return ClaudeMenuNameEstimator(claudeChat(props, properties.usdToKrw, eventPublisher))
+        val openAi = props.forOpenAi()
         return OpenAiMenuNameEstimator(
-            chatModel = chatModel,
-            pricing = LlmPricing(
-                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
-                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
-                usdToKrw = properties.usdToKrw,
-            ),
-            configuredModelName = props.model.orEmpty(),
+            chatModel = openAiChatModel(openAi),
+            pricing = pricingOf(openAi, properties.usdToKrw),
+            configuredModelName = openAi.model.orEmpty(),
             eventPublisher = eventPublisher,
         )
     }
@@ -220,5 +199,55 @@ class LlmConfiguration {
         }
 
         internal fun resolveOpenAiBaseUrl(configured: String?): String = configured ?: DEFAULT_OPENAI_BASE_URL
+
+        internal fun LlmModelProperties.VisionProps.usesOpenAi(): Boolean =
+            when (provider.trim().lowercase()) {
+                LlmModelProperties.PROVIDER_ANTHROPIC -> false
+                LlmModelProperties.PROVIDER_OPENAI -> true
+                else -> throw IllegalArgumentException("kbap.llm.*.provider 는 anthropic 또는 openai 여야 합니다(현재: $provider)")
+            }
+
+        // openai 블록이 있으면 그 값으로 덮어 기존 OpenAI 조립에 넘긴다 — 없으면 상위 값을 OpenAI 설정으로 본다.
+        internal fun LlmModelProperties.VisionProps.forOpenAi(): LlmModelProperties.VisionProps =
+            openai?.let {
+                copy(
+                    apiKey = it.apiKey,
+                    baseUrl = it.baseUrl,
+                    model = it.model,
+                    temperature = it.temperature,
+                    reasoningEffort = it.reasoningEffort,
+                    pricing = it.pricing ?: pricing,
+                )
+            } ?: this
+
+        private fun openAiChatModel(props: LlmModelProperties.VisionProps): OpenAiChatModel =
+            OpenAiChatModel.builder()
+                .options(visionChatOptions(props, resolveOpenAiBaseUrl(props.baseUrl), props.timeout))
+                .httpClientBuilderCustomizer { it.timeout(props.timeout) }
+                .build()
+
+        private fun pricingOf(props: LlmModelProperties.VisionProps, usdToKrw: Double) =
+            LlmPricing(
+                inputUsdPerMillionTokens = props.pricing.inputUsdPerMillionTokens,
+                outputUsdPerMillionTokens = props.pricing.outputUsdPerMillionTokens,
+                usdToKrw = usdToKrw,
+            )
+
+        // 호출 전체 시간은 timeout 이 묶는다(SDK request timeout). max-retries 는 배포 설정상 0 — 재시도가 제한 시간을 여러 번 쓰지 않는다.
+        internal fun claudeChat(
+            props: LlmModelProperties.VisionProps,
+            usdToKrw: Double,
+            eventPublisher: ApplicationEventPublisher,
+        ): ClaudeChat {
+            require(!props.apiKey.isNullOrBlank()) { "kbap.llm.*.api-key(ANTHROPIC_API_KEY) 가 비어 있습니다(배포 환경변수로 주입)." }
+            require(!props.model.isNullOrBlank()) { "kbap.llm.*.model 이 비어 있습니다." }
+            val client = AnthropicOkHttpClient.builder()
+                .apiKey(props.apiKey)
+                .apply { props.baseUrl?.let { baseUrl(it) } }
+                .timeout(props.timeout)
+                .maxRetries(props.maxRetries)
+                .build()
+            return ClaudeChat(client, props.model, props.reasoningEffort, pricingOf(props, usdToKrw), eventPublisher)
+        }
     }
 }

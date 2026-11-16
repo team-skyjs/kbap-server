@@ -185,8 +185,12 @@ kbap:
   translation:
     max-concurrent-engine-calls: ${TRANSLATION_MAX_CONCURRENT:4}
   llm:
+    # 텍스트·비전 caller 6블록(vision·review·translation·processed-food-translation·ingredient-decision·menu-estimate)은
+    # Claude(Anthropic 공식 SDK, 키 ANTHROPIC_API_KEY)로 부른다. OpenAI 는 이미지 생성(image)·임베딩(embedding)만 쓴다.
+    # 되돌림: 블록별 provider 를 openai 로 바꾸면(환경변수 *_LLM_PROVIDER=openai) 그 블록의 openai: 값(기존 GPT 설정)으로 조립한다.
+    # reasoning-effort 는 Claude output_config.effort(low·medium·high…, "minimal" 은 low)로 간다. temperature 는 Claude 에 보내지 않는다.
     # 메뉴판 사진 스캔(KB-138)은 vision 모델을 단일 호출한다. 스캔은 필수 기능이라 끄는 스위치를 두지 않는다 —
-    # ScanService 가 이 빈에 의존하므로 OPENAI_API_KEY 가 없으면 부팅 시 알려주며 실패한다.
+    # ScanService 가 이 빈에 의존하므로 provider 의 키(기본 ANTHROPIC_API_KEY)가 없으면 부팅 시 알려주며 실패한다.
     # (enabled 프로퍼티 자체는 남긴다 — batch·테스트는 이 설정을 안 읽어 vision 빈을 올리지 않는다.)
     # image-base-url 은 업로드 이미지의 공개 CDN 베이스와 같은 값이라 kbap.storage.public-base-url 을 그대로 쓴다.
     # 모델이 그 도메인 + 오브젝트 path 로 사진을 직접 fetch 한다(DB 엔 path 만 저장).
@@ -194,79 +198,129 @@ kbap:
     # (온도 0 의 결정적 판정은 추론 모델에서 어차피 보장되지 않는다). 출력 토큰에 추론 토큰이 포함돼 비용이 늘어난다.
     vision:
       enabled: true
-      api-key: ${OPENAI_API_KEY:}
-      model: gpt-5.6-luna
+      provider: ${VISION_LLM_PROVIDER:anthropic}
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${VISION_MODEL:claude-sonnet-5-5}
+      reasoning-effort: medium
       image-base-url: ${kbap.storage.public-base-url}
-      temperature: 1.0
       max-retries: 0
       pricing:
-        input-usd-per-million-tokens: 0.2
-        output-usd-per-million-tokens: 1.2
+        input-usd-per-million-tokens: 2.0
+        output-usd-per-million-tokens: 10.0
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        model: gpt-5.6-luna
+        temperature: 1.0
+        pricing:
+          input-usd-per-million-tokens: 0.2
+          output-usd-per-million-tokens: 1.2
     # 리뷰 봇 본문 생성(KB-646) — 비전과 같은 모델·키로 텍스트만 만든다. 봇 작성기(kbap.review-bot)가 켜져 있을 때만 쓰인다.
     review:
       enabled: ${REVIEW_BOT_ENABLED:false}
-      api-key: ${OPENAI_API_KEY:}
-      model: gpt-5.6-luna
-      temperature: 1.0
+      provider: ${REVIEW_LLM_PROVIDER:anthropic}
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${REVIEW_MODEL:claude-sonnet-5-5}
+      reasoning-effort: medium
       max-retries: 0
       pricing:
-        input-usd-per-million-tokens: 0.2
-        output-usd-per-million-tokens: 1.2
-    # 사용자 글 번역(KB-678, 1차: 리뷰 본문) — 비전·리뷰 봇과 같은 키·모델로 텍스트만 번역한다. 번역은 앱 기능이라 켜 둔다.
+        input-usd-per-million-tokens: 2.0
+        output-usd-per-million-tokens: 10.0
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        model: gpt-5.6-luna
+        temperature: 1.0
+        pricing:
+          input-usd-per-million-tokens: 0.2
+          output-usd-per-million-tokens: 1.2
+    # 사용자 글 번역(KB-678, 1차: 리뷰 본문) — 비전·리뷰 봇과 같은 키·모델(Sonnet)로 텍스트만 번역한다. 번역은 앱 기능이라 켜 둔다.
     # 출력 토큰 상한은 호출마다 원문 길이 기준(2048 + 글자 수 × 6)으로 건다 — 추론 토큰이 포함되므로 reasoning-effort 는 low.
     # 모델·타임아웃을 바꾸거나 프롬프트를 고쳤으면 TranslationService.CACHE_VERSION 을 올려 저장된 번역을 무효화한다.
     translation:
       enabled: true
-      api-key: ${OPENAI_API_KEY:}
-      model: ${TRANSLATION_MODEL:gpt-5.6-luna}
-      temperature: 1.0
+      provider: ${TRANSLATION_LLM_PROVIDER:anthropic}
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${TRANSLATION_MODEL:claude-sonnet-5-5}
       reasoning-effort: low
       max-retries: 0
       # 앱의 요청 타임아웃(15초)보다 짧게 둔다 — 앱이 먼저 끊으면 서버만 엔진을 기다리며 요청 스레드와 동시 호출 허가를 쥔다.
-      # 이 값이 호출 전체 시간(늦은 응답·조금씩 오는 응답·HTTP 계층의 408 재전송 포함)을 묶는 것은 max-retries: 0 과 함께일 때다
-      # (TranslationCallDeadlineTest·DeployedTranslationEngineSettingsTest). 정본은 LlmConfiguration.visionChatOptions 의 옵션 timeout 이다 —
-      # 같은 값을 받는 httpClientBuilderCustomizer 의 timeout 은 그 테스트에서 관측되는 효과가 없고, 무엇을 제한하는지 확인하지 못했다(vision·review 도 같은 조립).
+      # 이 값이 호출 전체 시간(늦은 응답·조금씩 오는 응답 포함)을 묶는 것은 max-retries: 0 과 함께일 때다 — Claude 는 SDK 의 request timeout,
+      # OpenAI 되돌림은 LlmConfiguration.visionChatOptions 의 옵션 timeout 이 정본이다(TranslationCallDeadlineTest·DeployedTranslationEngineSettingsTest).
+      # 모델 전환(OpenAI→Claude)에서는 CACHE_VERSION 을 올리지 않았다 — 저장된 번역은 그대로 유효하다고 보고 재번역 비용을 피한다.
       timeout: ${TRANSLATION_TIMEOUT:12s}
       pricing:
-        input-usd-per-million-tokens: 0.2
-        output-usd-per-million-tokens: 1.2
+        input-usd-per-million-tokens: 2.0
+        output-usd-per-million-tokens: 10.0
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        model: gpt-5.6-luna
+        temperature: 1.0
+        reasoning-effort: low
+        pricing:
+          input-usd-per-million-tokens: 0.2
+          output-usd-per-million-tokens: 1.2
     processed-food-translation:
       enabled: true
-      api-key: ${OPENAI_API_KEY:}
-      model: ${PROCESSED_FOOD_TRANSLATION_MODEL:gpt-5-nano}
-      reasoning-effort: minimal
+      provider: ${PROCESSED_FOOD_TRANSLATION_LLM_PROVIDER:anthropic}
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${PROCESSED_FOOD_TRANSLATION_MODEL:claude-haiku-5-5}
+      reasoning-effort: low
       max-retries: 0
       timeout: 12s
       pricing:
-        input-usd-per-million-tokens: 0.05
-        output-usd-per-million-tokens: 0.4
+        input-usd-per-million-tokens: 0.1
+        output-usd-per-million-tokens: 0.5
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        model: gpt-5-nano
+        reasoning-effort: minimal
+        pricing:
+          input-usd-per-million-tokens: 0.05
+          output-usd-per-million-tokens: 0.4
     # 새 재료 소급 판정(KB-896) — 어드민 소급 API 가 READY 음식마다 1회 호출(코드 목록 → 코드별 포함 여부·확률 구조화 출력).
     # 가공식품 번역과 같은 저가 계열. 타임아웃은 음식당 20초, 재시도 없음(실패는 건너뛰고 재실행으로 보강 — 멱등).
     # reasoning-effort 는 low(KB-898) — minimal 에서 근거 없는 중간 확률이 많이 나왔다(dev 10/30 실측).
     ingredient-decision:
       enabled: true
-      api-key: ${OPENAI_API_KEY:}
-      model: ${INGREDIENT_DECISION_MODEL:gpt-5-nano}
+      provider: ${INGREDIENT_DECISION_LLM_PROVIDER:anthropic}
+      api-key: ${ANTHROPIC_API_KEY:}
+      # 11/15 실호출 측정: Haiku 는 같은 음식(순두부찌개)을 두 번 판정하자 해산물 코드를 한 번 통째로 빠뜨렸다(false-safe 위험).
+      # Sonnet 은 두 번 모두 일관 — 관리자 소급 판정 전용이라 호출량이 적어 Sonnet 으로 둔다. 실측 18~22초라 timeout 을 60s 로 늘린다.
+      model: ${INGREDIENT_DECISION_MODEL:claude-sonnet-5-5}
       reasoning-effort: ${INGREDIENT_DECISION_REASONING_EFFORT:low}
       max-retries: 0
-      timeout: 20s
+      timeout: 60s
       pricing:
-        input-usd-per-million-tokens: 0.05
-        output-usd-per-million-tokens: 0.4
+        input-usd-per-million-tokens: 2.0
+        output-usd-per-million-tokens: 10.0
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        model: gpt-5-nano
+        reasoning-effort: low
+        pricing:
+          input-usd-per-million-tokens: 0.05
+          output-usd-per-million-tokens: 0.4
     # 메뉴판 스캔에서 DB 에 없는 메뉴 이름 추정(S-959, KB-991). 같은 저가 계열 — 스캔 하나의 대기 이름을 한 번에 묶어 부른다.
     # 결과는 menu_name_estimate 에 이름 키 단위로 영구 캐시. 일 이름 상한은 kbap.scan.menu-estimate.daily-name-limit.
     menu-estimate:
       enabled: true
-      api-key: ${OPENAI_API_KEY:}
-      model: ${MENU_ESTIMATE_MODEL:gpt-5-nano}
+      provider: ${MENU_ESTIMATE_LLM_PROVIDER:anthropic}
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${MENU_ESTIMATE_MODEL:claude-haiku-5-5}
       reasoning-effort: ${MENU_ESTIMATE_REASONING_EFFORT:low}
       max-retries: 0
       # S-975: 낯선 이름 8개를 한 호출로 묶으면 12초를 넘겨 전부 실패했다(dev 11/5). 호출당 4개로 쪼개 병렬로 돌리고
       # (kbap.scan.menu-estimate.names-per-call·concurrency), 15초 마감 뒤 도착한 추정은 다음 폴링에 채운다.
       timeout: 25s
       pricing:
-        input-usd-per-million-tokens: 0.05
-        output-usd-per-million-tokens: 0.4
+        input-usd-per-million-tokens: 0.1
+        output-usd-per-million-tokens: 0.5
+      openai:
+        api-key: ${OPENAI_API_KEY:}
+        model: gpt-5-nano
+        reasoning-effort: low
+        pricing:
+          input-usd-per-million-tokens: 0.05
+          output-usd-per-million-tokens: 0.4
     # 음식 이미지 배치 생성(KB-226): OpenAI Batch API 일괄 제출 + 3시간 주기(하루 8회) 폴링 회수. 빈 조립은 무조건이고
     # 키 검증은 첫 호출 시점 — 키 없이는 관리자 제출·회수만 실패하고 부팅은 성공한다.
     # pricing 은 Batch 단가(동기 대비 50% 할인가)를 넣는다 — 회수 시 장당 llm_call_cost 1행 기록.

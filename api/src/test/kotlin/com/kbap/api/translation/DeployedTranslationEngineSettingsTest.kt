@@ -49,7 +49,7 @@ class DeployedTranslationEngineSettingsTest : BehaviorSpec({
                     }
                     server.start()
                     try {
-                        val props = deployedTranslationProps().copy(apiKey = "test-key", baseUrl = "http://127.0.0.1:${server.address.port}/v1")
+                        val props = deployedTranslationProps().copy(apiKey = "test-key", baseUrl = "http://127.0.0.1:${server.address.port}")
                         val translator = LlmConfiguration().textTranslator(LlmModelProperties(translation = props), ApplicationEventPublisher { })
 
                         runCatching { translator.translate("hello there", LanguageCode.KO) }.isFailure shouldBe true
@@ -83,8 +83,8 @@ class DeployedTranslationEngineSettingsTest : BehaviorSpec({
     }
 
     given("가공식품 전용 번역의 배포 설정") {
-        `when`("그 설정으로 실제 Chat Completions 요청을 만들면") {
-            then("nano 모델·minimal 추론을 보내고 temperature 는 보내지 않는다") {
+        `when`("그 설정으로 실제 Claude Messages 요청을 만들면") {
+            then("Haiku 모델·effort low 를 보내고 temperature 는 보내지 않는다") {
                 val requestBody = AtomicReference<String>()
                 val handlers = Executors.newCachedThreadPool()
                 val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -99,15 +99,15 @@ class DeployedTranslationEngineSettingsTest : BehaviorSpec({
                 server.start()
                 try {
                     val props = deployedTranslationProps(prefix = "kbap.llm.processed-food-translation")
-                        .copy(apiKey = "test-key", baseUrl = "http://127.0.0.1:${server.address.port}/v1")
+                        .copy(apiKey = "test-key", baseUrl = "http://127.0.0.1:${server.address.port}")
                     val translator = LlmConfiguration().processedFoodTextTranslator(
                         LlmModelProperties(processedFoodTranslation = props), ApplicationEventPublisher { },
                     )
 
                     runCatching { translator.translate("현미 과자", LanguageCode.EN) }.isFailure shouldBe true
                     val request = jacksonObjectMapper().readTree(requestBody.get())
-                    request["model"].asText() shouldBe "gpt-5-nano"
-                    request["reasoning_effort"].asText() shouldBe "minimal"
+                    request["model"].asText() shouldBe "claude-haiku-5-5"
+                    request["output_config"]["effort"].asText() shouldBe "low"
                     request.has("temperature") shouldBe false
                 } finally {
                     server.stop(0)
@@ -117,7 +117,7 @@ class DeployedTranslationEngineSettingsTest : BehaviorSpec({
         }
 
         `when`("기본 application.yml 값을 읽으면") {
-            then("공용 번역 모델과 별도로 nano·최소 추론·실제 단가·기존 제한 시간을 쓴다") {
+            then("공용 번역(Sonnet)과 별도로 Haiku·effort low·Haiku 단가·기존 제한 시간을 쓰고, 되돌림용 OpenAI 값은 그대로 둔다") {
                 val environment = StandardEnvironment()
                 environment.propertySources.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME)
                 environment.propertySources.remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME)
@@ -128,14 +128,18 @@ class DeployedTranslationEngineSettingsTest : BehaviorSpec({
                     .bind("kbap.llm.processed-food-translation", LlmModelProperties.VisionProps::class.java)
                     .orElse(null)
 
-                props?.model shouldBe "gpt-5-nano"
-                props?.reasoningEffort shouldBe "minimal"
+                props?.provider shouldBe "anthropic"
+                props?.model shouldBe "claude-haiku-5-5"
+                props?.reasoningEffort shouldBe "low"
                 props?.temperature shouldBe null
                 props?.maxRetries shouldBe 0
                 props?.timeout shouldBe Duration.ofSeconds(12)
-                props?.pricing?.inputUsdPerMillionTokens shouldBe 0.05
-                props?.pricing?.outputUsdPerMillionTokens shouldBe 0.40
-                deployedTranslationProps().model shouldBe "gpt-5.6-luna"
+                props?.pricing?.inputUsdPerMillionTokens shouldBe 0.10
+                props?.pricing?.outputUsdPerMillionTokens shouldBe 0.50
+                props?.openai?.model shouldBe "gpt-5-nano"
+                props?.openai?.reasoningEffort shouldBe "minimal"
+                props?.openai?.pricing?.inputUsdPerMillionTokens shouldBe 0.05
+                deployedTranslationProps().model shouldBe "claude-sonnet-5-5"
             }
         }
     }

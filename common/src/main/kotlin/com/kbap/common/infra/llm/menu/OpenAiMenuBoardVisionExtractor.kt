@@ -2,14 +2,11 @@ package com.kbap.common.infra.llm.menu
 
 import com.kbap.common.domain.metering.LlmCallCostIncurred
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
-import com.kbap.common.port.llm.MenuBoardLineExtractor
 import com.kbap.common.port.llm.MenuBoardLine
 import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
 import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
 import com.kbap.common.port.llm.OcrItem
-import com.kbap.common.port.llm.ProcessedFoodPhotoReader
 import com.kbap.common.port.llm.ProcessedFoodPhotoReading
 import com.kbap.common.infra.llm.model.LlmPricing
 import com.openai.core.http.Headers
@@ -45,17 +42,17 @@ class OpenAiMenuBoardVisionExtractor(
     private val retryBudget: Duration = Duration.ofSeconds(10),
     private val sleep: (Duration) -> Unit = { Thread.sleep(it.toMillis()) },
     private val now: () -> Instant = Instant::now,
-) : MenuBoardVisionExtractor, MenuBoardLineExtractor, ProcessedFoodPhotoReader {
+) : MenuBoardVisionClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
         parser.parse(ask(imagePath, if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT, userPromptWith(ocrItems)))
 
     override fun extractLines(imagePath: String): List<MenuBoardLine> =
-        parser.parseLines(ask(imagePath, BATCH_LINE_SYSTEM_PROMPT, "이 메뉴판 사진의 메뉴 행을 메뉴판에 적힌 그대로 옮겨 적어라."))
+        parser.parseLines(ask(imagePath, BATCH_LINE_SYSTEM_PROMPT, BATCH_LINE_USER_PROMPT))
 
     override fun read(imagePath: String): ProcessedFoodPhotoReading =
-        parser.parsePhoto(ask(imagePath, PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT, "이 사진의 종류를 판별하고, 가공식품 앞면이면 제품명·제조사·품목보고번호를, 성분표면 원재료·알레르기 문장을 읽어라."))
+        parser.parsePhoto(ask(imagePath, PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT, PROCESSED_FOOD_PHOTO_USER_PROMPT))
 
     private fun ask(imagePath: String, systemPrompt: String, userText: String): String {
         val imageUrl = URI.create("${imageBaseUrl.trimEnd('/')}/${imagePath.trimStart('/')}")
@@ -152,17 +149,6 @@ class OpenAiMenuBoardVisionExtractor(
         )
     }
 
-    private fun userPromptWith(ocrItems: List<OcrItem>): String {
-        if (ocrItems.isEmpty()) return "이 메뉴판 사진에서 메뉴명과 가격을 추출하라."
-        val ocrLines = ocrItems.joinToString("\n") { "${it.idx}: ${it.rawMenuName}" }
-        val header = """
-            이 메뉴판 사진에서 메뉴명과 가격을 추출해줘.
-            아래는 클라이언트가 같은 사진을 OCR 한 결과다(형식 "idx: 텍스트"). 오탈자가 섞여 있을 수 있으니 사진을 기준으로 판단하고, 각 메뉴에 대응하는 idx 를 matchedIdx 에 넣어라.
-            OCR:
-        """.trimIndent()
-        return "$header\n$ocrLines"
-    }
-
     private fun mimeTypeOf(path: String): MimeType =
         when (path.substringAfterLast('.', "").lowercase()) {
             "png" -> MimeTypeUtils.IMAGE_PNG
@@ -172,6 +158,20 @@ class OpenAiMenuBoardVisionExtractor(
         }
 
     companion object {
+        internal const val BATCH_LINE_USER_PROMPT = "이 메뉴판 사진의 메뉴 행을 메뉴판에 적힌 그대로 옮겨 적어라."
+        internal const val PROCESSED_FOOD_PHOTO_USER_PROMPT = "이 사진의 종류를 판별하고, 가공식품 앞면이면 제품명·제조사·품목보고번호를, 성분표면 원재료·알레르기 문장을 읽어라."
+
+        internal fun userPromptWith(ocrItems: List<OcrItem>): String {
+            if (ocrItems.isEmpty()) return "이 메뉴판 사진에서 메뉴명과 가격을 추출하라."
+            val ocrLines = ocrItems.joinToString("\n") { "${it.idx}: ${it.rawMenuName}" }
+            val header = """
+                이 메뉴판 사진에서 메뉴명과 가격을 추출해줘.
+                아래는 클라이언트가 같은 사진을 OCR 한 결과다(형식 "idx: 텍스트"). 오탈자가 섞여 있을 수 있으니 사진을 기준으로 판단하고, 각 메뉴에 대응하는 idx 를 matchedIdx 에 넣어라.
+                OCR:
+            """.trimIndent()
+            return "$header\n$ocrLines"
+        }
+
         private val QUOTA_CODES = setOf(
             "insufficient_quota",
             "credit_balance_exhausted",
@@ -191,7 +191,7 @@ class OpenAiMenuBoardVisionExtractor(
             "reset-project-tokens",
         )
 
-        private val SYSTEM_PROMPT = """
+        internal val SYSTEM_PROMPT = """
             너는 한국 식당 메뉴판 사진에서 메뉴와 가격을 추출하고, 클라이언트 OCR 항목에 매칭하는 도구다. 반드시 JSON 객체 하나로만 응답한다 — 설명·마크다운·코드펜스 없이.
             형식: {"results":[{"name":"...","koreanName":"...","price":16000,"matchedIdx":0,"optionLabel":null,"baseName":"..."}]}
 
@@ -216,7 +216,7 @@ class OpenAiMenuBoardVisionExtractor(
             - 한 idx 는 최대 하나의 result 에만 쓴다(중복 금지). 한 OCR 항목에 여러 메뉴가 병합돼 있거나 사이즈로 나뉘면, 그중 하나에만 그 idx 를 주고 나머지는 null.
         """.trimIndent()
 
-        private val BATCH_LINE_SYSTEM_PROMPT = """
+        internal val BATCH_LINE_SYSTEM_PROMPT = """
             너는 한국 식당 메뉴판 사진에서 메뉴 행을 적힌 그대로 옮겨 적는 도구다. 반드시 JSON 객체 하나로만 응답한다 — 설명·마크다운·코드펜스 없이.
             형식: {"results":[{"rawName":"...","koreanName":"...","price":12000,"option":"..."}]}
 
@@ -230,7 +230,7 @@ class OpenAiMenuBoardVisionExtractor(
             - 메뉴가 아닌 텍스트(상호·전화번호·원산지·영업안내 등)는 제외한다.
         """.trimIndent()
 
-        private val PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT = """
+        internal val PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT = """
             너는 한국 편의점·마트 가공식품 사진을 읽는 도구다. 반드시 JSON 객체 하나로만 응답한다 — 설명·마크다운·코드펜스 없이.
             형식: {"kind":"PACKAGE_FRONT","confidence":0.9,"reason":null,"productName":"...","maker":"...","reportNo":null,"labelText":null,"warnings":[]}
 
@@ -259,7 +259,7 @@ class OpenAiMenuBoardVisionExtractor(
             [MENU·OTHER 일 때] productName·maker·reportNo·labelText 모두 null.
         """.trimIndent()
 
-        private val SERVER_OCR_SYSTEM_PROMPT = """
+        internal val SERVER_OCR_SYSTEM_PROMPT = """
             너는 메뉴판 분석 전문가다.
             주어진 메뉴판 사진에서 모든 메뉴명과 가격을 직접 읽어 추출하라.
             사진이 메뉴판(음식 이름과 가격이 나열된 판·차림표)으로 추정되지 않거나 메뉴를 하나도 확인할 수 없으면 빈 배열 []만 출력하라.

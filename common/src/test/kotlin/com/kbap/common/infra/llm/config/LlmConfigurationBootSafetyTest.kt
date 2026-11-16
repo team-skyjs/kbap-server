@@ -1,6 +1,13 @@
 package com.kbap.common.infra.llm.config
 
+import com.kbap.common.infra.llm.menu.ClaudeMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.translation.ClaudeTextTranslator
+import com.kbap.common.infra.llm.translation.OpenAiTextTranslator
+import com.kbap.common.port.llm.MenuBoardLineExtractor
 import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.ProcessedFoodPhotoReader
+import io.kotest.matchers.types.shouldBeInstanceOf
 import com.kbap.common.port.llm.ProcessedFoodTextTranslator
 import com.kbap.common.port.llm.TextEmbeddingClient
 import com.kbap.common.port.llm.TextTranslator
@@ -111,6 +118,58 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                     context.getBeanNamesForType(TextTranslator::class.java).size shouldBe 1
                     context.getBeanNamesForType(ProcessedFoodTextTranslator::class.java).size shouldBe 1
                 }
+            }
+        }
+    }
+
+    given("공급자 스위치(kbap.llm.<기능>.provider)") {
+        `when`("provider 를 지정하지 않으면") {
+            then("Claude 구현이 등록되고 비전 빈 하나가 세 계약을 모두 노출한다") {
+                runner.withPropertyValues(
+                    "kbap.llm.vision.enabled=true",
+                    "kbap.llm.vision.api-key=dummy-key",
+                    "kbap.llm.vision.model=claude-sonnet-5-5",
+                    "kbap.llm.translation.enabled=true",
+                    "kbap.llm.translation.api-key=dummy-key",
+                    "kbap.llm.translation.model=claude-sonnet-5-5",
+                ).run { context ->
+                    context.startupFailure.shouldBeNull()
+                    context.getBean(MenuBoardVisionExtractor::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionExtractor>()
+                    context.getBean(MenuBoardLineExtractor::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionExtractor>()
+                    context.getBean(ProcessedFoodPhotoReader::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionExtractor>()
+                    context.getBean(TextTranslator::class.java).shouldBeInstanceOf<ClaudeTextTranslator>()
+                }
+            }
+        }
+
+        `when`("provider=openai 와 openai 블록을 주면") {
+            then("기존 OpenAI 구현으로 되돌린다") {
+                runner.withPropertyValues(
+                    "kbap.llm.vision.enabled=true",
+                    "kbap.llm.vision.provider=openai",
+                    "kbap.llm.vision.model=claude-sonnet-5-5",
+                    "kbap.llm.vision.openai.api-key=dummy-key",
+                    "kbap.llm.vision.openai.model=gpt-5.6-luna",
+                    "kbap.llm.translation.enabled=true",
+                    "kbap.llm.translation.provider=openai",
+                    "kbap.llm.translation.openai.api-key=dummy-key",
+                    "kbap.llm.translation.openai.model=gpt-5.6-luna",
+                ).run { context ->
+                    context.startupFailure.shouldBeNull()
+                    context.getBean(MenuBoardVisionExtractor::class.java).shouldBeInstanceOf<OpenAiMenuBoardVisionExtractor>()
+                    context.getBean(TextTranslator::class.java).shouldBeInstanceOf<OpenAiTextTranslator>()
+                }
+            }
+        }
+
+        `when`("알 수 없는 provider 면") {
+            then("부팅에 실패한다") {
+                runner.withPropertyValues(
+                    "kbap.llm.translation.enabled=true",
+                    "kbap.llm.translation.provider=gemini",
+                    "kbap.llm.translation.api-key=dummy-key",
+                    "kbap.llm.translation.model=x",
+                ).run { context -> context.startupFailure.shouldNotBeNull() }
             }
         }
     }

@@ -30,12 +30,7 @@ class OpenAiTextTranslator(
         val options = (chatModel.defaultOptions as? OpenAiChatOptions)?.mutate() ?: OpenAiChatOptions.builder()
         options.maxCompletionTokens(maxOutputTokens(text))
         val marker = newMarker()
-        val systemPrompt = when (format) {
-            Format.SOURCE_LANGUAGE_HEADER -> TranslationPrompt.system(target, marker)
-            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.system(target, text)
-            Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.system(target, text)
-        }
-        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt), UserMessage(if (format == Format.PROCESSED_FOOD) ProcessedFoodTranslationPrompt.userText(text) else text)), options.build()))
+        val response = chatModel.call(Prompt(listOf(SystemMessage(systemPrompt(format, target, text, marker)), UserMessage(userText(format, text))), options.build()))
         val usage = response.metadata.usage
         val input = (usage.promptTokens ?: 0).toLong()
         val output = (usage.completionTokens ?: 0).toLong()
@@ -56,33 +51,7 @@ class OpenAiTextTranslator(
         check(finishReason.equals(FINISHED, ignoreCase = true)) {
             "번역이 끝까지 생성됐다는 표식이 없다(finishReason=${finishReason?.lowercase()}) — 잘렸거나 확인할 수 없는 번역은 쓰지 않는다"
         }
-        val outputText = response.result?.output?.text.orEmpty()
-        return when (format) {
-            Format.SOURCE_LANGUAGE_HEADER -> split(outputText, text, marker)
-            Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.parse(outputText, text, target)
-            Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.parse(outputText, text)
-        }
-    }
-
-    private fun split(output: String, source: String, marker: String): TranslatedText {
-        val headerStart = output.indexOfFirst { !it.isWhitespace() }
-        val headerEnd = if (headerStart < 0) -1 else output.indexOf('\n', headerStart)
-        val firstLine = if (headerStart < 0) "" else if (headerEnd < 0) output.substring(headerStart) else output.substring(headerStart, headerEnd)
-        val translated = if (marker !in firstLine) {
-            TranslatedText(output, null)
-        } else {
-            val afterHeader = if (headerEnd < 0) "" else output.substring(headerEnd + 1)
-            val translation = if (LEADING_BLANK_LINES.containsMatchIn(source)) afterHeader else afterHeader.replaceFirst(LEADING_BLANK_LINES, "")
-            TranslatedText(translation, languageTagIn(firstLine.substringAfter(marker)))
-        }
-        check(marker !in translated.text) { "번역문에 머리줄 표식이 남아 있다 — 표식이 섞인 번역은 쓰지 않는다" }
-        return translated
-    }
-
-    private fun languageTagIn(afterMarker: String): String {
-        val words = afterMarker.trim(*HEADER_DECORATION).split(WHITESPACE).filter { it.isNotEmpty() }
-        val sentenceLike = words.size > 1 && !words[1].startsWith('(')
-        return if (sentenceLike) "" else words.firstOrNull().orEmpty().trim(*HEADER_DECORATION)
+        return parseOutput(format, response.result?.output?.text.orEmpty(), text, target, marker)
     }
 
     companion object {
@@ -97,5 +66,44 @@ class OpenAiTextTranslator(
         const val OUTPUT_TOKENS_PER_SOURCE_CHAR = 6
 
         fun maxOutputTokens(text: String): Int = OUTPUT_TOKEN_BASE + text.length * OUTPUT_TOKENS_PER_SOURCE_CHAR
+
+        // 프롬프트 조립·응답 해석은 공급자와 무관하다 — Claude 구현(ClaudeTextTranslator)이 그대로 쓴다.
+        fun systemPrompt(format: Format, target: LanguageCode, text: String, marker: String): String =
+            when (format) {
+                Format.SOURCE_LANGUAGE_HEADER -> TranslationPrompt.system(target, marker)
+                Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.system(target, text)
+                Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.system(target, text)
+            }
+
+        fun userText(format: Format, text: String): String =
+            if (format == Format.PROCESSED_FOOD) ProcessedFoodTranslationPrompt.userText(text) else text
+
+        fun parseOutput(format: Format, output: String, source: String, target: LanguageCode, marker: String): TranslatedText =
+            when (format) {
+                Format.SOURCE_LANGUAGE_HEADER -> split(output, source, marker)
+                Format.PROCESSED_FOOD -> ProcessedFoodTranslationPrompt.parse(output, source, target)
+                Format.PROCESSED_FOOD_NAME -> ProcessedFoodNamePrompt.parse(output, source)
+            }
+
+        private fun split(output: String, source: String, marker: String): TranslatedText {
+            val headerStart = output.indexOfFirst { !it.isWhitespace() }
+            val headerEnd = if (headerStart < 0) -1 else output.indexOf('\n', headerStart)
+            val firstLine = if (headerStart < 0) "" else if (headerEnd < 0) output.substring(headerStart) else output.substring(headerStart, headerEnd)
+            val translated = if (marker !in firstLine) {
+                TranslatedText(output, null)
+            } else {
+                val afterHeader = if (headerEnd < 0) "" else output.substring(headerEnd + 1)
+                val translation = if (LEADING_BLANK_LINES.containsMatchIn(source)) afterHeader else afterHeader.replaceFirst(LEADING_BLANK_LINES, "")
+                TranslatedText(translation, languageTagIn(firstLine.substringAfter(marker)))
+            }
+            check(marker !in translated.text) { "번역문에 머리줄 표식이 남아 있다 — 표식이 섞인 번역은 쓰지 않는다" }
+            return translated
+        }
+
+        private fun languageTagIn(afterMarker: String): String {
+            val words = afterMarker.trim(*HEADER_DECORATION).split(WHITESPACE).filter { it.isNotEmpty() }
+            val sentenceLike = words.size > 1 && !words[1].startsWith('(')
+            return if (sentenceLike) "" else words.firstOrNull().orEmpty().trim(*HEADER_DECORATION)
+        }
     }
 }
