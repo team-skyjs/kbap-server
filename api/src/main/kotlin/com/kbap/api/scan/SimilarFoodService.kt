@@ -16,7 +16,7 @@ class SimilarFoodService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun resolveSimilarFoods(koreanNames: List<String>): Map<String, Food> {
+    fun findSimilarFoods(koreanNames: List<String>): Map<String, Food> {
         val embeddingClient = embeddingClient ?: return emptyMap()
         val searcher = searcher ?: return emptyMap()
         val names = koreanNames.filter { it.isNotBlank() }.distinct()

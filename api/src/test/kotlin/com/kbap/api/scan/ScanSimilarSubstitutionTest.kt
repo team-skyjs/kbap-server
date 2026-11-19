@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired
 class ScanSimilarSubstitutionTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
+    @Autowired private lateinit var fallbackPolicies: List<MenuFallbackPolicy>
     @Autowired private lateinit var foodService: FoodService
     @Autowired private lateinit var foodRepository: FoodJpaRepository
     @Autowired private lateinit var scanHistoryRepository: ScanHistoryJpaRepository
@@ -41,6 +42,42 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
     init {
         beforeEach { TestTables.clearAll(dataSource) }
         afterSpec { TestTables.clearAll(dataSource) }
+
+        given("기본 벡터 설정") {
+            then("AI 정책만 등록된다") {
+                fallbackPolicies.size shouldBe 1
+                (fallbackPolicies.single() is AiEstimatePolicy) shouldBe true
+            }
+        }
+
+        given("미등록 메뉴 일부에만 벡터 검색 결과가 있는 경우") {
+            then("허용된 요청에서만 검색하고 나머지 이름은 AI 추정 대상으로 돌려준다") {
+                val target = foodRepository.save(Food(koreanName = "공개대체국", description = "설명", contentStatus = FoodContentStatus.READY))
+                val calls = mutableListOf<List<String>>()
+                val embedding = TextEmbeddingClient { names ->
+                    calls.add(names)
+                    names.mapIndexed { index, _ -> floatArrayOf(index.toFloat()) }
+                }
+                val searcher = FoodVectorSearcher { vector, _ ->
+                    if (vector.first() == 0f) listOf(FoodVectorMatch(target.id, 0.99)) else emptyList()
+                }
+                val vectorPolicy = VectorMatchPolicy(SimilarFoodService(embedding, searcher, foodService))
+                val matching = MenuMatchingService(foodService, listOf(vectorPolicy, AiEstimatePolicy()))
+                val menus = listOf(
+                    ExtractedMenu("Soup", "미등록국", 9000, null),
+                    ExtractedMenu("Rice", "미등록밥", 8000, null),
+                )
+
+                val withoutVector = matching.matchMenus(menus, allowVectorMatch = false)
+                calls.size shouldBe 0
+                withoutVector.values.map { it.source } shouldBe List(2) { MenuMatchSource.PENDING_AI_ESTIMATE }
+
+                val withVector = matching.matchMenus(menus, allowVectorMatch = true)
+                calls shouldBe listOf(listOf("미등록국", "미등록밥"))
+                withVector.getValue("미등록국").source shouldBe MenuMatchSource.VECTOR
+                withVector.getValue("미등록밥").source shouldBe MenuMatchSource.PENDING_AI_ESTIMATE
+            }
+        }
 
         given("유사 음식 대체 — 정규화 키가 같은 두 표기 (#419 Codex 지적)") {
             `when`("한 스캔에 '유사테스트 찌개'·'유사테스트찌개' 처럼 같은 키의 신규 라벨이 둘 오면") {
@@ -56,7 +93,9 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.99)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService, vectorSubstitutionEnabled = true)
+                    val vectorPolicy = VectorMatchPolicy(SimilarFoodService(embedding, searcher, foodService))
+                    val matching = MenuMatchingService(foodService, listOf(vectorPolicy, AiEstimatePolicy()))
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, matching, memberService)
 
                     val result = service.scan(member, "scans/x.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 
@@ -85,7 +124,9 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.9)) }
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, SimilarFoodService(embedding, searcher, foodService), memberService, vectorSubstitutionEnabled = true)
+                    val vectorPolicy = VectorMatchPolicy(SimilarFoodService(embedding, searcher, foodService))
+                    val matching = MenuMatchingService(foodService, listOf(vectorPolicy, AiEstimatePolicy()))
+                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, matching, memberService)
 
                     val result = service.scan(member, "scans/y.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
 

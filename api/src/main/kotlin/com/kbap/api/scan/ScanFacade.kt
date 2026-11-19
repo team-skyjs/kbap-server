@@ -50,7 +50,7 @@ class ScanFacade(
             val result = scanService.scan(member, imagePath, ocrItems = emptyList(), lang = lang, requireDetectedMenu = true, substituteSimilar = true)
             scanService.recordChargedScan(memberId, result.items)
             releaseReservationQuietly(memberId, jti)
-            return menuNameEstimates.start(member, result)
+            return menuNameEstimates.startEstimation(member, result)
         } catch (e: Exception) {
             releaseReservationQuietly(memberId, jti)
             throw e

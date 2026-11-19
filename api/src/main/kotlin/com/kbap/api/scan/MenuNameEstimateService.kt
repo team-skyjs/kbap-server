@@ -76,7 +76,7 @@ class MenuNameEstimateService(
     private val executor = ThreadPoolExecutor(concurrency, concurrency, 0, TimeUnit.SECONDS, ArrayBlockingQueue(QUEUE_SIZE), { Thread(it, "menu-estimate").apply { isDaemon = true } })
     private val latency: Timer = Timer.builder("menu_estimate.latency").publishPercentiles(0.5, 0.95).register(meters)
 
-    fun start(member: Member, result: ScanResult): ScanResult {
+    fun startEstimation(member: Member, result: ScanResult): ScanResult {
         val pending = result.items.withIndex().filter { (_, item) -> item.pendingNameKey != null }
         if (pending.isEmpty()) return result
         val scanId = UUID.randomUUID().toString()
