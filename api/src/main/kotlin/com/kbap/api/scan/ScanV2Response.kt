@@ -29,7 +29,7 @@ data class ScanV2Response(
 
     @field:Schema(
         description = "DB 에 없는 메뉴의 LLM 추정을 받을 스캔 식별자(S-959) — pendingId 가 붙은 항목이 하나라도 있을 때만. " +
-            "GET /api/scans/{scanId}/pending 을 1초 간격으로 최대 15초 폴링한다.",
+            "GET /api/scans/{scanId}/pending 을 1초 간격으로 최대 60초 폴링한다.",
         nullable = true,
     )
     val scanId: String? = null,

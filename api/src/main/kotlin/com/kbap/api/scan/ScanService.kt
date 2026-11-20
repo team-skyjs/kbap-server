@@ -1,51 +1,143 @@
 package com.kbap.api.scan
 
+import com.kbap.api.food.FoodService
+import com.kbap.api.member.MemberService
+import com.kbap.api.scan.MenuNameEstimateService.PendingItem
+import com.kbap.api.scan.MenuNameEstimateService.PendingScan
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.LanguageCode
-import com.kbap.common.util.KoreanMenuNameNormalizer
-import com.kbap.common.domain.food.model.RiskLevel
-import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
-import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
-import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
-import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
-import com.kbap.common.port.llm.OcrItem
-import com.kbap.api.food.FoodService
 import com.kbap.common.domain.food.model.Food
+import com.kbap.common.domain.food.model.RiskLevel
 import com.kbap.common.domain.ingredient.IngredientJpaRepository
-import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.Avoidance
+import com.kbap.common.domain.ingredient.model.Ingredient
 import com.kbap.common.domain.ingredient.model.IngredientCode
-import com.kbap.api.member.MemberService
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.domain.scan.model.ScanHistory
+import com.kbap.common.port.llm.ExtractedMenu
+import com.kbap.common.port.llm.MenuBoardImageClient
+import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
+import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
+import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
+import com.kbap.common.port.scan.ScanTicketManager
+import com.kbap.common.util.KoreanMenuNameNormalizer
+import java.time.Duration
+import java.util.UUID
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ScanService(
+    private val ticketManager: ScanTicketManager,
+    private val memberService: MemberService,
     private val foodService: FoodService,
-    private val visionExtractor: MenuBoardVisionExtractor,
-    private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val menuBoardImageClient: MenuBoardImageClient,
     private val ingredientRepository: IngredientJpaRepository,
     private val menuMatchingService: MenuMatchingService,
-    private val memberService: MemberService,
+    private val scanHistoryRepository: ScanHistoryJpaRepository,
+    private val menuNameEstimates: MenuNameEstimateService,
+    @Value("\${kbap.scan.menu-estimate.wait:45s}") private val pendingWait: Duration,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun scan(
-        member: Member,
-        imagePath: String,
-        ocrItems: List<OcrItem>,
-        lang: LanguageCode,
-        requireDetectedMenu: Boolean,
-        substituteSimilar: Boolean,
-    ): ScanResult {
-        val extracted = try {
-            visionExtractor.extract(imagePath, ocrItems)
+    fun scan(memberId: Long, imagePath: String, lang: LanguageCode, scanTicket: String): ScanResult {
+        // 1. 티켓 검증 및 DB 이용 횟수 선차감
+        ticketManager.verify(scanTicket, memberId)
+        val member = memberService.getMember(memberId)
+        memberService.increaseScanCountWithinLimit(memberId)
+
+        // 2. 메뉴판 사진에서 메뉴명·가격 판독 (실패 시 1회 복구)
+        val menus = try {
+            readMenuItemsFromImage(imagePath)
+        } catch (e: Exception) {
+            memberService.refundScan(memberId)
+            throw e
+        }
+
+        // 3. 음식 매칭 및 결과 구성
+        val matches = menuMatchingService.matchMenus(menus, allowVectorMatch = true)
+        val items = buildScanItems(member, menus, matches, lang)
+
+        // 4. 이력 저장 실패 시 1회 복구
+        try {
+            saveScanHistory(memberId, items)
+        } catch (e: Exception) {
+            memberService.refundScan(memberId)
+            throw e
+        }
+
+        // 5. 미등록 메뉴 추정 준비
+        return preparePendingItems(member, ScanResult(items = items, degraded = false))
+    }
+
+    private fun saveScanHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
+        if (items.isEmpty()) return
+        val historyRows = mutableListOf<ScanHistory>()
+        for (item in items) {
+            historyRows.add(ScanHistory.record(memberId = memberId, price = item.price, foodId = item.foodId))
+        }
+        scanHistoryRepository.saveAll(historyRows)
+    }
+
+    private fun preparePendingItems(member: Member, result: ScanResult): ScanResult {
+        val pendingItems = mutableListOf<PendingItem>()
+        val responseItems = result.items.toMutableList()
+        for ((index, item) in result.items.withIndex()) {
+            val nameKey = item.pendingNameKey ?: continue
+            val pendingId = "p$index"
+            pendingItems.add(
+                PendingItem(
+                    pendingId = pendingId,
+                    nameKey = nameKey,
+                    koreanName = item.koreanName.orEmpty(),
+                    foodId = item.foodId,
+                    priceKrw = item.price,
+                    priceOptions = item.priceOptions,
+                ),
+            )
+            responseItems[index] = item.copy(pendingId = pendingId)
+        }
+        if (pendingItems.isEmpty()) return result
+
+        val scanId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val state = PendingScan(
+            memberId = member.id,
+            deadlineMillis = now + pendingWait.toMillis(),
+            items = pendingItems,
+            imageDeadlineMillis = now + Duration.ofSeconds(60).toMillis(),
+        )
+        try {
+            menuNameEstimates.savePendingScan(scanId, state)
+        } catch (e: RuntimeException) {
+            log.warn("메뉴 추정 대기 상태 저장 실패 — scanId 없이 현행 응답", e)
+            return result
+        }
+        if (!member.isBot) {
+            try {
+                menuNameEstimates.schedule(member.id, pendingItems)
+            } catch (e: RuntimeException) {
+                log.warn("메뉴 추정 예약 실패 — 추정 없이 마감 뒤 UNKNOWN 으로 끝난다 scanId={}", scanId, e)
+            }
+        }
+        return result.copy(scanId = scanId, items = responseItems)
+    }
+
+    private fun readMenuItemsFromImage(imagePath: String): List<ExtractedMenu> {
+        val menuItems = callMenuBoardVision(imagePath)
+        if (menuItems.isEmpty()) {
+            throw BusinessException(ErrorCode.MENU_BOARD_NOT_DETECTED)
+        }
+
+        return menuItems
+    }
+
+    private fun callMenuBoardVision(imagePath: String): List<ExtractedMenu> {
+        return try {
+            menuBoardImageClient.readMenuItems(imagePath, ocrItems = emptyList())
         } catch (e: MenuBoardVisionRateLimitedException) {
             log.warn(
                 "메뉴판 비전 rate-limit — kind={} retryAfterSeconds={} limits={} imagePath={}",
@@ -55,10 +147,9 @@ class ScanService(
                 imagePath,
                 e,
             )
-            throw BusinessException(
-                ErrorCode.SCAN_RATE_LIMITED,
-                payload = e.retryAfterSeconds?.let { mapOf("retryAfterSeconds" to it) },
-            )
+            val seconds = e.retryAfterSeconds
+            val retryHint = if (seconds == null) null else mapOf("retryAfterSeconds" to seconds)
+            throw BusinessException(ErrorCode.SCAN_RATE_LIMITED, payload = retryHint)
         } catch (e: MenuBoardVisionQuotaExhaustedException) {
             log.error("메뉴판 비전 quota 소진 — code={} imagePath={}", e.code, imagePath, e)
             throw BusinessException(ErrorCode.SCAN_VISION_UNAVAILABLE)
@@ -69,19 +160,20 @@ class ScanService(
             log.warn("메뉴판 비전 인식 실패 — imagePath={}", imagePath, e)
             throw BusinessException(ErrorCode.MENU_BOARD_RECOGNITION_FAILED)
         }
-        if (requireDetectedMenu && extracted.isEmpty()) {
-            throw BusinessException(ErrorCode.MENU_BOARD_NOT_DETECTED)
-        }
+    }
 
-        val matches = menuMatchingService.matchMenus(extracted, substituteSimilar)
+    private fun buildScanItems(
+        member: Member,
+        extracted: List<ExtractedMenu>,
+        matches: Map<String, MenuMatch>,
+        lang: LanguageCode,
+    ): List<ScanResult.ItemRiskResult> {
         val avoidance = member.profile.avoidance()
         val orderedAvoidedCodes = avoidance.chosen.sortedBy { it.ordinal }
         val avoidedCodes = avoidance.codeNames
         val avoidanceCatalog = loadAvoidanceCatalog(orderedAvoidedCodes)
-        val validIdxes = ocrItems.map { it.idx }.toSet()
-        val usedIdxes = mutableSetOf<Int>()
 
-        val items = mergeOptions(extracted).map { (menu, priceOptions) ->
+        return mergeOptions(extracted).map { (menu, priceOptions) ->
             val key = KoreanMenuNameNormalizer.matchKey(menu.koreanName)
             val match = matches[key]
             val food = match?.food
@@ -89,7 +181,7 @@ class ScanService(
             val matched = food?.isReady() == true
             val koreanName = if (matched) food!!.displayName(LanguageCode.KO) else menu.koreanName
             ScanResult.ItemRiskResult(
-                idx = menu.matchedIdx?.takeIf { it in validIdxes && usedIdxes.add(it) },
+                idx = null,
                 riskLevel = (food?.overallRisk(avoidedCodes) ?: RiskLevel.UNKNOWN).name,
                 matched = matched,
                 foodId = food?.id,
@@ -107,8 +199,6 @@ class ScanService(
                 priceOptions = priceOptions,
             )
         }
-
-        return ScanResult(items = items, degraded = false)
     }
 
     private fun loadAvoidanceCatalog(avoidedCodes: List<IngredientCode>): Map<IngredientCode, Ingredient> {
@@ -150,17 +240,5 @@ class ScanService(
             if (!emitted.add(key)) return@mapNotNull null
             menu.copy(matchedIdx = groups.getValue(key).firstNotNullOfOrNull { it.matchedIdx }) to options
         }
-    }
-
-    @Transactional
-    fun recordHistory(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
-        if (items.isEmpty()) return
-        scanHistoryRepository.saveAll(items.map { ScanHistory.record(memberId = memberId, price = it.price, foodId = it.foodId) })
-    }
-
-    @Transactional
-    fun recordChargedScan(memberId: Long, items: List<ScanResult.ItemRiskResult>) {
-        memberService.increaseScanCountWithinLimit(memberId)
-        recordHistory(memberId, items)
     }
 }

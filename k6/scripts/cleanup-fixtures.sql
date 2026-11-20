@@ -250,7 +250,7 @@ BEGIN
         WHERE member_id = 35
           AND BINARY object_path LIKE BINARY CONCAT('%[load:', escaped_run_id, ']%') ESCAPE '=';
 
-    ELSEIF @target IN ('scan-v1', 'scan-v2-krw', 'scan-v2-usd') THEN
+    ELSEIF @target IN ('scan-v2-krw', 'scan-v2-usd') THEN
         INSERT INTO load_scan_history_ids (scan_history_id, food_id)
         SELECT scan_history.id, scan_history.food_id
         FROM scan_history

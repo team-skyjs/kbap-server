@@ -50,7 +50,7 @@ require_fixed "$cleanup_sql" "@target IN ('member-block', 'member-unblock')" 'bl
 require_fixed "$cleanup_sql" "@target IN ('bookmark-add', 'bookmark-remove')" 'bookmark restore targets are required'
 require_fixed "$cleanup_sql" "@target IN ('review-like', 'review-unlike')" 'review-like restore targets are required'
 require_fixed "$cleanup_sql" "@target IN ('review-update', 'review-delete')" 'review restore targets are required'
-require_fixed "$cleanup_sql" "@target IN ('scan-v1', 'scan-v2-krw', 'scan-v2-usd')" 'scan cleanup targets are required'
+require_fixed "$cleanup_sql" "@target IN ('scan-v2-krw', 'scan-v2-usd')" 'scan cleanup targets are required'
 require_fixed "$cleanup_sql" 'member_id = 35' 'all member-owned restore scope must be pinned to member 35'
 require_fixed "$cleanup_sql" 'scan_history.id > scan_history_high_watermark' 'scan cleanup must use the member 35 high-watermark'
 require_fixed "$cleanup_sql" "candidate_food.content_status = 'FAILED'" 'current-schema incomplete food scope must be FAILED only'

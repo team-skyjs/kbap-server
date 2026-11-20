@@ -9,6 +9,5 @@ POST	/api/images/upload-url	{"contentLength":1234,"contentType":"image/jpeg","pu
 POST	/api/images/complete	{"contentType":"image/jpeg","path":"images/menu-scan/[load:catalog-contract]/catalog-1.jpg","size":1234}
 POST	/api/orders	{"imagePath":"images/menu-scan/order-1.jpg","items":[{"foodId":1,"menuName":"[load:catalog-contract] 김치찌개","price":9000,"quantity":1}]}
 POST	/api/orders	{"imagePath":"images/menu-scan/order-1.jpg","items":[{"foodId":1,"menuName":"[load:catalog-contract] 김치찌개","price":9000,"quantity":1}],"latitude":37.4979502,"longitude":127.0276368}
-POST	/api/scans	{"imagePath":"images/menu-scan/seed.jpg","items":[{"idx":0,"rawMenuName":"김치찌개"}]}
 POST	/api/scans	{"imagePath":"images/menu-scan/seed.jpg"}
 POST	/api/scans	{"imagePath":"images/menu-scan/seed.jpg"}

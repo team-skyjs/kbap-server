@@ -55,7 +55,6 @@ GET	/api/places/nearby?lang=ko&latitude=37.4979502&longitude=127.0276368	1.0	tru
 GET	/api/places/search?lang=ko&latitude=37.4979502&longitude=127.0276368&query=%EA%B9%80%EC%B9%98	1.0	true
 POST	/api/scans/tickets	1.0	true
 POST	/api/scans/tickets	1.0	true
-POST	/api/scans?lang=ko	1.0	true
 POST	/api/scans/tickets	1.0	true
 POST	/api/scans?currency=KRW&lang=ko	2.0	true
 POST	/api/scans?currency=USD&lang=ko	2.0	true

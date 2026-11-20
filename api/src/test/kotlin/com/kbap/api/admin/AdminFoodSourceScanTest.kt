@@ -6,7 +6,7 @@ import com.kbap.api.BackgroundTasks
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
-import com.kbap.api.scan.FakeMenuBoardVisionExtractor
+import com.kbap.api.scan.FakeMenuBoardImageClient
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
@@ -30,7 +30,7 @@ class AdminFoodSourceScanTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
-    @Autowired private lateinit var menuVision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var menuVision: FakeMenuBoardImageClient
 
     @Autowired
     @Qualifier("applicationTaskExecutor")

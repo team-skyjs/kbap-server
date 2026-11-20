@@ -1,7 +1,7 @@
 package com.kbap.api.scan
 
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardImageClient
 import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
 import com.kbap.common.port.llm.MenuBoardVisionRateLimitedException
 import com.kbap.common.port.llm.MenuBoardVisionUnavailableException
@@ -9,7 +9,7 @@ import com.kbap.common.port.llm.OcrItem
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
-class FakeMenuBoardVisionExtractor : MenuBoardVisionExtractor {
+class FakeMenuBoardImageClient : MenuBoardImageClient {
     private val byPath = mutableMapOf<String, List<ExtractedMenu>>()
     private val failPaths = mutableSetOf<String>()
     private val unavailablePaths = mutableSetOf<String>()
@@ -40,7 +40,7 @@ class FakeMenuBoardVisionExtractor : MenuBoardVisionExtractor {
         quotaExhaustedPaths.add(path)
     }
 
-    override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> {
+    override fun readMenuItems(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> {
         receivedOcrItems[imagePath] = ocrItems
         duringExtract()
         if (imagePath in unavailablePaths) {
@@ -65,5 +65,5 @@ class FakeMenuBoardVisionExtractor : MenuBoardVisionExtractor {
 @Configuration
 class FakeVisionConfig {
     @Bean
-    fun fakeMenuBoardVisionExtractor(): FakeMenuBoardVisionExtractor = FakeMenuBoardVisionExtractor()
+    fun fakeMenuBoardImageClient(): FakeMenuBoardImageClient = FakeMenuBoardImageClient()
 }

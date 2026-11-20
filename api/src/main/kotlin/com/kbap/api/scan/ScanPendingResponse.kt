@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 data class ScanPendingResponse(
     @field:Schema(description = "추정이 끝난 항목만, 스캔 결과 순서대로")
     val items: List<ScanPendingItemResponse>,
-    @field:Schema(description = "전부 끝났거나 스캔 뒤 15초가 지나면 true. 그 뒤에도 상태 TTL(10분) 안에서는 마감 때 filled 로 채운 항목이 늦게 도착한 추정으로 바뀔 수 있다(같은 pendingId) — 앱은 화면 재진입 때 다시 조회하면 된다")
+    @field:Schema(description = "전부 끝났거나 텍스트 대기 시간(기본 45초)이 지나면 true. 그 뒤에도 상태 TTL(10분) 안에서는 마감 때 filled 로 채운 항목이 늦게 도착한 추정으로 바뀔 수 있다(같은 pendingId) — 앱은 화면 재진입 때 다시 조회하면 된다")
     val done: Boolean,
     @field:Schema(description = "모든 항목의 imageStatus 가 GENERATING 이 아니거나 스캔 뒤 60초가 지나면 true. 앱은 done && imagesDone 이면 폴링을 멈춘다(상태는 10분 보관)")
     val imagesDone: Boolean = true,
@@ -41,7 +41,7 @@ data class ScanPendingItemResponse(
     val existsNotReady: Boolean,
     @field:Schema(description = "existsNotReady 일 때 그 음식 행 id", nullable = true)
     val foodId: Long?,
-    @field:Schema(description = "15초 마감까지 추정이 없어 서버가 kind=DISH·UNKNOWN 으로 채운 항목이면 true, LLM 추정 결과면 false")
+    @field:Schema(description = "텍스트 마감까지 추정이 없어 서버가 kind=DISH·UNKNOWN 으로 채운 항목이면 true, LLM 추정 결과면 false")
     val filled: Boolean = false,
     @field:Schema(description = "메뉴판에서 읽은 가격(원) — LLM 이 만들지 않는다. 없으면 null", nullable = true, example = "11000")
     val priceKrw: Int? = null,

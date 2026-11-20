@@ -156,6 +156,11 @@ class MemberService(
         }
     }
 
+    @Transactional
+    fun refundScan(memberId: Long) {
+        check(memberRepository.decreaseScanCount(memberId) == 1) { "스캔 횟수 복구 실패: memberId=$memberId" }
+    }
+
     @Transactional(readOnly = true)
     fun getAvoidance(memberId: Long?): Avoidance {
         if (memberId == null) return Avoidance.NONE

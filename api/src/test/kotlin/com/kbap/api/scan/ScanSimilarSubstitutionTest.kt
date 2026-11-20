@@ -17,12 +17,14 @@ import com.kbap.common.domain.member.model.SocialIdentity
 import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.domain.scan.ScanHistoryJpaRepository
 import com.kbap.common.port.llm.ExtractedMenu
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardImageClient
 import com.kbap.common.port.llm.OcrItem
 import com.kbap.common.port.llm.TextEmbeddingClient
+import com.kbap.common.port.scan.ScanTicketManager
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
+import java.time.Duration
 import javax.sql.DataSource
 import org.springframework.beans.factory.annotation.Autowired
 
@@ -31,10 +33,12 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
     override fun extensions() = listOf(SpringExtension)
 
     @Autowired private lateinit var fallbackPolicies: List<MenuFallbackPolicy>
+    @Autowired private lateinit var tickets: ScanTicketManager
+    @Autowired private lateinit var members: MemberService
     @Autowired private lateinit var foodService: FoodService
     @Autowired private lateinit var foodRepository: FoodJpaRepository
-    @Autowired private lateinit var scanHistoryRepository: ScanHistoryJpaRepository
-    @Autowired private lateinit var memberService: MemberService
+    @Autowired private lateinit var history: ScanHistoryJpaRepository
+    @Autowired private lateinit var estimates: MenuNameEstimateService
     @Autowired private lateinit var ingredientRepository: IngredientJpaRepository
     @Autowired private lateinit var memberRepository: MemberJpaRepository
     @Autowired private lateinit var dataSource: DataSource
@@ -84,8 +88,8 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                 then("대표 하나만이 아니라 두 항목 모두 같은 공개 음식으로 대체되고, 출처 연결은 대체 음식과 원래(미완성) 음식 둘 다 남는다 — Codex P2(#588)") {
                     val target = foodRepository.save(Food(koreanName = "공개대체찌개", description = "설명", contentStatus = FoodContentStatus.READY))
                     val member = memberRepository.save(Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "similar-${System.nanoTime()}", null)))
-                    val vision = object : MenuBoardVisionExtractor {
-                        override fun extract(imagePath: String, ocrItems: List<OcrItem>) = listOf(
+                    val vision = object : MenuBoardImageClient {
+                        override fun readMenuItems(imagePath: String, ocrItems: List<OcrItem>) = listOf(
                             ExtractedMenu("Similar stew", "유사테스트 찌개", 9000, null),
                             ExtractedMenu("Similar stew", "유사테스트찌개", 9500, null),
                         )
@@ -95,9 +99,9 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.99)) }
                     val vectorPolicy = VectorMatchPolicy(SimilarFoodService(embedding, searcher, foodService))
                     val matching = MenuMatchingService(foodService, listOf(vectorPolicy, AiEstimatePolicy()))
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, matching, memberService)
+                    val service = ScanService(tickets, members, foodService, vision, ingredientRepository, matching, history, estimates, Duration.ofSeconds(15))
 
-                    val result = service.scan(member, "scans/x.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
+                    val result = service.scan(member.id, "scans/x.jpg", LanguageCode.EN, tickets.issue(member.id).ticket)
 
                     embedded.size shouldBe 1
                     result.items.map { it.substituted } shouldBe listOf(true, true)
@@ -118,17 +122,17 @@ class ScanSimilarSubstitutionTest : BehaviorSpec() {
                     val target = foodRepository.save(Food(koreanName = "공개김치찌개", description = "설명", contentStatus = FoodContentStatus.READY))
                     foodRepository.save(Food(koreanName = "실패김치찌개", description = "", contentStatus = FoodContentStatus.FAILED))
                     val member = memberRepository.save(Member.signUp(SocialIdentity(SocialProvider.GOOGLE, "similar-${System.nanoTime()}", null)))
-                    val vision = object : MenuBoardVisionExtractor {
-                        override fun extract(imagePath: String, ocrItems: List<OcrItem>) = listOf(ExtractedMenu("Kimchi stew", "실패김치찌개", 9000, null))
+                    val vision = object : MenuBoardImageClient {
+                        override fun readMenuItems(imagePath: String, ocrItems: List<OcrItem>) = listOf(ExtractedMenu("Kimchi stew", "실패김치찌개", 9000, null))
                     }
                     val embedded = mutableListOf<String>()
                     val embedding = TextEmbeddingClient { texts -> embedded += texts; texts.map { FloatArray(4) } }
                     val searcher = FoodVectorSearcher { _, _ -> listOf(FoodVectorMatch(target.id, 0.9)) }
                     val vectorPolicy = VectorMatchPolicy(SimilarFoodService(embedding, searcher, foodService))
                     val matching = MenuMatchingService(foodService, listOf(vectorPolicy, AiEstimatePolicy()))
-                    val service = ScanService(foodService, vision, scanHistoryRepository, ingredientRepository, matching, memberService)
+                    val service = ScanService(tickets, members, foodService, vision, ingredientRepository, matching, history, estimates, Duration.ofSeconds(15))
 
-                    val result = service.scan(member, "scans/y.jpg", emptyList(), LanguageCode.EN, requireDetectedMenu = false, substituteSimilar = true)
+                    val result = service.scan(member.id, "scans/y.jpg", LanguageCode.EN, tickets.issue(member.id).ticket)
 
                     embedded shouldBe listOf("실패김치찌개")
                     result.items.single().let {
