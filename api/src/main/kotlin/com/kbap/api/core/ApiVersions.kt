@@ -12,6 +12,16 @@ object ApiVersions {
 
     private val parser = SemanticApiVersionParser()
 
+    val supported = listOf("1.0", "1.1", HOME_MARKETING_POPULAR, HOME_TOP_RATED, "2.0",
+        SCAN_SUBSTITUTION, FOOD_NAME_SORT, PROCESSED_FOOD, SCAN_BATCH)
+    private val labels = supported.associateBy(parser::parseVersion)
+
+    fun metricLabel(header: String?): String {
+        if (header.isNullOrBlank()) return "missing"
+        val version = runCatching { parser.parseVersion(header) }.getOrNull()
+        return labels[version] ?: "unsupported"
+    }
+
     fun isAtLeast(requested: String, minimum: String): Boolean =
         parser.parseVersion(requested) >= parser.parseVersion(minimum)
 }
