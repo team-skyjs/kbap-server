@@ -978,6 +978,32 @@ class ScanControllerTest : BehaviorSpec() {
                     }
                 }
             }
+            `when`("마지막 무료 스캔에서 판독 성공 후 미등록 음식의 콘텐츠 요청 저장이 실패하면") {
+                then("실패한 스캔은 횟수와 이력에 남지 않고 같은 메뉴판을 다시 스캔할 수 있다") {
+                    val memberId = 656L
+                    val path = "scan/656/menu.jpg"
+                    val menuName = "매칭복구국"
+                    setScanCount(memberId, 2)
+                    seedVerifiedImage(memberId, path)
+                    vision.program(path, listOf(ExtractedMenu("Soup", menuName, 9000, matchedIdx = null)))
+                    dataSource.connection.use { connection ->
+                        connection.createStatement().use { sql ->
+                            sql.execute("ALTER TABLE food_content_outbox ADD CONSTRAINT test_scan_matching_failure CHECK (display_name <> '$menuName')")
+                            try {
+                                v2Scan(memberId, path).andExpect { status { is5xxServerError() } }
+                            } finally {
+                                sql.execute("ALTER TABLE food_content_outbox DROP CHECK test_scan_matching_failure")
+                            }
+                        }
+                    }
+                    scanCountOf(memberId) shouldBe 2
+                    scanHistoryCount(memberId) shouldBe 0
+
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 3
+                    scanHistoryCount(memberId) shouldBe 1
+                }
+            }
             `when`("판독 성공 후 스캔 이력 INSERT가 실패하면") {
                 then("이력 트랜잭션 롤백 후 사용 횟수 1회 복구") {
                     val memberId = 645L

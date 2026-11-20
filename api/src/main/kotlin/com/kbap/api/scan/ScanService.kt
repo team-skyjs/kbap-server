@@ -49,27 +49,21 @@ class ScanService(
         val member = memberService.getMember(memberId)
         memberService.increaseScanCountWithinLimit(memberId)
 
-        // 2. 메뉴판 사진에서 메뉴명·가격 판독 (실패 시 1회 복구)
-        val menus = try {
-            readMenuItemsFromImage(imagePath)
-        } catch (e: Exception) {
-            memberService.refundScan(memberId)
-            throw e
-        }
-
-        // 3. 음식 매칭 및 결과 구성
-        val matches = menuMatchingService.matchMenus(menus, allowVectorMatch = true)
-        val items = buildScanItems(member, menus, matches, lang)
-
-        // 4. 이력 저장 실패 시 1회 복구
+        val items: List<ScanResult.ItemRiskResult>
         try {
+            // 2. 메뉴판 판독 및 음식 매칭
+            val menus = readMenuItemsFromImage(imagePath)
+            val matches = menuMatchingService.matchMenus(menus, allowVectorMatch = true)
+
+            // 3. 결과 구성 및 스캔 이력 저장
+            items = buildScanItems(member, menus, matches, lang)
             saveScanHistory(memberId, items)
         } catch (e: Exception) {
             memberService.refundScan(memberId)
             throw e
         }
 
-        // 5. 미등록 메뉴 추정 준비
+        // 4. 미등록 메뉴 추정 준비
         return preparePendingItems(member, ScanResult(items = items, degraded = false))
     }
 
