@@ -57,7 +57,7 @@ class MenuBoardLineExtractionTest : BehaviorSpec({
                         return ChatResponse(listOf(Generation(AssistantMessage("""{"results":[{"rawName":"짜장면(곱빼기)","koreanName":"짜장면","price":8000,"option":"곱빼기"}]}"""))), ChatResponseMetadata.builder().model("m").build())
                     }
                 }
-                val extractor = OpenAiMenuBoardVisionExtractor(chatModel, parser, "https://cdn.test")
+                val extractor = OpenAiMenuBoardVisionClient(chatModel, parser, "https://cdn.test")
                 extractor.extractLines("dev/images/scans/a.jpg") shouldBe listOf(MenuBoardLine("짜장면(곱빼기)", "짜장면", 8000, "곱빼기"))
                 val system = captured!!.instructions.filterIsInstance<SystemMessage>().single().text
                 system shouldContain "rawName"

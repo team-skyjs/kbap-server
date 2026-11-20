@@ -1,11 +1,11 @@
 package com.kbap.common.infra.llm.config
 
-import com.kbap.common.infra.llm.menu.ClaudeMenuBoardVisionExtractor
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.menu.ClaudeMenuBoardVisionClient
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient
 import com.kbap.common.infra.llm.translation.ClaudeTextTranslator
 import com.kbap.common.infra.llm.translation.OpenAiTextTranslator
 import com.kbap.common.port.llm.MenuBoardLineExtractor
-import com.kbap.common.port.llm.MenuBoardVisionExtractor
+import com.kbap.common.port.llm.MenuBoardImageClient
 import com.kbap.common.port.llm.ProcessedFoodPhotoReader
 import io.kotest.matchers.types.shouldBeInstanceOf
 import com.kbap.common.port.llm.ProcessedFoodTextTranslator
@@ -33,7 +33,7 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
 
             then("vision 빈이 없다") {
                 runner.run { context ->
-                    context.getBeanNamesForType(MenuBoardVisionExtractor::class.java).size shouldBe 0
+                    context.getBeanNamesForType(MenuBoardImageClient::class.java).size shouldBe 0
                 }
             }
 
@@ -81,7 +81,7 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
 
             then("vision 빈이 등록된다") {
                 visionRunner.run { context ->
-                    context.getBean(MenuBoardVisionExtractor::class.java).shouldNotBeNull()
+                    context.getBean(MenuBoardImageClient::class.java).shouldNotBeNull()
                 }
             }
         }
@@ -134,9 +134,9 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                     "kbap.llm.translation.model=claude-sonnet-5-5",
                 ).run { context ->
                     context.startupFailure.shouldBeNull()
-                    context.getBean(MenuBoardVisionExtractor::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionExtractor>()
-                    context.getBean(MenuBoardLineExtractor::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionExtractor>()
-                    context.getBean(ProcessedFoodPhotoReader::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionExtractor>()
+                    context.getBean(MenuBoardImageClient::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionClient>()
+                    context.getBean(MenuBoardLineExtractor::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionClient>()
+                    context.getBean(ProcessedFoodPhotoReader::class.java).shouldBeInstanceOf<ClaudeMenuBoardVisionClient>()
                     context.getBean(TextTranslator::class.java).shouldBeInstanceOf<ClaudeTextTranslator>()
                 }
             }
@@ -156,7 +156,7 @@ class LlmConfigurationBootSafetyTest : BehaviorSpec({
                     "kbap.llm.translation.openai.model=gpt-5.6-luna",
                 ).run { context ->
                     context.startupFailure.shouldBeNull()
-                    context.getBean(MenuBoardVisionExtractor::class.java).shouldBeInstanceOf<OpenAiMenuBoardVisionExtractor>()
+                    context.getBean(MenuBoardImageClient::class.java).shouldBeInstanceOf<OpenAiMenuBoardVisionClient>()
                     context.getBean(TextTranslator::class.java).shouldBeInstanceOf<OpenAiTextTranslator>()
                 }
             }

@@ -7,7 +7,7 @@ import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
 import com.kbap.api.processedfood.FakeProcessedFoodPhotoReader
-import com.kbap.api.scan.FakeMenuBoardVisionExtractor
+import com.kbap.api.scan.FakeMenuBoardImageClient
 import com.kbap.common.core.error.BusinessException
 import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.member.model.MemberRole
@@ -42,7 +42,7 @@ class ScanResultLogTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
-    @Autowired private lateinit var menuVision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var menuVision: FakeMenuBoardImageClient
     @Autowired private lateinit var photoReader: FakeProcessedFoodPhotoReader
     @Autowired private lateinit var writer: ScanResultLogWriter
 

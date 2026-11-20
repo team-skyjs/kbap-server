@@ -7,7 +7,6 @@ import com.kbap.common.domain.ingredient.AvoidanceGroupMatrix
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.domain.member.model.MemberRole
-import com.kbap.common.port.scan.ScanReservationStore
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -36,10 +35,7 @@ class ScanControllerTest : BehaviorSpec() {
     private lateinit var tokenIssuer: TokenIssuer
 
     @Autowired
-    private lateinit var vision: FakeMenuBoardVisionExtractor
-
-    @Autowired
-    private lateinit var reservationStore: ScanReservationStore
+    private lateinit var vision: FakeMenuBoardImageClient
 
     @Autowired
     private lateinit var exchangeRate: FakeExchangeRateClient
@@ -77,10 +73,6 @@ class ScanControllerTest : BehaviorSpec() {
             mapper.readTree(
                 ticketRequest(memberId).andReturn().response.getContentAsString(Charsets.UTF_8),
             ).path("payload").path("ticket").asText()
-
-        fun jtiOf(ticket: String): String =
-            mapper.readTree(java.util.Base64.getUrlDecoder().decode(ticket.split(".")[1]))
-                .path("jti").asText()
 
         fun setMemberCurrency(memberId: Long, currency: String) {
             seedMember(memberId)
@@ -267,52 +259,28 @@ class ScanControllerTest : BehaviorSpec() {
                 }
             }
 
-        fun body(imagePath: String, vararg items: Pair<Int, String>) =
-            mapper.writeValueAsString(
-                mapOf(
-                    "imagePath" to imagePath,
-                    "items" to items.map { mapOf("idx" to it.first, "rawMenuName" to it.second) },
-                ),
-            )
+        fun body(imagePath: String) = mapper.writeValueAsString(mapOf("imagePath" to imagePath))
+
+        given("메뉴판 스캔 v1 종료") {
+            then("1.0 요청은 스캔 횟수를 사용하지 않고 거절") {
+                val memberId = 642L
+                val token = accessToken(memberId)
+                val before = scanCountOf(memberId)
+                val path = "scan/642/menu.jpg"
+                seedVerifiedImage(memberId, path)
+                vision.program(path, listOf(ExtractedMenu("김치찌개", "김치찌개", 9000, matchedIdx = 0)))
+                mockMvc.post("/api/scans") {
+                    param("lang", "ko")
+                    header("Authorization", "Bearer $token")
+                    header("X-API-Version", "1.0")
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"imagePath":"$path","items":[{"idx":0,"rawMenuName":"김치찌개"}]}"""
+                }.andExpect { status { is4xxClientError() } }
+                scanCountOf(memberId) shouldBe before
+            }
+        }
 
         given("메뉴판 사진 스캔 — POST /api/scans") {
-            `when`("추출 메뉴가 클라이언트 OCR idx 에 매칭되면") {
-                then("결과에 매칭된 client idx·위험도·가격이 담긴다") {
-                    val memberId = 501L
-                    val path = "scan/501/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    seedReadyFood("김치찌개", """{"en":"Kimchi Stew"}""")
-                    vision.program(
-                        path,
-                        listOf(
-                            ExtractedMenu("Kimchi 김치찌개", "김치찌개", 9000, matchedIdx = 0),
-                            ExtractedMenu("Bulgogi 미등록불고기501", "미등록불고기501", 16000, matchedIdx = 1),
-                        ),
-                    )
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개", 1 to "불고기")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.degraded") { value(false) }
-                        jsonPath("$.payload.results.length()") { value(2) }
-                        jsonPath("$.payload.results[0].idx") { value(0) }
-                        jsonPath("$.payload.results[0].matched") { value(true) }
-                        jsonPath("$.payload.results[0].name") { value("김치찌개") }
-                        jsonPath("$.payload.results[0].koreanName") { value("김치찌개") }
-                        jsonPath("$.payload.results[0].riskLevel") { value("SAFE") }
-                        jsonPath("$.payload.results[0].price") { value(9000) }
-                        jsonPath("$.payload.results[1].idx") { value(1) }
-                        jsonPath("$.payload.results[1].matched") { value(false) }
-                        jsonPath("$.payload.results[1].name") { value("미등록불고기501") }
-                        jsonPath("$.payload.results[1].koreanName") { value("미등록불고기501") }
-                        jsonPath("$.payload.results[1].price") { value(16000) }
-                    }
-                }
-            }
 
             `when`("메뉴판 인식(외부 LLM)을 부르는 동안") {
                 then("DB 커넥션을 쥐고 있지 않다 — 느린 외부 호출이 커넥션 풀을 붙잡지 않는다") {
@@ -325,10 +293,13 @@ class ScanControllerTest : BehaviorSpec() {
 
                     try {
                         mockMvc.post("/api/scans") {
+                            param("currency", "USD")
+                            header("X-API-Version", "2.0")
+                            header("X-Scan-Ticket", issueTicket(memberId))
                             param("lang", "ko")
                             header("Authorization", "Bearer ${accessToken(memberId)}")
                             contentType = MediaType.APPLICATION_JSON
-                            content = body(path, 0 to "커넥션찌개")
+                            content = body(path)
                         }.andExpect { status { isOk() } }
                     } finally {
                         vision.duringExtract = {}
@@ -347,10 +318,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Kimchi 번역김치찌개", "번역김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "en")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "번역김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(true) }
@@ -373,10 +347,13 @@ class ScanControllerTest : BehaviorSpec() {
                     )
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "en")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "불고기")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(false) }
@@ -395,10 +372,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Kimchi 다국어김치찌개", "다국어김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ja")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "다국어김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].name") { value("キムチチゲ") }
@@ -415,10 +395,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Kimchi 폴백김치찌개", "폴백김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "en")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "폴백김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(true) }
@@ -436,10 +419,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Kimchi 미지원코드김치찌개", "미지원코드김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "fr")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "미지원코드김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].name") { value("Fallback Stew") }
@@ -461,10 +447,13 @@ class ScanControllerTest : BehaviorSpec() {
                         )
 
                         mockMvc.post("/api/scans") {
+                            param("currency", "USD")
+                            header("X-API-Version", "2.0")
+                            header("X-Scan-Ticket", issueTicket(memberId))
                             param("lang", raw)
                             header("Authorization", "Bearer ${accessToken(memberId)}")
                             contentType = MediaType.APPLICATION_JSON
-                            content = body(path, 0 to "정규화없음김치찌개")
+                            content = body(path)
                         }.andExpect {
                             status { isOk() }
                             jsonPath("$.payload.results[0].name") { value("No Normalize Stew") }
@@ -480,9 +469,12 @@ class ScanControllerTest : BehaviorSpec() {
                     seedVerifiedImage(memberId, path)
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("COMMON-002") }
@@ -497,89 +489,16 @@ class ScanControllerTest : BehaviorSpec() {
                     seedVerifiedImage(memberId, path)
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "  ")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("추출됐지만 대응하는 OCR 항목이 없으면") {
-                then("그 항목의 idx 는 null 로 내려간다") {
-                    val memberId = 511L
-                    val path = "scan/511/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    vision.program(
-                        path,
-                        listOf(
-                            ExtractedMenu("공기밥", "공기밥", 1000, matchedIdx = 0),
-                            ExtractedMenu("서비스반찬", "서비스반찬", null, matchedIdx = 99),
-                        ),
-                    )
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "공기밥")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].idx") { value(0) }
-                        jsonPath("$.payload.results[1].idx") { value(null) }
-                    }
-                }
-            }
-
-            `when`("두 추출 메뉴가 같은 OCR idx 를 물고 오면") {
-                then("먼저 나온 항목만 idx 를 갖고 뒤 항목은 null 이며 두 메뉴 모두 남는다") {
-                    val memberId = 540L
-                    val path = "scan/540/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    vision.program(
-                        path,
-                        listOf(
-                            ExtractedMenu("김치찌개(소)", "김치찌개소540", 8000, matchedIdx = 0),
-                            ExtractedMenu("김치찌개(대)", "김치찌개대540", 12000, matchedIdx = 0),
-                        ),
-                    )
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results.length()") { value(2) }
-                        jsonPath("$.payload.results[0].idx") { value(0) }
-                        jsonPath("$.payload.results[1].idx") { value(null) }
-                        jsonPath("$.payload.results[1].koreanName") { value("김치찌개대540") }
-                    }
-                }
-            }
-
-            `when`("클라이언트 OCR 텍스트가 사진과 전혀 다르면") {
-                then("응답의 name·koreanName 어디에도 OCR 텍스트가 섞이지 않는다") {
-                    val memberId = 541L
-                    val path = "scan/541/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    vision.program(path, listOf(ExtractedMenu("된장찌개", "된장찌개541", 9000, matchedIdx = 0)))
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "XXX오탈자XXX")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results.length()") { value(1) }
-                        jsonPath("$.payload.results[0].idx") { value(0) }
-                        jsonPath("$.payload.results[0].name") { value("된장찌개541") }
-                        jsonPath("$.payload.results[0].koreanName") { value("된장찌개541") }
                     }
                 }
             }
@@ -592,32 +511,16 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("공기밥", "공기밥", null, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "공기밥")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].price") { value(null) }
-                    }
-                }
-            }
-
-            `when`("메뉴판이 아닌 사진이라 추출 항목이 0개면") {
-                then("빈 results 로 정상 응답한다(실패 아님)") {
-                    val memberId = 503L
-                    val path = "scan/503/landscape.jpg"
-                    seedVerifiedImage(memberId, path)
-                    vision.program(path, emptyList())
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "풍경")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results.length()") { value(0) }
                     }
                 }
             }
@@ -630,10 +533,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("제육볶음", "이력제육볶음", 8000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "제육볶음")
+                        content = body(path)
                     }.andExpect { status { isOk() } }
 
                     val (price, foodId) = historyRow(memberId, "이력제육볶음")
@@ -647,10 +553,13 @@ class ScanControllerTest : BehaviorSpec() {
                 then("400 SCAN-001 로 거절한다") {
                     val memberId = 505L
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body("scan/505/unverified.jpg", 0 to "김치찌개")
+                        content = body("scan/505/unverified.jpg")
                     }.andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("SCAN-001") }
@@ -666,10 +575,13 @@ class ScanControllerTest : BehaviorSpec() {
                     seedVerifiedImage(ownerId, path)
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(otherId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(otherId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "비빔밥")
+                        content = body(path)
                     }.andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("SCAN-001") }
@@ -685,10 +597,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.failOn(path)
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isServiceUnavailable() }
                         jsonPath("$.code") { value("SCAN-002") }
@@ -704,10 +619,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.rateLimitedOn(path)
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isServiceUnavailable() }
                         jsonPath("$.code") { value("SCAN-008") }
@@ -718,38 +636,13 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("경로 대신 전체 URL 을 넘기면") {
                 then("400 으로 거절한다") {
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(509L))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(509L)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body("https://cdn.example.com/scan/509/x.jpg", 0 to "김치찌개")
-                    }.andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("items 가 비어 있으면") {
-                then("400 으로 거절한다") {
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(512L)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body("scan/512/x.jpg")
-                    }.andExpect {
-                        status { isBadRequest() }
-                        jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("items 의 idx 가 중복이면") {
-                then("400 으로 거절한다") {
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(513L)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body("scan/513/x.jpg", 0 to "김치찌개", 0 to "비빔밥")
+                        content = body("https://cdn.example.com/scan/509/x.jpg")
                     }.andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("COMMON-002") }
@@ -760,9 +653,11 @@ class ScanControllerTest : BehaviorSpec() {
             `when`("액세스 토큰 없이 호출하면") {
                 then("401 을 반환한다") {
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
                         param("lang", "ko")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body("scan/510/x.jpg", 0 to "김치찌개")
+                        content = body("scan/510/x.jpg")
                     }.andExpect {
                         status { isUnauthorized() }
                     }
@@ -780,10 +675,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Kalguksu 들깨 칼국수", "들깨 칼국수", 11000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "들깨 칼국수")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(false) }
@@ -804,10 +702,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Guksu 수집대기국수", "수집대기국수", 8000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "수집대기국수")
+                        content = body(path)
                     }.andExpect { status { isOk() } }
 
                     pendingOutboxNames("수집대기국수") shouldBe listOf("수집대기국수")
@@ -822,18 +723,24 @@ class ScanControllerTest : BehaviorSpec() {
                     deleteFood("순두부찌개")
                     vision.program(path, listOf(ExtractedMenu("Sundubu 순두부 찌개", "순두부 찌개", 9000, matchedIdx = 0)))
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "순두부 찌개")
+                        content = body(path)
                     }.andExpect { status { isOk() } }
 
                     vision.program(path, listOf(ExtractedMenu("Sundubu 순두부찌개", "순두부찌개", 9000, matchedIdx = 0)))
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "순두부찌개")
+                        content = body(path)
                     }.andExpect { status { isOk() } }
 
                     foodNames("순두부찌개") shouldBe listOf("순두부찌개" to "순두부 찌개")
@@ -850,10 +757,13 @@ class ScanControllerTest : BehaviorSpec() {
                     vision.program(path, listOf(ExtractedMenu("Kimchi 표시명김치찌개", "표시명김치찌개", 9000, matchedIdx = 0)))
 
                     mockMvc.post("/api/scans") {
+                        param("currency", "USD")
+                        header("X-API-Version", "2.0")
+                        header("X-Scan-Ticket", issueTicket(memberId))
                         param("lang", "ko")
                         header("Authorization", "Bearer ${accessToken(memberId)}")
                         contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "표시명김치찌개")
+                        content = body(path)
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(true) }
@@ -957,43 +867,34 @@ class ScanControllerTest : BehaviorSpec() {
                     scanCountOf(memberId) shouldBe 3
                 }
             }
-            `when`("v2 스캔 인식 중에 다른 경로가 마지막 무료 1회를 먼저 확정하면 — KB-831") {
-                then("결과를 내기 전 조건부 증가가 0행이라 403 SCAN-004, 횟수는 한도를 넘지 않고 스캔 이력도 남지 않는다") {
+            `when`("마지막 무료 스캔을 판독하는 동안 다른 티켓으로 요청하면") {
+                then("두 번째 요청은 AI 판독 전에 거절되고 첫 번째 요청만 이력에 남는다") {
                     val memberId = 8310L
                     val path = "scan/8310/menu.jpg"
+                    val otherPath = "scan/8310/other.jpg"
                     setScanCount(memberId, 2)
                     seedVerifiedImage(memberId, path)
+                    seedVerifiedImage(memberId, otherPath)
+                    val otherTicket = issueTicket(memberId)
                     seedReadyFood("경합김치찌개")
                     vision.program(path, listOf(ExtractedMenu("경합김치찌개", "경합김치찌개", 9000, matchedIdx = null)))
-                    vision.duringExtract = { setScanCount(memberId, 3) }
+                    vision.duringExtract = {
+                        vision.duringExtract = {}
+                        java.util.concurrent.CompletableFuture.runAsync {
+                            v2Scan(memberId, otherPath, otherTicket).andExpect {
+                                status { isForbidden() }
+                                jsonPath("$.code") { value("SCAN-004") }
+                            }
+                        }.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                    }
                     try {
-                        v2Scan(memberId, path).andExpect {
-                            status { isForbidden() }
-                            jsonPath("$.code") { value("SCAN-004") }
-                        }
+                        v2Scan(memberId, path).andExpect { status { isOk() } }
                     } finally {
                         vision.duringExtract = {}
                     }
+                    vision.receivedOcrItems.containsKey(otherPath) shouldBe false
                     scanCountOf(memberId) shouldBe 3
-                    scanHistoryCount(memberId) shouldBe 0
-                }
-            }
-            `when`("무료 3회를 소진한 미해금 회원이 v1 로 스캔하면") {
-                then("v1 은 크레딧 제한 밖이라 정상 스캔되고 카운트만 누적된다") {
-                    val memberId = 642L
-                    val path = "scan/642/menu.jpg"
-                    setScanCount(memberId, 3)
-                    seedVerifiedImage(memberId, path)
-                    seedReadyFood("브이원찌개")
-                    vision.program(path, listOf(ExtractedMenu("브이원찌개", "브이원찌개", 9000, matchedIdx = 0)))
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "브이원찌개")
-                    }.andExpect { status { isOk() } }
-                    scanCountOf(memberId) shouldBe 4
+                    scanHistoryCount(memberId) shouldBe 1
                 }
             }
             `when`("3회를 소진했지만 해금된 회원이면") {
@@ -1077,35 +978,51 @@ class ScanControllerTest : BehaviorSpec() {
                     }
                 }
             }
-            `when`("이미 처리 중인 티켓으로 스캔이 중복 전달되면") {
-                then("409 SCAN-005 로 거절되고 횟수·이력이 발생하지 않는다") {
-                    val memberId = 645L
-                    val path = "scan/645/menu.jpg"
+            `when`("마지막 무료 스캔에서 판독 성공 후 미등록 음식의 콘텐츠 요청 저장이 실패하면") {
+                then("실패한 스캔은 횟수와 이력에 남지 않고 같은 메뉴판을 다시 스캔할 수 있다") {
+                    val memberId = 656L
+                    val path = "scan/656/menu.jpg"
+                    val menuName = "매칭복구국"
+                    setScanCount(memberId, 2)
                     seedVerifiedImage(memberId, path)
-                    val ticket = issueTicket(memberId)
-                    reservationStore.reserve(memberId, jtiOf(ticket), 0, 3)
-
-                    v2Scan(memberId, path, ticket = ticket).andExpect {
-                        status { isConflict() }
-                        jsonPath("$.code") { value("SCAN-005") }
+                    vision.program(path, listOf(ExtractedMenu("Soup", menuName, 9000, matchedIdx = null)))
+                    dataSource.connection.use { connection ->
+                        connection.createStatement().use { sql ->
+                            sql.execute("ALTER TABLE food_content_outbox ADD CONSTRAINT test_scan_matching_failure CHECK (display_name <> '$menuName')")
+                            try {
+                                v2Scan(memberId, path).andExpect { status { is5xxServerError() } }
+                            } finally {
+                                sql.execute("ALTER TABLE food_content_outbox DROP CHECK test_scan_matching_failure")
+                            }
+                        }
                     }
-                    scanCountOf(memberId) shouldBe 0
+                    scanCountOf(memberId) shouldBe 2
                     scanHistoryCount(memberId) shouldBe 0
+
+                    v2Scan(memberId, path).andExpect { status { isOk() } }
+                    scanCountOf(memberId) shouldBe 3
+                    scanHistoryCount(memberId) shouldBe 1
                 }
             }
-            `when`("해금 회원이 처리 중인 같은 티켓으로 중복 전송하면") {
-                then("해금 여부와 무관하게 409 SCAN-005 로 이중 소모가 방지된다") {
-                    val memberId = 652L
-                    val path = "scan/652/menu.jpg"
+            `when`("판독 성공 후 스캔 이력 INSERT가 실패하면") {
+                then("이력 트랜잭션 롤백 후 사용 횟수 1회 복구") {
+                    val memberId = 645L
+                    val path = "scan/645/menu.jpg"
+                    setScanCount(memberId, 2)
                     seedVerifiedImage(memberId, path)
-                    setScanUnlocked(memberId)
-                    val ticket = issueTicket(memberId)
-                    reservationStore.reserve(memberId, jtiOf(ticket), 0, 3)
-
-                    v2Scan(memberId, path, ticket = ticket).andExpect {
-                        status { isConflict() }
-                        jsonPath("$.code") { value("SCAN-005") }
+                    seedReadyFood("이력복구국")
+                    vision.program(path, listOf(ExtractedMenu("Soup", "이력복구국", 9000, matchedIdx = null)))
+                    dataSource.connection.use { connection ->
+                        connection.createStatement().use { sql ->
+                            sql.execute("ALTER TABLE scan_history ADD CONSTRAINT test_scan_history_failure CHECK (member_id <> 645)")
+                            try {
+                                v2Scan(memberId, path).andExpect { status { is5xxServerError() } }
+                            } finally {
+                                sql.execute("ALTER TABLE scan_history DROP CHECK test_scan_history_failure")
+                            }
+                        }
                     }
+                    scanCountOf(memberId) shouldBe 2
                     scanHistoryCount(memberId) shouldBe 0
                 }
             }
@@ -1233,7 +1150,7 @@ class ScanControllerTest : BehaviorSpec() {
                     seedVerifiedImage(memberId, path)
                     vision.program(path, listOf(ExtractedMenu("공기밥", "공기밥", 1000, matchedIdx = null)))
 
-                    v2Scan(memberId, path, content = body(path, 0 to "공기밥")).andExpect {
+                    v2Scan(memberId, path, content = """{"imagePath":"$path","items":[{"idx":0,"rawMenuName":"공기밥"}]}""").andExpect {
                         status { isOk() }
                         jsonPath("$.payload.results[0].matched") { value(false) }
                     }
@@ -1267,27 +1184,6 @@ class ScanControllerTest : BehaviorSpec() {
                     v2Scan(608L, "unused", content = "{}").andExpect {
                         status { isBadRequest() }
                         jsonPath("$.code") { value("COMMON-002") }
-                    }
-                }
-            }
-
-            `when`("v1 경로로 미등록 메뉴를 스캔하면") {
-                then("응답에 similarFood 필드 자체가 없다(v1 동결 계약)") {
-                    val memberId = 611L
-                    val path = "scan/611/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    deleteFood("브이원미등록611")
-                    seedReadyFood("유사김치찌개611")
-                    vision.program(path, listOf(ExtractedMenu("브이원미등록", "브이원미등록611", null, matchedIdx = 0)))
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "브이원미등록")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.results[0].similarFood") { doesNotExist() }
                     }
                 }
             }
@@ -1382,27 +1278,6 @@ class ScanControllerTest : BehaviorSpec() {
                     }
 
                     scanCountOf(memberId) shouldBe 0
-                }
-            }
-
-            `when`("통화(USD)가 설정된 회원이 v1 경로로 스캔하면") {
-                then("응답에 currency 필드 자체가 없다(v1 동결 계약)") {
-                    val memberId = 623L
-                    val path = "scan/623/menu.jpg"
-                    seedVerifiedImage(memberId, path)
-                    seedReadyFood("브이원통화찌개")
-                    vision.program(path, listOf(ExtractedMenu("브이원통화", "브이원통화찌개", 7000, matchedIdx = 0)))
-                    setMemberCurrency(memberId, "USD")
-
-                    mockMvc.post("/api/scans") {
-                        param("lang", "ko")
-                        header("Authorization", "Bearer ${accessToken(memberId)}")
-                        contentType = MediaType.APPLICATION_JSON
-                        content = body(path, 0 to "브이원통화")
-                    }.andExpect {
-                        status { isOk() }
-                        jsonPath("$.payload.currency") { doesNotExist() }
-                    }
                 }
             }
 

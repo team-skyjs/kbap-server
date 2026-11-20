@@ -5,7 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
 import com.kbap.api.food.FoodTestSeed
-import com.kbap.api.scan.FakeMenuBoardVisionExtractor
+import com.kbap.api.scan.FakeMenuBoardImageClient
 import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.member.model.MemberRole
 import com.kbap.common.port.auth.TokenIssuer
@@ -28,7 +28,7 @@ class ProcessedFoodScanNotChargedTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
-    @Autowired private lateinit var vision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var vision: FakeMenuBoardImageClient
 
     private val mapper = jacksonObjectMapper()
 
@@ -69,12 +69,16 @@ class ProcessedFoodScanNotChargedTest : BehaviorSpec() {
         fun menuScan(memberId: Long, token: String) {
             val path = "scan/$memberId/menu-${UUID.randomUUID()}.jpg"
             execute("INSERT INTO uploaded_image (member_id, object_path, content_type, size_bytes, status, created_at, updated_at) VALUES ($memberId, '$path', 'image/jpeg', 1024, 'ACTIVE', NOW(6), NOW(6))")
-            vision.program(path, listOf(ExtractedMenu("Kimchi 김치찌개", "김치찌개", 9000, matchedIdx = 0)))
+            vision.program(path, listOf(ExtractedMenu("Kimchi 김치찌개", "김치찌개", 9000, matchedIdx = null)))
+            val ticket = post("/api/scans/tickets", emptyMap(), token).path("payload").path("ticket").asText()
             mockMvc.post("/api/scans") {
                 param("lang", "ko")
+                param("currency", "KRW")
+                header("X-API-Version", "2.0")
+                header("X-Scan-Ticket", ticket)
                 header("Authorization", "Bearer $token")
                 contentType = MediaType.APPLICATION_JSON
-                content = mapper.writeValueAsString(mapOf("imagePath" to path, "items" to listOf(mapOf("idx" to 0, "rawMenuName" to "김치찌개"))))
+                content = mapper.writeValueAsString(mapOf("imagePath" to path))
             }.andExpect { status { isOk() } }
         }
 

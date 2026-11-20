@@ -95,13 +95,6 @@ export const externalEndpoints = [
     key: 'scan-ticket', method: 'POST', route: '/api/scans/tickets',
     request: (context) => request(context, '/api/scans/tickets', null),
   }),
-  externalEndpoint({
-    key: 'scan-v1', method: 'POST', route: '/api/scans', fixtureKeys: ['scanImagePath'],
-    request: (context) => request(context, '/api/scans?lang=ko', {
-      imagePath: context.fixtures.scanImagePath,
-      items: [{ idx: 0, rawMenuName: '김치찌개' }],
-    }, '1.0', { timeout: context.scanTimeout }),
-  }),
   scanV2Endpoint('scan-v2-krw', 'KRW'),
   scanV2Endpoint('scan-v2-usd', 'USD'),
 ];

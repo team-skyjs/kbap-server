@@ -14,7 +14,7 @@ import com.kbap.common.domain.member.model.SocialProvider
 import com.kbap.common.port.auth.TokenIssuer
 import com.kbap.common.port.llm.MenuBoardLine
 import com.kbap.common.port.scan.ScanReservationResult
-import com.kbap.common.port.scan.ScanReservationStore
+import com.kbap.common.port.scan.ScanReservationManager
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.longs.shouldBeGreaterThan
@@ -44,7 +44,7 @@ class ScanBatchTest : BehaviorSpec() {
     @Autowired private lateinit var uploads: UploadedImageJpaRepository
     @Autowired private lateinit var batchSwitch: ScanBatchSwitch
     @Autowired private lateinit var batches: ScanBatchService
-    @Autowired private lateinit var reservations: ScanReservationStore
+    @Autowired private lateinit var reservations: ScanReservationManager
     @Autowired private lateinit var redis: StringRedisTemplate
 
     private val mapper = jacksonObjectMapper()

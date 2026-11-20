@@ -63,14 +63,12 @@ interface ScanV2Api {
             ),
             ApiResponse(responseCode = "401", description = "액세스 토큰 부재·위조·만료"),
             ApiResponse(responseCode = "403", description = "무료 스캔 3회 소진·리뷰 미작성(SCAN-004) — 리뷰 작성 시 무제한 해제 안내로 분기"),
-            ApiResponse(responseCode = "409", description = "같은 티켓의 스캔이 이미 처리 중(SCAN-005) — 재시도 중복"),
             ApiResponse(responseCode = "503", description = "메뉴판 인식 실패(SCAN-002 — 잠시 후 재시도)·스캔 서버 일시 장애(SCAN-006 — 서버측 문제, 재시도 유도 모달 분기)·벤더 요청 한도 초과(SCAN-008 — 잠시 후 재시도, payload.retryAfterSeconds 가 있으면 그 시간 뒤; 티켓 재발급 후 재시도)"),
         ],
     )
     @ApiErrors(
         ErrorCode.INVALID_SCAN_TICKET,
         ErrorCode.SCAN_LIMIT_EXCEEDED,
-        ErrorCode.DUPLICATE_SCAN_REQUEST,
         ErrorCode.INVALID_CURRENCY_CODE,
         ErrorCode.MENU_BOARD_RECOGNITION_FAILED,
         ErrorCode.MENU_BOARD_NOT_DETECTED,
@@ -82,7 +80,7 @@ interface ScanV2Api {
         @Parameter(
             name = SCAN_TICKET_HEADER,
             description = "POST /api/scans/tickets 로 발급받은 서버 서명 스캔 티켓(필수). 시도 단위로 발급받으며, " +
-                "위조·만료·타인 티켓은 400(SCAN-007). 같은 티켓이 처리 중이면 409(SCAN-005)로 이중 소모가 방지된다.",
+                "위조·만료·타인 티켓은 400(SCAN-007). 같은 티켓의 재요청도 별도로 차감될 수 있다.",
             required = true,
         )
         scanTicket: String,
@@ -103,8 +101,8 @@ interface ScanV2Api {
         summary = "DB 에 없는 메뉴의 LLM 추정 결과(S-959)",
         description = """
             스캔 v2 응답의 scanId 로, pendingId 가 붙은 항목(매칭·유사 대체가 안 된 메뉴)의 추정을 받는다.
-            추정이 끝난 항목만 스캔 결과 순서대로 준다. 1초 간격으로 폴링하고 done=true(전부 끝났거나 스캔 뒤 15초)면 멈춘다.
-            15초는 서버가 스캔 응답을 만들 때(scanId 발급 시각)부터 잰다. 마감까지 추정이 없는 항목은 filled=true·UNKNOWN 으로 채운다.
+            추정이 끝난 항목만 스캔 결과 순서대로 준다. 1초 간격으로 폴링하고 done=true 및 imagesDone=true이면 멈춘다.
+            텍스트 대기 시간(기본 45초)은 서버가 스캔 응답을 만들 때(scanId 발급 시각)부터 잰다. 마감까지 추정이 없는 항목은 filled=true·UNKNOWN 으로 채운다.
             추정은 이름 단위로 영구 캐시되어 같은 이름은 다시 부르지 않는다. riskLevel 은 CAUTION·UNKNOWN 뿐(SAFE 없음).
             새로 추정하는 이름은 하루(한국 시각) 전체 3,000개·회원당 100개까지다. 상한을 넘는 묶음의 이름은 추정하지 않고(캐시된 이름은 그대로 나온다) 마감 뒤 filled=true 로 채운다.
             kind=NOT_FOOD(가게 이름·구역 제목 등)는 앱이 숨긴다. 남의 scanId·만료(10분)·모르는 값은 404 SCAN-014.

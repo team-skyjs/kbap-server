@@ -14,12 +14,12 @@ import io.kotest.matchers.string.shouldContain
 import java.time.Duration
 import java.time.Instant
 
-class ClaudeMenuBoardVisionExtractorTest : BehaviorSpec({
+class ClaudeMenuBoardVisionClientTest : BehaviorSpec({
     // 가짜 시계 — sleep 이 시계를 앞으로 민다(실제로 기다리지 않는다).
-    fun extractor(server: FakeClaudeServer, budget: Duration = Duration.ofSeconds(10)): Pair<ClaudeMenuBoardVisionExtractor, MutableList<Duration>> {
+    fun extractor(server: FakeClaudeServer, budget: Duration = Duration.ofSeconds(10)): Pair<ClaudeMenuBoardVisionClient, MutableList<Duration>> {
         var clock = Instant.parse("2026-11-15T00:00:00Z")
         val sleeps = mutableListOf<Duration>()
-        val extractor = ClaudeMenuBoardVisionExtractor(
+        val extractor = ClaudeMenuBoardVisionClient(
             chat = server.chat(effort = "medium"),
             parser = MenuBoardResultParser(),
             imageBaseUrl = "https://cdn.test/",
@@ -37,12 +37,12 @@ class ClaudeMenuBoardVisionExtractorTest : BehaviorSpec({
                     server.respond(message("""{"results":[{"name":"김치찌개","koreanName":"김치찌개","price":9000,"matchedIdx":0,"optionLabel":null,"baseName":"김치찌개"}]}"""))
                     val (vision, _) = extractor(server)
 
-                    val menus = vision.extract("/scans/a.png", listOf(OcrItem(0, "김치찌개")))
+                    val menus = vision.readMenuItems("/scans/a.png", listOf(OcrItem(0, "김치찌개")))
 
                     menus.single().priceKrw shouldBe 9000
                     val content = server.requests.single()["messages"][0]["content"]
                     content[0]["source"]["url"].asText() shouldBe "https://cdn.test/scans/a.png"
-                    server.requests.single()["system"].asText() shouldBe OpenAiMenuBoardVisionExtractor.SYSTEM_PROMPT
+                    server.requests.single()["system"].asText() shouldBe OpenAiMenuBoardVisionClient.SYSTEM_PROMPT
                     server.events.size shouldBe 1
                 }
             }

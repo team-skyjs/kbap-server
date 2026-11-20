@@ -232,7 +232,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
             }
 
             `when`("/v3/api-docs/1.1 을 조회하면") {
-                then("온보딩은 서버 자동 지정 계약이, 프로필 수정은 국적 제외 계약이 실리고 스캔은 v1 계약이 실린다") {
+                then("온보딩은 서버 자동 지정 계약이, 프로필 수정은 국적 제외 계약이 실리고 메뉴 스캔은 제외된다") {
                     val document = docOf("/v3/api-docs/1.1")
                     val onboarding = document.path("paths").path("/api/members/me/onboarding").path("post")
                     val profilePatch = document.path("paths").path("/api/members/me/profile").path("patch")
@@ -242,7 +242,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
                     versionParamsOf(onboarding).single().path("schema").path("default").asText() shouldBe "1.1"
                     versionParamsOf(profilePatch).single().path("schema").path("default").asText() shouldBe "1.1"
                     document.path("paths").path("/api/scans").path("post")
-                        .path("operationId").asText() shouldBe "scan"
+                        .isMissingNode shouldBe true
                 }
             }
 
@@ -275,7 +275,7 @@ class OpenApiSnapshotTest : BehaviorSpec() {
 
             `when`("@ApiErrors 를 단 엔드포인트를 보면") {
                 then("그 오퍼레이션 설명에 발생 가능한 에러 코드 표가 붙는다") {
-                    val scanDesc = docOf("/v3/api-docs/1.0")
+                    val scanDesc = docOf("/v3/api-docs/2.0")
                         .path("paths").path("/api/scans").path("post").path("description").asText()
                     scanDesc.contains("발생 가능한 에러 코드").shouldBeTrue()
                     scanDesc.contains("SCAN-002").shouldBeTrue()

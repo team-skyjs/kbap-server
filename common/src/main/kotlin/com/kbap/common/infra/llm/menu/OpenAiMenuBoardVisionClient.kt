@@ -32,7 +32,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.random.Random
 
-class OpenAiMenuBoardVisionExtractor(
+class OpenAiMenuBoardVisionClient(
     private val chatModel: ChatModel,
     private val parser: MenuBoardResultParser,
     private val imageBaseUrl: String,
@@ -45,7 +45,7 @@ class OpenAiMenuBoardVisionExtractor(
 ) : MenuBoardVisionClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
+    override fun readMenuItems(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
         parser.parse(ask(imagePath, if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT, userPromptWith(ocrItems)))
 
     override fun extractLines(imagePath: String): List<MenuBoardLine> =

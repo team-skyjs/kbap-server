@@ -1,7 +1,7 @@
 package com.kbap.api.infra.redis
 
 import com.kbap.common.port.scan.ScanReservationResult
-import com.kbap.common.port.scan.ScanReservationStore
+import com.kbap.common.port.scan.ScanReservationManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.core.script.DefaultRedisScript
@@ -9,10 +9,10 @@ import org.springframework.stereotype.Component
 import java.time.Duration
 
 @Component
-class RedisScanReservationStore(
+class RedisScanReservationManager(
     private val redisTemplate: StringRedisTemplate,
     @Value("\${kbap.scan.reservation-ttl-seconds:300}") private val reservationTtlSeconds: Long,
-) : ScanReservationStore {
+) : ScanReservationManager {
     override fun reserve(memberId: Long, requestId: String, confirmedCount: Int, limit: Int, ttl: Duration?): ScanReservationResult {
         val now = System.currentTimeMillis()
         val ttlMillis = ttl?.toMillis() ?: (reservationTtlSeconds * 1000)

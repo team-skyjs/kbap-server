@@ -148,6 +148,10 @@ interface MemberJpaRepository : JpaRepository<Member, Long> {
     fun increaseScanCountWithinLimit(@Param("memberId") memberId: Long, @Param("limit") limit: Int): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Member m set m.scanCount = m.scanCount - 1 where m.id = :memberId and m.scanCount > 0")
+    fun decreaseScanCount(@Param("memberId") memberId: Long): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         """
         update Member m

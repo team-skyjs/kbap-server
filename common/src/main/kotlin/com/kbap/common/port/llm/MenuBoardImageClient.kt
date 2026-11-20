@@ -1,8 +1,8 @@
 package com.kbap.common.port.llm
 
 // 입력은 오브젝트 path 와 클라이언트 OCR 힌트 — 전체 URL(CDN 도메인) 조합은 구현이 서버 설정으로 수행한다.
-interface MenuBoardVisionExtractor {
-    fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu>
+interface MenuBoardImageClient {
+    fun readMenuItems(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu>
 }
 
 class MenuBoardVisionUnavailableException(cause: Throwable) : RuntimeException(cause)
