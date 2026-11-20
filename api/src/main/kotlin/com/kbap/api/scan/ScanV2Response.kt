@@ -94,7 +94,7 @@ data class ScanV2Response(
         val avoidances: List<AvoidanceOverlapResponse>?,
 
         @field:Schema(
-            description = "유사 완성 음식으로 대체된 항목인지. X-API-Version 3.0 이상에서만 true/false, 2.0 은 항상 null.",
+            description = "벡터 검색으로 찾은 유사 음식에 연결된 경우 true. 원문·기본 음식명 일치는 false. X-API-Version 2.0은 항상 null.",
             nullable = true,
         )
         val substituted: Boolean?,
@@ -196,7 +196,7 @@ data class ScanV2Response(
                             )
                         },
                         substituted = it.substituted.takeIf { exposeSubstitution },
-                        originalScannedName = it.originalScannedName.takeIf { exposeSubstitution },
+                        originalScannedName = if (exposeSubstitution && it.substituted) it.originalScannedName else null,
                         pendingId = it.pendingId,
                         spiciness = it.spiciness,
                         priceOptions = it.priceOptions?.map { option -> PriceOptionResponse(option.label, option.priceKrw) },

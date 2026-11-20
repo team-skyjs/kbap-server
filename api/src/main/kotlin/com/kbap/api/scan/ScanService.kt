@@ -99,7 +99,7 @@ class ScanService(
                 imageRef = foodService.resolveImageUrlOrDefault(food.takeIf { matched }),
                 avoidances = toAvoidances(member, matched, food, avoidance, avoidanceCatalog, lang),
                 substituted = substituted,
-                originalScannedName = menu.koreanName.takeIf { substituted },
+                originalScannedName = menu.koreanName.takeIf { substituted || match?.source == MenuMatchSource.BASE_NAME },
                 substitutedFromFoodId = match?.substitutedFromFoodId,
                 pendingNameKey = key.takeIf { !matched && match?.source == MenuMatchSource.PENDING_AI_ESTIMATE },
                 notMenu = match?.source == MenuMatchSource.NOT_MENU,

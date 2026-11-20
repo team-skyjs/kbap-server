@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 enum class MenuMatchSource { EXACT_NAME, BASE_NAME, NOT_MENU, VECTOR, PENDING_AI_ESTIMATE }
 
 data class MenuMatch(val source: MenuMatchSource, val food: Food? = null, val substitutedFromFoodId: Long? = null) {
-    val substituted: Boolean get() = source == MenuMatchSource.BASE_NAME || source == MenuMatchSource.VECTOR
+    val substituted: Boolean get() = source == MenuMatchSource.VECTOR
 }
 
 @Service
@@ -33,7 +33,7 @@ class MenuMatchingService(
         val existingFoodsByKey = foodService.getFoodsByKoreanNames(scannedNamesByKey.keys + baseKeyByScannedKey.values.filter { it.isNotBlank() })
         val matches = mutableMapOf<String, MenuMatch>()
         val unmatchedNamesByKey = mutableMapOf<String, String>()
-        // 3. 원문 일치 우선 → 기본 음식명 일치 시 대체 → 미매칭 항목의 비메뉴 여부 확인
+        // 3. 원문 일치 우선 → 기본 음식명 일치 확인 → 미매칭 항목의 비메뉴 여부 확인
         for ((scannedKey, scannedName) in scannedNamesByKey) {
             val foodByScannedName = existingFoodsByKey[scannedKey]
             val foodByBaseName = existingFoodsByKey[baseKeyByScannedKey[scannedKey]]

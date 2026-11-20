@@ -1,6 +1,7 @@
 package com.kbap.api.scan
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.BooleanNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kbap.api.IntegrationTest
 import com.kbap.api.TestTables
@@ -87,7 +88,7 @@ class MenuBaseNameFilterTest : BehaviorSpec() {
 
         given("기본 음식명 정확 일치 — S-970") {
             `when`("원문은 DB 에 없고 baseName 이 READY 음식과 같으면") {
-                then("그 음식으로 대체(substituted·originalScannedName)하고, 원문으로 미완성 음식·AI 추정을 만들지 않는다") {
+                then("기본 음식에 정상 매칭하고, 원문으로 미완성 음식·AI 추정을 만들지 않는다") {
                     val friedRice = ready("기본볶음밥")
                     vision.program(
                         "scans/base-1.jpg",
@@ -103,8 +104,8 @@ class MenuBaseNameFilterTest : BehaviorSpec() {
                     results[0].let {
                         it.path("matched").asBoolean() shouldBe true
                         it.path("foodId").asLong() shouldBe friedRice.id
-                        it.path("substituted").asBoolean() shouldBe true
-                        it.path("originalScannedName").asText() shouldBe "불판위에기본볶음밥"
+                        it.path("substituted") shouldBe BooleanNode.FALSE
+                        it.path("originalScannedName").isNull shouldBe true
                         it.path("pendingId").isNull shouldBe true
                     }
                     results[1].path("foodId").asLong() shouldBe galbi.id
