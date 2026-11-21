@@ -100,9 +100,9 @@ interface NotificationApi {
             다른 기기의 알림·읽음 상태는 보이지 않는다. 헤더가 없으면 400.
 
             항목은 `id`·`type`·`orderId`·`foodId`·`title`·`body`·`receivedAt`(수신 시각, epoch 밀리초)·`read`(false = 새 알림)다.
-            `type` 은 푸시 data.type 과 같은 어휘의 알림 유형 문자열(HELPFUL·SCAN_SUGGESTION·REVIEW_REMINDER·NEWS·MEAL_TIME)이고,
+            `type` 은 푸시 data.type 과 같은 어휘의 알림 유형 문자열(HELPFUL·SCAN_SUGGESTION·REVIEW_REMINDER·NEWS·MEAL_TIME·FOOD_DISCOVERY)이고,
             `orderId` 는 REVIEW_REMINDER 일 때만 발송 data 의 orderId(64비트 정수), 그 외 유형은 null 이다 — 항목 탭 이동은 푸시 탭과
-            같은 규칙(KB-468·KB-469, 주문 상세)을 쓴다. `foodId` 는 미사용 필드로 항상 null 이다(호환 유지).
+            같은 규칙(KB-468·KB-469, 주문 상세)을 쓴다. `foodId` 는 FOOD_DISCOVERY 일 때만 발송 음식 id(푸시 data.foodId 와 같은 값, 음식 상세로 이동), 그 외 유형은 null 이다.
             제목·본문은 발송 시점에 저장된 문자열 그대로다. 게스트는 401.
             예: `[{"id": 456, "type": "REVIEW_REMINDER", "orderId": 12, "foodId": null, "title": "다시 먹고 싶은 맛인가요? 💬", "body": "…", "receivedAt": 1789540000000, "read": false},
             {"id": 455, "type": "NEWS", "orderId": null, "foodId": null, "title": "(광고) K-Bap 소식", "body": "…", "receivedAt": 1789530000000, "read": true}]`

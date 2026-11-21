@@ -258,11 +258,26 @@ class ExpoPushClientTest : BehaviorSpec({
             }
         }
 
+        `when`("imageUrl 이 있는 메시지를 보내면") {
+            then("richContent.image 와 mutableContent 를 함께 보낸다") {
+                val (client, server) = fixture()
+                server.expect(requestTo(SEND_URL))
+                    .andExpect(jsonPath("$[0].richContent.image").value("https://cdn.test/samgyetang.jpg"))
+                    .andExpect(jsonPath("$[0].mutableContent").value(true))
+                    .andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
+
+                client.send(listOf(PushMessage("ExponentPushToken[0]", "t", "b", mapOf("type" to "FOOD_DISCOVERY"), imageUrl = "https://cdn.test/samgyetang.jpg")))
+                server.verify()
+            }
+        }
+
         `when`("ttlSeconds 가 없는 메시지를 보내면") {
             then("ttl 필드를 생략한다") {
                 val (client, server) = fixture()
                 server.expect(requestTo(SEND_URL))
                     .andExpect(jsonPath("$[0].ttl").doesNotExist())
+                    .andExpect(jsonPath("$[0].richContent").doesNotExist())
+                    .andExpect(jsonPath("$[0].mutableContent").doesNotExist())
                     .andRespond(withSuccess(okBody(0, 1), MediaType.APPLICATION_JSON))
 
                 client.send(messages(1))

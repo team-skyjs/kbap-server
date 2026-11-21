@@ -233,10 +233,19 @@ class PushMessageRendererTest : BehaviorSpec({
             }
         }
 
+        `when`("FOOD_DISCOVERY 를 ko 로 렌더하면") {
+            then("음식명 제목에 광고 표기가, 설명 본문에 수신거부 안내가 붙는다") {
+                val description = "어린 닭 한 마리의 뱃속에 찹쌀, 인삼, 대추 등을 넣고 푹 끓인 보양식"
+                val content = first.render(NotificationType.FOOD_DISCOVERY, LanguageCode.KO, mapOf("food" to "삼계탕", "description" to description))
+                content.title shouldBe "(광고) 🌟 삼계탕 드셔보셨어요?"
+                content.body shouldBe "$description\n$optOutKo"
+            }
+        }
+
         `when`("유형별 광고성 여부를 보면") {
-            then("SCAN_SUGGESTION·NEWS·MEAL_TIME 이 광고성이다") {
+            then("SCAN_SUGGESTION·NEWS·MEAL_TIME·FOOD_DISCOVERY 가 광고성이다") {
                 NotificationType.entries.filter { it.marketing } shouldContainExactly
-                    listOf(NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.MEAL_TIME)
+                    listOf(NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.MEAL_TIME, NotificationType.FOOD_DISCOVERY)
             }
         }
     }
