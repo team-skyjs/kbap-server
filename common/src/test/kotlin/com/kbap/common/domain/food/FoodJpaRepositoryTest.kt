@@ -183,7 +183,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
         }
 
         given("findPopular — 최근 조회수 순 인기 음식") {
-            fun since() = LocalDateTime.now().minusDays(30)
+            fun since() = LocalDateTime.now().minusDays(3)
 
             fun clearAll() {
                 clear()
@@ -242,7 +242,7 @@ class FoodJpaRepositoryTest : BehaviorSpec() {
                     view(stale, 3)
                     jdbcTemplate.update(
                         "UPDATE food_view_log SET created_at = ? WHERE food_id = ?",
-                        LocalDateTime.now().minusDays(31),
+                        LocalDateTime.now().minusDays(4),
                         stale,
                     )
 

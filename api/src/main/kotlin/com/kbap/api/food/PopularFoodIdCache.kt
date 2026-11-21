@@ -69,7 +69,7 @@ class PopularFoodIdCache internal constructor(
     internal class Loaded(val ids: List<Long>, val failed: Boolean)
 
     companion object {
-        const val WINDOW_DAYS = 30L
+        const val WINDOW_DAYS = 3L
         val TTL: Duration = Duration.ofHours(1)
         val REFRESH_AFTER: Duration = Duration.ofMinutes(30)
         val FAILURE_TTL: Duration = Duration.ofSeconds(30)

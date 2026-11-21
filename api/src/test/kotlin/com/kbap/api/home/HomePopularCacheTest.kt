@@ -13,8 +13,10 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import java.time.LocalDateTime
 import javax.sql.DataSource
 
 @IntegrationTest
@@ -56,6 +58,21 @@ class HomePopularCacheTest : BehaviorSpec() {
         beforeContainer {
             HomeTestSeed.reset(dataSource)
             popularFoodIdCache.invalidateAll()
+        }
+
+        given("조회수 기반 인기 음식 순위") {
+            `when`("71시간 전과 73시간 전에 조회된 음식이 있으면") {
+                then("홈 응답에는 최근 72시간 안에 조회된 음식만 표시된다") {
+                    HomeTestSeed.seedReadyFoods(dataSource, 2)
+                    val now = LocalDateTime.now()
+                    val jdbc = JdbcTemplate(dataSource)
+                    val updateViewTime = "UPDATE food_view_log SET created_at = ? WHERE food_id = ?"
+                    jdbc.update(updateViewTime, now.minusHours(71), 1L)
+                    jdbc.update(updateViewTime, now.minusHours(73), 2L)
+
+                    popularIds(null) shouldBe listOf(1L)
+                }
+            }
         }
 
         given("인기 음식 목록이 캐시된 뒤") {
