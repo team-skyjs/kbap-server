@@ -49,7 +49,7 @@ class PopularFoodIdCache internal constructor(
                     try {
                         aggregate(key)
                     } catch (e: Exception) {
-                        log.warn("홈 인기 음식 백그라운드 갱신 실패 — 이전 목록을 유지한다(적재 시각 기준 {}일 상한은 그대로)", TTL.toDays(), e)
+                        log.warn("홈 인기 음식 백그라운드 갱신 실패 — 이전 목록은 적재 후 {}시간까지 유지", TTL.toHours(), e)
                         throw e
                     }
             },
@@ -69,9 +69,9 @@ class PopularFoodIdCache internal constructor(
     internal class Loaded(val ids: List<Long>, val failed: Boolean)
 
     companion object {
-        const val WINDOW_DAYS = 30L
-        val TTL: Duration = Duration.ofDays(2)
-        val REFRESH_AFTER: Duration = Duration.ofHours(6)
+        const val WINDOW_DAYS = 3L
+        val TTL: Duration = Duration.ofHours(1)
+        val REFRESH_AFTER: Duration = Duration.ofMinutes(30)
         val FAILURE_TTL: Duration = Duration.ofSeconds(30)
 
         private fun aggregating(foodRepository: FoodJpaRepository, readOnlyTransaction: TransactionTemplate): (Int) -> List<Long> = { size ->
