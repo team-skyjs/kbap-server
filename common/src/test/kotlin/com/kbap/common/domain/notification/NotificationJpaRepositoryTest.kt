@@ -122,5 +122,31 @@ class NotificationJpaRepositoryTest : BehaviorSpec() {
                 }
             }
         }
+
+        given("음식 발견 90일 이력") {
+            `when`("89일 전·91일 전·삭제된·다른 유형·다른 회원 알림이 섞여 있으면") {
+                clear()
+                fun discovery(memberId: Long, foodId: Long, daysAgo: Long, type: NotificationType = NotificationType.FOOD_DISCOVERY, deleted: Boolean = false) {
+                    val saved = repository.save(Notification(memberId = memberId, type = type, title = "t", body = "b", foodId = foodId))
+                    if (deleted) {
+                        saved.delete()
+                        repository.save(saved)
+                    }
+                    jdbcTemplate.update("UPDATE notification SET created_at = ? WHERE id = ?", now.minusDays(daysAgo), saved.id)
+                }
+                discovery(10L, 1L, 89)
+                discovery(10L, 2L, 91)
+                discovery(10L, 3L, 1, deleted = true)
+                discovery(10L, 4L, 1, type = NotificationType.SCAN_SUGGESTION)
+                discovery(11L, 5L, 10)
+                discovery(12L, 6L, 10)
+                repository.save(Notification(memberId = 10L, type = NotificationType.FOOD_DISCOVERY, title = "t", body = "b"))
+
+                then("기간 안·같은 유형·살아 있는·food_id 있는 행의 (회원, 음식)만 나온다") {
+                    repository.findFoodIdsSince(listOf(10L, 11L), NotificationType.FOOD_DISCOVERY, now.minusDays(90))
+                        .map { it.memberId to it.foodId }.toSet() shouldBe setOf(10L to 1L, 11L to 5L)
+                }
+            }
+        }
     }
 }

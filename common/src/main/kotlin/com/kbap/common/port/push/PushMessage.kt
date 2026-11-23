@@ -7,4 +7,5 @@ data class PushMessage(
     val data: Map<String, Any>,
     val channelId: String = "default",
     val ttlSeconds: Int? = null,
+    val imageUrl: String? = null,
 )

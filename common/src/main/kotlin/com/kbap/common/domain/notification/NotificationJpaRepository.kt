@@ -34,7 +34,27 @@ interface NotificationJpaRepository : JpaRepository<Notification, Long> {
 
     fun countByMemberIdAndReadAtIsNull(memberId: Long): Long
 
+    @Query(
+        """
+        select n.memberId as memberId, n.foodId as foodId from Notification n
+        where n.memberId in :memberIds
+          and n.type = :type
+          and n.createdAt >= :since
+          and n.foodId is not null
+        """,
+    )
+    fun findFoodIdsSince(
+        @Param("memberIds") memberIds: Collection<Long>,
+        @Param("type") type: NotificationType,
+        @Param("since") since: LocalDateTime,
+    ): List<MemberFoodId>
+
     @Modifying
     @Query("update Notification n set n.readAt = :now where n.memberId = :memberId and n.readAt is null")
     fun markAllReadByMemberId(@Param("memberId") memberId: Long, @Param("now") now: LocalDateTime): Int
+}
+
+interface MemberFoodId {
+    val memberId: Long
+    val foodId: Long
 }

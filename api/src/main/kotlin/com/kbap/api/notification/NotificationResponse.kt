@@ -10,7 +10,7 @@ data class NotificationResponse(
     val id: Long,
 
     @field:Schema(
-        description = "알림 유형 — 푸시 data.type 과 같은 어휘. HELPFUL·SCAN_SUGGESTION·REVIEW_REMINDER·NEWS·MEAL_TIME. 모르는 값은 이동 없이 처리한다",
+        description = "알림 유형 — 푸시 data.type 과 같은 어휘. HELPFUL·SCAN_SUGGESTION·REVIEW_REMINDER·NEWS·MEAL_TIME·FOOD_DISCOVERY. 모르는 값은 이동 없이 처리한다",
         example = "REVIEW_REMINDER",
     )
     val type: String,
@@ -23,8 +23,8 @@ data class NotificationResponse(
     val orderId: Long?,
 
     @field:Schema(
-        description = "미사용 — 현재 어떤 발송처도 data.foodId 를 채우지 않아 항상 null 이다(호환 유지). REVIEW_REMINDER 이동은 orderId 를 쓴다",
-        example = "null",
+        description = "대상 음식 id — FOOD_DISCOVERY 이면 발송 음식 id(푸시 data.foodId 와 같은 값), 그 외 유형은 항상 null. 앱은 음식 상세로 이동한다",
+        example = "6",
         nullable = true,
     )
     val foodId: Long?,

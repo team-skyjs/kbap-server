@@ -12,6 +12,8 @@ class ScanSuggestionMemberIdReader(
     private val settingRepository: NotificationSettingJpaRepository,
     private val clock: Clock,
     private val pageSize: Int,
+    private val type: NotificationType = NotificationType.SCAN_SUGGESTION,
+    private val slotStartOf: (Clock) -> LocalDateTime = ScanSuggestionSendWindow::startOfCurrentSlot,
 ) : ItemStreamReader<Long> {
     private var cursor = 0L
     private var slotStart = LocalDateTime.MIN
@@ -19,14 +21,14 @@ class ScanSuggestionMemberIdReader(
 
     override fun open(executionContext: ExecutionContext) {
         cursor = 0L
-        slotStart = ScanSuggestionSendWindow.startOfCurrentSlot(clock)
+        slotStart = slotStartOf(clock)
         page.clear()
     }
 
     override fun read(): Long? {
         if (page.isEmpty()) {
             page.addAll(
-                settingRepository.findNewsMemberIdsNotNotifiedSince(NotificationType.SCAN_SUGGESTION, slotStart, cursor, Limit.of(pageSize)),
+                settingRepository.findNewsMemberIdsNotNotifiedSince(type, slotStart, cursor, Limit.of(pageSize)),
             )
             cursor = page.lastOrNull() ?: cursor
         }

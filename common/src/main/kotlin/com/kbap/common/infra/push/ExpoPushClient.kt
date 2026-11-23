@@ -25,7 +25,19 @@ internal data class ExpoMessage(
     val channelId: String,
     @field:JsonInclude(JsonInclude.Include.NON_NULL)
     val ttl: Int? = null,
-)
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val richContent: Map<String, String>? = null,
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    val mutableContent: Boolean? = null,
+) {
+    companion object {
+        fun from(m: PushMessage): ExpoMessage {
+            val image = m.imageUrl?.let { mapOf("image" to it) }
+            // mutableContent: iOS Notification Service Extension 이 이미지를 붙이려면 필요. 확장이 없는 빌드에서는 무시된다.
+            return ExpoMessage(m.to, m.title, m.body, m.data, channelId = m.channelId, ttl = m.ttlSeconds, richContent = image, mutableContent = image?.let { true })
+        }
+    }
+}
 
 internal data class ExpoTicket(
     val status: String = "",
@@ -69,7 +81,7 @@ class ExpoPushClient internal constructor(
             .uri(SEND_PATH)
             .contentType(MediaType.APPLICATION_JSON)
             .accept(MediaType.APPLICATION_JSON)
-            .body(chunk.map { ExpoMessage(it.to, it.title, it.body, it.data, channelId = it.channelId, ttl = it.ttlSeconds) })
+            .body(chunk.map(ExpoMessage::from))
             .retrieve()
             .body(ExpoSendResponse::class.java)
             ?.data

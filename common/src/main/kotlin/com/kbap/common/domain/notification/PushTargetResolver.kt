@@ -28,7 +28,7 @@ class PushTargetResolver(
         fun toggledOn(setting: NotificationSetting?): Boolean = when (type) {
             NotificationType.HELPFUL, NotificationType.REVIEW_REMINDER -> setting?.activity == true
             NotificationType.MEAL_TIME -> setting?.mealTime == true
-            NotificationType.SCAN_SUGGESTION, NotificationType.NEWS -> setting?.news == true
+            NotificationType.SCAN_SUGGESTION, NotificationType.NEWS, NotificationType.FOOD_DISCOVERY -> setting?.news == true
             NotificationType.OPERATOR_CHAT -> true
         }
 
