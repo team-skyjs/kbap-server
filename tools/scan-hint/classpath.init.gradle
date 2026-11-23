@@ -1,0 +1,11 @@
+gradle.projectsEvaluated {
+    def common = gradle.rootProject.findProject(':common')
+    if (common == null) return
+    common.tasks.register('baselineClasspath') {
+        dependsOn common.tasks.named('testClasses')
+        doLast {
+            def dest = common.layout.buildDirectory.file('scan-hint-classpath').get().asFile
+            dest.text = common.sourceSets.test.runtimeClasspath.asPath
+        }
+    }
+}
