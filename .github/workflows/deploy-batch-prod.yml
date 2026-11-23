@@ -9,10 +9,7 @@ name: Deploy batch prod
 # 주의: workflow_run 이라 prod 배포 절차는 main 이 아니라 develop 에 있는 이 파일이다 — 이 파일 수정 = prod 절차 수정이니 릴리스 노트에 적는다.
 # api 롤백(Deploy prod 수동 실행)에 batch 는 따라가지 않는다. 필요하면 이 워크플로를 image_tag(batch-<sha>)로 수동 실행한다.
 on:
-  workflow_run:
-    workflows: [ "Deploy prod" ]
-    types: [ completed ]
-    branches: [ "main" ]
+  # 2026-11-22 홈서버(docker-compose) 이전으로 ECR·ECS 배포는 쓰지 않는다 — 자동 트리거를 빼고 수동 실행(workflow_dispatch)만 남긴다. 배포는 aws-exit-backup-2026-11-18/tools/deploy.sh.
   workflow_dispatch:
     inputs:
       image_tag:
