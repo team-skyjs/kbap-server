@@ -54,6 +54,5 @@ order-create-location
 place-nearby
 place-search
 scan-ticket
-scan-v1
 scan-v2-krw
 scan-v2-usd

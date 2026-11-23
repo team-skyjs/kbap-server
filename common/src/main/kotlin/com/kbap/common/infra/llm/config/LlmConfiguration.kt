@@ -15,14 +15,14 @@ import com.kbap.common.infra.llm.food.OpenAiFoodImageBatchClient
 import com.kbap.common.infra.llm.food.OpenAiFoodImageGenerator
 import com.kbap.common.infra.llm.ingredient.OpenAiIngredientDecider
 import com.kbap.common.infra.llm.menu.MenuBoardResultParser
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient
 import com.kbap.common.infra.llm.review.OpenAiReviewTextGenerator
 import com.kbap.common.infra.llm.translation.OpenAiTextTranslator
 import com.kbap.common.infra.llm.translation.ProcessedFoodNamePrompt
 import com.kbap.common.infra.llm.model.LlmPricing
 import com.kbap.common.infra.llm.claude.ClaudeChat
 import com.kbap.common.infra.llm.ingredient.ClaudeIngredientDecider
-import com.kbap.common.infra.llm.menu.ClaudeMenuBoardVisionExtractor
+import com.kbap.common.infra.llm.menu.ClaudeMenuBoardVisionClient
 import com.kbap.common.infra.llm.menu.ClaudeMenuNameEstimator
 import com.kbap.common.infra.llm.menu.MenuBoardVisionClient
 import com.kbap.common.infra.llm.review.ClaudeReviewTextGenerator
@@ -43,13 +43,13 @@ class LlmConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "kbap.llm.vision", name = ["enabled"], havingValue = "true")
-    fun menuBoardVisionExtractor(
+    fun menuBoardVisionClient(
         properties: LlmModelProperties,
         eventPublisher: ApplicationEventPublisher,
     ): MenuBoardVisionClient {
         val props = properties.vision
         if (!props.usesOpenAi()) {
-            return ClaudeMenuBoardVisionExtractor(
+            return ClaudeMenuBoardVisionClient(
                 chat = claudeChat(props, properties.usdToKrw, eventPublisher),
                 parser = MenuBoardResultParser(),
                 imageBaseUrl = props.imageBaseUrl,
@@ -57,7 +57,7 @@ class LlmConfiguration {
             )
         }
         val openAi = props.forOpenAi()
-        return OpenAiMenuBoardVisionExtractor(
+        return OpenAiMenuBoardVisionClient(
             chatModel = openAiChatModel(openAi),
             parser = MenuBoardResultParser(),
             imageBaseUrl = openAi.imageBaseUrl,

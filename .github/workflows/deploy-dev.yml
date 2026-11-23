@@ -1,8 +1,7 @@
 name: Deploy dev
 
 on:
-  push:
-    branches: [ "develop" ]
+  # 2026-11-22 홈서버(docker-compose) 이전으로 ECR·ECS 배포는 쓰지 않는다 — 자동 트리거를 빼고 수동 실행(workflow_dispatch)만 남긴다. 배포는 aws-exit-backup-2026-11-18/tools/deploy.sh.
   workflow_dispatch:
     inputs:
       image_tag:

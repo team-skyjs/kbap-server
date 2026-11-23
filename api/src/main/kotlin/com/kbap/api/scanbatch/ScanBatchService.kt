@@ -32,7 +32,7 @@ import com.kbap.common.domain.scan.model.ScanOperationResult
 import com.kbap.common.domain.scan.model.ScanPhotoState
 import com.kbap.common.domain.scan.model.ScanUsage
 import com.kbap.common.port.scan.ScanReservationResult
-import com.kbap.common.port.scan.ScanReservationStore
+import com.kbap.common.port.scan.ScanReservationManager
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -74,7 +74,7 @@ class ScanBatchService(
     private val uploads: UploadedImageJpaRepository,
     private val memberService: MemberService,
     private val members: MemberJpaRepository,
-    private val reservationStore: ScanReservationStore,
+    private val reservationManager: ScanReservationManager,
     private val batchSwitch: ScanBatchSwitch,
     private val mergedItems: ScanMergedItemJpaRepository,
     private val occurrences: ScanOccurrenceJpaRepository,
@@ -364,7 +364,7 @@ class ScanBatchService(
 
     private fun reserve(memberId: Long, batchId: UUID, member: Member, ttl: Duration) {
         val reservationId = reservationIdOf(batchId)
-        when (reservationStore.reserve(memberId, reservationId, member.scanCount, member.scanLimit(), ttl)) {
+        when (reservationManager.reserve(memberId, reservationId, member.scanCount, member.scanLimit(), ttl)) {
             ScanReservationResult.LIMIT_EXCEEDED -> throw BusinessException(ErrorCode.SCAN_LIMIT_EXCEEDED)
             ScanReservationResult.DUPLICATE_REQUEST -> throw BusinessException(ErrorCode.DUPLICATE_SCAN_REQUEST)
             ScanReservationResult.RESERVED -> TransactionSynchronizationManager.registerSynchronization(
@@ -389,7 +389,7 @@ class ScanBatchService(
     }
 
     private fun release(memberId: Long, reservationId: String) {
-        runCatching { reservationStore.release(memberId, reservationId) }
+        runCatching { reservationManager.release(memberId, reservationId) }
             .onFailure { log.warn("스캔 묶음 예약 해제 실패 — TTL 만료로 회수됨, memberId={}", memberId, it) }
     }
 

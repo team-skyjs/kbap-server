@@ -42,7 +42,7 @@ import org.springframework.ai.chat.prompt.Prompt
 import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
-class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
+class OpenAiMenuBoardVisionClientTest : BehaviorSpec({
     val pricing = LlmPricing(
         inputUsdPerMillionTokens = 0.15,
         outputUsdPerMillionTokens = 0.60,
@@ -77,12 +77,12 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
     fun extractorRecording(
         chatModel: ChatModel,
         configuredModelName: String = "gpt-4o-mini",
-    ): Pair<OpenAiMenuBoardVisionExtractor, MutableList<LlmCallCostIncurred>> {
+    ): Pair<OpenAiMenuBoardVisionClient, MutableList<LlmCallCostIncurred>> {
         val recorded = mutableListOf<LlmCallCostIncurred>()
         val publisher = ApplicationEventPublisher { event ->
             if (event is LlmCallCostIncurred) recorded.add(event)
         }
-        val extractor = OpenAiMenuBoardVisionExtractor(
+        val extractor = OpenAiMenuBoardVisionClient(
             chatModel = chatModel,
             parser = MenuBoardResultParser(),
             imageBaseUrl = "https://cdn.test",
@@ -97,11 +97,11 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
 
     given("vision 토큰 사용량 로그의 추론 토큰 수(KB-1018)") {
         fun usageLogOf(usage: Usage): String {
-            val logger = LoggerFactory.getLogger(OpenAiMenuBoardVisionExtractor::class.java) as ch.qos.logback.classic.Logger
+            val logger = LoggerFactory.getLogger(OpenAiMenuBoardVisionClient::class.java) as ch.qos.logback.classic.Logger
             val appender = ListAppender<ILoggingEvent>().apply { start() }
             logger.addAppender(appender)
             try {
-                extractorRecording(chatModelReturning(responseOf("""{"results":[]}""", "gpt-5.6-luna", usage))).first.extract("scan/1/menu.jpg", ocrItems)
+                extractorRecording(chatModelReturning(responseOf("""{"results":[]}""", "gpt-5.6-luna", usage))).first.readMenuItems("scan/1/menu.jpg", ocrItems)
             } finally {
                 logger.detachAppender(appender)
             }
@@ -139,7 +139,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.readMenuItems("scan/1/menu.jpg", ocrItems)
 
                 recorded shouldHaveSize 1
                 val event = recorded.first()
@@ -163,7 +163,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     configuredModelName = "gpt-4o-mini",
                 )
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.readMenuItems("scan/1/menu.jpg", ocrItems)
 
                 recorded shouldHaveSize 1
                 recorded.first().modelName shouldBe "gpt-4o-mini"
@@ -179,7 +179,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                extractor.extract("scan/1/menu.jpg", ocrItems)
+                extractor.readMenuItems("scan/1/menu.jpg", ocrItems)
 
                 recorded shouldHaveSize 1
                 recorded.first().inputTokens shouldBe 0L
@@ -196,7 +196,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 )
                 val (extractor, recorded) = extractorRecording(chatModelReturning(response))
 
-                shouldThrow<MenuBoardParseException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardParseException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
 
                 recorded shouldHaveSize 1
             }
@@ -206,7 +206,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             then("과금이 없으므로 이벤트를 발행하지 않는다") {
                 val (extractor, recorded) = extractorRecording(chatModelThrowing())
 
-                shouldThrow<RuntimeException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<RuntimeException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
 
                 recorded.shouldBeEmpty()
             }
@@ -220,7 +220,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     usage = DefaultUsage(1000, 500, 1500),
                 )
                 val throwingPublisher = ApplicationEventPublisher { throw RuntimeException("발행 실패") }
-                val extractor = OpenAiMenuBoardVisionExtractor(
+                val extractor = OpenAiMenuBoardVisionClient(
                     chatModel = chatModelReturning(response),
                     parser = MenuBoardResultParser(),
                     imageBaseUrl = "https://cdn.test",
@@ -229,7 +229,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     eventPublisher = throwingPublisher,
                 )
 
-                val result = extractor.extract("scan/1/menu.jpg", ocrItems)
+                val result = extractor.readMenuItems("scan/1/menu.jpg", ocrItems)
 
                 result shouldHaveSize 1
                 result.first().koreanName shouldBe "김치찌개"
@@ -260,7 +260,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val (chatModel, capturedPrompt) = promptCapturing(response)
                 val (extractor, _) = extractorRecording(chatModel)
 
-                val result = extractor.extract("scan/1/menu.jpg", emptyList())
+                val result = extractor.readMenuItems("scan/1/menu.jpg", emptyList())
 
                 result shouldHaveSize 1
                 result.first().matchedIdx shouldBe null
@@ -282,7 +282,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val (chatModel, capturedPrompt) = promptCapturing(response)
                 val (extractor, _) = extractorRecording(chatModel)
 
-                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 3, rawMenuName = "김치피개")))
+                extractor.readMenuItems("scan/1/menu.jpg", listOf(OcrItem(idx = 3, rawMenuName = "김치피개")))
 
                 val prompt = capturedPrompt()
                 prompt.instructions.first { it is SystemMessage }.text shouldContain "matchedIdx"
@@ -307,7 +307,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     model = "gpt-5.6-luna",
                     usage = DefaultUsage(1_000_000, 1_000_000, 2_000_000),
                 )
-                val extractor = OpenAiMenuBoardVisionExtractor(
+                val extractor = OpenAiMenuBoardVisionClient(
                     chatModel = chatModelReturning(response),
                     parser = MenuBoardResultParser(),
                     imageBaseUrl = "https://cdn.test",
@@ -316,7 +316,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     eventPublisher = { event -> if (event is LlmCallCostIncurred) recorded.add(event) },
                 )
 
-                extractor.extract("scan/1/menu.jpg", listOf(OcrItem(idx = 0, rawMenuName = "김치찌개")))
+                extractor.readMenuItems("scan/1/menu.jpg", listOf(OcrItem(idx = 0, rawMenuName = "김치찌개")))
 
                 recorded shouldHaveSize 1
                 recorded.first().costUsd shouldBe BigDecimal("1.400000")
@@ -336,7 +336,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val e = rateLimit(headersOf("x-should-retry" to "false", "x-ratelimit-remaining-requests" to "0", "x-ratelimit-remaining-tokens" to "1200"))
                 val (extractor, recorded) = extractorRecording(chatModelFailingWith(e))
 
-                val thrown = shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                val thrown = shouldThrow<MenuBoardVisionRateLimitedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
 
                 thrown.exhausted shouldBe false
                 thrown.retryAfterSeconds shouldBe null
@@ -351,7 +351,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val e = rateLimit(headersOf("x-should-retry" to "false", "retry-after" to "20"))
                 val (extractor, _) = extractorRecording(chatModelFailingWith(e))
 
-                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                     .retryAfterSeconds shouldBe 20L
             }
         }
@@ -360,7 +360,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             then("재시도 없이 quota 소진 예외로 바꾼다") {
                 val (extractor, _) = extractorRecording(chatModelFailingWith(rateLimit(code = "insufficient_quota")))
 
-                shouldThrow<MenuBoardVisionQuotaExhaustedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardVisionQuotaExhaustedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                     .code shouldBe "insufficient_quota"
             }
         }
@@ -392,8 +392,8 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
             fun advance(by: Duration) { now = now.plus(by) }
         }
 
-        fun extractorWithBudget(chatModel: ChatModel, time: FakeTime): OpenAiMenuBoardVisionExtractor =
-            OpenAiMenuBoardVisionExtractor(
+        fun extractorWithBudget(chatModel: ChatModel, time: FakeTime): OpenAiMenuBoardVisionClient =
+            OpenAiMenuBoardVisionClient(
                 chatModel = chatModel,
                 parser = MenuBoardResultParser(),
                 imageBaseUrl = "https://cdn.test",
@@ -412,7 +412,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     time,
                 )
 
-                val result = extractor.extract("scan/1/menu.jpg", ocrItems)
+                val result = extractor.readMenuItems("scan/1/menu.jpg", ocrItems)
 
                 result shouldHaveSize 1
                 time.sleeps shouldBe listOf(Duration.ofSeconds(1))
@@ -427,7 +427,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                     time,
                 )
 
-                val thrown = shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                val thrown = shouldThrow<MenuBoardVisionRateLimitedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
 
                 thrown.exhausted shouldBe true
                 thrown.retryAfterSeconds shouldBe 2L
@@ -441,7 +441,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val time = FakeTime()
                 val extractor = extractorWithBudget(chatModelSequence({ throw rateLimit() }), time)
 
-                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                     .exhausted shouldBe true
 
                 time.sleeps.size shouldBeGreaterThanOrEqual 2
@@ -456,7 +456,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val time = FakeTime()
                 val extractor = extractorWithBudget(chatModelSequence({ throw serverError() }, { success }), time)
 
-                extractor.extract("scan/1/menu.jpg", ocrItems) shouldHaveSize 1
+                extractor.readMenuItems("scan/1/menu.jpg", ocrItems) shouldHaveSize 1
                 time.sleeps shouldHaveSize 1
             }
         }
@@ -466,7 +466,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val time = FakeTime()
                 val extractor = extractorWithBudget(chatModelSequence({ throw OpenAIIoException("timeout") }), time)
 
-                shouldThrow<MenuBoardVisionUnavailableException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardVisionUnavailableException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                 time.sleeps.sumOf { it.toMillis() } shouldBeLessThanOrEqual 3000L
             }
         }
@@ -476,7 +476,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val time = FakeTime()
                 val extractor = extractorWithBudget(chatModelSequence({ throw badRequest() }), time)
 
-                shouldThrow<BadRequestException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<BadRequestException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                 time.sleeps.shouldBeEmpty()
             }
         }
@@ -486,7 +486,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 val time = FakeTime()
                 val extractor = extractorWithBudget(chatModelSequence({ throw rateLimit(headersOf("retry-after" to "0")) }), time)
 
-                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                     .exhausted shouldBe true
 
                 time.sleeps[0].toMillis() shouldBeInRange 375L..625L
@@ -505,7 +505,7 @@ class OpenAiMenuBoardVisionExtractorTest : BehaviorSpec({
                 }
                 val extractor = extractorWithBudget(slowFailure, time)
 
-                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.extract("scan/1/menu.jpg", ocrItems) }
+                shouldThrow<MenuBoardVisionRateLimitedException> { extractor.readMenuItems("scan/1/menu.jpg", ocrItems) }
                     .exhausted shouldBe true
 
                 time.sleeps.shouldBeEmpty()

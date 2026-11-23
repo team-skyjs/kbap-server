@@ -34,7 +34,7 @@ class WebConfig(
     override fun configureApiVersioning(configurer: ApiVersionConfigurer) {
         configurer.useRequestHeader(ApiHeaders.API_VERSION)
             .useVersionResolver(exemptPathVersionResolver())
-            .addSupportedVersions(ApiVersions.HOME_MARKETING_POPULAR, ApiVersions.HOME_TOP_RATED, ApiVersions.SCAN_SUBSTITUTION, ApiVersions.FOOD_NAME_SORT, ApiVersions.PROCESSED_FOOD, ApiVersions.SCAN_BATCH)
+            .addSupportedVersions(*ApiVersions.supported.toTypedArray())
             .setVersionRequired(true)
     }
 

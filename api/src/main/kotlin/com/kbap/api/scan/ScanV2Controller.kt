@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.API + "/scans", version = "2.0+")
 class ScanV2Controller(
-    private val scanFacade: ScanFacade,
+    private val scanService: ScanService,
     private val exchangeRateClient: ExchangeRateClient,
     private val scanResultRecorder: ScanResultRecorder,
     private val menuNameEstimates: MenuNameEstimateService,
@@ -57,7 +57,7 @@ class ScanV2Controller(
         val requestedCurrency = requestedCurrency(currency)
         val lang = LanguageCode.from(langRequest.lang)
         val result = scanResultRecorder.record(memberId, ScanMode.MENU_V2, request.imagePath, ScanResultSummaries::menu) {
-            scanFacade.scanMenuBoardImageV2(
+            scanService.scan(
                 memberId,
                 request.imagePath!!,
                 lang,

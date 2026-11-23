@@ -77,8 +77,45 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
     @Query(nativeQuery = true, value = "select count(*) from (select :path as object_path) u where not ($UNREFERENCED)")
     fun countReferencesTo(@Param("path") path: String): Long
 
-    @Query(nativeQuery = true, value = """
-        SELECT u.id AS rowId, u.object_path AS path, u.created_at AS createdAt, u.member_id AS memberId,
+    @Query(nativeQuery = true, value = "$SCAN_PHOTO_FEED_SELECT WHERE $SCAN_PHOTO_FEED_FILTER AND u.id < :beforeId ORDER BY u.id DESC LIMIT :limit")
+    fun findScanPhotoFeed(
+        @Param("menuSegment") menuSegment: String,
+        @Param("packagedSegment") packagedSegment: String,
+        @Param("includeMenu") includeMenu: Boolean,
+        @Param("includePackaged") includePackaged: Boolean,
+        @Param("isBot") isBot: Boolean,
+        @Param("memberId") memberId: Long?,
+        @Param("excludedMemberIds") excludedMemberIds: Collection<Long>,
+        @Param("beforeId") beforeId: Long,
+        @Param("limit") limit: Int,
+    ): List<ScanPhotoFeedRow>
+
+    @Query(nativeQuery = true, value = "$SCAN_PHOTO_FEED_SELECT WHERE $SCAN_PHOTO_FEED_FILTER ORDER BY u.id DESC LIMIT :limit OFFSET :offset")
+    fun findScanPhotoFeedPage(
+        @Param("menuSegment") menuSegment: String,
+        @Param("packagedSegment") packagedSegment: String,
+        @Param("includeMenu") includeMenu: Boolean,
+        @Param("includePackaged") includePackaged: Boolean,
+        @Param("isBot") isBot: Boolean,
+        @Param("memberId") memberId: Long?,
+        @Param("excludedMemberIds") excludedMemberIds: Collection<Long>,
+        @Param("offset") offset: Long,
+        @Param("limit") limit: Int,
+    ): List<ScanPhotoFeedRow>
+
+    @Query(nativeQuery = true, value = "SELECT count(*) FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id WHERE $SCAN_PHOTO_FEED_FILTER")
+    fun countScanPhotoFeed(
+        @Param("menuSegment") menuSegment: String,
+        @Param("packagedSegment") packagedSegment: String,
+        @Param("includeMenu") includeMenu: Boolean,
+        @Param("includePackaged") includePackaged: Boolean,
+        @Param("isBot") isBot: Boolean,
+        @Param("memberId") memberId: Long?,
+        @Param("excludedMemberIds") excludedMemberIds: Collection<Long>
+    ): Long
+
+    companion object {
+        private const val SCAN_PHOTO_FEED_SELECT = """        SELECT u.id AS rowId, u.object_path AS path, u.created_at AS createdAt, u.member_id AS memberId,
             m.nickname AS nickname, m.country_code AS countryCode, m.is_bot AS bot,
             CASE WHEN m.status = 'DELETED' THEN 'DELETED' ELSE m.member_status END AS memberStatus,
             (SELECT o.id FROM orders o WHERE o.image_path = u.object_path AND o.status = 'ACTIVE') AS orderId,
@@ -96,25 +133,15 @@ interface UploadedImageJpaRepository : JpaRepository<UploadedImage, Long> {
             (SELECT l.outcome FROM scan_result_log l WHERE l.uploaded_image_id = u.id AND l.status = 'ACTIVE' ORDER BY l.scanned_at DESC, l.id DESC LIMIT 1) AS scanOutcome,
             (SELECT l.ui_kind FROM scan_result_log l WHERE l.uploaded_image_id = u.id AND l.status = 'ACTIVE' ORDER BY l.scanned_at DESC, l.id DESC LIMIT 1) AS uiKind
         FROM uploaded_image u STRAIGHT_JOIN member m ON m.id = u.member_id
-        WHERE u.status = 'ACTIVE' AND u.id < :beforeId
+        """
+
+        private const val SCAN_PHOTO_FEED_FILTER = """
+            u.status = 'ACTIVE'
           AND ((:includeMenu AND locate(:menuSegment, u.object_path) > 0)
             OR (:includePackaged AND locate(:packagedSegment, u.object_path) > 0))
           AND m.is_bot = :isBot AND (:memberId IS NULL OR u.member_id = :memberId) AND u.member_id NOT IN (:excludedMemberIds)
-        ORDER BY u.id DESC LIMIT :limit
-    """)
-    fun findScanPhotoFeed(
-        @Param("menuSegment") menuSegment: String,
-        @Param("packagedSegment") packagedSegment: String,
-        @Param("includeMenu") includeMenu: Boolean,
-        @Param("includePackaged") includePackaged: Boolean,
-        @Param("isBot") isBot: Boolean,
-        @Param("memberId") memberId: Long?,
-        @Param("excludedMemberIds") excludedMemberIds: Collection<Long>,
-        @Param("beforeId") beforeId: Long,
-        @Param("limit") limit: Int,
-    ): List<ScanPhotoFeedRow>
+        """
 
-    companion object {
         val CLEANUP_SEGMENTS = listOf("images/review/", "images/community/", "images/feedback/", "images/orders/", "images/packaged-scans/")
 
         fun isCleanupTarget(path: String): Boolean = !BotImagePaths.isProtected(path) && CLEANUP_SEGMENTS.any { path.contains(it) }

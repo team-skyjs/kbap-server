@@ -31,7 +31,7 @@ class MenuNameEstimateTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
-    @Autowired private lateinit var vision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var vision: FakeMenuBoardImageClient
     @Autowired private lateinit var estimator: FakeMenuNameEstimator
     @Autowired private lateinit var redis: StringRedisTemplate
     @Autowired private lateinit var taskExecutor: org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
@@ -253,7 +253,7 @@ class MenuNameEstimateTest : BehaviorSpec() {
                 }
             }
 
-            `when`("마감(15초)이 지났는데 추정이 없는 항목이 있으면") {
+            `when`("마감이 지났는데 추정이 없는 항목이 있으면") {
                 then("그 항목을 kind=DISH·UNKNOWN 으로 확정하고 done=true 다") {
                     seedMember(95913)
                     vision.program("scans/mne-13.jpg", listOf(ExtractedMenu("Late", "추정늦은탕", null, null)))
@@ -303,20 +303,27 @@ class MenuNameEstimateTest : BehaviorSpec() {
             }
 
             `when`("한 스캔의 미등록 이름이 여러 개면 — S-975") {
-                then("호출당 4개씩 쪼개 동시에 부른다(한 호출에 몰아 타임아웃 나지 않게)") {
+                then("첫 응답 뒤에도 같은 스캔은 4개씩 순서대로 처리한다") {
                     seedMember(95931)
                     val names = listOf("가", "나", "다", "라", "마", "바", "사", "아").map { "추정쪼개기$it" }
                     vision.program("scans/mne-31.jpg", names.map { ExtractedMenu("Dish", it, null, null) })
                     val gate = java.util.concurrent.CountDownLatch(1)
-                    estimator.answer = { requested -> gate.await(10, java.util.concurrent.TimeUnit.SECONDS); requested.map { estimation(it, MenuNameKind.DISH) } }
+                    val firstStarted = java.util.concurrent.CountDownLatch(1)
+                    estimator.answer = { requested ->
+                        firstStarted.countDown()
+                        check(gate.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                        requested.map { estimation(it, MenuNameKind.DISH) }
+                    }
 
                     val scanId = scan(95931, "scans/mne-31.jpg").path("scanId").asText()
-                    repeat(100) { if (estimator.calls.size < 2) Thread.sleep(50) }
-
-                    estimator.calls.size shouldBe 2
-                    estimator.calls.map { it.size } shouldBe listOf(4, 4)
-                    gate.countDown()
+                    try {
+                        firstStarted.await(5, java.util.concurrent.TimeUnit.SECONDS) shouldBe true
+                        estimator.calls.toList() shouldBe listOf(names.take(4))
+                    } finally {
+                        gate.countDown()
+                    }
                     pollUntilDone(95931, scanId).path("items").map { it.path("filled").asBoolean() } shouldBe names.map { false }
+                    estimator.calls.toList() shouldBe names.chunked(4)
                 }
             }
 

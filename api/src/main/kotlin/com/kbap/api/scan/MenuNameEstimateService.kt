@@ -8,7 +8,6 @@ import com.kbap.common.core.error.ErrorCode
 import com.kbap.common.domain.food.FoodJpaRepository
 import com.kbap.common.domain.ingredient.model.Avoidance
 import com.kbap.common.domain.ingredient.model.IngredientCode
-import com.kbap.common.domain.member.model.Member
 import com.kbap.common.domain.scan.MenuNameEstimateJpaRepository
 import com.kbap.common.domain.scan.model.MenuNameEstimate
 import com.kbap.common.port.llm.MenuNameEstimation
@@ -25,7 +24,6 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.UUID
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
@@ -63,7 +61,6 @@ class MenuNameEstimateService(
     transactionManager: PlatformTransactionManager,
     @Value("\${kbap.scan.menu-estimate.daily-name-limit:3000}") private val dailyNameLimit: Long,
     @Value("\${kbap.scan.menu-estimate.member-daily-name-limit:100}") private val memberDailyNameLimit: Long,
-    @Value("\${kbap.scan.menu-estimate.wait:15s}") private val wait: Duration,
     @Value("\${kbap.scan.menu-estimate.names-per-call:4}") private val namesPerCall: Int,
     @Value("\${kbap.scan.menu-estimate.concurrency:8}") concurrency: Int,
     @Value("\${kbap.llm.menu-estimate.model:}") private val modelName: String,
@@ -76,30 +73,8 @@ class MenuNameEstimateService(
     private val executor = ThreadPoolExecutor(concurrency, concurrency, 0, TimeUnit.SECONDS, ArrayBlockingQueue(QUEUE_SIZE), { Thread(it, "menu-estimate").apply { isDaemon = true } })
     private val latency: Timer = Timer.builder("menu_estimate.latency").publishPercentiles(0.5, 0.95).register(meters)
 
-    fun start(member: Member, result: ScanResult): ScanResult {
-        val pending = result.items.withIndex().filter { (_, item) -> item.pendingNameKey != null }
-        if (pending.isEmpty()) return result
-        val scanId = UUID.randomUUID().toString()
-        val state = PendingScan(
-            memberId = member.id,
-            deadlineMillis = System.currentTimeMillis() + wait.toMillis(),
-            items = pending.map { (index, item) -> PendingItem("p$index", item.pendingNameKey!!, item.koreanName.orEmpty(), item.foodId, item.price, item.priceOptions) },
-        )
-        try {
-            redis.opsForValue().set(STATE_PREFIX + scanId, mapper.writeValueAsString(state), STATE_TTL)
-        } catch (e: RuntimeException) {
-            log.warn("메뉴 추정 대기 상태 저장 실패 — scanId 없이 현행 응답", e)
-            return result
-        }
-        if (!member.isBot) {
-            try {
-                schedule(member.id, state.items.distinctBy { it.nameKey })
-            } catch (e: RuntimeException) {
-                log.warn("메뉴 추정 예약 실패 — 추정 없이 마감 뒤 UNKNOWN 으로 끝난다 scanId={}", scanId, e)
-            }
-        }
-        val pendingIdByIndex = pending.associate { (index, _) -> index to "p$index" }
-        return result.copy(scanId = scanId, items = result.items.mapIndexed { index, item -> item.copy(pendingId = pendingIdByIndex[index]) })
+    internal fun savePendingScan(scanId: String, state: PendingScan) {
+        redis.opsForValue().set(STATE_PREFIX + scanId, mapper.writeValueAsString(state), STATE_TTL)
     }
 
     fun getPendingItems(scanId: String, memberId: Long, avoidance: Avoidance): ScanPendingResponse {
@@ -131,29 +106,71 @@ class MenuNameEstimateService(
         )
     }
 
-    private fun withImages(state: PendingScan, response: ScanPendingResponse, cached: Map<String, MenuNameEstimate>): ScanPendingResponse {
-        val byPendingId = state.items.associateBy { it.pendingId }
-        val foodIds = state.items.mapNotNull { it.foodId }.distinct()
-        val readyFoods = foodIds.takeIf { it.isNotEmpty() }
-            ?.let { ids -> readTransaction.execute { foods.findAllById(ids).filter { it.isReady() && (!it.imageRef.isNullOrBlank() || alcoholImage.urlFor(it) != null) } }!!.associateBy { it.id } }.orEmpty()
-        val imageDeadlinePassed = System.currentTimeMillis() >= state.deadlineMillis + IMAGE_EXTRA_WAIT.toMillis()
-        val items = response.items.map { item ->
-            val pending = byPendingId[item.pendingId]
-            val readyFood = item.foodId?.let { readyFoods[it] }
-            val estimate = pending?.let { cached[it.nameKey] }
-            val withPrice = item.copy(priceKrw = pending?.priceKrw, priceOptions = pending?.priceOptions?.map { ScanV2Response.PriceOptionResponse(it.label, it.priceKrw) })
-            val alcoholUrl = estimate?.let { alcoholImage.urlForEstimate(it.kind, it.effectiveAvoidanceCodes()) }
-            when {
-                readyFood != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholImage.urlFor(readyFood) ?: imageUrlOf(readyFood.imageRef), aiGeneratedImage = false)
-                alcoholUrl != null && item.kind != MenuNameKind.NOT_FOOD -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholUrl, aiGeneratedImage = false)
-                item.kind == MenuNameKind.NOT_FOOD || item.filled || estimate == null || (estimate.imageRef == null && !isConfidentEnoughForImage(estimate.confidence)) -> withPrice.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
-                estimate.imageRef != null -> withPrice.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = imageUrlOf(estimate.imageRef), aiGeneratedImage = true)
-                imageDeadlinePassed || (!images.isGenerating(estimate.nameKey) && images.isUnavailable(estimate.nameKey)) ->
-                    withPrice.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
-                else -> withPrice.copy(imageStatus = EstimatedImageStatus.GENERATING, imageUrl = null, aiGeneratedImage = false)
-            }
+    private fun withImages(
+        state: PendingScan,
+        response: ScanPendingResponse,
+        cached: Map<String, MenuNameEstimate>,
+    ): ScanPendingResponse {
+        val pendingById = state.items.associateBy { it.pendingId }
+        val foodIds = response.items.mapNotNull { it.foodId }.toSet()
+        val foodImageUrls = loadReadyFoodImageUrls(foodIds)
+        val deadlinePassed = System.currentTimeMillis() >= state.imageDeadlineMillis
+
+        val items = mutableListOf<ScanPendingItemResponse>()
+        for (item in response.items) {
+            val pending = pendingById[item.pendingId]
+            val pricedItem = item.copy(
+                priceKrw = pending?.priceKrw,
+                priceOptions = pending?.priceOptions?.map { ScanV2Response.PriceOptionResponse(it.label, it.priceKrw) },
+            )
+            items.add(selectItemImage(pricedItem, foodImageUrls[item.foodId], cached[pending?.nameKey], deadlinePassed))
         }
-        return response.copy(items = items, imagesDone = imageDeadlinePassed || (response.done && items.none { it.imageStatus == EstimatedImageStatus.GENERATING }))
+        val anyImageGenerating = items.any { it.imageStatus == EstimatedImageStatus.GENERATING }
+        return response.copy(items = items, imagesDone = deadlinePassed || (response.done && !anyImageGenerating))
+    }
+
+    private fun loadReadyFoodImageUrls(foodIds: Set<Long>): Map<Long, String> {
+        if (foodIds.isEmpty()) return emptyMap()
+
+        return readTransaction.execute {
+            val urls = mutableMapOf<Long, String>()
+            for (food in foods.findAllById(foodIds)) {
+                if (!food.isReady()) continue
+                val url = alcoholImage.urlFor(food) ?: imageUrlOf(food.imageRef?.takeUnless { it.isBlank() })
+                if (url != null) urls[food.id] = url
+            }
+            urls
+        }
+    }
+
+    private fun selectItemImage(
+        item: ScanPendingItemResponse,
+        foodImageUrl: String?,
+        estimate: MenuNameEstimate?,
+        deadlinePassed: Boolean,
+    ): ScanPendingItemResponse {
+        // 1. 등록 음식 사진 또는 공용 주류 이미지
+        if (foodImageUrl != null) {
+            return item.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = foodImageUrl, aiGeneratedImage = false)
+        }
+        val noImage = item.copy(imageStatus = EstimatedImageStatus.NONE, imageUrl = null, aiGeneratedImage = false)
+        if (item.kind == MenuNameKind.NOT_FOOD || estimate == null) return noImage
+
+        val alcoholUrl = alcoholImage.urlForEstimate(estimate.kind, estimate.effectiveAvoidanceCodes())
+        if (alcoholUrl != null) {
+            return item.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = alcoholUrl, aiGeneratedImage = false)
+        }
+
+        // 2. 저장된 AI 이미지
+        if (item.filled) return noImage
+        if (estimate.imageRef != null) {
+            return item.copy(imageStatus = EstimatedImageStatus.READY, imageUrl = imageUrlOf(estimate.imageRef), aiGeneratedImage = true)
+        }
+
+        // 3. 이미지 생성 대기 여부
+        if (deadlinePassed || !isConfidentEnoughForImage(estimate.confidence)) return noImage
+        if (!images.isGenerating(estimate.nameKey) && images.isUnavailable(estimate.nameKey)) return noImage
+        return noImage.copy(imageStatus = EstimatedImageStatus.GENERATING)
     }
 
     private fun imageUrlOf(ref: String?): String? = ImageUrls.resolve(imagePublicBaseUrl, ref)
@@ -174,68 +191,126 @@ class MenuNameEstimateService(
 
     fun deleteEstimate(nameKey: String): Boolean = writeTransaction.execute { estimates.deleteByNameKey(nameKey) }!! > 0
 
-    private fun schedule(memberId: Long, items: List<PendingItem>) {
-        val knownRows = readTransaction.execute { estimates.findAllByNameKeyIn(items.map { it.nameKey }) }!!
-        val known = knownRows.map { it.nameKey }.toSet()
-        images.request(knownRows.filter { it.kind != MenuNameKind.NOT_FOOD.name && it.imageRef == null && isConfidentEnoughForImage(it.confidence) && alcoholImage.urlForEstimate(it.kind, it.effectiveAvoidanceCodes()) == null }.map { it.nameKey })
-        meters.counter("menu_estimate.cache", "result", "hit").increment(items.count { it.nameKey in known }.toDouble())
-        val missing = items.filter { it.nameKey !in known && it.nameKey.length <= MAX_NAME_KEY_LENGTH && !failedRecently(it.nameKey) }
-        meters.counter("menu_estimate.cache", "result", "miss").increment(missing.size.toDouble())
-        missing.chunked(namesPerCall.coerceIn(1, MAX_NAMES_PER_CALL)).forEach { chunk ->
-            try {
-                executor.execute { runChunk(memberId, chunk) }
-            } catch (e: RejectedExecutionException) {
-                meters.counter("menu_estimate.skipped", "reason", "queue_full").increment(chunk.size.toDouble())
+    fun schedule(memberId: Long, items: List<PendingItem>) {
+        // 1. 기존 추정 조회 및 누락된 이미지 요청
+        val nameKeys = items.map { it.nameKey }.distinct()
+        val cachedEstimates = readTransaction.execute { estimates.findAllByNameKeyIn(nameKeys) }!!
+        val cachedNames = mutableSetOf<String>()
+        val namesNeedingImages = mutableListOf<String>()
+        for (estimate in cachedEstimates) {
+            cachedNames.add(estimate.nameKey)
+            if (needsGeneratedImage(estimate)) namesNeedingImages.add(estimate.nameKey)
+        }
+        images.request(namesNeedingImages)
+        meters.counter("menu_estimate.cache", "result", "hit").increment(nameKeys.count { it in cachedNames }.toDouble())
+
+        // 2. 새로 추정할 메뉴 선별
+        val namesToEstimate = mutableListOf<String>()
+        for (name in nameKeys) {
+            if (name in cachedNames) continue
+            if (name.length > MAX_NAME_KEY_LENGTH) continue
+            if (failedRecently(name)) continue
+            namesToEstimate.add(name)
+        }
+        meters.counter("menu_estimate.cache", "result", "miss").increment(namesToEstimate.size.toDouble())
+
+        // 3. 스캔당 작업 하나 등록, 작업 안에서 묶음별 순차 호출
+        if (namesToEstimate.isEmpty()) return
+        val chunkSize = namesPerCall.coerceIn(1, MAX_NAMES_PER_CALL)
+        try {
+            executor.execute {
+                for (chunk in namesToEstimate.chunked(chunkSize)) {
+                    try {
+                        estimateMenuNames(memberId, chunk)
+                    } catch (e: RuntimeException) {
+                        log.warn("메뉴 추정 묶음 처리 실패 memberId={} names={}", memberId, chunk.size, e)
+                    }
+                }
             }
+        } catch (e: RejectedExecutionException) {
+            meters.counter("menu_estimate.skipped", "reason", "queue_full").increment(namesToEstimate.size.toDouble())
         }
     }
 
-    private fun runChunk(memberId: Long, queued: List<PendingItem>) {
+    private fun needsGeneratedImage(estimate: MenuNameEstimate): Boolean {
+        if (estimate.imageRef != null || estimate.kind == MenuNameKind.NOT_FOOD.name) return false
+        if (!isConfidentEnoughForImage(estimate.confidence)) return false
+        return alcoholImage.urlForEstimate(estimate.kind, estimate.effectiveAvoidanceCodes()) == null
+    }
+
+    private fun estimateMenuNames(memberId: Long, queuedNames: List<String>) {
         val estimator = estimator ?: return
-        val cachedNow = readTransaction.execute { estimates.findAllByNameKeyIn(queued.map { it.nameKey }) }!!.map { it.nameKey }.toSet()
-        val owned = queued.filter { it.nameKey !in cachedNow && !failedRecently(it.nameKey) && acquireInflight(it.nameKey) }
-        if (owned.isEmpty()) return
-        if (!withinDailyLimits(memberId, owned.size)) {
-            meters.counter("menu_estimate.skipped", "reason", "limit").increment(owned.size.toDouble())
-            owned.forEach { releaseInflight(it.nameKey) }
-            return
+
+        val names = claimNamesForEstimation(queuedNames)
+        if (names.isEmpty()) return
+
+        val imageTargets = try {
+            if (!withinDailyLimits(memberId, names.size)) {
+                meters.counter("menu_estimate.skipped", "reason", "limit").increment(names.size.toDouble())
+                return
+            }
+            val results = requestEstimates(estimator, names) ?: return
+            saveEstimates(names, results)
+        } finally {
+            for (name in names) releaseInflight(name)
         }
-        estimateChunk(estimator, owned)
+        images.request(imageTargets)
     }
 
-    private fun estimateChunk(estimator: MenuNameEstimator, chunk: List<PendingItem>) {
-        val names = chunk.map { it.nameKey }
+    private fun claimNamesForEstimation(queuedNames: List<String>): List<String> {
+        // 큐 대기 중 다른 요청이 완료했거나 처리 중인 이름 제외
+        val cached = readTransaction.execute { estimates.findAllByNameKeyIn(queuedNames) }
+        val cachedNames = cached.map { it.nameKey }.toSet()
+        val names = mutableListOf<String>()
+        for (name in queuedNames) {
+            if (name in cachedNames || failedRecently(name)) continue
+            if (acquireInflight(name)) names.add(name)
+        }
+        return names
+    }
+
+    private fun requestEstimates(estimator: MenuNameEstimator, names: List<String>): List<MenuNameEstimation>? {
         meters.counter("menu_estimate.calls").increment()
         meters.summary("menu_estimate.names_per_call").record(names.size.toDouble())
         val sample = Timer.start(meters)
-        val results = try {
+        return try {
             estimator.estimate(names)
         } catch (e: RuntimeException) {
             meters.counter("menu_estimate.failures", "reason", e.javaClass.simpleName).increment()
             log.warn("메뉴 이름 추정 호출 실패(일시 장애로 보고 잠시 뒤 다시 시도) names={}", names.size, e)
-            chunk.forEach { recordTransientFailure(it.nameKey); releaseInflight(it.nameKey) }
-            return
+            for (name in names) recordTransientFailure(name)
+            null
         } finally {
             sample.stop(latency)
         }
-        val byKey = chunk.associateBy { it.nameKey }
+    }
+
+    private fun saveEstimates(names: List<String>, results: List<MenuNameEstimation>): List<String> {
         val saved = mutableSetOf<String>()
         val imageTargets = mutableListOf<String>()
-        results.forEach { estimation ->
+        for (estimation in results) {
             val nameKey = KoreanMenuNameNormalizer.matchKey(estimation.koreanName)
-            if (nameKey !in byKey || nameKey in saved) return@forEach meters.counter("menu_estimate.discarded", "reason", "name_mismatch").increment()
-            val row = rowOf(nameKey, estimation) ?: return@forEach meters.counter("menu_estimate.discarded", "reason", "invalid").increment()
+            if (nameKey !in names || nameKey in saved) {
+                meters.counter("menu_estimate.discarded", "reason", "name_mismatch").increment()
+                continue
+            }
+            val row = rowOf(nameKey, estimation)
+            if (row == null) {
+                meters.counter("menu_estimate.discarded", "reason", "invalid").increment()
+                continue
+            }
             writeTransaction.executeWithoutResult {
                 estimates.insertIgnore(row.nameKey, row.kind, row.englishName, row.description, mapper.writeValueAsString(row.avoidanceCodes), row.spiciness, row.confidence, row.model, row.promptVersion)
             }
             saved += nameKey
-            if (row.kind != MenuNameKind.NOT_FOOD.name && isConfidentEnoughForImage(row.confidence) && alcoholImage.urlForEstimate(row.kind, row.effectiveAvoidanceCodes()) == null) imageTargets += nameKey
+            if (needsGeneratedImage(row)) imageTargets += nameKey
             meters.counter("menu_estimate.kind", "kind", row.kind).increment()
             row.confidence?.let { meters.summary("menu_estimate.confidence").record(it.toDouble()) }
         }
-        chunk.forEach { if (it.nameKey !in saved) recordFailure(it.nameKey) }
-        chunk.forEach { releaseInflight(it.nameKey) }
-        images.request(imageTargets)
+        for (name in names) {
+            if (name !in saved) recordFailure(name)
+        }
+        return imageTargets
     }
 
     private fun rowOf(nameKey: String, estimation: MenuNameEstimation): MenuNameEstimate? {
@@ -340,7 +415,13 @@ class MenuNameEstimateService(
         executor.shutdownNow()
     }
 
-    data class PendingScan(val memberId: Long = 0, val deadlineMillis: Long = 0, val items: List<PendingItem> = emptyList())
+    data class PendingScan(
+        val memberId: Long = 0,
+        val deadlineMillis: Long = 0,
+        val items: List<PendingItem> = emptyList(),
+        // 기존 Redis 기록에는 이미지 마감이 없어 당시의 추가 대기시간 적용
+        val imageDeadlineMillis: Long = deadlineMillis + Duration.ofSeconds(45).toMillis(),
+    )
 
     data class PendingItem(
         val pendingId: String = "",
@@ -362,7 +443,6 @@ class MenuNameEstimateService(
         private val mapper = jacksonObjectMapper()
         private val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
         private val STATE_TTL = Duration.ofMinutes(10)
-        private val IMAGE_EXTRA_WAIT = Duration.ofSeconds(45)
         private val DAILY_TTL = Duration.ofDays(2)
         private val FAIL_TTL = Duration.ofDays(1)
         private val TRANSIENT_FAIL_TTL = Duration.ofMinutes(10)

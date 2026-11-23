@@ -5,13 +5,13 @@ import com.anthropic.errors.AnthropicIoException
 import com.anthropic.errors.AnthropicServiceException
 import com.anthropic.errors.RateLimitException
 import com.kbap.common.infra.llm.claude.ClaudeChat
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.BATCH_LINE_SYSTEM_PROMPT
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.BATCH_LINE_USER_PROMPT
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.PROCESSED_FOOD_PHOTO_USER_PROMPT
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.SERVER_OCR_SYSTEM_PROMPT
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.SYSTEM_PROMPT
-import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionExtractor.Companion.userPromptWith
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.BATCH_LINE_SYSTEM_PROMPT
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.BATCH_LINE_USER_PROMPT
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.PROCESSED_FOOD_PHOTO_SYSTEM_PROMPT
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.PROCESSED_FOOD_PHOTO_USER_PROMPT
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.SERVER_OCR_SYSTEM_PROMPT
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.SYSTEM_PROMPT
+import com.kbap.common.infra.llm.menu.OpenAiMenuBoardVisionClient.Companion.userPromptWith
 import com.kbap.common.port.llm.ExtractedMenu
 import com.kbap.common.port.llm.MenuBoardLine
 import com.kbap.common.port.llm.MenuBoardVisionQuotaExhaustedException
@@ -30,7 +30,7 @@ import kotlin.random.Random
  * - 429 → retry-after 를 따라 예산 안에서 재시도, 넘기면 RateLimited(exhausted=true). x-should-retry:false 면 즉시 RateLimited(exhausted=false)
  * - 5xx(529 overloaded 포함)·네트워크 → 예산 안에서 재시도, 넘기면 Unavailable
  */
-class ClaudeMenuBoardVisionExtractor(
+class ClaudeMenuBoardVisionClient(
     private val chat: ClaudeChat,
     private val parser: MenuBoardResultParser,
     private val imageBaseUrl: String,
@@ -40,7 +40,7 @@ class ClaudeMenuBoardVisionExtractor(
 ) : MenuBoardVisionClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun extract(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
+    override fun readMenuItems(imagePath: String, ocrItems: List<OcrItem>): List<ExtractedMenu> =
         parser.parse(ask(imagePath, if (ocrItems.isEmpty()) SERVER_OCR_SYSTEM_PROMPT else SYSTEM_PROMPT, userPromptWith(ocrItems)))
 
     override fun extractLines(imagePath: String): List<MenuBoardLine> =

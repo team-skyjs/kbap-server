@@ -38,7 +38,7 @@ class MenuEstimateImageTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
-    @Autowired private lateinit var vision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var vision: FakeMenuBoardImageClient
     @Autowired private lateinit var estimator: FakeMenuNameEstimator
     @Autowired private lateinit var generator: FakeFoodImageGenerator
     @Autowired private lateinit var storage: FakeStorageObjectStore
@@ -86,10 +86,10 @@ class MenuEstimateImageTest : BehaviorSpec() {
         fun allDone(body: JsonNode) = body.path("done").asBoolean() && body.path("imagesDone").asBoolean()
         fun estimation(name: String, kind: MenuNameKind = MenuNameKind.DISH, confidence: Double = 0.9) =
             MenuNameEstimation(name, kind, if (kind == MenuNameKind.NOT_FOOD) null else "Eng $name", null, if (kind == MenuNameKind.NOT_FOOD) emptyList() else listOf(IngredientCode.BEEF, IngredientCode.WHEAT), 3, confidence)
-        fun moveDeadline(scanId: String, millisFromNow: Long) {
+        fun expireDeadline(scanId: String, field: String) {
             val key = "scan:$scanId"
             val state = mapper.readTree(redis.opsForValue().get(key)) as ObjectNode
-            state.put("deadlineMillis", System.currentTimeMillis() + millisFromNow)
+            state.put(field, System.currentTimeMillis() - 1)
             redis.opsForValue().set(key, mapper.writeValueAsString(state))
         }
 
@@ -132,7 +132,7 @@ class MenuEstimateImageTest : BehaviorSpec() {
                 }
             }
 
-            `when`("사진이 추정 마감(15초) 뒤에 도착하면") {
+            `when`("사진이 추정 마감 뒤에 도착하면") {
                 then("done 은 먼저 true 가 되고 imagesDone=false 동안 GENERATING 이다가, 도착하면 같은 항목이 READY 가 된다") {
                     seedMember(96902)
                     vision.program("scans/mei-2.jpg", listOf(ExtractedMenu("Late", "추정늦은사진", null, null)))
@@ -141,7 +141,7 @@ class MenuEstimateImageTest : BehaviorSpec() {
                     generator.gate = gate
                     val scanId = scan(96902, "scans/mei-2.jpg").path("scanId").asText()
                     pollUntil(96902, scanId) { it.path("done").asBoolean() }
-                    moveDeadline(scanId, -1)
+                    expireDeadline(scanId, "deadlineMillis")
 
                     pending(96902, scanId).let {
                         it.path("done").asBoolean() shouldBe true
@@ -151,6 +151,35 @@ class MenuEstimateImageTest : BehaviorSpec() {
                     gate.countDown()
 
                     pollUntil(96902, scanId, ::allDone).path("items").single().path("imageStatus").asText() shouldBe "READY"
+                }
+            }
+
+            `when`("이미지 생성 중에 이미지 대기 시간이 끝나면") {
+                then("텍스트 결과를 유지하고 사진은 NONE, imagesDone은 true로 응답한다") {
+                    seedMember(96911)
+                    vision.program("scans/mei-11.jpg", listOf(ExtractedMenu("Bread", "추정마감빵", null, null)))
+                    estimator.answer = { names -> names.map { estimation(it) } }
+                    val gate = CountDownLatch(1)
+                    generator.gate = gate
+                    val scanId = scan(96911, "scans/mei-11.jpg").path("scanId").asText()
+                    try {
+                        val before = pollUntil(96911, scanId) { it.path("done").asBoolean() && generator.prompts.isNotEmpty() }
+                        generator.prompts.size shouldBe 1
+                        before.path("items").single().path("imageStatus").asText() shouldBe "GENERATING"
+                        before.path("imagesDone").booleanValue() shouldBe false
+
+                        expireDeadline(scanId, "imageDeadlineMillis")
+                        val after = pending(96911, scanId)
+                        after.path("done").booleanValue() shouldBe true
+                        after.path("imagesDone").booleanValue() shouldBe true
+                        val item = after.path("items").single()
+                        item.path("koreanName").asText() shouldBe "추정마감빵"
+                        item.path("imageStatus").asText() shouldBe "NONE"
+                    } finally {
+                        gate.countDown()
+                    }
+                    val completed = pollUntil(96911, scanId) { it.path("items").single().path("imageStatus").asText() == "READY" }
+                    completed.path("items").single().path("imageStatus").asText() shouldBe "READY"
                 }
             }
 

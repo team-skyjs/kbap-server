@@ -94,7 +94,7 @@ jq -e '
   [.targets[] | select(.suite == "fixture-write") | .key] ==
     ["review-create","review-delete","report-create","image-upload-url","image-complete","order-create-no-location"] and
   [.targets[] | select(.suite == "external") | .key] ==
-    ["order-create-location","place-nearby","place-search","scan-ticket","scan-v1","scan-v2-krw","scan-v2-usd"]
+    ["order-create-location","place-nearby","place-search","scan-ticket","scan-v2-krw","scan-v2-usd"]
 ' "$manifest" >/dev/null
 jq -e '
   [.targets[] | select(.stateCapability == "snapshot-restore") | .key] ==
@@ -102,9 +102,9 @@ jq -e '
   [.targets[] | select(.stateCapability == "tagged-cleanup") | .key] ==
     ["review-create","report-create","image-complete","order-create-no-location","order-create-location"] and
   [.targets[] | select(.stateCapability == "scan-cleanup") | .key] ==
-    ["scan-v1","scan-v2-krw","scan-v2-usd"] and
+    ["scan-v2-krw","scan-v2-usd"] and
   [.targets[] | select(.objectCleanup == "imageCompleteFixtures") | .key] == ["image-complete"] and
-  [.targets[] | select(.objectCleanup == "scanGeneratedFoodImageRefs") | .key] == ["scan-v1","scan-v2-krw","scan-v2-usd"] and
+  [.targets[] | select(.objectCleanup == "scanGeneratedFoodImageRefs") | .key] == ["scan-v2-krw","scan-v2-usd"] and
   all(.targets[]; if .stateCapability == "none" then .objectCleanup == "none" else true end)
 ' "$manifest" >/dev/null
 jq -e '(.scanCursor | type == "number") and (.scanCursor >= 0) and (.scanCursor | floor == .)' "$fixture_example" >/dev/null

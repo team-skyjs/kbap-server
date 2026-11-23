@@ -31,7 +31,7 @@ class MenuPriceOptionsTest : BehaviorSpec() {
     @Autowired private lateinit var mockMvc: MockMvc
     @Autowired private lateinit var dataSource: DataSource
     @Autowired private lateinit var tokenIssuer: TokenIssuer
-    @Autowired private lateinit var vision: FakeMenuBoardVisionExtractor
+    @Autowired private lateinit var vision: FakeMenuBoardImageClient
     @Autowired private lateinit var estimator: FakeMenuNameEstimator
     @Autowired private lateinit var foodRepository: FoodJpaRepository
     @Autowired private lateinit var redis: StringRedisTemplate
