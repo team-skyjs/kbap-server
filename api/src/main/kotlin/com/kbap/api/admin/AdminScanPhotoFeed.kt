@@ -4,15 +4,25 @@ import com.kbap.api.scanlog.ScanMode
 import com.kbap.api.scanlog.ScanOutcome
 import com.kbap.api.scanlog.ScanUiKind
 import com.kbap.common.port.llm.ProcessedFoodPhotoKind
+import com.fasterxml.jackson.annotation.JsonInclude
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
-@Schema(description = "전체 스캔 사진 피드 한 페이지(최신순 24장) — 커서 방식, 총 건수 없음")
+@Schema(description = "전체 스캔 사진 피드 한 페이지(최신순 24장) — 기본은 커서 방식(총 건수 없음), page 를 주면 페이지 번호 방식(page·totalPages·totalCount 포함)")
 data class AdminScanPhotoFeed(
     val items: List<AdminScanPhotoFeedItem>,
-    @field:Schema(description = "다음 페이지 커서 — 다음 요청의 cursor 로 그대로 보낸다. 마지막 페이지면 null", nullable = true)
+    @field:Schema(description = "다음 페이지 커서 — 다음 요청의 cursor 로 그대로 보낸다. 마지막 페이지면 null. page 방식에서는 항상 null", nullable = true)
     val nextCursor: String?,
     val hasNext: Boolean,
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "요청한 페이지 번호(1부터) — page 방식에서만 온다", nullable = true)
+    val page: Int? = null,
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "전체 페이지 수(24장 단위, 0건이면 0) — page 방식에서만 온다", nullable = true)
+    val totalPages: Int? = null,
+    @field:JsonInclude(JsonInclude.Include.NON_NULL)
+    @field:Schema(description = "필터를 적용한 전체 사진 수 — page 방식에서만 온다", nullable = true)
+    val totalCount: Long? = null,
 )
 
 @Schema(description = "스캔 사진 한 장 — 스캔 업로드 기록(uploaded_image) 한 행당 1건")
