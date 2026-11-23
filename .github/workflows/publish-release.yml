@@ -1,0 +1,51 @@
+name: Publish release
+
+# 홈서버 배포(aws-exit-backup-2026-11-18/tools/deploy.sh) 뒤 배포 이력용 GitHub Release 를 만든다.
+# AWS 배포 워크플로의 release 잡과 같은 태그·노트 규칙(dev-/prod-YYYYMMDD-<short-sha>, KST, 직전 같은 환경 태그부터 자동 노트).
+# 배포가 끝난 뒤 수동 또는 deploy.sh 에서 호출한다: gh workflow run publish-release.yml -f environment=prod -f sha=<배포한 커밋>
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "배포한 환경"
+        required: true
+        type: choice
+        options: [ dev, prod ]
+      sha:
+        description: "배포한 커밋(전체 또는 짧은 sha)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ENVIRONMENT: ${{ inputs.environment }}
+      INPUT_SHA: ${{ inputs.sha }}
+    steps:
+      - name: Create GitHub release with auto notes
+        run: |
+          [[ "$INPUT_SHA" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::sha 는 7~40자리 16진수여야 한다"; exit 1; }
+          SHA=$(gh api "repos/$GITHUB_REPOSITORY/commits/$INPUT_SHA" --jq .sha) || { echo "::error::커밋을 찾을 수 없다: $INPUT_SHA"; exit 1; }
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            PREFIX=prod; TITLE=PROD; EXTRA=()
+          else
+            PREFIX=dev; TITLE=DEV; EXTRA=(--prerelease --latest=false)
+          fi
+          TAG="$PREFIX-$(TZ=Asia/Seoul date +%Y%m%d)-${SHA::7}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG 이미 존재 — 재실행 멱등 skip" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName \
+            --jq "map(.tagName | select(startswith(\"$PREFIX-\")))[0] // empty")
+          NOTES_START=()
+          [ -n "$PREV_TAG" ] && NOTES_START=(--notes-start-tag "$PREV_TAG")
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" \
+            --title "$TITLE · $(TZ=Asia/Seoul date +%Y-%m-%d) · ${SHA::7}" \
+            --generate-notes "${NOTES_START[@]}" "${EXTRA[@]}"
+          echo "release: $TAG" >> "$GITHUB_STEP_SUMMARY"
