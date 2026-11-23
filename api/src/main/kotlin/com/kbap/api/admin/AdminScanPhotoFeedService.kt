@@ -52,6 +52,25 @@ class AdminScanPhotoFeedService(
     }
 
     @Transactional(readOnly = true)
+    fun getScanPhotoFeedPage(isBot: Boolean, memberId: Long?, excludeMemberIds: List<Long>, page: Int, type: ScanPhotoTypeFilter = ScanPhotoTypeFilter.ALL): AdminScanPhotoFeed {
+        val excluded = excludeMemberIds.ifEmpty { listOf(NO_MEMBER_ID) }
+        val menu = UploadPurpose.MENU_SCAN.segment
+        val packaged = UploadPurpose.PACKAGED_SCAN.segment
+        val totalCount = uploads.countScanPhotoFeed(menu, packaged, type.includeMenu, type.includePackaged, isBot, memberId, excluded)
+        val totalPages = ((totalCount + PAGE_SIZE - 1) / PAGE_SIZE).toInt()
+        val rows = uploads.findScanPhotoFeedPage(menu, packaged, type.includeMenu, type.includePackaged, isBot, memberId, excluded, (page - 1L) * PAGE_SIZE, PAGE_SIZE)
+        val names = processedFoodNamesOf(processedFoods, rows.mapNotNull { it.processedFoodId })
+        return AdminScanPhotoFeed(
+            items = rows.map { it.toItem(names) },
+            nextCursor = null,
+            hasNext = page < totalPages,
+            page = page,
+            totalPages = totalPages,
+            totalCount = totalCount,
+        )
+    }
+
+    @Transactional(readOnly = true)
     fun getScanResultsOrNull(uploadedImageId: Long): AdminScanResults? {
         val records = jdbc.query(
             "SELECT id, member_id, scan_mode, outcome, error_code, ui_kind, vision_kind, app_version, api_version, response_summary, scanned_at, created_at " +

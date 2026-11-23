@@ -21,8 +21,14 @@ class AdminScanPhotoController(
         @RequestParam(required = false) excludeMemberIds: List<Long>?,
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "ALL") type: ScanPhotoTypeFilter,
+        @RequestParam(required = false) page: Int?,
     ): ResponseEntity<BaseResponse<AdminScanPhotoFeed>> =
-        ResponseEntity.ok(BaseResponse.ok(feedService.getScanPhotoFeed(isBot, memberId, excludeMemberIds.orEmpty(), cursor, type)))
+        ResponseEntity.ok(
+            BaseResponse.ok(
+                if (page != null) feedService.getScanPhotoFeedPage(isBot, memberId, excludeMemberIds.orEmpty(), page.coerceAtLeast(1), type)
+                else feedService.getScanPhotoFeed(isBot, memberId, excludeMemberIds.orEmpty(), cursor, type),
+            ),
+        )
 
     @GetMapping("/{uploadedImageId}/scan-results")
     override fun getScanResults(
