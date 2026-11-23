@@ -21,6 +21,7 @@ import com.kbap.common.domain.scan.model.ScanOperationPhoto
 import com.kbap.common.port.auth.TokenIssuer
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.web.servlet.MockMvc
@@ -172,6 +173,54 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                     items.map { it.path("imageUrl").asText() }.toSet().size shouldBe 60
                 }
             }
+            `when`("page 를 주면 — KB-1029") {
+                then("page=1·마지막 페이지·범위를 넘는 페이지가 최신순 24장씩, page·totalPages·totalCount 와 함께 온다") {
+                    val alice = member("pager")
+                    repeat(50) { upload(alice.id, "p-$it.jpg") }
+                    val cursorOrder = all("?").map { it.path("uploadedImageId").asLong() }
+
+                    val first = feed("?page=1")
+                    first.path("items").map { it.path("uploadedImageId").asLong() } shouldBe cursorOrder.take(24)
+                    first.path("page").asInt() shouldBe 1
+                    first.path("totalPages").asInt() shouldBe 3
+                    first.path("totalCount").asLong() shouldBe 50
+                    first.path("hasNext").asBoolean() shouldBe true
+                    first.path("nextCursor").isNull shouldBe true
+
+                    val last = feed("?page=3")
+                    last.path("items").map { it.path("uploadedImageId").asLong() } shouldBe cursorOrder.drop(48)
+                    last.path("hasNext").asBoolean() shouldBe false
+
+                    val beyond = feed("?page=4")
+                    beyond.path("items").size() shouldBe 0
+                    beyond.path("page").asInt() shouldBe 4
+                    beyond.path("totalPages").asInt() shouldBe 3
+                    beyond.path("totalCount").asLong() shouldBe 50
+                    beyond.path("hasNext").asBoolean() shouldBe false
+                }
+                then("필터(isBot·memberId·excludeMemberIds·type)를 주면 totalCount 가 같은 필터의 커서 전체 건수와 같다") {
+                    val alice = member("fa")
+                    val bob = member("fb")
+                    val bot = member("fbot", bot = true)
+                    repeat(30) { upload(alice.id, "fa-$it.jpg") }
+                    repeat(5) { single(bob.id, "fb-$it.jpg") }
+                    repeat(3) { upload(bot.id, "fbot-$it.jpg") }
+                    repeat(4) { uploads.save(UploadedImage(memberId = bob.id, path = "dev/images/packaged-scans/2026/10/pk-$it.jpg", contentType = "image/jpeg", sizeBytes = 1)) }
+
+                    listOf("?", "?isBot=true", "?memberId=${alice.id}", "?excludeMemberIds=${alice.id}", "?type=PACKAGED", "?type=MENU&excludeMemberIds=${bob.id}").forEach { filter ->
+                        val expected = all(filter)
+                        val paged = feed(filter + "&page=1")
+                        paged.path("totalCount").asLong() shouldBe expected.size.toLong()
+                        paged.path("items").map { it.path("uploadedImageId").asLong() } shouldBe expected.take(24).map { it.path("uploadedImageId").asLong() }
+                    }
+                }
+                then("page 가 없으면 응답에 page·totalPages·totalCount 가 없다(기존 커서 응답 그대로)") {
+                    val alice = member("plain")
+                    repeat(3) { upload(alice.id, "plain-$it.jpg") }
+
+                    feed("?").fieldNames().asSequence().toSet() shouldBe setOf("items", "nextCursor", "hasNext")
+                }
+            }
             `when`("해석할 수 없는 커서를 주면") {
                 then("400") { feed("?cursor=not-a-cursor", expected = 400) }
             }
@@ -179,11 +228,12 @@ class AdminScanPhotoFeedTest : BehaviorSpec() {
                 then("403") { feed("?", MemberRole.USER, expected = 403) }
             }
             `when`("api-docs 를 보면") {
-                then("경로와 AdminScanPhotoFeed(items·nextCursor·hasNext)·항목 필드가 실린다") {
+                then("경로·page 파라미터와 AdminScanPhotoFeed(items·nextCursor·hasNext·page·totalPages·totalCount)·항목 필드가 실린다") {
                     val docs = mapper.readTree(mockMvc.get("/v3/api-docs").andReturn().response.getContentAsString(Charsets.UTF_8))
                     docs.path("paths").has("/api/admin/scan-photos") shouldBe true
                     val schemas = docs.path("components").path("schemas")
-                    schemas.path("AdminScanPhotoFeed").path("properties").fieldNames().asSequence().toSet() shouldBe setOf("items", "nextCursor", "hasNext")
+                    schemas.path("AdminScanPhotoFeed").path("properties").fieldNames().asSequence().toSet() shouldBe setOf("items", "nextCursor", "hasNext", "page", "totalPages", "totalCount")
+                    docs.path("paths").path("/api/admin/scan-photos").path("get").path("parameters").map { it.path("name").asText() } shouldContain "page"
                     schemas.path("AdminScanPhotoFeedItem").path("properties").fieldNames().asSequence().toSet() shouldBe
                         setOf("imageUrl", "createdAt", "memberId", "nickname", "countryCode", "isBot", "memberStatus", "kind", "sourceId", "scanType", "processedFoodId", "processedFoodName", "visionKind", "uploadedImageId", "scanOutcome", "uiKind")
                     schemas.path("AdminScanPhotoFeedItem").path("properties").path("kind").path("enum").map { it.asText() } shouldBe
