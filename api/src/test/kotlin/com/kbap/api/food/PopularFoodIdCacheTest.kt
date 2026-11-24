@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Ticker
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -21,7 +22,7 @@ class PopularFoodIdCacheTest : BehaviorSpec({
     class FakeTicker : Ticker {
         private val nanos = AtomicLong()
         override fun read(): Long = nanos.get()
-        fun advance(duration: java.time.Duration) {
+        fun advance(duration: Duration) {
             nanos.addAndGet(duration.toNanos())
         }
     }
@@ -41,13 +42,13 @@ class PopularFoodIdCacheTest : BehaviorSpec({
             }
         }
 
-        `when`("TTL(2일)이 지난 뒤 조회하면") {
+        `when`("적재 후 1시간 만에 다시 조회하면") {
             val ticker = FakeTicker()
             val calls = AtomicInteger()
             val cache = PopularFoodIdCache(ticker) { listOf(calls.incrementAndGet().toLong()) }
 
             val before = cache.getPopularFoodIds(10)
-            ticker.advance(PopularFoodIdCache.TTL)
+            ticker.advance(Duration.ofHours(1))
             val after = cache.getPopularFoodIds(10)
 
             then("로더를 다시 호출해 새 목록을 돌려준다") {
@@ -77,14 +78,17 @@ class PopularFoodIdCacheTest : BehaviorSpec({
             }
         }
 
-        `when`("갱신 주기(6시간)가 지난 뒤 조회하면") {
+        `when`("적재 후 30분이 지나 다시 조회하면") {
             val ticker = FakeTicker()
             val background = DeferredExecutor()
             val calls = AtomicInteger()
             val cache = PopularFoodIdCache(ticker, background) { listOf(calls.incrementAndGet().toLong()) }
 
             val fresh = cache.getPopularFoodIds(10)
-            ticker.advance(PopularFoodIdCache.REFRESH_AFTER.plusMinutes(1))
+            ticker.advance(Duration.ofMinutes(30).minusNanos(1))
+            cache.getPopularFoodIds(10)
+            background.runAll()
+            ticker.advance(Duration.ofNanos(2))
             val staleWhileRefreshing = cache.getPopularFoodIds(10)
             val callsBeforeBackground = calls.get()
             background.runAll()
@@ -111,17 +115,17 @@ class PopularFoodIdCacheTest : BehaviorSpec({
             }
 
             cache.getPopularFoodIds(10)
-            ticker.advance(PopularFoodIdCache.REFRESH_AFTER.plusMinutes(1))
+            ticker.advance(Duration.ofMinutes(31))
             cache.getPopularFoodIds(10)
             background.runAll()
             val callsAfterFailedRefresh = calls.get()
             background.runAll()
             val callsAfterIdleBackground = calls.get()
             val afterFailedRefresh = cache.getPopularFoodIds(10)
-            ticker.advance(PopularFoodIdCache.TTL.minus(PopularFoodIdCache.REFRESH_AFTER))
+            ticker.advance(Duration.ofMinutes(29))
             val afterOriginalTtl = cache.getPopularFoodIds(10)
 
-            then("이전 목록을 유지하되(빈 목록으로 바꾸지 않음) 스스로 재시도하지 않고, 원래 적재 시각 기준 2일 상한은 그대로라 만료 뒤 다시 집계한다") {
+            then("갱신 실패 직후에는 이전 목록을 반환하고, 원래 적재 시각에서 1시간이 되면 다시 집계한다") {
                 callsAfterFailedRefresh shouldBe 2
                 callsAfterIdleBackground shouldBe 2
                 afterFailedRefresh shouldBe listOf(1L)
